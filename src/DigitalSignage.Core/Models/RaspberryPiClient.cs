@@ -1,0 +1,65 @@
+namespace DigitalSignage.Core.Models;
+
+/// <summary>
+/// Represents a Raspberry Pi client device
+/// </summary>
+public class RaspberryPiClient
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString();
+    public string Name { get; set; } = string.Empty;
+    public string IpAddress { get; set; } = string.Empty;
+    public string MacAddress { get; set; } = string.Empty;
+    public string? Location { get; set; }
+    public string? Group { get; set; }
+    public DateTime RegisteredAt { get; set; } = DateTime.UtcNow;
+    public DateTime LastSeen { get; set; } = DateTime.UtcNow;
+    public ClientStatus Status { get; set; } = ClientStatus.Offline;
+    public DeviceInfo DeviceInfo { get; set; } = new();
+    public string? AssignedLayoutId { get; set; }
+    public List<Schedule> Schedules { get; set; } = new();
+    public Dictionary<string, object> Metadata { get; set; } = new();
+}
+
+public enum ClientStatus
+{
+    Online,
+    Offline,
+    Error,
+    Updating
+}
+
+/// <summary>
+/// Device hardware and software information
+/// </summary>
+public class DeviceInfo
+{
+    public string Model { get; set; } = string.Empty;
+    public string OsVersion { get; set; } = string.Empty;
+    public string ClientVersion { get; set; } = string.Empty;
+    public double CpuTemperature { get; set; }
+    public double CpuUsage { get; set; }
+    public long MemoryTotal { get; set; }
+    public long MemoryUsed { get; set; }
+    public long DiskTotal { get; set; }
+    public long DiskUsed { get; set; }
+    public int ScreenWidth { get; set; }
+    public int ScreenHeight { get; set; }
+    public int NetworkLatency { get; set; } // milliseconds
+    public TimeSpan Uptime { get; set; }
+}
+
+/// <summary>
+/// Schedule for displaying different layouts at different times
+/// </summary>
+public class Schedule
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString();
+    public string LayoutId { get; set; } = string.Empty;
+    public DayOfWeek[]? DaysOfWeek { get; set; } // null = all days
+    public TimeOnly StartTime { get; set; }
+    public TimeOnly EndTime { get; set; }
+    public DateTime? StartDate { get; set; }
+    public DateTime? EndDate { get; set; }
+    public int Priority { get; set; } = 0; // Higher priority wins
+    public bool Enabled { get; set; } = true;
+}
