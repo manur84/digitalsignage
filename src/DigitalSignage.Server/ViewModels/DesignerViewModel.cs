@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DigitalSignage.Core.Interfaces;
 using DigitalSignage.Core.Models;
+using DigitalSignage.Server.Commands;
 using Microsoft.Extensions.Logging;
 using System.Collections.ObjectModel;
 
@@ -38,11 +39,19 @@ public partial class DesignerViewModel : ObservableObject
 
     public ObservableCollection<DisplayElement> Elements { get; } = new();
     public ObservableCollection<DisplayElement> Layers { get; } = new();
+    public CommandHistory CommandHistory { get; } = new(maxHistorySize: 50);
 
     public DesignerViewModel(ILayoutService layoutService, ILogger<DesignerViewModel> logger)
     {
         _layoutService = layoutService ?? throw new ArgumentNullException(nameof(layoutService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+
+        // Subscribe to command history changes
+        CommandHistory.HistoryChanged += (s, e) =>
+        {
+            UndoCommand.NotifyCanExecuteChanged();
+            RedoCommand.NotifyCanExecuteChanged();
+        };
 
         // Create default layout
         CreateNewLayout();
@@ -136,7 +145,8 @@ public partial class DesignerViewModel : ObservableObject
             }
         };
 
-        Elements.Add(textElement);
+        var command = new AddElementCommand(Elements, textElement);
+        CommandHistory.ExecuteCommand(command);
         SelectedElement = textElement;
         UpdateLayers();
         _logger.LogDebug("Added text element: {ElementName}", textElement.Name);
@@ -160,7 +170,8 @@ public partial class DesignerViewModel : ObservableObject
             }
         };
 
-        Elements.Add(imageElement);
+        var command = new AddElementCommand(Elements, imageElement);
+        CommandHistory.ExecuteCommand(command);
         SelectedElement = imageElement;
         UpdateLayers();
         _logger.LogDebug("Added image element: {ElementName}", imageElement.Name);
@@ -185,7 +196,8 @@ public partial class DesignerViewModel : ObservableObject
             }
         };
 
-        Elements.Add(rectangleElement);
+        var command = new AddElementCommand(Elements, rectangleElement);
+        CommandHistory.ExecuteCommand(command);
         SelectedElement = rectangleElement;
         UpdateLayers();
         _logger.LogDebug("Added rectangle element: {ElementName}", rectangleElement.Name);
@@ -196,11 +208,12 @@ public partial class DesignerViewModel : ObservableObject
     {
         if (SelectedElement != null)
         {
-            var elementName = SelectedElement.Name;
-            Elements.Remove(SelectedElement);
+            var element = SelectedElement;
+            var command = new DeleteElementCommand(Elements, element);
+            CommandHistory.ExecuteCommand(command);
             SelectedElement = null;
             UpdateLayers();
-            _logger.LogDebug("Deleted element: {ElementName}", elementName);
+            _logger.LogDebug("Deleted element: {ElementName}", element.Name);
         }
     }
 
@@ -279,6 +292,26 @@ public partial class DesignerViewModel : ObservableObject
         ZoomLevel = 1.0;
         _logger.LogDebug("Zoom to fit: 100%");
     }
+
+    [RelayCommand(CanExecute = nameof(CanUndo))]
+    private void Undo()
+    {
+        CommandHistory.Undo();
+        UpdateLayers();
+        _logger.LogDebug("Undo: {Description}", CommandHistory.RedoDescription);
+    }
+
+    private bool CanUndo() => CommandHistory.CanUndo;
+
+    [RelayCommand(CanExecute = nameof(CanRedo))]
+    private void Redo()
+    {
+        CommandHistory.Redo();
+        UpdateLayers();
+        _logger.LogDebug("Redo: {Description}", CommandHistory.UndoDescription);
+    }
+
+    private bool CanRedo() => CommandHistory.CanRedo;
 
     partial void OnSelectedElementChanged(DisplayElement? value)
     {

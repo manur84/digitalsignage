@@ -289,15 +289,15 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void Undo()
     {
-        // TODO: Implement undo
-        StatusText = "Undo";
+        Designer.UndoCommand.Execute(null);
+        StatusText = $"Undo: {Designer.CommandHistory.RedoDescription ?? "Nothing to undo"}";
     }
 
     [RelayCommand]
     private void Redo()
     {
-        // TODO: Implement redo
-        StatusText = "Redo";
+        Designer.RedoCommand.Execute(null);
+        StatusText = $"Redo: {Designer.CommandHistory.UndoDescription ?? "Nothing to redo"}";
     }
 
     [RelayCommand]
