@@ -1,4 +1,5 @@
 using System.Windows;
+using System.IO;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Configuration;
@@ -15,26 +16,31 @@ namespace DigitalSignage.Server;
 
 public partial class App : Application
 {
-    private readonly IHost _host;
+    private readonly IHost? _host;
+    private bool _initializationFailed = false;
 
     public App()
     {
-        // Create configuration first to load Serilog settings
-        var configuration = new ConfigurationBuilder()
-            .SetBasePath(AppDomain.CurrentDomain.BaseDirectory)
-            .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-            .AddJsonFile($"appsettings.{Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Production"}.json", optional: true)
-            .Build();
+        try
+        {
+            // Create configuration first to load Serilog settings
+            var configuration = new ConfigurationBuilder()
+                .SetBasePath(AppDomain.CurrentDomain.BaseDirectory)
+                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+                .AddJsonFile($"appsettings.{Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Production"}.json", optional: true)
+                .Build();
 
-        // Configure Serilog from configuration
-        Log.Logger = new LoggerConfiguration()
-            .ReadFrom.Configuration(configuration)
-            .Enrich.WithProperty("Application", "DigitalSignage.Server")
-            .CreateLogger();
+            // Configure Serilog from configuration
+            Log.Logger = new LoggerConfiguration()
+                .ReadFrom.Configuration(configuration)
+                .Enrich.WithProperty("Application", "DigitalSignage.Server")
+                .CreateLogger();
 
-        Log.Information("Digital Signage Server starting...");
+            Log.Information("Digital Signage Server starting...");
+            Log.Information("Base Directory: {BaseDirectory}", AppDomain.CurrentDomain.BaseDirectory);
+            Log.Information(".NET Version: {DotNetVersion}", Environment.Version);
 
-        _host = Host.CreateDefaultBuilder()
+            _host = Host.CreateDefaultBuilder()
             .ConfigureAppConfiguration((context, config) =>
             {
                 // Load configuration from appsettings.json
@@ -130,24 +136,170 @@ public partial class App : Application
             })
             .UseSerilog()
             .Build();
+
+            Log.Information("Application host built successfully");
+        }
+        catch (Exception ex)
+        {
+            _initializationFailed = true;
+
+            // Create emergency log if Serilog not initialized
+            var emergencyLogPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "startup-error.txt");
+            var errorMessage = $@"FATAL ERROR during Application initialization
+Time: {DateTime.Now:yyyy-MM-dd HH:mm:ss}
+Base Directory: {AppDomain.CurrentDomain.BaseDirectory}
+.NET Version: {Environment.Version}
+
+Error Type: {ex.GetType().FullName}
+Message: {ex.Message}
+
+Stack Trace:
+{ex.StackTrace}
+
+Inner Exception: {ex.InnerException?.Message}
+Inner Exception Stack Trace:
+{ex.InnerException?.StackTrace}
+
+Common Solutions:
+1. Run diagnose-server.ps1 for detailed diagnostics
+2. Check that port 8080 is not in use by another application
+3. Verify appsettings.json exists and is valid JSON
+4. Ensure .NET 8.0 Runtime is installed
+5. Run 'dotnet restore' to restore NuGet packages
+6. Run 'dotnet build' to rebuild the application
+7. Check that digitalsignage.db is not locked by another process
+
+For detailed diagnostics, run:
+  PowerShell: .\diagnose-server.ps1
+  Or use: .\fix-and-run.bat
+";
+
+            try
+            {
+                File.WriteAllText(emergencyLogPath, errorMessage);
+            }
+            catch
+            {
+                // If we can't write emergency log, we're in really bad shape
+            }
+
+            // Try to log with Serilog if available
+            try
+            {
+                Log.Fatal(ex, "Fatal error during application initialization");
+                Log.CloseAndFlush();
+            }
+            catch
+            {
+                // Serilog not available
+            }
+
+            // Show user-friendly error message
+            MessageBox.Show(
+                $"Failed to start Digital Signage Server\n\n" +
+                $"Error: {ex.Message}\n\n" +
+                $"Details saved to:\n{emergencyLogPath}\n\n" +
+                $"Common Solutions:\n" +
+                $"- Run diagnose-server.ps1 for diagnostics\n" +
+                $"- Check port 8080 is not in use\n" +
+                $"- Verify appsettings.json exists\n" +
+                $"- Run 'dotnet build' to rebuild\n" +
+                $"- Use fix-and-run.bat for automatic fix",
+                "Startup Error - Digital Signage Server",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+
+            Environment.Exit(1);
+        }
     }
 
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
 
-        await _host.StartAsync();
+        // If initialization failed, exit immediately
+        if (_initializationFailed || _host == null)
+        {
+            Shutdown(1);
+            return;
+        }
 
-        var mainWindow = _host.Services.GetRequiredService<Views.MainWindow>();
-        mainWindow.WindowState = WindowState.Maximized;
-        mainWindow.Show();
-        mainWindow.Activate();
+        try
+        {
+            Log.Information("Starting application host...");
+            await _host.StartAsync();
+            Log.Information("Application host started successfully");
+
+            Log.Information("Creating main window...");
+            var mainWindow = _host.Services.GetRequiredService<Views.MainWindow>();
+            mainWindow.WindowState = WindowState.Maximized;
+            mainWindow.Show();
+            mainWindow.Activate();
+            Log.Information("Main window displayed successfully");
+        }
+        catch (Exception ex)
+        {
+            Log.Fatal(ex, "Fatal error during startup");
+
+            var emergencyLogPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "startup-error.txt");
+            var errorMessage = $@"FATAL ERROR during OnStartup
+Time: {DateTime.Now:yyyy-MM-dd HH:mm:ss}
+
+Error Type: {ex.GetType().FullName}
+Message: {ex.Message}
+
+Stack Trace:
+{ex.StackTrace}
+
+Inner Exception: {ex.InnerException?.Message}
+
+This error occurred after initialization, likely during:
+- Starting background services (DatabaseInitializationService, DataRefreshService, etc.)
+- Opening WebSocket server on port 8080
+- Creating main window
+
+Common Solutions:
+1. Run diagnose-server.ps1 for detailed diagnostics
+2. Check that port 8080 is not in use
+3. Check database connection and permissions
+4. Review logs in logs/ directory for more details
+";
+
+            try
+            {
+                File.WriteAllText(emergencyLogPath, errorMessage);
+            }
+            catch { }
+
+            MessageBox.Show(
+                $"Failed to start Digital Signage Server\n\n" +
+                $"Error: {ex.Message}\n\n" +
+                $"Details saved to:\n{emergencyLogPath}\n\n" +
+                $"Run diagnose-server.ps1 for diagnostics",
+                "Startup Error - Digital Signage Server",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+
+            Log.CloseAndFlush();
+            Shutdown(1);
+        }
     }
 
     protected override async void OnExit(ExitEventArgs e)
     {
-        await _host.StopAsync();
-        _host.Dispose();
+        if (_host != null)
+        {
+            try
+            {
+                await _host.StopAsync();
+                _host.Dispose();
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error during application shutdown");
+            }
+        }
+
         Log.CloseAndFlush();
         base.OnExit(e);
     }

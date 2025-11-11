@@ -391,6 +391,193 @@ python setup.py sdist bdist_wheel
 
 ## 🐛 Troubleshooting
 
+### Windows Server - "Failed to Start Server" Fehler
+
+**Problem:** Die Windows-Server-Anwendung zeigt beim Start eine Fehlermeldung "Failed to start server".
+
+**Schnelle Diagnose:**
+
+```powershell
+# Im Server-Verzeichnis ausführen:
+cd src/DigitalSignage.Server
+.\diagnose-server.ps1
+```
+
+Das Diagnose-Script prüft automatisch:
+- .NET Runtime Installation
+- Port 8080 Verfügbarkeit
+- appsettings.json Gültigkeit
+- Datenbank-Zugriff
+- Build-Status
+- Firewall-Regeln
+- Log-Dateien
+- NuGet-Pakete
+
+**Häufige Ursachen:**
+
+**1. Port 8080 bereits belegt**
+
+Das ist die häufigste Ursache. Eine andere Anwendung nutzt bereits Port 8080.
+
+```powershell
+# Prozess finden, der Port 8080 nutzt:
+Get-NetTCPConnection -LocalPort 8080 | Select -ExpandProperty OwningProcess | ForEach-Object { Get-Process -Id $_ }
+
+# Prozess beenden (ersetze PID mit der Prozess-ID):
+Stop-Process -Id <PID> -Force
+
+# Oder automatisch beheben:
+.\fix-and-run.bat
+```
+
+**Alternative:** Port in `appsettings.json` ändern:
+```json
+{
+  "ServerSettings": {
+    "Port": 8081,
+    "AutoSelectPort": true
+  }
+}
+```
+
+Mit `AutoSelectPort: true` (Standard) wählt der Server automatisch einen freien Port (8081, 8082, 8083, 8888 oder 9000), wenn 8080 belegt ist.
+
+**2. appsettings.json fehlt oder ist ungültig**
+
+```powershell
+# Prüfen ob Datei existiert:
+Test-Path appsettings.json
+
+# JSON-Syntax validieren:
+Get-Content appsettings.json | ConvertFrom-Json
+
+# Falls Datei fehlt, von Vorlage kopieren:
+Copy-Item appsettings.example.json appsettings.json
+```
+
+**3. Datenbank-Dateisperren (SQLite)**
+
+```powershell
+# SQLite-Lock-Dateien entfernen:
+Remove-Item digitalsignage.db-wal -ErrorAction SilentlyContinue
+Remove-Item digitalsignage.db-shm -ErrorAction SilentlyContinue
+
+# Server neu starten
+```
+
+**4. .NET Runtime fehlt oder falsche Version**
+
+```powershell
+# .NET Version prüfen:
+dotnet --version
+# Sollte 8.0.x oder höher sein
+
+# Falls .NET 8 fehlt:
+# Download von https://dotnet.microsoft.com/download/dotnet/8.0
+```
+
+**5. Build-Fehler**
+
+```powershell
+# Projekt neu bauen:
+dotnet clean
+dotnet restore
+dotnet build
+
+# Falls Fehler auftreten, NuGet-Cache leeren:
+dotnet nuget locals all --clear
+dotnet restore
+dotnet build
+```
+
+**Automatische Fehlerbehebung:**
+
+Für die meisten Probleme gibt es ein automatisches Fix-Script:
+
+```batch
+.\fix-and-run.bat
+```
+
+Das Script führt automatisch aus:
+1. Stoppt Prozesse auf Port 8080
+2. Entfernt Lock-Dateien
+3. Säubert Build-Artefakte
+4. Stellt NuGet-Pakete wieder her
+5. Baut das Projekt neu
+6. Startet den Server
+
+**Erweiterte Diagnose:**
+
+Falls der Server immer noch nicht startet:
+
+1. **Prüfe startup-error.txt:**
+   ```powershell
+   Get-Content startup-error.txt
+   ```
+   Diese Datei wird automatisch erstellt bei kritischen Startfehlern.
+
+2. **Prüfe Log-Dateien:**
+   ```powershell
+   # Letzte Logs anzeigen:
+   Get-Content logs/digitalsignage-*.log -Tail 50
+
+   # Fehler-Logs speziell:
+   Get-Content logs/errors/digitalsignage-errors-*.log -Tail 50
+   ```
+
+3. **Manueller Test:**
+   ```powershell
+   # Server direkt starten (zeigt Fehler in Konsole):
+   dotnet run
+   ```
+
+4. **Berechtigungen prüfen:**
+   ```powershell
+   # Aktuellen Benutzer anzeigen:
+   whoami
+
+   # Schreibrechte auf Verzeichnis prüfen:
+   icacls .
+   ```
+
+**Firewall-Problem:**
+
+Falls Clients sich nicht verbinden können:
+
+```powershell
+# Als Administrator ausführen:
+New-NetFirewallRule -DisplayName "Digital Signage Server" `
+  -Direction Inbound -LocalPort 8080 -Protocol TCP -Action Allow
+
+# Regel prüfen:
+Get-NetFirewallRule -DisplayName "*Digital*Signage*"
+
+# Falls Port geändert wurde, Regel anpassen:
+New-NetFirewallRule -DisplayName "Digital Signage Server" `
+  -Direction Inbound -LocalPort 8081 -Protocol TCP -Action Allow
+```
+
+**Entwicklungs-Tipps:**
+
+Für Entwickler, die den Server aus Visual Studio/Rider starten:
+
+1. **Als Administrator ausführen** - Einige Features benötigen erhöhte Rechte
+2. **appsettings.json muss ins Output-Verzeichnis kopiert werden:**
+   - Projekt-Eigenschaften → Build → "Copy if newer" für appsettings.json
+3. **Startup-Projekt richtig setzen:** DigitalSignage.Server als Startup-Projekt
+4. **Mehrere Instanzen:** Nur eine Instanz kann Port 8080 nutzen
+
+**Unterstützung:**
+
+Falls diese Lösungen nicht helfen:
+
+1. Führe das Diagnose-Script aus: `.\diagnose-server.ps1`
+2. Erstelle ein GitHub Issue mit:
+   - Inhalt von `startup-error.txt`
+   - Letzte 50 Zeilen aus `logs/digitalsignage-*.log`
+   - Ausgabe von `dotnet --info`
+   - Windows-Version und .NET-Version
+
 ### Client läuft mit Xvfb statt echtem Display
 
 **Problem:** Der Client läuft mit virtuellem Display (Xvfb), obwohl ein HDMI-Display angeschlossen ist.
