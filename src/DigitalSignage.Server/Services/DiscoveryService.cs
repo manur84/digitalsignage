@@ -35,13 +35,21 @@ public class DiscoveryService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Discovery Service starting on UDP port {Port}", DiscoveryPort);
+        _logger.LogInformation("=" + new string('=', 69));
+        _logger.LogInformation("UDP DISCOVERY SERVICE STARTING");
+        _logger.LogInformation("=" + new string('=', 69));
+        _logger.LogInformation("UDP Port: {Port}", DiscoveryPort);
+        _logger.LogInformation("Discovery Request String: {Request}", DiscoveryRequest);
+        _logger.LogInformation("Response Prefix: {Prefix}", DiscoveryResponsePrefix);
+        _logger.LogInformation("=" + new string('=', 69));
 
         try
         {
             _udpListener = new UdpClient(DiscoveryPort);
             _udpListener.EnableBroadcast = true;
-            _logger.LogInformation("Discovery Service listening for broadcast requests");
+            _logger.LogInformation("UDP listener created and bound to port {Port}", DiscoveryPort);
+            _logger.LogInformation("Broadcast enabled: True");
+            _logger.LogInformation("Waiting for discovery requests from clients...");
 
             while (!stoppingToken.IsCancellationRequested)
             {
@@ -50,10 +58,16 @@ public class DiscoveryService : BackgroundService
                     var result = await _udpListener.ReceiveAsync(stoppingToken);
                     var message = Encoding.UTF8.GetString(result.Buffer);
 
+                    _logger.LogDebug("Received UDP message: '{Message}' from {RemoteEndPoint}", message, result.RemoteEndPoint);
+
                     if (message.StartsWith(DiscoveryRequest))
                     {
-                        _logger.LogInformation("Discovery request received from {RemoteEndPoint}", result.RemoteEndPoint);
+                        _logger.LogInformation("✓ Valid discovery request received from {RemoteEndPoint}", result.RemoteEndPoint);
                         await SendDiscoveryResponseAsync(result.RemoteEndPoint, stoppingToken);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("✗ Invalid discovery message received from {RemoteEndPoint}: '{Message}'", result.RemoteEndPoint, message);
                     }
                 }
                 catch (OperationCanceledException)
@@ -103,16 +117,21 @@ public class DiscoveryService : BackgroundService
                 Timestamp = DateTime.UtcNow
             };
 
-            var json = JsonConvert.SerializeObject(response);
+            var json = JsonConvert.SerializeObject(response, Formatting.Indented);
             var bytes = Encoding.UTF8.GetBytes(json);
+
+            _logger.LogDebug("Preparing discovery response: {JsonSize} bytes", bytes.Length);
+            _logger.LogDebug("Response content: {JsonContent}", json);
 
             // Send response back to the requesting client
             using var responseClient = new UdpClient();
             await responseClient.SendAsync(bytes, bytes.Length, remoteEndPoint);
 
-            _logger.LogInformation("Discovery response sent to {RemoteEndPoint}: {ServerUrls}",
-                remoteEndPoint,
-                string.Join(", ", localIPs.Select(ip => $"{protocol}://{ip}:{port}/{endpointPath}")));
+            var serverUrls = localIPs.Select(ip => $"{protocol}://{ip}:{port}/{endpointPath}").ToArray();
+            _logger.LogInformation("✓ Discovery response sent to {RemoteEndPoint}", remoteEndPoint);
+            _logger.LogInformation("  Server: {ServerName}", Environment.MachineName);
+            _logger.LogInformation("  Protocol: {Protocol}, Port: {Port}, SSL: {SslEnabled}", protocol.ToUpper(), port, _serverSettings.EnableSsl);
+            _logger.LogInformation("  Available URLs ({Count}): {ServerUrls}", serverUrls.Length, string.Join(", ", serverUrls));
         }
         catch (Exception ex)
         {

@@ -60,6 +60,9 @@ public partial class App : Application
             .ConfigureServices((context, services) =>
             {
                 // Bind and register ServerSettings from configuration
+                services.Configure<ServerSettings>(context.Configuration.GetSection("ServerSettings"));
+
+                // Also register as Singleton for backward compatibility
                 var serverSettings = new ServerSettings();
                 context.Configuration.GetSection("ServerSettings").Bind(serverSettings);
                 services.AddSingleton(serverSettings);

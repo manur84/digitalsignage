@@ -8,6 +8,7 @@ using DigitalSignage.Server.Configuration;
 using Makaretu.Dns;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace DigitalSignage.Server.Services;
 
@@ -27,20 +28,23 @@ public class MdnsDiscoveryService : BackgroundService
 
     public MdnsDiscoveryService(
         ILogger<MdnsDiscoveryService> logger,
-        ServerSettings serverSettings)
+        IOptions<ServerSettings> serverSettings)
     {
         _logger = logger;
-        _serverSettings = serverSettings;
+        _serverSettings = serverSettings.Value;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("mDNS Discovery Service starting...");
+        _logger.LogInformation("=" + new string('=', 69));
+        _logger.LogInformation("MDNS DISCOVERY SERVICE STARTING");
+        _logger.LogInformation("=" + new string('=', 69));
 
         try
         {
             // Create service discovery instance
             _serviceDiscovery = new ServiceDiscovery();
+            _logger.LogInformation("ServiceDiscovery instance created");
 
             // Get local hostname
             var hostname = Dns.GetHostName();
@@ -55,10 +59,15 @@ public class MdnsDiscoveryService : BackgroundService
             // Get local IP addresses
             var localIPs = GetLocalIPAddresses();
 
-            _logger.LogInformation("Registering mDNS service: {ServiceName}", serviceName);
-            _logger.LogInformation("Service type: {ServiceType}.local.", ServiceType);
-            _logger.LogInformation("Port: {Port}, Protocol: {Protocol}, SSL: {SslEnabled}",
-                port, protocol, sslEnabled);
+            _logger.LogInformation("mDNS Service Configuration:");
+            _logger.LogInformation("  Service Name: {ServiceName}", serviceName);
+            _logger.LogInformation("  Service Type: {ServiceType}.local.", ServiceType);
+            _logger.LogInformation("  Hostname: {Hostname}", hostname);
+            _logger.LogInformation("  Port: {Port}", port);
+            _logger.LogInformation("  Protocol: {Protocol}", protocol.ToUpper());
+            _logger.LogInformation("  Endpoint: /{EndpointPath}", endpointPath);
+            _logger.LogInformation("  SSL: {SslEnabled}", sslEnabled ? "Enabled" : "Disabled");
+            _logger.LogInformation("  Local IPs: {IpCount}", localIPs.Length);
 
             // Create service profile
             _serviceProfile = new ServiceProfile(
@@ -75,6 +84,7 @@ public class MdnsDiscoveryService : BackgroundService
             _serviceProfile.AddProperty("server_name", hostname);
 
             // Add all local IP addresses to the service profile
+            _logger.LogInformation("Adding IP addresses to mDNS service:");
             foreach (var ipAddress in localIPs)
             {
                 try
@@ -84,21 +94,29 @@ public class MdnsDiscoveryService : BackgroundService
                         Name = _serviceProfile.HostName,
                         Address = ipAddress
                     });
+                    _logger.LogInformation("  ✓ Added IP: {IpAddress}", ipAddress);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Failed to add IP address {IpAddress} to mDNS service", ipAddress);
+                    _logger.LogWarning(ex, "  ✗ Failed to add IP address {IpAddress} to mDNS service", ipAddress);
                 }
             }
 
             // Advertise the service
+            _logger.LogInformation("Advertising mDNS service on the network...");
             _serviceDiscovery.Advertise(_serviceProfile);
 
-            _logger.LogInformation("mDNS service registered successfully");
-            _logger.LogInformation("Service will be discoverable as: {ServiceName}.{ServiceType}.local.",
+            _logger.LogInformation("=" + new string('=', 69));
+            _logger.LogInformation("✓ MDNS SERVICE REGISTERED SUCCESSFULLY");
+            _logger.LogInformation("=" + new string('=', 69));
+            _logger.LogInformation("Discoverable as: {ServiceName}.{ServiceType}.local.",
                 serviceName, ServiceType);
-            _logger.LogInformation("Local IPs advertised: {IpAddresses}",
+            _logger.LogInformation("Full service name: {FullServiceName}",
+                $"{serviceName}.{ServiceType}.local.");
+            _logger.LogInformation("Advertised IPs: {IpAddresses}",
                 string.Join(", ", localIPs.Select(ip => ip.ToString())));
+            _logger.LogInformation("Clients can now discover this server via mDNS/Zeroconf");
+            _logger.LogInformation("=" + new string('=', 69));
 
             // Keep the service running until cancellation
             await Task.Delay(Timeout.Infinite, stoppingToken);
