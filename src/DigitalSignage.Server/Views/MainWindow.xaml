@@ -288,55 +288,146 @@
             <!-- Devices Tab -->
             <TabItem Header="Devices">
                 <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
-
-                    <!-- Toolbar -->
-                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="12,8">
-                        <Button Content="Refresh" Command="{Binding RefreshClientsCommand}" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0"/>
-                        <Button Content="Add Device" Command="{Binding AddDeviceCommand}" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0"/>
-                        <Button Content="Remove" Command="{Binding RemoveDeviceCommand}" Style="{StaticResource SecondaryButton}" IsEnabled="{Binding SelectedClient, Converter={StaticResource BoolToVisibilityConverter}}"/>
-                    </StackPanel>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="300"/>
+                    </Grid.ColumnDefinitions>
 
                     <!-- Device List -->
-                    <DataGrid Grid.Row="1"
-                             ItemsSource="{Binding Clients}"
-                             SelectedItem="{Binding SelectedClient}"
-                             AutoGenerateColumns="False"
-                             CanUserAddRows="False"
-                             IsReadOnly="True"
-                             SelectionMode="Single"
-                             Margin="12">
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="150"/>
-                            <DataGridTextColumn Header="IP Address" Binding="{Binding IpAddress}" Width="120"/>
-                            <DataGridTemplateColumn Header="Status" Width="80">
-                                <DataGridTemplateColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <StackPanel Orientation="Horizontal">
-                                            <Ellipse Width="8" Height="8" Margin="0,0,8,0"
-                                                    Fill="{Binding Status, Converter={StaticResource StatusToColorConverter}}"/>
-                                            <TextBlock Text="{Binding Status}" VerticalAlignment="Center"/>
-                                        </StackPanel>
-                                    </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
-                            <DataGridTextColumn Header="Last Seen" Binding="{Binding LastSeen, StringFormat='{}{0:dd.MM.yyyy HH:mm:ss}'}" Width="150"/>
-                            <DataGridTextColumn Header="Assigned Layout" Binding="{Binding AssignedLayoutId}" Width="*"/>
-                            <DataGridTemplateColumn Header="Actions" Width="150">
-                                <DataGridTemplateColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <StackPanel Orientation="Horizontal">
-                                            <Button Content="Restart" Margin="2" Padding="6,2"/>
-                                            <Button Content="Screenshot" Margin="2" Padding="6,2"/>
-                                        </StackPanel>
-                                    </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
-                        </DataGrid.Columns>
-                    </DataGrid>
+                    <Grid Grid.Column="0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Toolbar -->
+                        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="12,8">
+                            <Button Content="🔄 Refresh" Command="{Binding DeviceManagement.LoadClientsCommand}" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0"/>
+                            <Button Content="❌ Remove Device" Command="{Binding DeviceManagement.RemoveClientCommand}" Style="{StaticResource SecondaryButton}"/>
+                        </StackPanel>
+
+                        <!-- DataGrid -->
+                        <DataGrid Grid.Row="1"
+                                 ItemsSource="{Binding DeviceManagement.Clients}"
+                                 SelectedItem="{Binding DeviceManagement.SelectedClient}"
+                                 AutoGenerateColumns="False"
+                                 CanUserAddRows="False"
+                                 IsReadOnly="True"
+                                 SelectionMode="Single"
+                                 Margin="12,0">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="150"/>
+                                <DataGridTextColumn Header="IP Address" Binding="{Binding IpAddress}" Width="120"/>
+                                <DataGridTextColumn Header="MAC Address" Binding="{Binding MacAddress}" Width="140"/>
+                                <DataGridTextColumn Header="Group" Binding="{Binding Group}" Width="100"/>
+                                <DataGridTextColumn Header="Location" Binding="{Binding Location}" Width="120"/>
+                                <DataGridTemplateColumn Header="Status" Width="100">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Orientation="Horizontal">
+                                                <Ellipse Width="10" Height="10" Margin="0,0,8,0">
+                                                    <Ellipse.Style>
+                                                        <Style TargetType="Ellipse">
+                                                            <Setter Property="Fill" Value="Gray"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding Status}" Value="Online">
+                                                                    <Setter Property="Fill" Value="LimeGreen"/>
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding Status}" Value="Offline">
+                                                                    <Setter Property="Fill" Value="Red"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Ellipse.Style>
+                                                </Ellipse>
+                                                <TextBlock Text="{Binding Status}" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTextColumn Header="Last Seen" Binding="{Binding LastSeen, StringFormat='{}{0:dd.MM.yyyy HH:mm}'}" Width="120"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <!-- Status Bar -->
+                        <Border Grid.Row="2" Background="#F0F0F0" BorderBrush="#CCCCCC" BorderThickness="0,1,0,0" Padding="12,8">
+                            <TextBlock Text="{Binding DeviceManagement.StatusMessage}" FontSize="12" Foreground="#666666"/>
+                        </Border>
+                    </Grid>
+
+                    <!-- Control Panel -->
+                    <Border Grid.Column="1" Background="White" BorderBrush="#CCCCCC" BorderThickness="1,0,0,0">
+                        <ScrollViewer>
+                            <StackPanel Margin="16">
+                                <TextBlock Text="Device Control" FontSize="18" FontWeight="Bold" Margin="0,0,0,16"/>
+
+                                <!-- Device Info -->
+                                <TextBlock Text="Selected Device" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                <TextBlock Text="No device selected" Foreground="Gray" Margin="0,0,0,16">
+                                    <TextBlock.Visibility>
+                                        <Binding Path="DeviceManagement.SelectedClient">
+                                            <Binding.Converter>
+                                                <local:NullToVisibilityConverter/>
+                                            </Binding.Converter>
+                                        </Binding>
+                                    </TextBlock.Visibility>
+                                </TextBlock>
+
+                                <StackPanel>
+                                    <StackPanel.Visibility>
+                                        <Binding Path="DeviceManagement.SelectedClient">
+                                            <Binding.Converter>
+                                                <local:NullToVisibilityConverter Invert="True"/>
+                                            </Binding.Converter>
+                                        </Binding>
+                                    </StackPanel.Visibility>
+
+                                    <TextBlock Text="{Binding DeviceManagement.SelectedClient.Name}" FontWeight="SemiBold" FontSize="14" Margin="0,0,0,4"/>
+                                    <TextBlock Text="{Binding DeviceManagement.SelectedClient.IpAddress}" FontSize="12" Foreground="#666666" Margin="0,0,0,16"/>
+
+                                    <!-- Remote Commands -->
+                                    <TextBlock Text="Remote Commands" FontWeight="SemiBold" Margin="0,0,0,8"/>
+
+                                    <Button Content="🔄 Restart Device" Command="{Binding DeviceManagement.RestartClientCommand}" Margin="0,0,0,8" HorizontalAlignment="Stretch"/>
+                                    <Button Content="🔄 Restart App" Command="{Binding DeviceManagement.RestartClientAppCommand}" Margin="0,0,0,8" HorizontalAlignment="Stretch"/>
+                                    <Button Content="📷 Take Screenshot" Command="{Binding DeviceManagement.TakeScreenshotCommand}" Margin="0,0,0,16" HorizontalAlignment="Stretch"/>
+
+                                    <!-- Screen Control -->
+                                    <TextBlock Text="Screen Control" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                                        <Button Content="💡 Screen On" Command="{Binding DeviceManagement.ScreenOnCommand}" Margin="0,0,8,0" Padding="12,6"/>
+                                        <Button Content="🌙 Screen Off" Command="{Binding DeviceManagement.ScreenOffCommand}" Padding="12,6"/>
+                                    </StackPanel>
+
+                                    <!-- Volume Control -->
+                                    <TextBlock Text="Volume Control" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                    <Grid Margin="0,0,0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="50"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Slider Grid.Column="0" Minimum="0" Maximum="100" Value="{Binding DeviceManagement.VolumeLevel}" TickFrequency="10" IsSnapToTickEnabled="True"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding DeviceManagement.VolumeLevel, StringFormat='{}{0}%'}" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="SemiBold"/>
+                                    </Grid>
+                                    <Button Content="🔊 Set Volume" Command="{Binding DeviceManagement.SetVolumeCommand}" Margin="0,0,0,16" HorizontalAlignment="Stretch"/>
+
+                                    <!-- Layout Assignment -->
+                                    <TextBlock Text="Layout Assignment" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                    <ComboBox ItemsSource="{Binding DeviceManagement.AvailableLayouts}"
+                                             DisplayMemberPath="Name"
+                                             SelectedValuePath="Id"
+                                             SelectedValue="{Binding DeviceManagement.SelectedClient.AssignedLayoutId}"
+                                             Margin="0,0,0,8"/>
+                                    <Button Content="📋 Assign Layout" Command="{Binding DeviceManagement.AssignLayoutCommand}" CommandParameter="{Binding DeviceManagement.SelectedClient.AssignedLayoutId}" Margin="0,0,0,16" HorizontalAlignment="Stretch"/>
+
+                                    <!-- Maintenance -->
+                                    <TextBlock Text="Maintenance" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                    <Button Content="🗑 Clear Cache" Command="{Binding DeviceManagement.ClearCacheCommand}" Margin="0,0,0,8" HorizontalAlignment="Stretch" Style="{StaticResource SecondaryButton}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Border>
                 </Grid>
             </TabItem>
 

@@ -425,22 +425,30 @@ Basierend auf dem Entwicklungsauftrag und dem aktuellen Code-Stand.
 
 ### 4.1 Windows-App UI-Struktur
 
-- ⚠️ **Hauptfenster** - Grundstruktur in MainWindow.xaml
-  - ✅ Menüleiste teilweise vorhanden
-  - ❌ 🔴 Vollständige Menüleiste implementieren
-  - ❌ 🔴 Werkzeugleiste mit Icons
-  - ❌ 🔴 Tabbed Interface (Designer, Geräte, Datenquellen, Vorschau)
-  - ❌ 🟡 Statusleiste mit Infos
-- ❌ 🔴 **Designer-Tab**
-  - Canvas mit Zoom/Pan
-  - Werkzeugpalette
-  - Eigenschafts-Panel
-  - Ebenen-Panel
-- ❌ 🔴 **Geräte-Tab**
-  - DataGrid mit Geräteliste
-  - Geräte-Detail-Ansicht
-  - Status-Indikatoren (Online/Offline)
-  - Befehls-Buttons
+- ✅ **Hauptfenster** - Vollständig implementiert
+  - ✅ Menüleiste mit allen Befehlen
+  - ✅ Tabbed Interface (Designer, Geräte, Datenquellen, Vorschau)
+  - ✅ Statusleiste mit Server-Status und Client-Count
+  - ❌ 🟡 Werkzeugleiste mit Icons (optional)
+- ✅ **Designer-Tab**
+  - ✅ Canvas mit Zoom/Pan
+  - ✅ Werkzeugleiste (60px Sidebar)
+  - ✅ Eigenschaften-Panel (300px rechts)
+  - ✅ Grid-Anzeige mit Snap-to-Grid
+  - ✅ Drag-and-Drop für Elemente
+  - ✅ Resize-Handles mit ResizeAdorner
+  - ❌ 🟡 Ebenen-Panel (separates Panel)
+- ✅ **Geräte-Tab**
+  - ✅ DataGrid mit Geräteliste (Name, IP, MAC, Group, Location, Status, Last Seen)
+  - ✅ Geräte-Detail-Panel (300px rechts)
+  - ✅ Status-Indikatoren (Online/Offline mit Farben)
+  - ✅ Remote Commands: Restart Device, Restart App, Screenshot
+  - ✅ Screen Control: Screen On/Off
+  - ✅ Volume Control mit Slider
+  - ✅ Layout Assignment mit ComboBox
+  - ✅ Maintenance: Clear Cache
+  - ✅ Status-Nachrichtenleiste
+  - ✅ DeviceManagementViewModel mit vollständiger Fehlerbehandlung und Logging
 - ❌ 🔴 **Datenquellen-Tab**
   - Liste der konfigurierten Datenquellen
   - Datenquellen-Editor
@@ -633,24 +641,33 @@ Basierend auf dem Entwicklungsauftrag und dem aktuellen Code-Stand.
 
 ### Implementierungsstand
 
-- **Vollständig:** ~35%
+- **Vollständig:** ~40%
   - Kommunikations-Infrastruktur
   - Grundlegende Datenmodelle
   - Service-Layer-Architektur
   - Python Client Display-Engine
-  - **Designer-Canvas mit Drag-and-Drop** ✅ (NEU)
-  - **Properties Panel mit Echtzeit-Bearbeitung** ✅ (NEU)
-  - **Raster und Snap-to-Grid** ✅ (NEU)
-  - **Resize-Handles für Elemente** ✅ (NEU)
+  - **Designer-Tab vollständig funktional** ✅
+    - Drag-and-Drop Canvas
+    - Properties Panel mit Echtzeit-Bearbeitung
+    - Raster und Snap-to-Grid
+    - Resize-Handles für Elemente
+    - Zoom-Funktionen
+    - Element-Verwaltung (Add/Delete/Duplicate)
+  - **Geräte-Tab vollständig funktional** ✅ (NEU)
+    - Device Management UI mit Control Panel
+    - Alle Remote Commands implementiert
+    - Layout Assignment UI
+    - Volume Control mit Slider
+    - Status Monitoring
   - Dependency Injection Setup
   - systemd Service + Watchdog
   - TLS/SSL-Verschlüsselung
   - Client-Offline-Cache
 
-- **Teilweise:** ~20%
+- **Teilweise:** ~15%
   - Datenbank-Integration (EF Core implementiert, Migrationen ausstehend)
-  - Geräte-Management (Backend fertig, UI-Erweiterungen ausstehend)
   - Ebenen-Management (Grundfunktionen, keine Palette)
+  - Vorschau-Tab (Grundstruktur vorhanden)
 
 - **Nicht implementiert:** ~45%
   - Erweiterte Designer-Features (Undo/Redo, Gruppierung)
