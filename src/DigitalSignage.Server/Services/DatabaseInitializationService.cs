@@ -32,19 +32,26 @@ public class DatabaseInitializationService : IHostedService
             using var scope = _serviceProvider.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<DigitalSignageDbContext>();
 
-            // Apply pending migrations
-            _logger.Information("Checking for pending database migrations...");
-            var pendingMigrations = await dbContext.Database.GetPendingMigrationsAsync(cancellationToken);
+            // Ensure database is created
+            _logger.Information("Checking database existence...");
+            bool isCreated = await dbContext.Database.EnsureCreatedAsync(cancellationToken);
 
-            if (pendingMigrations.Any())
+            if (isCreated)
             {
-                _logger.Information("Applying {Count} pending migrations...", pendingMigrations.Count());
-                await dbContext.Database.MigrateAsync(cancellationToken);
-                _logger.Information("Database migrations applied successfully");
+                _logger.Information("Database created successfully");
             }
             else
             {
-                _logger.Information("Database is up to date, no migrations needed");
+                _logger.Information("Database already exists");
+
+                // Try to apply pending migrations if they exist
+                var pendingMigrations = await dbContext.Database.GetPendingMigrationsAsync(cancellationToken);
+                if (pendingMigrations.Any())
+                {
+                    _logger.Information("Applying {Count} pending migrations...", pendingMigrations.Count());
+                    await dbContext.Database.MigrateAsync(cancellationToken);
+                    _logger.Information("Database migrations applied successfully");
+                }
             }
 
             // Seed default data

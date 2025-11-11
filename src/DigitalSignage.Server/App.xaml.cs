@@ -54,14 +54,9 @@ public partial class App : Application
                     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
                 services.AddDbContext<DigitalSignageDbContext>(options =>
                 {
-                    options.UseSqlServer(connectionString, sqlOptions =>
-                    {
-                        sqlOptions.EnableRetryOnFailure(
-                            maxRetryCount: 3,
-                            maxRetryDelay: TimeSpan.FromSeconds(5),
-                            errorNumbersToAdd: null);
-                        sqlOptions.CommandTimeout(30);
-                    });
+                    // Use SQLite for cross-platform compatibility
+                    options.UseSqlite(connectionString);
+
                     // Enable sensitive data logging in development
                     if (context.HostingEnvironment.IsDevelopment())
                     {
