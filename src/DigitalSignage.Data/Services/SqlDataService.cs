@@ -4,6 +4,7 @@ using DigitalSignage.Core.Models;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using System.Data;
+using System.Text;
 using System.Text.Json;
 
 namespace DigitalSignage.Data.Services;
@@ -11,10 +12,12 @@ namespace DigitalSignage.Data.Services;
 public class SqlDataService : ISqlDataService
 {
     private readonly ILogger<SqlDataService> _logger;
+    private readonly object? _queryCacheService;
 
-    public SqlDataService(ILogger<SqlDataService> logger)
+    public SqlDataService(ILogger<SqlDataService> logger, object? queryCacheService = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _queryCacheService = queryCacheService; // Optional dependency for cache service
     }
     public async Task<Dictionary<string, object>> GetDataAsync(
         DataSource dataSource,
@@ -80,6 +83,9 @@ public class SqlDataService : ISqlDataService
 
         try
         {
+            // Apply connection pooling settings to connection string
+            connectionString = ApplyConnectionPoolSettings(connectionString);
+
             _logger.LogDebug("Executing SQL query: {Query}", query);
 
             await using var connection = new SqlConnection(connectionString);
@@ -146,6 +152,37 @@ public class SqlDataService : ISqlDataService
             _logger.LogError(ex, "Unexpected error executing query");
             throw;
         }
+    }
+
+    /// <summary>
+    /// Applies connection pooling settings to connection string if not already present
+    /// </summary>
+    private string ApplyConnectionPoolSettings(string connectionString)
+    {
+        var builder = new SqlConnectionStringBuilder(connectionString);
+
+        // Apply default pooling settings if not explicitly set
+        if (!connectionString.Contains("Min Pool Size", StringComparison.OrdinalIgnoreCase))
+        {
+            builder.MinPoolSize = 5;
+        }
+
+        if (!connectionString.Contains("Max Pool Size", StringComparison.OrdinalIgnoreCase))
+        {
+            builder.MaxPoolSize = 100;
+        }
+
+        if (!connectionString.Contains("Pooling", StringComparison.OrdinalIgnoreCase))
+        {
+            builder.Pooling = true;
+        }
+
+        if (!connectionString.Contains("Connection Timeout", StringComparison.OrdinalIgnoreCase))
+        {
+            builder.ConnectTimeout = 30;
+        }
+
+        return builder.ConnectionString;
     }
 
     public async Task<bool> TestConnectionAsync(

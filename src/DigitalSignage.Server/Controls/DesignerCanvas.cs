@@ -7,7 +7,7 @@ using System.Windows.Shapes;
 namespace DigitalSignage.Server.Controls;
 
 /// <summary>
-/// Custom canvas for the visual designer with grid and snap-to-grid functionality
+/// Custom canvas for the visual designer with grid, snap-to-grid, and touch support
 /// </summary>
 public class DesignerCanvas : Canvas
 {
@@ -16,6 +16,12 @@ public class DesignerCanvas : Canvas
     private int _gridSize = 10;
     private Point? _selectionStartPoint;
     private Rectangle? _selectionRectangle;
+
+    // Touch gesture support
+    private Point? _touchStartPoint;
+    private double _initialPinchDistance;
+    private double _initialZoom = 1.0;
+    private Point _lastPanPosition;
 
     public static readonly DependencyProperty ShowGridProperty =
         DependencyProperty.Register(
@@ -62,9 +68,21 @@ public class DesignerCanvas : Canvas
         ClipToBounds = true;
         Focusable = true;
 
+        // Mouse events
         MouseLeftButtonDown += OnMouseLeftButtonDown;
         MouseMove += OnMouseMove;
         MouseLeftButtonUp += OnMouseLeftButtonUp;
+
+        // Enable touch support
+        IsManipulationEnabled = true;
+        ManipulationStarting += OnManipulationStarting;
+        ManipulationDelta += OnManipulationDelta;
+        ManipulationCompleted += OnManipulationCompleted;
+
+        // Touch events
+        TouchDown += OnTouchDown;
+        TouchMove += OnTouchMove;
+        TouchUp += OnTouchUp;
     }
 
     protected override void OnRender(DrawingContext dc)
@@ -181,5 +199,147 @@ public class DesignerCanvas : Canvas
         {
             canvas.InvalidateVisual();
         }
+    }
+
+    // Touch Support Event Handlers
+
+    /// <summary>
+    /// Called when manipulation (touch gesture) starts
+    /// </summary>
+    private void OnManipulationStarting(object? sender, ManipulationStartingEventArgs e)
+    {
+        e.ManipulationContainer = this;
+        e.Handled = true;
+    }
+
+    /// <summary>
+    /// Handles manipulation delta (pinch-to-zoom and pan gestures)
+    /// </summary>
+    private void OnManipulationDelta(object? sender, ManipulationDeltaEventArgs e)
+    {
+        var element = e.Source as FrameworkElement;
+        if (element == null) return;
+
+        // Get the parent that has the ScaleTransform and TranslateTransform
+        var parent = VisualTreeHelper.GetParent(this) as FrameworkElement;
+        if (parent == null) return;
+
+        // Handle pinch-to-zoom
+        if (e.DeltaManipulation.Scale.X != 0 || e.DeltaManipulation.Scale.Y != 0)
+        {
+            var scaleX = e.DeltaManipulation.Scale.X;
+            var scaleY = e.DeltaManipulation.Scale.Y;
+
+            // Use average of X and Y scale for uniform scaling
+            var scale = (scaleX + scaleY) / 2;
+
+            // Apply zoom via event or command (needs to be wired to ViewModel)
+            var currentZoom = _initialZoom * scale;
+            currentZoom = Math.Max(0.25, Math.Min(2.0, currentZoom)); // Clamp between 25% and 200%
+
+            // Raise custom event for zoom change
+            RaiseZoomChangedEvent(currentZoom);
+        }
+
+        // Handle two-finger pan
+        if (e.DeltaManipulation.Translation.X != 0 || e.DeltaManipulation.Translation.Y != 0)
+        {
+            var deltaX = e.DeltaManipulation.Translation.X;
+            var deltaY = e.DeltaManipulation.Translation.Y;
+
+            // Raise custom event for pan change
+            RaisePanChangedEvent(deltaX, deltaY);
+        }
+
+        e.Handled = true;
+    }
+
+    /// <summary>
+    /// Called when manipulation completes
+    /// </summary>
+    private void OnManipulationCompleted(object? sender, ManipulationCompletedEventArgs e)
+    {
+        _initialZoom = 1.0; // Reset for next gesture
+        e.Handled = true;
+    }
+
+    /// <summary>
+    /// Handles single touch down (alternative to mouse)
+    /// </summary>
+    private void OnTouchDown(object sender, TouchEventArgs e)
+    {
+        if (e.TouchDevice.Captured == null)
+        {
+            _touchStartPoint = e.GetTouchPoint(this).Position;
+            e.TouchDevice.Capture(this);
+            Focus();
+            e.Handled = true;
+        }
+    }
+
+    /// <summary>
+    /// Handles touch move (alternative to mouse)
+    /// </summary>
+    private void OnTouchMove(object sender, TouchEventArgs e)
+    {
+        if (_touchStartPoint.HasValue && e.TouchDevice.Captured == this)
+        {
+            var currentPoint = e.GetTouchPoint(this).Position;
+            // Touch move logic (similar to mouse move for selection)
+            UpdateSelectionRectangle(_touchStartPoint.Value, currentPoint);
+            e.Handled = true;
+        }
+    }
+
+    /// <summary>
+    /// Handles touch up (alternative to mouse)
+    /// </summary>
+    private void OnTouchUp(object sender, TouchEventArgs e)
+    {
+        if (_touchStartPoint.HasValue && e.TouchDevice.Captured == this)
+        {
+            _touchStartPoint = null;
+            RemoveSelectionRectangle();
+            e.TouchDevice.Capture(null);
+            e.Handled = true;
+        }
+    }
+
+    // Custom routed events for touch gestures
+
+    public static readonly RoutedEvent ZoomChangedEvent = EventManager.RegisterRoutedEvent(
+        "ZoomChanged",
+        RoutingStrategy.Bubble,
+        typeof(RoutedPropertyChangedEventHandler<double>),
+        typeof(DesignerCanvas));
+
+    public event RoutedPropertyChangedEventHandler<double> ZoomChanged
+    {
+        add => AddHandler(ZoomChangedEvent, value);
+        remove => RemoveHandler(ZoomChangedEvent, value);
+    }
+
+    public static readonly RoutedEvent PanChangedEvent = EventManager.RegisterRoutedEvent(
+        "PanChanged",
+        RoutingStrategy.Bubble,
+        typeof(RoutedEventHandler),
+        typeof(DesignerCanvas));
+
+    public event RoutedEventHandler PanChanged
+    {
+        add => AddHandler(PanChangedEvent, value);
+        remove => RemoveHandler(PanChangedEvent, value);
+    }
+
+    private void RaiseZoomChangedEvent(double newZoom)
+    {
+        var args = new RoutedPropertyChangedEventArgs<double>(_initialZoom, newZoom, ZoomChangedEvent);
+        RaiseEvent(args);
+    }
+
+    private void RaisePanChangedEvent(double deltaX, double deltaY)
+    {
+        var args = new RoutedEventArgs(PanChangedEvent, this);
+        RaiseEvent(args);
     }
 }

@@ -34,6 +34,10 @@ public class DigitalSignageDbContext : DbContext
     // Audit entities
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
+    // Alert entities
+    public DbSet<Alert> Alerts => Set<Alert>();
+    public DbSet<AlertRule> AlertRules => Set<AlertRule>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -307,6 +311,44 @@ public class DigitalSignageDbContext : DbContext
             entity.HasIndex(e => e.StartTime);
             entity.HasIndex(e => e.ValidFrom);
             entity.HasIndex(e => e.ValidUntil);
+        });
+
+        // Configure AlertRule
+        modelBuilder.Entity<AlertRule>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Description).HasMaxLength(500);
+            entity.Property(e => e.RuleType).HasConversion<string>();
+            entity.Property(e => e.Severity).HasConversion<string>();
+
+            // Indexes
+            entity.HasIndex(e => e.IsEnabled);
+            entity.HasIndex(e => e.RuleType);
+            entity.HasIndex(e => e.Severity);
+        });
+
+        // Configure Alert
+        modelBuilder.Entity<Alert>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Title).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Message).HasMaxLength(1000);
+            entity.Property(e => e.Severity).HasConversion<string>();
+            entity.Property(e => e.EntityType).HasMaxLength(100);
+
+            // Relationships
+            entity.HasOne(e => e.AlertRule)
+                .WithMany(r => r.Alerts)
+                .HasForeignKey(e => e.AlertRuleId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Indexes
+            entity.HasIndex(e => e.TriggeredAt);
+            entity.HasIndex(e => e.IsAcknowledged);
+            entity.HasIndex(e => e.IsResolved);
+            entity.HasIndex(e => e.Severity);
+            entity.HasIndex(e => new { e.EntityType, e.EntityId });
         });
     }
 }

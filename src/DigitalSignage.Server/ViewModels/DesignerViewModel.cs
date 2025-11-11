@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 using DigitalSignage.Core.Interfaces;
 using DigitalSignage.Core.Models;
 using DigitalSignage.Server.Commands;
+using DigitalSignage.Server.Services;
 using Microsoft.Extensions.Logging;
 using System.Collections.ObjectModel;
 
@@ -37,9 +38,25 @@ public partial class DesignerViewModel : ObservableObject
     [ObservableProperty]
     private DisplayElement? _selectedLayer;
 
+    [ObservableProperty]
+    private bool _isSelectionRectangleActive;
+
+    [ObservableProperty]
+    private double _selectionRectangleX;
+
+    [ObservableProperty]
+    private double _selectionRectangleY;
+
+    [ObservableProperty]
+    private double _selectionRectangleWidth;
+
+    [ObservableProperty]
+    private double _selectionRectangleHeight;
+
     public ObservableCollection<DisplayElement> Elements { get; } = new();
     public ObservableCollection<DisplayElement> Layers { get; } = new();
     public CommandHistory CommandHistory { get; } = new(maxHistorySize: 50);
+    public SelectionService SelectionService { get; } = new();
 
     public DesignerViewModel(ILayoutService layoutService, ILogger<DesignerViewModel> logger)
     {
@@ -51,6 +68,15 @@ public partial class DesignerViewModel : ObservableObject
         {
             UndoCommand.NotifyCanExecuteChanged();
             RedoCommand.NotifyCanExecuteChanged();
+        };
+
+        // Subscribe to selection changes
+        SelectionService.SelectionChanged += (s, e) =>
+        {
+            // Update SelectedElement to match primary selection
+            SelectedElement = SelectionService.PrimarySelection;
+            DeleteSelectedCommand.NotifyCanExecuteChanged();
+            DuplicateSelectedCommand.NotifyCanExecuteChanged();
         };
 
         // Create default layout
@@ -464,5 +490,207 @@ public partial class DesignerViewModel : ObservableObject
             return (bool)element.Properties["IsLocked"];
         }
         return false; // Default to unlocked
+    }
+
+    // Multi-selection commands
+
+    /// <summary>
+    /// Selects an element with modifier keys support (Ctrl for multi-select, Shift for range)
+    /// </summary>
+    [RelayCommand]
+    private void SelectElement(object? parameter)
+    {
+        if (parameter is not (DisplayElement element, bool isCtrlPressed, bool isShiftPressed))
+        {
+            if (parameter is DisplayElement elem)
+            {
+                SelectionService.SelectSingle(elem);
+            }
+            return;
+        }
+
+        if (isCtrlPressed)
+        {
+            // Ctrl+Click: Toggle selection
+            SelectionService.ToggleSelection(element);
+        }
+        else if (isShiftPressed)
+        {
+            // Shift+Click: Range selection
+            if (SelectionService.PrimarySelection != null)
+            {
+                SelectionService.SelectRange(SelectionService.PrimarySelection, element, Elements);
+            }
+            else
+            {
+                SelectionService.SelectSingle(element);
+            }
+        }
+        else
+        {
+            // Normal click: Single selection
+            SelectionService.SelectSingle(element);
+        }
+
+        _logger.LogDebug("Selected element: {ElementName}, Total selected: {Count}",
+            element.Name, SelectionService.SelectionCount);
+    }
+
+    /// <summary>
+    /// Starts selection rectangle
+    /// </summary>
+    [RelayCommand]
+    private void StartSelectionRectangle(object? parameter)
+    {
+        if (parameter is (double x, double y))
+        {
+            IsSelectionRectangleActive = true;
+            SelectionRectangleX = x;
+            SelectionRectangleY = y;
+            SelectionRectangleWidth = 0;
+            SelectionRectangleHeight = 0;
+            _logger.LogDebug("Started selection rectangle at ({X}, {Y})", x, y);
+        }
+    }
+
+    /// <summary>
+    /// Updates selection rectangle
+    /// </summary>
+    [RelayCommand]
+    private void UpdateSelectionRectangle(object? parameter)
+    {
+        if (!IsSelectionRectangleActive) return;
+
+        if (parameter is (double x, double y))
+        {
+            var width = x - SelectionRectangleX;
+            var height = y - SelectionRectangleY;
+
+            // Normalize rectangle (handle dragging in any direction)
+            if (width < 0)
+            {
+                SelectionRectangleX += width;
+                width = -width;
+            }
+
+            if (height < 0)
+            {
+                SelectionRectangleY += height;
+                height = -height;
+            }
+
+            SelectionRectangleWidth = width;
+            SelectionRectangleHeight = height;
+        }
+    }
+
+    /// <summary>
+    /// Ends selection rectangle and selects elements within it
+    /// </summary>
+    [RelayCommand]
+    private void EndSelectionRectangle()
+    {
+        if (!IsSelectionRectangleActive) return;
+
+        if (SelectionRectangleWidth > 5 && SelectionRectangleHeight > 5)
+        {
+            SelectionService.SelectInRectangle(
+                SelectionRectangleX,
+                SelectionRectangleY,
+                SelectionRectangleWidth,
+                SelectionRectangleHeight,
+                Elements);
+
+            _logger.LogInformation("Selected {Count} elements with rectangle",
+                SelectionService.SelectionCount);
+        }
+
+        IsSelectionRectangleActive = false;
+        SelectionRectangleWidth = 0;
+        SelectionRectangleHeight = 0;
+    }
+
+    /// <summary>
+    /// Deletes all selected elements
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanDeleteSelected))]
+    private void DeleteSelected()
+    {
+        var elementsToDelete = SelectionService.SelectedElements.ToList();
+
+        foreach (var element in elementsToDelete)
+        {
+            var command = new DeleteElementCommand(Elements, element);
+            CommandHistory.ExecuteCommand(command);
+        }
+
+        SelectionService.ClearSelection();
+        UpdateLayers();
+
+        _logger.LogInformation("Deleted {Count} selected elements", elementsToDelete.Count);
+    }
+
+    private bool CanDeleteSelected() => SelectionService.HasSelection;
+
+    /// <summary>
+    /// Duplicates all selected elements
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanDuplicateSelected))]
+    private void DuplicateSelected()
+    {
+        var elementsToDuplicate = SelectionService.SelectedElements.ToList();
+        var newElements = new List<DisplayElement>();
+
+        foreach (var element in elementsToDuplicate)
+        {
+            var duplicate = new DisplayElement
+            {
+                Id = Guid.NewGuid().ToString(),
+                Type = element.Type,
+                Name = $"{element.Name} (Copy)",
+                Position = new Position
+                {
+                    X = element.Position.X + 20,
+                    Y = element.Position.Y + 20
+                },
+                Size = new Size
+                {
+                    Width = element.Size.Width,
+                    Height = element.Size.Height
+                },
+                ZIndex = Elements.Count + newElements.Count,
+                Properties = new Dictionary<string, object>(element.Properties)
+            };
+
+            newElements.Add(duplicate);
+            Elements.Add(duplicate);
+        }
+
+        SelectionService.SelectMultiple(newElements);
+        UpdateLayers();
+
+        _logger.LogInformation("Duplicated {Count} selected elements", newElements.Count);
+    }
+
+    private bool CanDuplicateSelected() => SelectionService.HasSelection;
+
+    /// <summary>
+    /// Selects all elements
+    /// </summary>
+    [RelayCommand]
+    private void SelectAll()
+    {
+        SelectionService.SelectMultiple(Elements);
+        _logger.LogInformation("Selected all {Count} elements", Elements.Count);
+    }
+
+    /// <summary>
+    /// Clears selection
+    /// </summary>
+    [RelayCommand]
+    private void ClearSelection()
+    {
+        SelectionService.ClearSelection();
+        _logger.LogDebug("Cleared selection");
     }
 }

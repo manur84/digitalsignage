@@ -49,6 +49,12 @@ public partial class App : Application
                 context.Configuration.GetSection("ServerSettings").Bind(serverSettings);
                 services.AddSingleton(serverSettings);
 
+                // Register QueryCacheSettings
+                services.Configure<QueryCacheSettings>(context.Configuration.GetSection("QueryCacheSettings"));
+
+                // Register ConnectionPoolSettings
+                services.Configure<ConnectionPoolSettings>(context.Configuration.GetSection("ConnectionPoolSettings"));
+
                 // Register Database Context
                 var connectionString = context.Configuration.GetConnectionString("DefaultConnection")
                     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
@@ -106,6 +112,8 @@ public partial class App : Application
                 services.AddSingleton<IMediaService, EnhancedMediaService>();
                 services.AddScoped<IAuthenticationService, AuthenticationService>();
                 services.AddSingleton<LogStorageService>();
+                services.AddSingleton<QueryCacheService>();
+                services.AddSingleton<AlertService>();
 
                 // Register Repositories
                 services.AddSingleton<DataSourceRepository>();
@@ -115,6 +123,7 @@ public partial class App : Application
                 services.AddHostedService<HeartbeatMonitoringService>();
                 services.AddHostedService<DiscoveryService>();
                 services.AddHostedService<MessageHandlerService>();
+                services.AddHostedService<AlertMonitoringService>();
 
                 // Register Windows
                 services.AddTransient<Views.MainWindow>();
