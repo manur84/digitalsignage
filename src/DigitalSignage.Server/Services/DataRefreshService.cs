@@ -158,14 +158,18 @@ public class DataRefreshService : BackgroundService
             {
                 foreach (var element in layout.Elements)
                 {
-                    if (element.Type == "text" && !string.IsNullOrWhiteSpace(element.Content))
+                    if (element.Type == "text" && element.Properties.ContainsKey("Content"))
                     {
                         try
                         {
-                            element.Content = await _templateService.ProcessTemplateAsync(
-                                element.Content,
-                                templateData,
-                                cancellationToken);
+                            var content = element.Properties["Content"]?.ToString();
+                            if (!string.IsNullOrWhiteSpace(content))
+                            {
+                                element.Properties["Content"] = await _templateService.ProcessTemplateAsync(
+                                    content,
+                                    templateData,
+                                    cancellationToken);
+                            }
                         }
                         catch (Exception ex)
                         {
@@ -178,7 +182,6 @@ public class DataRefreshService : BackgroundService
             // Send updated data to client
             var displayUpdateMessage = new DisplayUpdateMessage
             {
-                LayoutId = layoutId,
                 Layout = layout,
                 Data = layoutData
             };

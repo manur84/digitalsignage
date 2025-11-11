@@ -61,7 +61,8 @@ public class AuthenticationService : IAuthenticationService
             return new AuthenticationResult
             {
                 Success = true,
-                User = user,
+                UserId = user.Id,
+                Username = user.Username,
                 TokenExpiresAt = DateTime.UtcNow.AddHours(24) // Example: 24-hour session
             };
         }
@@ -129,8 +130,9 @@ public class AuthenticationService : IAuthenticationService
             return new ApiKeyValidationResult
             {
                 IsValid = true,
-                User = apiKeyEntity.User,
-                ApiKey = apiKeyEntity
+                UserId = apiKeyEntity.User.Id,
+                Username = apiKeyEntity.User.Username,
+                ApiKeyId = apiKeyEntity.Id
             };
         }
         catch (Exception ex)
@@ -237,7 +239,7 @@ public class AuthenticationService : IAuthenticationService
             return new RegistrationTokenValidationResult
             {
                 IsValid = true,
-                Token = registrationToken,
+                TokenId = registrationToken.Id,
                 AutoAssignGroup = registrationToken.AllowedGroup,
                 AutoAssignLocation = registrationToken.AllowedLocation
             };

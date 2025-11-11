@@ -142,7 +142,7 @@ public class WebSocketCommunicationService : ICommunicationService
                 new ArraySegment<byte>(bytes),
                 WebSocketMessageType.Text,
                 true,
-                cancellationToken).AsTask());
+                cancellationToken));
 
         await Task.WhenAll(tasks);
     }

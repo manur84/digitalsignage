@@ -73,6 +73,8 @@ appsettings.Production.json
 config.local.json
 *.key
 *.pem
+.env
+.env.*
 
 # OS files
 .DS_Store

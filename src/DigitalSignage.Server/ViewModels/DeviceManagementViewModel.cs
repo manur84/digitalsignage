@@ -37,8 +37,8 @@ public partial class DeviceManagementViewModel : ObservableObject
         _layoutService = layoutService ?? throw new ArgumentNullException(nameof(layoutService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
-        _ = LoadClientsAsync();
-        _ = LoadLayoutsAsync();
+        _ = LoadClientsCommand.ExecuteAsync(null);
+        _ = LoadLayoutsCommand.ExecuteAsync(null);
     }
 
     [RelayCommand]
@@ -265,7 +265,7 @@ public partial class DeviceManagementViewModel : ObservableObject
         try
         {
             await _clientService.RemoveClientAsync(SelectedClient.Id);
-            await LoadClientsAsync();
+            await LoadClientsCommand.ExecuteAsync(null);
 
             StatusMessage = $"Removed client {clientName}";
             _logger.LogInformation("Removed client {ClientId}", SelectedClient.Id);

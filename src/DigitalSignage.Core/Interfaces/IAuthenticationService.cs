@@ -1,5 +1,3 @@
-using DigitalSignage.Data.Entities;
-
 namespace DigitalSignage.Core.Interfaces;
 
 /// <summary>
@@ -87,7 +85,8 @@ public interface IAuthenticationService
 public class AuthenticationResult
 {
     public bool Success { get; set; }
-    public User? User { get; set; }
+    public int? UserId { get; set; }
+    public string? Username { get; set; }
     public string? ErrorMessage { get; set; }
     public DateTime? TokenExpiresAt { get; set; }
 }
@@ -98,8 +97,9 @@ public class AuthenticationResult
 public class ApiKeyValidationResult
 {
     public bool IsValid { get; set; }
-    public User? User { get; set; }
-    public ApiKey? ApiKey { get; set; }
+    public int? UserId { get; set; }
+    public string? Username { get; set; }
+    public int? ApiKeyId { get; set; }
     public string? ErrorMessage { get; set; }
 }
 
@@ -109,7 +109,7 @@ public class ApiKeyValidationResult
 public class RegistrationTokenValidationResult
 {
     public bool IsValid { get; set; }
-    public ClientRegistrationToken? Token { get; set; }
+    public int? TokenId { get; set; }
     public string? ErrorMessage { get; set; }
     public string? AutoAssignGroup { get; set; }
     public string? AutoAssignLocation { get; set; }

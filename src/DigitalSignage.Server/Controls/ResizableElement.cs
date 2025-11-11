@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
@@ -31,7 +32,7 @@ public class ResizableElement : ContentControl
     }
 
     public event EventHandler<Point>? PositionChanged;
-    public event EventHandler<Size>? SizeChanged;
+    public new event EventHandler<Size>? SizeChanged;
 
     static ResizableElement()
     {

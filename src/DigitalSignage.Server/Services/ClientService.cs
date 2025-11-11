@@ -429,15 +429,19 @@ public class ClientService : IClientService
             {
                 foreach (var element in layout.Elements)
                 {
-                    if (element.Type == "text" && !string.IsNullOrWhiteSpace(element.Content))
+                    if (element.Type == "text" && element.Properties.ContainsKey("Content"))
                     {
                         try
                         {
-                            element.Content = await _templateService.ProcessTemplateAsync(
-                                element.Content,
-                                templateData,
-                                cancellationToken);
-                            _logger.LogDebug("Processed template for element {ElementId}", element.Id);
+                            var content = element.Properties["Content"]?.ToString();
+                            if (!string.IsNullOrWhiteSpace(content))
+                            {
+                                element.Properties["Content"] = await _templateService.ProcessTemplateAsync(
+                                    content,
+                                    templateData,
+                                    cancellationToken);
+                                _logger.LogDebug("Processed template for element {ElementId}", element.Id);
+                            }
                         }
                         catch (Exception ex)
                         {
@@ -450,7 +454,6 @@ public class ClientService : IClientService
             // Create and send display update message
             var displayUpdateMessage = new DisplayUpdateMessage
             {
-                LayoutId = layoutId,
                 Layout = layout,
                 Data = layoutData
             };

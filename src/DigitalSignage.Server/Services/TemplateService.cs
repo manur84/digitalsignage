@@ -68,18 +68,27 @@ public class TemplateService : ITemplateService
             }
 
             // Create context for this render
-            var context = new TemplateContext(_defaultContext);
+            var context = new TemplateContext
+            {
+                MemberRenamer = member => member.Name,
+                StrictVariables = false
+            };
+
+            // Add utility functions
+            var functionsObject = new ScriptObject();
+            functionsObject.Import(typeof(TemplateFunctions));
+            context.PushGlobal(functionsObject);
 
             // Add data to context
-            var scriptObject = new ScriptObject();
+            var dataObject = new ScriptObject();
             foreach (var kvp in data)
             {
                 if (kvp.Key != null)
                 {
-                    scriptObject[kvp.Key] = kvp.Value;
+                    dataObject[kvp.Key] = kvp.Value;
                 }
             }
-            context.PushGlobal(scriptObject);
+            context.PushGlobal(dataObject);
 
             // Render template
             var result = await template.RenderAsync(context);
