@@ -14,6 +14,7 @@ class Config:
     client_id: str
     server_host: str = "localhost"
     server_port: int = 8080
+    registration_token: str = ""  # Token for client registration (required for new clients)
     use_ssl: bool = False
     verify_ssl: bool = True
     fullscreen: bool = True
@@ -62,6 +63,7 @@ class Config:
             client_id=os.getenv("DS_CLIENT_ID", str(uuid.uuid4())),
             server_host=os.getenv("DS_SERVER_HOST", "localhost"),
             server_port=int(os.getenv("DS_SERVER_PORT", "8080")),
+            registration_token=os.getenv("DS_REGISTRATION_TOKEN", ""),
             use_ssl=os.getenv("DS_USE_SSL", "false").lower() == "true",
             verify_ssl=os.getenv("DS_VERIFY_SSL", "true").lower() == "true",
             fullscreen=os.getenv("DS_FULLSCREEN", "true").lower() == "true",

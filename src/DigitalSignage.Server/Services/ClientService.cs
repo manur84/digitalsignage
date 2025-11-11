@@ -1,6 +1,9 @@
 using DigitalSignage.Core.Interfaces;
 using DigitalSignage.Core.Models;
+using DigitalSignage.Data;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
 using System.Collections.Concurrent;
 
 namespace DigitalSignage.Server.Services;
@@ -12,20 +15,60 @@ public class ClientService : IClientService
     private readonly ILayoutService _layoutService;
     private readonly ISqlDataService _dataService;
     private readonly ITemplateService _templateService;
+    private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<ClientService> _logger;
+    private bool _isInitialized = false;
+    private readonly object _initLock = new object();
 
     public ClientService(
         ICommunicationService communicationService,
         ILayoutService layoutService,
         ISqlDataService dataService,
         ITemplateService templateService,
+        IServiceProvider serviceProvider,
         ILogger<ClientService> logger)
     {
         _communicationService = communicationService ?? throw new ArgumentNullException(nameof(communicationService));
         _layoutService = layoutService ?? throw new ArgumentNullException(nameof(layoutService));
         _dataService = dataService ?? throw new ArgumentNullException(nameof(dataService));
         _templateService = templateService ?? throw new ArgumentNullException(nameof(templateService));
+        _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+
+        // Load clients from database on startup
+        _ = InitializeClientsAsync();
+    }
+
+    private async Task InitializeClientsAsync()
+    {
+        if (_isInitialized) return;
+
+        lock (_initLock)
+        {
+            if (_isInitialized) return;
+            _isInitialized = true;
+        }
+
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<DigitalSignageDbContext>();
+
+            var dbClients = await dbContext.Clients.ToListAsync();
+
+            foreach (var client in dbClients)
+            {
+                // Mark all as offline on startup
+                client.Status = ClientStatus.Offline;
+                _clients[client.Id] = client;
+            }
+
+            _logger.LogInformation("Loaded {Count} clients from database", dbClients.Count);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to load clients from database");
+        }
     }
 
     public Task<List<RaspberryPiClient>> GetAllClientsAsync(CancellationToken cancellationToken = default)
@@ -45,7 +88,7 @@ public class ClientService : IClientService
         return Task.FromResult(client);
     }
 
-    public Task<RaspberryPiClient> RegisterClientAsync(
+    public async Task<RaspberryPiClient> RegisterClientAsync(
         RegisterMessage registerMessage,
         CancellationToken cancellationToken = default)
     {
@@ -54,36 +97,139 @@ public class ClientService : IClientService
             throw new ArgumentNullException(nameof(registerMessage));
         }
 
-        if (string.IsNullOrWhiteSpace(registerMessage.ClientId))
+        if (string.IsNullOrWhiteSpace(registerMessage.MacAddress))
         {
-            throw new ArgumentException("Client ID cannot be empty", nameof(registerMessage));
+            throw new ArgumentException("MAC address is required for registration", nameof(registerMessage));
         }
 
         try
         {
-            var client = new RaspberryPiClient
+            using var scope = _serviceProvider.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<DigitalSignageDbContext>();
+            var authService = scope.ServiceProvider.GetRequiredService<IAuthenticationService>();
+
+            // Validate registration token if provided
+            string? assignedGroup = null;
+            string? assignedLocation = null;
+
+            if (!string.IsNullOrWhiteSpace(registerMessage.RegistrationToken))
             {
-                Id = registerMessage.ClientId,
-                IpAddress = registerMessage.IpAddress ?? "unknown",
-                MacAddress = registerMessage.MacAddress ?? "unknown",
-                RegisteredAt = DateTime.UtcNow,
-                LastSeen = DateTime.UtcNow,
-                Status = ClientStatus.Online,
-                DeviceInfo = registerMessage.DeviceInfo ?? new DeviceInfo()
+                _logger.LogInformation("Validating registration token for MAC {MacAddress}", registerMessage.MacAddress);
+
+                var validationResult = await authService.ValidateRegistrationTokenAsync(
+                    registerMessage.RegistrationToken,
+                    registerMessage.MacAddress,
+                    cancellationToken);
+
+                if (!validationResult.IsValid)
+                {
+                    _logger.LogWarning("Registration failed for MAC {MacAddress}: {Error}",
+                        registerMessage.MacAddress, validationResult.ErrorMessage);
+                    throw new UnauthorizedAccessException(validationResult.ErrorMessage ?? "Invalid registration token");
+                }
+
+                assignedGroup = validationResult.AutoAssignGroup;
+                assignedLocation = validationResult.AutoAssignLocation;
+
+                // Consume the token
+                await authService.ConsumeRegistrationTokenAsync(
+                    registerMessage.RegistrationToken,
+                    registerMessage.ClientId,
+                    cancellationToken);
+
+                _logger.LogInformation("Registration token validated and consumed for MAC {MacAddress}", registerMessage.MacAddress);
+            }
+            else
+            {
+                _logger.LogWarning("Client registration without token from MAC {MacAddress} - checking if already registered",
+                    registerMessage.MacAddress);
+            }
+
+            // Check if client already exists by MAC address
+            var existingClient = await dbContext.Clients
+                .FirstOrDefaultAsync(c => c.MacAddress == registerMessage.MacAddress, cancellationToken);
+
+            RaspberryPiClient client;
+
+            if (existingClient != null)
+            {
+                // Update existing client
+                client = existingClient;
+                client.IpAddress = registerMessage.IpAddress ?? client.IpAddress;
+                client.LastSeen = DateTime.UtcNow;
+                client.Status = ClientStatus.Online;
+                client.DeviceInfo = registerMessage.DeviceInfo ?? client.DeviceInfo;
+
+                // Generate new client ID if provided one is different
+                if (!string.IsNullOrWhiteSpace(registerMessage.ClientId) && registerMessage.ClientId != client.Id)
+                {
+                    // Remove old ID from cache
+                    _clients.TryRemove(client.Id, out _);
+                    client.Id = registerMessage.ClientId;
+                }
+
+                _logger.LogInformation("Re-registered existing client {ClientId} (MAC: {MacAddress})", client.Id, client.MacAddress);
+            }
+            else
+            {
+                // Create new client
+                client = new RaspberryPiClient
+                {
+                    Id = string.IsNullOrWhiteSpace(registerMessage.ClientId) ? Guid.NewGuid().ToString() : registerMessage.ClientId,
+                    IpAddress = registerMessage.IpAddress ?? "unknown",
+                    MacAddress = registerMessage.MacAddress,
+                    Group = assignedGroup,
+                    Location = assignedLocation,
+                    RegisteredAt = DateTime.UtcNow,
+                    LastSeen = DateTime.UtcNow,
+                    Status = ClientStatus.Online,
+                    DeviceInfo = registerMessage.DeviceInfo ?? new DeviceInfo()
+                };
+
+                dbContext.Clients.Add(client);
+                _logger.LogInformation("Registered new client {ClientId} (MAC: {MacAddress}) from {IpAddress}",
+                    client.Id, client.MacAddress, client.IpAddress);
+            }
+
+            // Save to database
+            await dbContext.SaveChangesAsync(cancellationToken);
+
+            // Update in-memory cache
+            _clients[client.Id] = client;
+
+            // Send registration response
+            var responseMessage = new RegistrationResponseMessage
+            {
+                Success = true,
+                AssignedClientId = client.Id,
+                AssignedGroup = client.Group,
+                AssignedLocation = client.Location
             };
 
-            _clients[client.Id] = client;
-            _logger.LogInformation("Registered client {ClientId} from {IpAddress}", client.Id, client.IpAddress);
-            return Task.FromResult(client);
+            try
+            {
+                await _communicationService.SendMessageAsync(client.Id, responseMessage, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to send registration response to client {ClientId}", client.Id);
+            }
+
+            return client;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // Re-throw authentication errors
+            throw;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to register client {ClientId}", registerMessage.ClientId);
+            _logger.LogError(ex, "Failed to register client from MAC {MacAddress}", registerMessage.MacAddress);
             throw;
         }
     }
 
-    public Task UpdateClientStatusAsync(
+    public async Task UpdateClientStatusAsync(
         string clientId,
         ClientStatus status,
         DeviceInfo? deviceInfo = null,
@@ -92,7 +238,7 @@ public class ClientService : IClientService
         if (string.IsNullOrWhiteSpace(clientId))
         {
             _logger.LogWarning("UpdateClientStatusAsync called with null or empty clientId");
-            return Task.CompletedTask;
+            return;
         }
 
         if (_clients.TryGetValue(clientId, out var client))
@@ -105,13 +251,37 @@ public class ClientService : IClientService
             }
 
             _logger.LogDebug("Updated client {ClientId} status to {Status}", clientId, status);
+
+            // Update in database (async, don't block)
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    using var scope = _serviceProvider.CreateScope();
+                    var dbContext = scope.ServiceProvider.GetRequiredService<DigitalSignageDbContext>();
+
+                    var dbClient = await dbContext.Clients.FindAsync(new object[] { clientId }, cancellationToken);
+                    if (dbClient != null)
+                    {
+                        dbClient.Status = status;
+                        dbClient.LastSeen = DateTime.UtcNow;
+                        if (deviceInfo != null)
+                        {
+                            dbClient.DeviceInfo = deviceInfo;
+                        }
+                        await dbContext.SaveChangesAsync(cancellationToken);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to update client {ClientId} status in database", clientId);
+                }
+            }, cancellationToken);
         }
         else
         {
             _logger.LogWarning("Client {ClientId} not found for status update", clientId);
         }
-
-        return Task.CompletedTask;
     }
 
     public async Task<bool> SendCommandAsync(
@@ -178,6 +348,24 @@ public class ClientService : IClientService
         {
             client.AssignedLayoutId = layoutId;
             _logger.LogInformation("Assigned layout {LayoutId} to client {ClientId}", layoutId, clientId);
+
+            // Update in database
+            try
+            {
+                using var scope = _serviceProvider.CreateScope();
+                var dbContext = scope.ServiceProvider.GetRequiredService<DigitalSignageDbContext>();
+
+                var dbClient = await dbContext.Clients.FindAsync(new object[] { clientId }, cancellationToken);
+                if (dbClient != null)
+                {
+                    dbClient.AssignedLayoutId = layoutId;
+                    await dbContext.SaveChangesAsync(cancellationToken);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to update client {ClientId} layout assignment in database", clientId);
+            }
 
             // Send layout update to client
             return await SendLayoutToClientAsync(clientId, layoutId, cancellationToken);

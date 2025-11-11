@@ -90,6 +90,7 @@ public partial class App : Application
 
                 // Register Background Services
                 services.AddHostedService<DataRefreshService>();
+                services.AddHostedService<HeartbeatMonitoringService>();
 
                 // Register Windows
                 services.AddTransient<Views.MainWindow>();

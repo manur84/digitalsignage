@@ -131,7 +131,19 @@ Basierend auf dem Entwicklungsauftrag und dem aktuellen Code-Stand.
 ### 1.3 Raspberry Pi Geräteverwaltung
 
 #### Geräteregistrierung
-- ✅ RegisterClientAsync implementiert
+- ✅ **RegisterClientAsync vollständig implementiert**
+  - ✅ Validierung von Registration Tokens (AuthenticationService)
+  - ✅ MAC-basierte Client-Identifikation
+  - ✅ Re-Registration bestehender Clients
+  - ✅ Auto-Assignment von Group/Location via Token
+  - ✅ Datenbank-Persistenz (EF Core)
+  - ✅ In-Memory-Cache für Performance
+  - ✅ RegistrationResponseMessage an Client
+- ✅ **Python Client unterstützt Registration Token**
+  - ✅ Configuration: registration_token in config.json
+  - ✅ Environment Variable: DS_REGISTRATION_TOKEN
+  - ✅ Handler für REGISTRATION_RESPONSE
+  - ✅ Automatische Client-ID-Aktualisierung
 - ❌ 🔴 **Automatische Netzwerkerkennung**
   - UDP-Broadcast auf Port 5555
   - Discovery-Service im Server
@@ -139,9 +151,10 @@ Basierend auf dem Entwicklungsauftrag und dem aktuellen Code-Stand.
 - ❌ 🟡 **QR-Code-Pairing**
   - QR-Code generieren mit Verbindungsdaten
   - Client scannt QR-Code für Auto-Konfiguration
-- ❌ 🟡 **Gerätegruppierung**
-  - Gruppen nach Standort/Funktion
-  - Bulk-Operationen auf Gruppen
+- ⚠️ **Gerätegruppierung**
+  - ✅ Group und Location Felder in RaspberryPiClient
+  - ✅ Auto-Assignment via Registration Token
+  - ❌ Bulk-Operationen auf Gruppen
 
 #### Geräteinformationen
 - ✅ DeviceInfo mit umfangreichen Daten
@@ -153,7 +166,18 @@ Basierend auf dem Entwicklungsauftrag und dem aktuellen Code-Stand.
   - Ping-Test Button
 
 #### Verwaltungsfunktionen
-- ✅ SendCommandAsync grundlegend implementiert
+- ✅ **ClientService vollständig implementiert**
+  - ✅ SendCommandAsync mit Datenbank-Persistenz
+  - ✅ AssignLayoutAsync mit DB-Update
+  - ✅ UpdateClientStatusAsync mit async DB-Write
+  - ✅ GetAllClientsAsync / GetClientByIdAsync
+  - ✅ RemoveClientAsync
+  - ✅ Initialization von DB-Clients beim Startup
+- ✅ **HeartbeatMonitoringService implementiert**
+  - ✅ Background Service für Timeout-Überwachung
+  - ✅ 30s Check-Interval, 120s Timeout
+  - ✅ Automatisches Markieren als Offline
+  - ✅ Logging von Status-Änderungen
 - ✅ Python Client unterstützt RESTART, SCREENSHOT, SCREEN_ON/OFF, SET_VOLUME
 - ❌ 🔴 **Zeitpläne für Layouts**
   - Schedule-Tabelle in Datenbank

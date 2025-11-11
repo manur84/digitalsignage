@@ -115,6 +115,13 @@ class DigitalSignageClient:
                 "Timestamp": datetime.utcnow().isoformat()
             }
 
+            # Add registration token if configured
+            if self.config.registration_token:
+                register_message["RegistrationToken"] = self.config.registration_token
+                logger.info("Sending registration with token")
+            else:
+                logger.info("Sending registration without token (for existing clients)")
+
             await self.sio.emit('message', register_message)
             logger.info("Client registered with server")
         except Exception as e:
@@ -127,7 +134,9 @@ class DigitalSignageClient:
 
             logger.info(f"Received message: {message_type}")
 
-            if message_type == "DISPLAY_UPDATE":
+            if message_type == "REGISTRATION_RESPONSE":
+                await self.handle_registration_response(data)
+            elif message_type == "DISPLAY_UPDATE":
                 await self.handle_display_update(data)
             elif message_type == "COMMAND":
                 await self.handle_command(data)
@@ -137,6 +146,32 @@ class DigitalSignageClient:
                 logger.warning(f"Unknown message type: {message_type}")
         except Exception as e:
             logger.error(f"Error handling message: {e}", exc_info=True)
+
+    async def handle_registration_response(self, data: Dict[str, Any]):
+        """Handle registration response from server"""
+        try:
+            success = data.get("Success", False)
+            if success:
+                assigned_id = data.get("AssignedClientId")
+                assigned_group = data.get("AssignedGroup")
+                assigned_location = data.get("AssignedLocation")
+
+                logger.info(f"Registration successful - ID: {assigned_id}, Group: {assigned_group}, Location: {assigned_location}")
+
+                # Update client ID if server assigned a different one
+                if assigned_id and assigned_id != self.config.client_id:
+                    logger.info(f"Server assigned new client ID: {assigned_id}")
+                    self.config.client_id = assigned_id
+                    # Save updated config
+                    try:
+                        self.config.save()
+                    except Exception as e:
+                        logger.warning(f"Failed to save updated config: {e}")
+            else:
+                error_message = data.get("ErrorMessage", "Unknown error")
+                logger.error(f"Registration failed: {error_message}")
+        except Exception as e:
+            logger.error(f"Error handling registration response: {e}", exc_info=True)
 
     async def handle_display_update(self, data: Dict[str, Any]):
         """Handle display update message"""
