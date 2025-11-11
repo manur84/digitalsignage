@@ -123,7 +123,7 @@ sudo systemctl start digitalsignage-client
 sudo systemctl enable digitalsignage-client
 ```
 
-**Wichtig:** Die Installation erstellt automatisch eine virtuelle Python-Umgebung unter `/opt/digitalsignage-client/venv`. Dies ist erforderlich für Python 3.11+ (Debian Bookworm/Raspberry Pi OS 12+), um die "externally-managed-environment" Beschränkung zu umgehen. Alle Abhängigkeiten werden isoliert in dieser Umgebung installiert.
+**Wichtig:** Die Installation erstellt automatisch eine virtuelle Python-Umgebung unter `/opt/digitalsignage-client/venv` mit `--system-site-packages` Flag. Dies ist erforderlich für Python 3.11+ (Debian Bookworm/Raspberry Pi OS 12+), um die "externally-managed-environment" Beschränkung zu umgehen und gleichzeitig Zugriff auf system-installierte Pakete wie PyQt5 zu ermöglichen. Alle anderen Abhängigkeiten werden isoliert in dieser Umgebung installiert.
 
 ## 📖 Verwendung
 

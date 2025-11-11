@@ -68,7 +68,9 @@ if [ -d "$VENV_DIR" ]; then
     echo "Virtual environment already exists, removing old one..."
     rm -rf "$VENV_DIR"
 fi
-python3 -m venv "$VENV_DIR"
+# Use --system-site-packages to allow access to system-installed PyQt5 from apt
+# This is necessary because PyQt5 is installed via apt (python3-pyqt5) rather than pip
+python3 -m venv --system-site-packages "$VENV_DIR"
 
 # Install Python dependencies in virtual environment
 echo "[5/9] Installing Python dependencies in virtual environment..."
@@ -194,6 +196,7 @@ echo "  5. View logs: sudo journalctl -u digitalsignage-client -f"
 echo ""
 echo "Note: Python packages are installed in a virtual environment at $VENV_DIR"
 echo "This avoids conflicts with system Python packages (Python 3.11+ requirement)."
+echo "The venv uses --system-site-packages to access PyQt5 installed via apt."
 echo ""
 echo "The service will automatically start on boot."
 echo "To disable autostart: sudo systemctl disable digitalsignage-client"
