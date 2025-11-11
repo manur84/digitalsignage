@@ -68,9 +68,29 @@ public class WebSocketCommunicationService : ICommunicationService
         }
         catch (HttpListenerException ex) when (ex.ErrorCode == 5)
         {
-            _logger.LogError("Access denied. Run as Administrator or configure URL ACL:");
-            _logger.LogError("netsh http add urlacl url={Prefix} user=Everyone", _settings.GetUrlPrefix());
-            throw;
+            _logger.LogError("===================================================================");
+            _logger.LogError("ACCESS DENIED - Cannot start WebSocket server on port {Port}", _settings.Port);
+            _logger.LogError("===================================================================");
+            _logger.LogError("");
+            _logger.LogError("Windows requires URL ACL registration to bind HTTP servers.");
+            _logger.LogError("");
+            _logger.LogError("SOLUTION 1 (Recommended - One-time setup):");
+            _logger.LogError("  1. Right-click setup-urlacl.bat");
+            _logger.LogError("  2. Select 'Run as administrator'");
+            _logger.LogError("  3. Restart the application normally (no admin needed)");
+            _logger.LogError("");
+            _logger.LogError("SOLUTION 2 (Temporary):");
+            _logger.LogError("  Run this application as Administrator");
+            _logger.LogError("");
+            _logger.LogError("Manual setup command:");
+            _logger.LogError("  netsh http add urlacl url={Prefix} user=Everyone", _settings.GetUrlPrefix());
+            _logger.LogError("");
+            _logger.LogError("===================================================================");
+            throw new InvalidOperationException(
+                $"Access Denied - Cannot start server on port {_settings.Port}. " +
+                $"Run setup-urlacl.bat as Administrator to fix this permanently, " +
+                $"or run this application as Administrator.",
+                ex);
         }
         catch (Exception ex)
         {

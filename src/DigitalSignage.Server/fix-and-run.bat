@@ -13,6 +13,22 @@ if %errorLevel% neq 0 (
     timeout /t 3 >nul
 )
 
+echo [0/5] Checking URL ACL permissions...
+netsh http show urlacl 2>nul | findstr ":8080" >nul 2>&1
+if errorlevel 1 (
+    echo   WARNING: URL ACL not configured!
+    echo   The server may require Administrator privileges.
+    echo.
+    echo   To fix this permanently:
+    echo     1. Right-click setup-urlacl.bat
+    echo     2. Select "Run as administrator"
+    echo.
+    choice /C YN /M "Continue anyway (server will need admin rights)"
+    if errorlevel 2 exit /b 1
+)
+echo   Done
+echo.
+
 echo [1/5] Stopping any processes using port 8080...
 for /f "tokens=5" %%a in ('netstat -aon ^| find ":8080" ^| find "LISTENING"') do (
     echo   Found process using port 8080: %%a

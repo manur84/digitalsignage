@@ -107,11 +107,55 @@ public partial class MainViewModel : ObservableObject
             await _communicationService.StartAsync();
             ServerStatus = "Running";
             StatusText = "Server started successfully";
+            _logger.LogInformation("WebSocket server started successfully");
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("Access Denied"))
+        {
+            // URL ACL permission error
+            ServerStatus = "Error";
+            StatusText = "Server failed to start: Access Denied (URL ACL not configured)";
+            _logger.LogError(ex, "Failed to start server due to URL ACL permissions");
+
+            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            {
+                System.Windows.MessageBox.Show(
+                    $"Access Denied - Cannot start server\n\n" +
+                    $"Windows requires URL ACL registration to bind HTTP servers.\n\n" +
+                    $"SOLUTION 1 (Recommended - One-time setup):\n" +
+                    $"  1. Right-click setup-urlacl.bat in the application folder\n" +
+                    $"  2. Select 'Run as administrator'\n" +
+                    $"  3. Restart the application normally (no admin needed)\n\n" +
+                    $"SOLUTION 2 (Temporary):\n" +
+                    $"  Close this application and run as Administrator\n\n" +
+                    $"After running setup-urlacl.bat once, you will never need\n" +
+                    $"administrator privileges again for this application.\n\n" +
+                    $"Technical Details:\n" +
+                    $"{ex.Message}",
+                    "Permission Error - Digital Signage Server",
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Warning);
+            });
         }
         catch (Exception ex)
         {
             ServerStatus = "Error";
             StatusText = $"Failed to start server: {ex.Message}";
+            _logger.LogError(ex, "Failed to start server");
+
+            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            {
+                System.Windows.MessageBox.Show(
+                    $"Failed to start Digital Signage Server\n\n" +
+                    $"Error: {ex.Message}\n\n" +
+                    $"Common Solutions:\n" +
+                    $"- Run diagnose-server.ps1 for diagnostics\n" +
+                    $"- Check that port 8080 is not in use\n" +
+                    $"- Use fix-and-run.bat for automatic fix\n\n" +
+                    $"Check the logs folder for detailed error information.",
+                    "Startup Error - Digital Signage Server",
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Error);
+            });
         }
     }
 

@@ -188,8 +188,40 @@ if (Test-Path "DigitalSignage.Server.csproj") {
 }
 Write-Host ""
 
-# Check 6: Firewall
-Write-Host "[6/8] Checking Windows Firewall..." -ForegroundColor Yellow
+# Check 6: URL ACL Configuration
+Write-Host "[6/8] Checking URL ACL configuration..." -ForegroundColor Yellow
+$urlAclConfigured = $false
+try {
+    $urlAcls = netsh http show urlacl 2>$null
+    if ($LASTEXITCODE -eq 0 -and $urlAcls -match ":8080") {
+        Write-Host "  OK: URL ACL configured for port 8080" -ForegroundColor Green
+        $urlAclConfigured = $true
+
+        # Show relevant URL ACL entries
+        $urlAcls | Select-String -Pattern ":8080" -Context 0,3 | ForEach-Object {
+            Write-Host "    $_" -ForegroundColor Gray
+        }
+    } else {
+        Write-Host "  WARNING: URL ACL not configured" -ForegroundColor Yellow
+        Write-Host "  Server will require Administrator privileges to run" -ForegroundColor Yellow
+        Write-Host ""
+        Write-Host "  Solution (Run as Administrator - ONE-TIME SETUP):" -ForegroundColor Yellow
+        Write-Host "    1. Right-click setup-urlacl.bat" -ForegroundColor Cyan
+        Write-Host "    2. Select 'Run as administrator'" -ForegroundColor Cyan
+        Write-Host "    3. After setup, restart server normally (no admin needed)" -ForegroundColor Cyan
+        Write-Host ""
+        Write-Host "  Or manually run:" -ForegroundColor Yellow
+        Write-Host "    netsh http add urlacl url=http://+:8080/ws/ user=Everyone" -ForegroundColor Cyan
+        $hasWarnings = $true
+    }
+} catch {
+    Write-Host "  WARNING: Could not check URL ACL" -ForegroundColor Yellow
+    $hasWarnings = $true
+}
+Write-Host ""
+
+# Check 7: Firewall
+Write-Host "[7/8] Checking Windows Firewall..." -ForegroundColor Yellow
 try {
     $firewallRules = Get-NetFirewallRule -DisplayName "*Digital*Signage*" -ErrorAction SilentlyContinue
     if ($firewallRules) {
@@ -212,8 +244,8 @@ try {
 }
 Write-Host ""
 
-# Check 7: Recent logs
-Write-Host "[7/8] Checking recent logs..." -ForegroundColor Yellow
+# Check 8: Recent logs
+Write-Host "[8/9] Checking recent logs..." -ForegroundColor Yellow
 $logPath = "logs"
 if (Test-Path $logPath) {
     $recentLogs = Get-ChildItem $logPath -Filter "*.log" -Recurse -ErrorAction SilentlyContinue |
@@ -274,8 +306,8 @@ if (Test-Path $logPath) {
 }
 Write-Host ""
 
-# Check 8: Dependencies
-Write-Host "[8/8] Checking NuGet packages..." -ForegroundColor Yellow
+# Check 9: Dependencies
+Write-Host "[9/9] Checking NuGet packages..." -ForegroundColor Yellow
 if (Test-Path "DigitalSignage.Server.csproj") {
     Write-Host "  Restoring packages..." -ForegroundColor Gray
     $restoreOutput = dotnet restore --verbosity quiet 2>&1

@@ -82,6 +82,58 @@ dotnet build
 dotnet run --project src/DigitalSignage.Server/DigitalSignage.Server.csproj
 ```
 
+#### URL ACL Konfiguration (Einmalig erforderlich)
+
+Der Digital Signage Server bindet sich an HTTP-URLs, was auf Windows spezielle Berechtigungen erfordert. **Dies ist eine einmalige Konfiguration.**
+
+**Empfohlene Methode (Einmalige Einrichtung):**
+
+```batch
+# Im Server-Verzeichnis: src/DigitalSignage.Server/
+# Rechtsklick auf setup-urlacl.bat -> "Als Administrator ausführen"
+setup-urlacl.bat
+```
+
+Nach dieser Einrichtung kann der Server ohne Administrator-Rechte ausgeführt werden.
+
+**Was ist URL ACL?**
+
+Windows HTTP URL ACL (Access Control List) kontrolliert, welche Benutzer sich an HTTP-URLs binden können. Standardmäßig können nur Administratoren HTTP-Server starten. Das Setup-Skript gewährt die Berechtigung für Ihr Benutzerkonto.
+
+**Manuelle Konfiguration:**
+
+```powershell
+# Als Administrator ausführen
+netsh http add urlacl url=http://+:8080/ws/ user=Everyone
+```
+
+**URL ACL entfernen:**
+
+```powershell
+# Als Administrator ausführen
+netsh http delete urlacl url=http://+:8080/ws/
+```
+
+**URL ACLs anzeigen:**
+
+```powershell
+netsh http show urlacl
+```
+
+**Alternative:** Server als Administrator ausführen (nicht empfohlen für den Produktivbetrieb)
+
+**Fehlerbehebung:**
+
+Wenn Sie die Fehlermeldung "Access Denied" erhalten:
+1. Führen Sie `setup-urlacl.bat` als Administrator aus (siehe oben)
+2. Starten Sie den Server neu (normale Rechte ausreichend)
+
+Für detaillierte Diagnose:
+```powershell
+# Diagnose-Tool ausführen
+.\diagnose-server.ps1
+```
+
 ### Raspberry Pi Client
 
 #### Voraussetzungen
