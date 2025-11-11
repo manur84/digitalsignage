@@ -1,0 +1,34 @@
+{
+  "client_id": "rpi-client-001",
+  "server_host": "192.168.1.100",
+  "server_port": 8080,
+  "fullscreen": true,
+  "log_level": "INFO",
+  "cache_dir": "/home/pi/.digitalsignage/cache",
+  "data_dir": "/home/pi/.digitalsignage/data",
+  "display": {
+    "resolution": {
+      "width": 1920,
+      "height": 1080
+    },
+    "rotation": 0,
+    "anti_burn_in": true,
+    "pixel_shift_interval": 300
+  },
+  "network": {
+    "retry_attempts": 5,
+    "retry_delay": [2, 4, 8, 16, 32],
+    "timeout": 30,
+    "use_compression": true
+  },
+  "monitoring": {
+    "report_interval": 60,
+    "include_system_stats": true,
+    "include_network_stats": true
+  },
+  "offline_mode": {
+    "enabled": true,
+    "cache_duration": 86400,
+    "fallback_layout": null
+  }
+}

@@ -1,12 +1,21 @@
 <Application x:Class="DigitalSignage.Server.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:converters="clr-namespace:DigitalSignage.Server.Converters"
              StartupUri="Views/MainWindow.xaml">
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <!-- Add theme dictionaries here -->
             </ResourceDictionary.MergedDictionaries>
+
+            <!-- Converters -->
+            <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+            <converters:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter"/>
+            <converters:StringFormatConverter x:Key="StringFormatConverter"/>
+            <converters:FileSizeConverter x:Key="FileSizeConverter"/>
+            <converters:HexToColorConverter x:Key="HexToColorConverter"/>
+            <converters:StatusToColorConverter x:Key="StatusToColorConverter"/>
 
             <!-- Global Styles -->
             <Style TargetType="Window">

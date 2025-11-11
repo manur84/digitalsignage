@@ -1,0 +1,102 @@
+{
+  "Id": "sample-room-display-001",
+  "Name": "Conference Room Display",
+  "Version": "1.0",
+  "Created": "2024-01-01T00:00:00Z",
+  "Modified": "2024-01-01T00:00:00Z",
+  "Resolution": {
+    "Width": 1920,
+    "Height": 1080,
+    "Orientation": "landscape"
+  },
+  "BackgroundColor": "#F0F4F8",
+  "Elements": [
+    {
+      "Id": "element-header",
+      "Type": "text",
+      "Name": "Room Name",
+      "Position": { "X": 50, "Y": 50, "Unit": "px" },
+      "Size": { "Width": 1820, "Height": 100, "Unit": "px" },
+      "ZIndex": 1,
+      "Rotation": 0,
+      "Opacity": 1.0,
+      "Visible": true,
+      "DataBinding": "{{room.name}}",
+      "Properties": {
+        "Content": "{{room.name}}",
+        "FontFamily": "Segoe UI",
+        "FontSize": 48,
+        "FontWeight": "bold",
+        "Color": "#1E3A8A",
+        "TextAlign": "center",
+        "VerticalAlign": "middle"
+      }
+    },
+    {
+      "Id": "element-status-bg",
+      "Type": "shape",
+      "Name": "Status Background",
+      "Position": { "X": 50, "Y": 200, "Unit": "px" },
+      "Size": { "Width": 1820, "Height": 150, "Unit": "px" },
+      "ZIndex": 0,
+      "Properties": {
+        "ShapeType": "rectangle",
+        "FillColor": "#10B981",
+        "StrokeWidth": 0,
+        "CornerRadius": 8
+      }
+    },
+    {
+      "Id": "element-status",
+      "Type": "text",
+      "Name": "Status",
+      "Position": { "X": 50, "Y": 200, "Unit": "px" },
+      "Size": { "Width": 1820, "Height": 150, "Unit": "px" },
+      "ZIndex": 1,
+      "DataBinding": "{{room.status}}",
+      "Properties": {
+        "Content": "{{room.status}}",
+        "FontFamily": "Segoe UI",
+        "FontSize": 56,
+        "FontWeight": "bold",
+        "Color": "#FFFFFF",
+        "TextAlign": "center",
+        "VerticalAlign": "middle"
+      }
+    },
+    {
+      "Id": "element-time",
+      "Type": "text",
+      "Name": "Current Time",
+      "Position": { "X": 50, "Y": 950, "Unit": "px" },
+      "Size": { "Width": 1820, "Height": 80, "Unit": "px" },
+      "ZIndex": 1,
+      "Properties": {
+        "Content": "{{current.time|HH:mm}}",
+        "FontFamily": "Segoe UI",
+        "FontSize": 48,
+        "Color": "#64748B",
+        "TextAlign": "center"
+      }
+    }
+  ],
+  "DataSources": [
+    {
+      "Id": "ds-room",
+      "Name": "Room Data",
+      "Type": "SQL",
+      "ConnectionString": "Server=localhost;Database=RoomBooking;Integrated Security=true;",
+      "Query": "SELECT room_name as name, status FROM rooms WHERE room_id = @roomId",
+      "Parameters": {
+        "roomId": "1"
+      },
+      "RefreshInterval": 30,
+      "Enabled": true
+    }
+  ],
+  "Metadata": {
+    "Author": "Digital Signage System",
+    "Description": "Conference room availability display",
+    "Tags": ["room", "booking", "status"]
+  }
+}
