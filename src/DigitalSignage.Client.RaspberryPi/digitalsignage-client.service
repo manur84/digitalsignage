@@ -12,7 +12,7 @@ WorkingDirectory=/opt/digitalsignage-client
 Environment="DISPLAY=:0"
 Environment="XAUTHORITY=/home/pi/.Xauthority"
 ExecStartPre=/bin/sleep 10
-ExecStart=/usr/bin/python3 /opt/digitalsignage-client/client.py
+ExecStart=/opt/digitalsignage-client/venv/bin/python3 /opt/digitalsignage-client/client.py
 Restart=always
 RestartSec=10
 StandardOutput=journal

@@ -24,14 +24,15 @@ echo "Installing for user: $ACTUAL_USER"
 echo ""
 
 # Update package lists
-echo "[1/8] Updating package lists..."
+echo "[1/9] Updating package lists..."
 apt-get update
 
 # Install system dependencies
-echo "[2/8] Installing system dependencies..."
+echo "[2/9] Installing system dependencies..."
 apt-get install -y \
     python3 \
     python3-pip \
+    python3-venv \
     python3-pyqt5 \
     python3-psutil \
     sqlite3 \
@@ -40,22 +41,39 @@ apt-get install -y \
     unclutter \
     xdotool
 
-# Install Python dependencies
-echo "[3/8] Installing Python dependencies..."
-pip3 install --upgrade pip
-pip3 install \
-    python-socketio \
-    qrcode[pil] \
-    Pillow \
-    requests
-
 # Create installation directory
-echo "[4/8] Creating installation directory..."
+echo "[3/9] Creating installation directory..."
 INSTALL_DIR="/opt/digitalsignage-client"
 mkdir -p "$INSTALL_DIR"
 
+# Create virtual environment
+echo "[4/9] Creating Python virtual environment..."
+VENV_DIR="$INSTALL_DIR/venv"
+if [ -d "$VENV_DIR" ]; then
+    echo "Virtual environment already exists, removing old one..."
+    rm -rf "$VENV_DIR"
+fi
+python3 -m venv "$VENV_DIR"
+
+# Install Python dependencies in virtual environment
+echo "[5/9] Installing Python dependencies in virtual environment..."
+"$VENV_DIR/bin/pip" install --upgrade pip
+if [ -f "requirements.txt" ]; then
+    "$VENV_DIR/bin/pip" install -r requirements.txt
+else
+    echo "Warning: requirements.txt not found, installing basic dependencies..."
+    "$VENV_DIR/bin/pip" install \
+        python-socketio[client]==5.10.0 \
+        aiohttp==3.9.1 \
+        PyQt5==5.15.10 \
+        requests==2.31.0 \
+        psutil==5.9.6 \
+        pillow==10.1.0 \
+        qrcode==7.4.2
+fi
+
 # Copy client files
-echo "[5/8] Copying client files..."
+echo "[6/9] Copying client files..."
 cp client.py "$INSTALL_DIR/"
 cp config.py "$INSTALL_DIR/"
 cp device_manager.py "$INSTALL_DIR/"
@@ -68,18 +86,19 @@ chown -R "$ACTUAL_USER:$ACTUAL_USER" "$INSTALL_DIR"
 chmod +x "$INSTALL_DIR/client.py"
 
 # Create config directory
-echo "[6/8] Creating config directory..."
+echo "[7/9] Creating config directory..."
 CONFIG_DIR="$USER_HOME/.digitalsignage"
 mkdir -p "$CONFIG_DIR/cache"
 mkdir -p "$CONFIG_DIR/logs"
 chown -R "$ACTUAL_USER:$ACTUAL_USER" "$CONFIG_DIR"
 
 # Install systemd service
-echo "[7/8] Installing systemd service..."
+echo "[8/9] Installing systemd service..."
 if [ -f "digitalsignage-client.service" ]; then
-    # Update service file with actual user
+    # Update service file with actual user and venv path
     sed "s/User=pi/User=$ACTUAL_USER/g" digitalsignage-client.service | \
-    sed "s|/home/pi|$USER_HOME|g" > /tmp/digitalsignage-client.service
+    sed "s|/home/pi|$USER_HOME|g" | \
+    sed "s|/usr/bin/python3|$VENV_DIR/bin/python3|g" > /tmp/digitalsignage-client.service
     cp /tmp/digitalsignage-client.service /etc/systemd/system/
     rm /tmp/digitalsignage-client.service
 else
@@ -98,7 +117,7 @@ WorkingDirectory=$INSTALL_DIR
 Environment="DISPLAY=:0"
 Environment="XAUTHORITY=$USER_HOME/.Xauthority"
 ExecStartPre=/bin/sleep 10
-ExecStart=/usr/bin/python3 $INSTALL_DIR/client.py
+ExecStart=$VENV_DIR/bin/python3 $INSTALL_DIR/client.py
 Restart=always
 RestartSec=10
 StandardOutput=journal
@@ -113,7 +132,7 @@ systemctl daemon-reload
 systemctl enable digitalsignage-client.service
 
 # Configure autostart
-echo "[8/8] Configuring autostart..."
+echo "[9/9] Configuring autostart..."
 AUTOSTART_DIR="$USER_HOME/.config/autostart"
 mkdir -p "$AUTOSTART_DIR"
 
@@ -148,6 +167,7 @@ echo "========================================="
 echo ""
 echo "Configuration:"
 echo "  - Installation directory: $INSTALL_DIR"
+echo "  - Virtual environment: $VENV_DIR"
 echo "  - Config directory: $CONFIG_DIR"
 echo "  - Service file: /etc/systemd/system/digitalsignage-client.service"
 echo ""
@@ -157,6 +177,9 @@ echo "  2. Set server host and port"
 echo "  3. Start service: sudo systemctl start digitalsignage-client"
 echo "  4. Check status: sudo systemctl status digitalsignage-client"
 echo "  5. View logs: sudo journalctl -u digitalsignage-client -f"
+echo ""
+echo "Note: Python packages are installed in a virtual environment at $VENV_DIR"
+echo "This avoids conflicts with system Python packages (Python 3.11+ requirement)."
 echo ""
 echo "The service will automatically start on boot."
 echo "To disable autostart: sudo systemctl disable digitalsignage-client"

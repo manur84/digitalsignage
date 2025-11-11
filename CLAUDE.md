@@ -128,15 +128,19 @@ dotnet ef database update --startup-project ../DigitalSignage.Server/DigitalSign
 ### Python Client Commands
 
 ```bash
-# Install client dependencies
+# Install client as systemd service on Raspberry Pi
+# (automatically creates virtual environment at /opt/digitalsignage-client/venv)
 cd src/DigitalSignage.Client.RaspberryPi
+sudo ./install.sh
+
+# Manual installation with virtual environment (for development)
+python3 -m venv venv
+source venv/bin/activate
 pip install -r requirements.txt
 
-# Run client in test mode
+# Run client in test mode (from virtual environment)
+source venv/bin/activate
 python client.py --test-mode
-
-# Install as systemd service on Raspberry Pi
-sudo ./install.sh
 
 # Check service status
 sudo systemctl status digitalsignage-client
@@ -144,6 +148,8 @@ sudo systemctl status digitalsignage-client
 # View client logs
 sudo journalctl -u digitalsignage-client -f
 ```
+
+**Important:** Python 3.11+ (Debian Bookworm/Raspberry Pi OS 12+) requires using virtual environments due to PEP 668 "externally-managed-environment" restrictions. The install.sh script automatically handles this by creating a venv at `/opt/digitalsignage-client/venv`.
 
 ## Architecture Overview
 

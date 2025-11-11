@@ -35,28 +35,28 @@ Die Anwendung öffnet sich automatisch.
 git clone https://github.com/yourusername/digitalsignage.git
 cd digitalsignage/src/DigitalSignage.Client.RaspberryPi
 
-# Installation
+# Installation (erstellt automatisch eine virtuelle Python-Umgebung)
 sudo ./install.sh
 
 # Konfiguration
-sudo nano /etc/digitalsignage/config.json
+sudo nano /opt/digitalsignage-client/config.py
 ```
 
 Tragen Sie die IP-Adresse Ihres Windows-Servers ein:
 
-```json
-{
-  "server_host": "192.168.1.100",
-  "server_port": 8080,
-  "fullscreen": true
-}
+```python
+# Server connection settings
+SERVER_HOST = "192.168.1.100"
+SERVER_PORT = 8080
 ```
 
 Starten Sie den Client:
 
 ```bash
-sudo systemctl start digitalsignage
+sudo systemctl start digitalsignage-client
 ```
+
+**Hinweis:** Die Installation erstellt automatisch eine virtuelle Python-Umgebung unter `/opt/digitalsignage-client/venv`. Dies ist erforderlich für Python 3.11+ und verhindert Konflikte mit System-Paketen.
 
 ### Schritt 4: Layout zuweisen
 
@@ -105,7 +105,7 @@ Zeigen Sie unterschiedliche Layouts zu verschiedenen Zeiten:
 - Server läuft?
 
 **Layout wird nicht angezeigt?**
-- Logs prüfen: `sudo journalctl -u digitalsignage -f`
+- Logs prüfen: `sudo journalctl -u digitalsignage-client -f`
 - Layout erneut zuweisen
 
 ## Hilfe

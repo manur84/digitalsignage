@@ -87,7 +87,7 @@ dotnet run --project src/DigitalSignage.Server/DigitalSignage.Server.csproj
 #### Voraussetzungen
 - Raspberry Pi 3 oder neuer
 - Raspberry Pi OS (Bullseye oder neuer)
-- Python 3.9+
+- Python 3.9+ (Python 3.11+ wird mit virtueller Umgebung unterstützt)
 - Netzwerkverbindung zum Server
 - Display (HDMI)
 
@@ -98,30 +98,32 @@ dotnet run --project src/DigitalSignage.Server/DigitalSignage.Server.csproj
 git clone https://github.com/yourusername/digitalsignage.git
 cd digitalsignage/src/DigitalSignage.Client.RaspberryPi
 
-# Installationsscript ausführen
+# Installationsscript ausführen (erstellt automatisch virtuelle Python-Umgebung)
 chmod +x install.sh
 sudo ./install.sh
 
 # Konfiguration anpassen
-sudo nano /etc/digitalsignage/config.json
+sudo nano /opt/digitalsignage-client/config.py
 ```
 
 Beispiel-Konfiguration:
-```json
-{
-  "client_id": "auto-generated",
-  "server_host": "192.168.1.100",
-  "server_port": 8080,
-  "fullscreen": true,
-  "log_level": "INFO"
-}
+```python
+# Server connection settings
+SERVER_HOST = "192.168.1.100"
+SERVER_PORT = 8080
+
+# Display settings
+FULLSCREEN = True
+LOG_LEVEL = "INFO"
 ```
 
 Service starten:
 ```bash
-sudo systemctl start digitalsignage
-sudo systemctl enable digitalsignage
+sudo systemctl start digitalsignage-client
+sudo systemctl enable digitalsignage-client
 ```
+
+**Wichtig:** Die Installation erstellt automatisch eine virtuelle Python-Umgebung unter `/opt/digitalsignage-client/venv`. Dies ist erforderlich für Python 3.11+ (Debian Bookworm/Raspberry Pi OS 12+), um die "externally-managed-environment" Beschränkung zu umgehen. Alle Abhängigkeiten werden isoliert in dieser Umgebung installiert.
 
 ## 📖 Verwendung
 
@@ -348,7 +350,7 @@ telnet <server-ip> 8080
 1. Client-Status in Server-UI prüfen
 2. Logs ansehen:
    ```bash
-   sudo journalctl -u digitalsignage -f
+   sudo journalctl -u digitalsignage-client -f
    ```
 3. Layout neu zuweisen
 
