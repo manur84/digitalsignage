@@ -54,21 +54,46 @@ git push
 git remote -v
 ```
 
-**IMPORTANT Git Workflow:**
-⚠️ **ALWAYS push changes to Git after every modification!**
+**🚨 CRITICAL: Git Workflow - ALWAYS PUSH AFTER EVERY CHANGE! 🚨**
 
-After making any changes to the codebase, follow this workflow:
-1. Stage all changes: `git add -A`
-2. Commit with descriptive message: `git commit -m "Description of changes"`
-3. **IMMEDIATELY push to remote:** `git push`
+⚠️ **MANDATORY: Push to Git after EVERY single modification, fix, or feature!**
 
-This ensures:
-- All work is backed up in the repository
-- Changes are synchronized across development environments
-- No work is lost if the local environment has issues
-- Other team members/Claude instances have access to latest changes
+**THIS IS NOT OPTIONAL!** After making ANY changes to the codebase, you MUST follow this workflow:
 
-**Never skip the git push step!** Always push after completing a task or fixing an issue.
+```bash
+# Step 1: Stage all changes
+git add -A
+
+# Step 2: Commit with descriptive message
+git commit -m "Description of changes
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>"
+
+# Step 3: IMMEDIATELY push to remote - DO NOT SKIP THIS!
+git push
+```
+
+**Why this is critical:**
+- ✅ All work is backed up in the repository
+- ✅ Changes are synchronized across development environments
+- ✅ No work is lost if the local environment has issues
+- ✅ Other team members/Claude instances have access to latest changes
+- ✅ Continuous integration and deployment pipelines can run
+- ✅ Version history is maintained properly
+
+**❌ NEVER skip the git push step!**
+**❌ NEVER wait to push multiple changes together!**
+**✅ ALWAYS push immediately after completing ANY task or fixing ANY issue!**
+
+**Examples of when to push:**
+- Fixed a build error → `git push`
+- Added a new feature → `git push`
+- Updated documentation → `git push`
+- Changed configuration → `git push`
+- Modified a single line → `git push`
+- **EVERYTHING** → `git push`
 
 **Security Note:** The `.env` file contains sensitive credentials and must never be committed to version control. It's included in `.gitignore` to prevent accidental commits. The git remote URL includes the token for authentication, but it's not stored in the repository.
 
