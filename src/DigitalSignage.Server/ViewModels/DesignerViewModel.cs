@@ -251,14 +251,14 @@ public partial class DesignerViewModel : ObservableObject
     [RelayCommand]
     private void ZoomIn()
     {
-        ZoomLevel = Math.Min(ZoomLevel + 0.1, 3.0);
+        ZoomLevel = Math.Min(ZoomLevel + 0.1, 4.0);
         _logger.LogDebug("Zoom in: {ZoomLevel:P0}", ZoomLevel);
     }
 
     [RelayCommand]
     private void ZoomOut()
     {
-        ZoomLevel = Math.Max(ZoomLevel - 0.1, 0.1);
+        ZoomLevel = Math.Max(ZoomLevel - 0.1, 0.25);
         _logger.LogDebug("Zoom out: {ZoomLevel:P0}", ZoomLevel);
     }
 

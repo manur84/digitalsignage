@@ -155,7 +155,12 @@
 
                     <!-- Canvas Area -->
                     <Grid Grid.Column="1" Background="#1E1E1E">
-                        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <ScrollViewer Grid.Row="0" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
                             <controls:DesignerCanvas x:Name="DesignerCanvas"
                                                     Background="White"
                                                     Width="{Binding Designer.CurrentLayout.Resolution.Width}"
@@ -184,6 +189,48 @@
                                 </ItemsControl>
                             </controls:DesignerCanvas>
                         </ScrollViewer>
+
+                        <!-- Zoom Controls Toolbar -->
+                        <Border Grid.Row="1" Background="#2D2D30" BorderBrush="#3F3F46" BorderThickness="0,1,0,0" Padding="12,8">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                <Button Command="{Binding Designer.ZoomOutCommand}"
+                                        Content="-"
+                                        Width="32"
+                                        Height="28"
+                                        Style="{StaticResource SecondaryButton}"
+                                        Margin="0,0,8,0"
+                                        ToolTip="Zoom Out (Ctrl+-)"/>
+                                <Slider Value="{Binding Designer.ZoomLevel}"
+                                        Minimum="0.25"
+                                        Maximum="4.0"
+                                        Width="150"
+                                        VerticalAlignment="Center"
+                                        TickFrequency="0.25"
+                                        IsSnapToTickEnabled="False"
+                                        Margin="0,0,8,0"
+                                        ToolTip="Zoom Level"/>
+                                <TextBlock Text="{Binding Designer.ZoomLevel, StringFormat={}{0:P0}}"
+                                          Width="50"
+                                          VerticalAlignment="Center"
+                                          HorizontalAlignment="Center"
+                                          Foreground="White"
+                                          FontWeight="SemiBold"
+                                          Margin="0,0,8,0"/>
+                                <Button Command="{Binding Designer.ZoomInCommand}"
+                                        Content="+"
+                                        Width="32"
+                                        Height="28"
+                                        Style="{StaticResource SecondaryButton}"
+                                        Margin="0,0,8,0"
+                                        ToolTip="Zoom In (Ctrl++)"/>
+                                <Button Command="{Binding Designer.ZoomToFitCommand}"
+                                        Content="Fit"
+                                        Width="50"
+                                        Height="28"
+                                        Style="{StaticResource SecondaryButton}"
+                                        ToolTip="Zoom to Fit (Ctrl+0)"/>
+                            </StackPanel>
+                        </Border>
                     </Grid>
 
                     <!-- Properties Panel -->
