@@ -219,9 +219,12 @@ Basierend auf dem Entwicklungsauftrag und dem aktuellen Code-Stand.
   - ✅ digitalsignage-client.service Unit-File erstellt
   - ✅ Auto-Restart bei Absturz (Restart=always)
   - ✅ Installation-Script (install.sh mit systemd Integration)
-- ❌ 🟡 **Watchdog**
-  - Heartbeat-Monitor
-  - Automatischer Neustart bei Freeze
+- ✅ **Watchdog**
+  - ✅ WatchdogMonitor implementiert mit systemd Integration (watchdog_monitor.py)
+  - ✅ Automatische Pings (halbes Watchdog-Intervall)
+  - ✅ Status-Benachrichtigungen (ready, stopping, status)
+  - ✅ Automatischer Neustart bei Freeze (60s timeout)
+  - ✅ Service-File konfiguriert (Type=notify, WatchdogSec=60)
 - ❌ 🟡 **Automatische Updates**
   - Update-Check-Mechanismus
   - Safe Rollback bei Fehlern

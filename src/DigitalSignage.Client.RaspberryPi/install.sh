@@ -61,6 +61,7 @@ cp config.py "$INSTALL_DIR/"
 cp device_manager.py "$INSTALL_DIR/"
 cp display_renderer.py "$INSTALL_DIR/"
 cp cache_manager.py "$INSTALL_DIR/"
+cp watchdog_monitor.py "$INSTALL_DIR/"
 
 # Set ownership
 chown -R "$ACTUAL_USER:$ACTUAL_USER" "$INSTALL_DIR"

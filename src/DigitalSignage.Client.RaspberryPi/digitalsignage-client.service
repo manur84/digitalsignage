@@ -4,7 +4,8 @@ After=network-online.target graphical.target
 Wants=network-online.target
 
 [Service]
-Type=simple
+Type=notify
+NotifyAccess=main
 User=pi
 Group=pi
 WorkingDirectory=/opt/digitalsignage-client
@@ -18,8 +19,10 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=digitalsignage-client
 
-# Watchdog
+# Watchdog - will restart if no ping received within 60 seconds
 WatchdogSec=60
+# Give service 30 seconds to start and notify ready
+TimeoutStartSec=30
 
 # Security
 NoNewPrivileges=true

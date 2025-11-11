@@ -19,6 +19,7 @@ from PyQt5.QtCore import QTimer
 from display_renderer import DisplayRenderer
 from device_manager import DeviceManager
 from cache_manager import CacheManager
+from watchdog_monitor import WatchdogMonitor
 from config import Config
 
 logging.basicConfig(
@@ -50,6 +51,7 @@ class DigitalSignageClient:
         )
         self.device_manager = DeviceManager()
         self.cache_manager = CacheManager()
+        self.watchdog = WatchdogMonitor(enable=True)
         self.display_renderer: Optional[DisplayRenderer] = None
         self.current_layout: Optional[Dict[str, Any]] = None
         self.connected = False
@@ -66,6 +68,7 @@ class DigitalSignageClient:
             logger.info("Connected to server")
             self.connected = True
             self.offline_mode = False
+            self.watchdog.notify_status("Connected to server")
             await self.register_client()
 
         @self.sio.event
@@ -73,6 +76,7 @@ class DigitalSignageClient:
             logger.warning("Disconnected from server - entering offline mode")
             self.connected = False
             self.offline_mode = True
+            self.watchdog.notify_status("Disconnected - running in offline mode")
             # Load cached layout to continue operation
             await self.load_cached_layout()
 
@@ -305,6 +309,10 @@ class DigitalSignageClient:
         """Start the client application"""
         logger.info("Starting Digital Signage Client...")
 
+        # Start watchdog monitoring
+        await self.watchdog.start()
+        self.watchdog.notify_status("Initializing...")
+
         # Connect to server with retry logic
         max_retries = 5
         retry_delay = 2
@@ -315,6 +323,8 @@ class DigitalSignageClient:
                 server_url = self.config.get_server_url()
                 protocol = self.config.get_websocket_protocol().upper()
                 logger.info(f"Connecting to server at {server_url} using {protocol} (attempt {attempt + 1}/{max_retries})")
+
+                self.watchdog.notify_status(f"Connecting to server (attempt {attempt + 1}/{max_retries})")
 
                 if self.config.use_ssl:
                     if self.config.verify_ssl:
@@ -337,7 +347,11 @@ class DigitalSignageClient:
         if not connection_successful:
             logger.warning("Starting in offline mode with cached data")
             self.offline_mode = True
+            self.watchdog.notify_status("Running in offline mode")
             await self.load_cached_layout()
+        else:
+            self.watchdog.notify_status("Connected to server")
+            self.watchdog.notify_ready()
 
         # Setup heartbeat timer
         async def heartbeat_loop():
@@ -360,7 +374,9 @@ class DigitalSignageClient:
     async def stop(self):
         """Stop the client application"""
         logger.info("Stopping Digital Signage Client...")
+        self.watchdog.notify_stopping()
         await self.sio.disconnect()
+        await self.watchdog.stop()
 
 
 def main():
