@@ -666,6 +666,159 @@
                 </Grid>
             </TabItem>
 
+            <!-- Scheduling Tab -->
+            <TabItem Header="Scheduling">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="300"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Schedule List -->
+                    <Border Grid.Column="0" Background="White" BorderBrush="#CCCCCC" BorderThickness="0,0,1,0">
+                        <DockPanel>
+                            <StackPanel DockPanel.Dock="Top" Margin="8">
+                                <Button Content="Add Schedule"
+                                        Command="{Binding SchedulingViewModel.AddScheduleCommand}"
+                                        Style="{StaticResource PrimaryButton}"
+                                        Margin="0,0,0,4"/>
+                                <Button Content="Refresh"
+                                        Command="{Binding SchedulingViewModel.RefreshSchedulesCommand}"
+                                        Style="{StaticResource SecondaryButton}"
+                                        Margin="0,0,0,8"/>
+                            </StackPanel>
+                            <ListBox ItemsSource="{Binding SchedulingViewModel.Schedules}"
+                                     SelectedItem="{Binding SchedulingViewModel.SelectedSchedule}"
+                                     DisplayMemberPath="Name"
+                                     Margin="8,0"/>
+                        </DockPanel>
+                    </Border>
+
+                    <!-- Schedule Editor -->
+                    <ScrollViewer Grid.Column="1">
+                        <StackPanel Margin="16">
+                            <TextBlock Text="Schedule Configuration" FontSize="20" FontWeight="Bold" Margin="0,0,0,16"/>
+
+                            <!-- Show when no schedule is selected -->
+                            <TextBlock Text="No schedule selected. Click 'Add Schedule' to create a new one."
+                                      Foreground="Gray"
+                                      Margin="0,8"
+                                      TextWrapping="Wrap">
+                                <TextBlock.Visibility>
+                                    <Binding Path="SchedulingViewModel.SelectedSchedule">
+                                        <Binding.Converter>
+                                            <local:NullToVisibilityConverter/>
+                                        </Binding.Converter>
+                                    </Binding>
+                                </TextBlock.Visibility>
+                            </TextBlock>
+
+                            <!-- Show when schedule is selected -->
+                            <StackPanel>
+                                <StackPanel.Visibility>
+                                    <Binding Path="SchedulingViewModel.SelectedSchedule">
+                                        <Binding.Converter>
+                                            <local:NullToVisibilityConverter Invert="True"/>
+                                        </Binding.Converter>
+                                    </Binding>
+                                </StackPanel.Visibility>
+
+                                <TextBlock Text="Name:" Margin="0,8,0,4"/>
+                                <TextBox Text="{Binding SchedulingViewModel.SelectedSchedule.Name, UpdateSourceTrigger=PropertyChanged}"/>
+
+                                <TextBlock Text="Description:" Margin="0,12,0,4"/>
+                                <TextBox Text="{Binding SchedulingViewModel.SelectedSchedule.Description, UpdateSourceTrigger=PropertyChanged}"
+                                        Height="60"
+                                        TextWrapping="Wrap"
+                                        AcceptsReturn="True"/>
+
+                                <TextBlock Text="Layout:" Margin="0,12,0,4"/>
+                                <ComboBox ItemsSource="{Binding SchedulingViewModel.AvailableLayouts}"
+                                         SelectedValue="{Binding SchedulingViewModel.SelectedSchedule.LayoutId}"
+                                         SelectedValuePath="Id"
+                                         DisplayMemberPath="Name"/>
+
+                                <Grid Margin="0,12,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                        <TextBlock Text="Start Time (HH:mm):" Margin="0,0,0,4"/>
+                                        <TextBox Text="{Binding SchedulingViewModel.SelectedSchedule.StartTime, UpdateSourceTrigger=PropertyChanged}"/>
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                                        <TextBlock Text="End Time (HH:mm):" Margin="0,0,0,4"/>
+                                        <TextBox Text="{Binding SchedulingViewModel.SelectedSchedule.EndTime, UpdateSourceTrigger=PropertyChanged}"/>
+                                    </StackPanel>
+                                </Grid>
+
+                                <TextBlock Text="Days of Week:" Margin="0,12,0,4"/>
+                                <TextBox Text="{Binding SchedulingViewModel.SelectedSchedule.DaysOfWeek, UpdateSourceTrigger=PropertyChanged}"/>
+                                <TextBlock Text="Example: Monday,Tuesday,Wednesday or * for all days"
+                                          FontSize="11"
+                                          Foreground="#666666"
+                                          Margin="0,2,0,0"/>
+
+                                <Grid Margin="0,12,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                        <TextBlock Text="Priority:" Margin="0,0,0,4"/>
+                                        <TextBox Text="{Binding SchedulingViewModel.SelectedSchedule.Priority, UpdateSourceTrigger=PropertyChanged}"/>
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                                        <TextBlock Text="Active:" Margin="0,0,0,4"/>
+                                        <CheckBox IsChecked="{Binding SchedulingViewModel.SelectedSchedule.IsActive}"
+                                                 Content="Schedule is active"
+                                                 VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Grid>
+
+                                <TextBlock Text="Optional: Client/Group Targeting" FontWeight="SemiBold" Margin="0,16,0,8"/>
+
+                                <TextBlock Text="Client ID (optional):" Margin="0,0,0,4"/>
+                                <TextBox Text="{Binding SchedulingViewModel.SelectedSchedule.ClientId, UpdateSourceTrigger=PropertyChanged}"/>
+
+                                <TextBlock Text="Client Group (optional):" Margin="0,12,0,4"/>
+                                <TextBox Text="{Binding SchedulingViewModel.SelectedSchedule.ClientGroup, UpdateSourceTrigger=PropertyChanged}"/>
+                                <TextBlock Text="Leave empty to apply to all clients"
+                                          FontSize="11"
+                                          Foreground="#666666"
+                                          Margin="0,2,0,0"/>
+
+                                <!-- Status Message -->
+                                <TextBlock Text="{Binding SchedulingViewModel.StatusMessage}"
+                                          Margin="0,16,0,0"
+                                          FontWeight="SemiBold"
+                                          Foreground="#2196F3"
+                                          TextWrapping="Wrap"/>
+
+                                <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                                    <Button Content="Save Schedule"
+                                            Command="{Binding SchedulingViewModel.SaveScheduleCommand}"
+                                            Style="{StaticResource PrimaryButton}"
+                                            Margin="0,0,8,0"/>
+                                    <Button Content="Delete Schedule"
+                                            Command="{Binding SchedulingViewModel.DeleteScheduleCommand}"
+                                            Style="{StaticResource SecondaryButton}"
+                                            Margin="0,0,8,0"/>
+                                    <Button Content="Test Now"
+                                            Command="{Binding SchedulingViewModel.TestScheduleCommand}"
+                                            Margin="0,0,0,0"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+            </TabItem>
+
             <!-- Preview Tab -->
             <TabItem Header="Preview">
                 <Grid>

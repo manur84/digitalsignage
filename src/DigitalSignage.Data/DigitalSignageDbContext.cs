@@ -28,6 +28,9 @@ public class DigitalSignageDbContext : DbContext
     // Media entities
     public DbSet<MediaFile> MediaFiles => Set<MediaFile>();
 
+    // Scheduling entities
+    public DbSet<LayoutSchedule> LayoutSchedules => Set<LayoutSchedule>();
+
     // Audit entities
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
@@ -280,6 +283,30 @@ public class DigitalSignageDbContext : DbContext
             entity.HasIndex(e => e.Category);
             entity.HasIndex(e => e.IsBuiltIn);
             entity.HasIndex(e => e.CreatedAt);
+        });
+
+        // Configure LayoutSchedule
+        modelBuilder.Entity<LayoutSchedule>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Description).HasMaxLength(500);
+            entity.Property(e => e.LayoutId).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.ClientId).HasMaxLength(100);
+            entity.Property(e => e.ClientGroup).HasMaxLength(100);
+            entity.Property(e => e.StartTime).IsRequired().HasMaxLength(5);
+            entity.Property(e => e.EndTime).IsRequired().HasMaxLength(5);
+            entity.Property(e => e.DaysOfWeek).IsRequired().HasMaxLength(100);
+
+            // Indexes
+            entity.HasIndex(e => e.LayoutId);
+            entity.HasIndex(e => e.ClientId);
+            entity.HasIndex(e => e.ClientGroup);
+            entity.HasIndex(e => e.IsActive);
+            entity.HasIndex(e => e.Priority);
+            entity.HasIndex(e => e.StartTime);
+            entity.HasIndex(e => e.ValidFrom);
+            entity.HasIndex(e => e.ValidUntil);
         });
     }
 }
