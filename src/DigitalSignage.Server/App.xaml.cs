@@ -82,7 +82,12 @@ public partial class App : Application
                 // Register Services
                 services.AddSingleton<ILayoutService, LayoutService>();
                 services.AddSingleton<IClientService, ClientService>();
-                services.AddSingleton<ISqlDataService, SqlDataService>();
+
+                // Register SqlDataService for both IDataService and ISqlDataService
+                services.AddSingleton<SqlDataService>();
+                services.AddSingleton<IDataService>(sp => sp.GetRequiredService<SqlDataService>());
+                services.AddSingleton<ISqlDataService>(sp => sp.GetRequiredService<SqlDataService>());
+
                 services.AddSingleton<ITemplateService, TemplateService>();
                 services.AddSingleton<ICommunicationService, WebSocketCommunicationService>();
                 services.AddSingleton<IMediaService, EnhancedMediaService>();
