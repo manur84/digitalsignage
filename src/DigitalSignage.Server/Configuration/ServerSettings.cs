@@ -127,6 +127,16 @@ public class ServerSettings
     }
 
     /// <summary>
+    /// Get the localhost URL prefix based on SSL configuration
+    /// Used when URL ACL is not configured
+    /// </summary>
+    public string GetLocalhostPrefix()
+    {
+        var protocol = EnableSsl ? "https" : "http";
+        return $"{protocol}://localhost:{Port}{EndpointPath}";
+    }
+
+    /// <summary>
     /// Get the WebSocket protocol based on SSL configuration
     /// </summary>
     public string GetWebSocketProtocol()

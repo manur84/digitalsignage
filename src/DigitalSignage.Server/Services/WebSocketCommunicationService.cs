@@ -1,6 +1,7 @@
 using DigitalSignage.Core.Interfaces;
 using DigitalSignage.Core.Models;
 using DigitalSignage.Server.Configuration;
+using DigitalSignage.Server.Helpers;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using System.Collections.Concurrent;
@@ -38,7 +39,27 @@ public class WebSocketCommunicationService : ICommunicationService
             _cancellationTokenSource = new CancellationTokenSource();
 
             _httpListener = new HttpListener();
-            var urlPrefix = _settings.GetUrlPrefix();
+
+            // Check if URL ACL is configured and use appropriate prefix
+            var useWildcard = UrlAclManager.IsUrlAclConfigured(_settings.Port);
+            var urlPrefix = useWildcard ? _settings.GetUrlPrefix() : _settings.GetLocalhostPrefix();
+
+            if (!useWildcard)
+            {
+                _logger.LogWarning("===================================================================");
+                _logger.LogWarning("URL ACL NOT CONFIGURED - Running in localhost-only mode");
+                _logger.LogWarning("===================================================================");
+                _logger.LogWarning("");
+                _logger.LogWarning("The server is running on localhost only and will NOT be accessible");
+                _logger.LogWarning("from external clients or devices.");
+                _logger.LogWarning("");
+                _logger.LogWarning("To enable external access:");
+                _logger.LogWarning("  1. Restart the application (it will prompt for configuration)");
+                _logger.LogWarning("  2. Or run setup-urlacl.bat as Administrator");
+                _logger.LogWarning("");
+                _logger.LogWarning("===================================================================");
+            }
+
             _httpListener.Prefixes.Add(urlPrefix);
 
             // Log SSL configuration warning if SSL is enabled
@@ -58,8 +79,9 @@ public class WebSocketCommunicationService : ICommunicationService
             _httpListener.Start();
 
             var protocol = _settings.EnableSsl ? "HTTPS/WSS" : "HTTP/WS";
-            _logger.LogInformation("WebSocket server started on port {Port} using {Protocol}",
-                _settings.Port, protocol);
+            var bindMode = useWildcard ? "all interfaces" : "localhost only";
+            _logger.LogInformation("WebSocket server started on port {Port} using {Protocol} ({BindMode})",
+                _settings.Port, protocol, bindMode);
             _logger.LogInformation("WebSocket endpoint: {Endpoint}", urlPrefix);
 
             _ = Task.Run(() => AcceptClientsAsync(_cancellationTokenSource.Token));
@@ -72,7 +94,7 @@ public class WebSocketCommunicationService : ICommunicationService
             _logger.LogError("ACCESS DENIED - Cannot start WebSocket server on port {Port}", _settings.Port);
             _logger.LogError("===================================================================");
             _logger.LogError("");
-            _logger.LogError("Windows requires URL ACL registration to bind HTTP servers.");
+            _logger.LogError("This error should not occur if URL ACL check is working properly.");
             _logger.LogError("");
             _logger.LogError("SOLUTION 1 (Recommended - One-time setup):");
             _logger.LogError("  1. Right-click setup-urlacl.bat");
@@ -86,11 +108,32 @@ public class WebSocketCommunicationService : ICommunicationService
             _logger.LogError("  netsh http add urlacl url={Prefix} user=Everyone", _settings.GetUrlPrefix());
             _logger.LogError("");
             _logger.LogError("===================================================================");
-            throw new InvalidOperationException(
-                $"Access Denied - Cannot start server on port {_settings.Port}. " +
-                $"Run setup-urlacl.bat as Administrator to fix this permanently, " +
-                $"or run this application as Administrator.",
-                ex);
+
+            // Try localhost fallback as last resort
+            _logger.LogWarning("Attempting localhost fallback...");
+            try
+            {
+                _httpListener?.Stop();
+                _httpListener = new HttpListener();
+                var localhostPrefix = _settings.GetLocalhostPrefix();
+                _httpListener.Prefixes.Add(localhostPrefix);
+                _httpListener.Start();
+
+                _logger.LogWarning("Successfully started in localhost-only mode");
+                _logger.LogInformation("WebSocket endpoint: {Endpoint}", localhostPrefix);
+
+                _ = Task.Run(() => AcceptClientsAsync(_cancellationTokenSource.Token));
+                return;
+            }
+            catch
+            {
+                _logger.LogError("Localhost fallback also failed");
+                throw new InvalidOperationException(
+                    $"Access Denied - Cannot start server on port {_settings.Port}. " +
+                    $"Run setup-urlacl.bat as Administrator to fix this permanently, " +
+                    $"or run this application as Administrator.",
+                    ex);
+            }
         }
         catch (Exception ex)
         {

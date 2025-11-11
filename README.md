@@ -82,11 +82,31 @@ dotnet build
 dotnet run --project src/DigitalSignage.Server/DigitalSignage.Server.csproj
 ```
 
-#### URL ACL Konfiguration (Einmalig erforderlich)
+#### Erster Start (Windows)
 
-Der Digital Signage Server bindet sich an HTTP-URLs, was auf Windows spezielle Berechtigungen erfordert. **Dies ist eine einmalige Konfiguration.**
+**Automatische Konfiguration - Keine manuellen Schritte nötig!**
 
-**Empfohlene Methode (Einmalige Einrichtung):**
+Beim ersten Start der Digital Signage Server App:
+
+1. Die App prüft automatisch die URL ACL Konfiguration
+2. Falls nicht konfiguriert, erscheint ein Dialog
+3. Klicken Sie **"Ja"** für automatische Konfiguration
+4. Windows UAC Prompt erscheint (einmal bestätigen)
+5. App konfiguriert sich selbst und startet neu
+6. **Fertig!** Ab jetzt keine Admin-Rechte mehr nötig
+
+**Das war's!** Die App läuft jetzt normal und ist für externe Clients erreichbar.
+
+**Bei "Nein" im Dialog:**
+- Die App läuft im **localhost-Modus** (nur lokal erreichbar)
+- Externe Raspberry Pi Clients können sich nicht verbinden
+- Für externe Clients führen Sie später `setup-urlacl.bat` als Administrator aus
+
+#### URL ACL Konfiguration (Optional/Manuell)
+
+Die automatische Konfiguration beim ersten Start sollte ausreichen. Falls Sie dennoch manuell konfigurieren möchten:
+
+**Manuelle Methode 1 - Setup-Skript:**
 
 ```batch
 # Im Server-Verzeichnis: src/DigitalSignage.Server/
@@ -94,25 +114,24 @@ Der Digital Signage Server bindet sich an HTTP-URLs, was auf Windows spezielle B
 setup-urlacl.bat
 ```
 
-Nach dieser Einrichtung kann der Server ohne Administrator-Rechte ausgeführt werden.
-
-**Was ist URL ACL?**
-
-Windows HTTP URL ACL (Access Control List) kontrolliert, welche Benutzer sich an HTTP-URLs binden können. Standardmäßig können nur Administratoren HTTP-Server starten. Das Setup-Skript gewährt die Berechtigung für Ihr Benutzerkonto.
-
-**Manuelle Konfiguration:**
+**Manuelle Methode 2 - PowerShell-Befehl:**
 
 ```powershell
 # Als Administrator ausführen
 netsh http add urlacl url=http://+:8080/ws/ user=Everyone
+netsh http add urlacl url=http://+:8080/ user=Everyone
 ```
 
-**URL ACL entfernen:**
+#### Was ist URL ACL?
 
-```powershell
-# Als Administrator ausführen
-netsh http delete urlacl url=http://+:8080/ws/
-```
+Windows HTTP URL ACL (Access Control List) kontrolliert, welche Benutzer sich an HTTP-URLs binden können. Standardmäßig können nur Administratoren HTTP-Server starten. Die automatische Konfiguration gewährt diese Berechtigung einmalig für alle Benutzer.
+
+**Nach der Konfiguration:**
+- Server kann ohne Administrator-Rechte ausgeführt werden
+- Server ist für externe Clients im Netzwerk erreichbar
+- Keine weiteren Konfigurationsschritte notwendig
+
+#### URL ACL Management (Fortgeschritten)
 
 **URL ACLs anzeigen:**
 
@@ -120,15 +139,30 @@ netsh http delete urlacl url=http://+:8080/ws/
 netsh http show urlacl
 ```
 
+**URL ACL entfernen:**
+
+```powershell
+# Als Administrator ausführen
+netsh http delete urlacl url=http://+:8080/ws/
+netsh http delete urlacl url=http://+:8080/
+```
+
 **Alternative:** Server als Administrator ausführen (nicht empfohlen für den Produktivbetrieb)
 
-**Fehlerbehebung:**
+#### Fehlerbehebung
 
-Wenn Sie die Fehlermeldung "Access Denied" erhalten:
-1. Führen Sie `setup-urlacl.bat` als Administrator aus (siehe oben)
-2. Starten Sie den Server neu (normale Rechte ausreichend)
+**Problem: "Access Denied" Fehler**
+- **Lösung**: Starten Sie die App neu - der automatische Konfigurationsdialog erscheint
 
-Für detaillierte Diagnose:
+**Problem: Clients können sich nicht verbinden**
+- Prüfen Sie, ob der Server im localhost-Modus läuft (siehe Log-Ausgabe)
+- Falls ja: Führen Sie `setup-urlacl.bat` als Administrator aus
+
+**Problem: UAC-Prompt erscheint nicht**
+- Prüfen Sie Windows-Benutzerkontensteuerung (UAC) Einstellungen
+- Führen Sie `setup-urlacl.bat` manuell als Administrator aus
+
+**Detaillierte Diagnose:**
 ```powershell
 # Diagnose-Tool ausführen
 .\diagnose-server.ps1
