@@ -11,17 +11,20 @@ public class ClientService : IClientService
     private readonly ICommunicationService _communicationService;
     private readonly ILayoutService _layoutService;
     private readonly ISqlDataService _dataService;
+    private readonly ITemplateService _templateService;
     private readonly ILogger<ClientService> _logger;
 
     public ClientService(
         ICommunicationService communicationService,
         ILayoutService layoutService,
         ISqlDataService dataService,
+        ITemplateService templateService,
         ILogger<ClientService> logger)
     {
         _communicationService = communicationService ?? throw new ArgumentNullException(nameof(communicationService));
         _layoutService = layoutService ?? throw new ArgumentNullException(nameof(layoutService));
         _dataService = dataService ?? throw new ArgumentNullException(nameof(dataService));
+        _templateService = templateService ?? throw new ArgumentNullException(nameof(templateService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -215,6 +218,43 @@ public class ClientService : IClientService
                     {
                         _logger.LogWarning(ex, "Failed to load data for source {DataSourceId}, using empty data", dataSource.Id);
                         layoutData[dataSource.Id] = new Dictionary<string, object>();
+                    }
+                }
+            }
+
+            // Process templates in layout elements
+            // Flatten all data into a single dictionary for template processing
+            var templateData = new Dictionary<string, object>();
+            foreach (var kvp in layoutData)
+            {
+                if (kvp.Value is Dictionary<string, object> dict)
+                {
+                    foreach (var dataKvp in dict)
+                    {
+                        templateData[dataKvp.Key] = dataKvp.Value;
+                    }
+                }
+            }
+
+            // Process text elements with templates
+            if (layout.Elements != null && layout.Elements.Count > 0)
+            {
+                foreach (var element in layout.Elements)
+                {
+                    if (element.Type == "text" && !string.IsNullOrWhiteSpace(element.Content))
+                    {
+                        try
+                        {
+                            element.Content = await _templateService.ProcessTemplateAsync(
+                                element.Content,
+                                templateData,
+                                cancellationToken);
+                            _logger.LogDebug("Processed template for element {ElementId}", element.Id);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to process template for element {ElementId}, using original content", element.Id);
+                        }
                     }
                 }
             }

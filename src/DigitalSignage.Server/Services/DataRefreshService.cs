@@ -11,6 +11,7 @@ public class DataRefreshService : BackgroundService
     private readonly IClientService _clientService;
     private readonly ILayoutService _layoutService;
     private readonly ISqlDataService _dataService;
+    private readonly ITemplateService _templateService;
     private readonly ICommunicationService _communicationService;
     private readonly ILogger<DataRefreshService> _logger;
     private readonly ConcurrentDictionary<string, Timer> _refreshTimers = new();
@@ -19,12 +20,14 @@ public class DataRefreshService : BackgroundService
         IClientService clientService,
         ILayoutService layoutService,
         ISqlDataService dataService,
+        ITemplateService templateService,
         ICommunicationService communicationService,
         ILogger<DataRefreshService> logger)
     {
         _clientService = clientService ?? throw new ArgumentNullException(nameof(clientService));
         _layoutService = layoutService ?? throw new ArgumentNullException(nameof(layoutService));
         _dataService = dataService ?? throw new ArgumentNullException(nameof(dataService));
+        _templateService = templateService ?? throw new ArgumentNullException(nameof(templateService));
         _communicationService = communicationService ?? throw new ArgumentNullException(nameof(communicationService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
@@ -134,6 +137,41 @@ public class DataRefreshService : BackgroundService
                 {
                     _logger.LogWarning(ex, "Failed to refresh data for source {DataSourceId}", dataSource.Id);
                     layoutData[dataSource.Id] = new Dictionary<string, object>();
+                }
+            }
+
+            // Process templates in layout elements
+            var templateData = new Dictionary<string, object>();
+            foreach (var kvp in layoutData)
+            {
+                if (kvp.Value is Dictionary<string, object> dict)
+                {
+                    foreach (var dataKvp in dict)
+                    {
+                        templateData[dataKvp.Key] = dataKvp.Value;
+                    }
+                }
+            }
+
+            // Process text elements with templates
+            if (layout.Elements != null && layout.Elements.Count > 0)
+            {
+                foreach (var element in layout.Elements)
+                {
+                    if (element.Type == "text" && !string.IsNullOrWhiteSpace(element.Content))
+                    {
+                        try
+                        {
+                            element.Content = await _templateService.ProcessTemplateAsync(
+                                element.Content,
+                                templateData,
+                                cancellationToken);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to process template for element {ElementId}", element.Id);
+                        }
+                    }
                 }
             }
 

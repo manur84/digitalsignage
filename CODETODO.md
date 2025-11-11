@@ -90,11 +90,16 @@ Basierend auf dem Entwicklungsauftrag und dem aktuellen Code-Stand.
 
 #### Variablenplatzhalter
 - ✅ Python Client kann {{Variable}} ersetzen
-- ❌ 🔴 **.NET Template-Engine** für Server-seitige Vorschau
-  - Scriban oder Fluid Template Engine einbinden
-  - Formatierungs-Optionen: {{Datum|dd.MM.yyyy}}
-  - Berechnete Felder: {{Wert1 + Wert2}}
-- ❌ 🟡 **Fallback-Werte** bei fehlenden Daten
+- ✅ **.NET Template-Engine** für Server-seitige Verarbeitung
+  - ✅ Scriban Template Engine integriert (TemplateService)
+  - ✅ Formatierungs-Optionen: {{date_format Datum "dd.MM.yyyy"}}
+  - ✅ Berechnete Felder: {{Wert1 + Wert2}}
+  - ✅ Fallback-Werte: {{Variable ?? "Default"}}
+  - ✅ Bedingungen: {{if}}...{{else}}...{{end}}
+  - ✅ Schleifen: {{for item in items}}...{{end}}
+  - ✅ Custom Functions: date_format, number_format, upper, lower, default
+  - ✅ Integration in ClientService und DataRefreshService
+  - ✅ Umfassende Dokumentation (TEMPLATE_ENGINE.md)
 - ❌ 🟡 **Variable-Browser** in UI
   - Verfügbare Variablen anzeigen
   - Drag-and-Drop von Variablen in Textfelder
@@ -278,10 +283,13 @@ Basierend auf dem Entwicklungsauftrag und dem aktuellen Code-Stand.
   - Repository Pattern
 - ❌ 🟢 **SignalR statt WebSocket** evaluieren
   - Einfachere RPC-Semantik
-- ❌ 🟡 **Serilog** für strukturiertes Logging
-  - File Sink
-  - Rolling Files
-  - Log-Levels konfigurierbar
+- ✅ **Serilog** für strukturiertes Logging
+  - ✅ File Sink mit Rolling Files (täglich, 30 Tage Retention)
+  - ✅ Separate Error-Logs (90 Tage Retention)
+  - ✅ Console und Debug Sinks
+  - ✅ Log-Levels aus appsettings.json konfigurierbar
+  - ✅ Enrichment (Machine Name, Thread ID, Source Context)
+  - ✅ File Size Limits und Roll-over (100 MB)
 - ⚠️ **Unit Tests** - Grundstruktur vorhanden
   - ❌ 🟡 Test-Coverage auf >70% erhöhen
   - ❌ 🟡 Integration Tests für Services
@@ -487,7 +495,7 @@ Basierend auf dem Entwicklungsauftrag und dem aktuellen Code-Stand.
 4. **Daten-Integration**
    - ✅ SQL-Datenquellen funktional
    - ✅ Auto-Refresh (DataRefreshService)
-   - ❌ Variable-Ersetzung im Server (.NET Template Engine)
+   - ✅ Variable-Ersetzung im Server (Scriban Template Engine)
 
 ### Phase 2: Erweiterungen - 🟡 Mittlere Priorität
 

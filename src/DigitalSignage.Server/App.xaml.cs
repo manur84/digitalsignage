@@ -17,10 +17,20 @@ public partial class App : Application
 
     public App()
     {
-        // Configure Serilog
+        // Create configuration first to load Serilog settings
+        var configuration = new ConfigurationBuilder()
+            .SetBasePath(AppDomain.CurrentDomain.BaseDirectory)
+            .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+            .AddJsonFile($"appsettings.{Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Production"}.json", optional: true)
+            .Build();
+
+        // Configure Serilog from configuration
         Log.Logger = new LoggerConfiguration()
-            .WriteTo.File("logs/digitalsignage-.txt", rollingInterval: RollingInterval.Day)
+            .ReadFrom.Configuration(configuration)
+            .Enrich.WithProperty("Application", "DigitalSignage.Server")
             .CreateLogger();
+
+        Log.Information("Digital Signage Server starting...");
 
         _host = Host.CreateDefaultBuilder()
             .ConfigureAppConfiguration((context, config) =>
@@ -47,6 +57,7 @@ public partial class App : Application
                 services.AddSingleton<ILayoutService, LayoutService>();
                 services.AddSingleton<IClientService, ClientService>();
                 services.AddSingleton<ISqlDataService, SqlDataService>();
+                services.AddSingleton<ITemplateService, TemplateService>();
                 services.AddSingleton<ICommunicationService, WebSocketCommunicationService>();
                 services.AddSingleton<IMediaService, MediaService>();
 
