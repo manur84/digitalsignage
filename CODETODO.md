@@ -533,11 +533,7 @@ Basierend auf dem Entwicklungsauftrag und dem aktuellen Code-Stand.
 
 ### Geplante Features
 
-- ❌ 🟢 **Multi-Tenancy Support**
-- ❌ 🟢 **Cloud-Synchronisation**
-- ❌ 🟢 **Mobile App** (iOS/Android)
-- ❌ 🟡 **REST API** für Drittanbieter
-  - OpenAPI/Swagger Dokumentation
+
 - ❌ 🟢 **Widget-System**
   - Wetter-Widget
   - RSS-Feed
@@ -546,7 +542,7 @@ Basierend auf dem Entwicklungsauftrag und dem aktuellen Code-Stand.
   - View-Statistiken
   - Performance-Metriken
 - ❌ 🟢 **A/B Testing** für Layouts
-- ❌ 🟢 **Touch-Interaktivität** auf Clients
+
 
 ---
 
@@ -566,7 +562,7 @@ Basierend auf dem Entwicklungsauftrag und dem aktuellen Code-Stand.
   - Memory-Leak-Detection
 
 ### Dokumentation
-
+ganz zum schluss
 - ✅ README.md vorhanden
 - ✅ API-Dokumentation (Partial)
 - ❌ 🟡 **Benutzerhandbuch** erstellen
@@ -579,10 +575,7 @@ Basierend auf dem Entwicklungsauftrag und dem aktuellen Code-Stand.
 
 ### CI/CD
 
-- ❌ 🟡 **GitHub Actions Pipeline**
-  - Build + Test bei Push
-  - Automatische Releases
-- ❌ 🟡 **Code-Coverage-Reports**
+
 - ❌ 🟡 **Automatisierte Security-Scans**
 
 ---
