@@ -21,6 +21,7 @@ from device_manager import DeviceManager
 from cache_manager import CacheManager
 from watchdog_monitor import WatchdogMonitor
 from config import Config
+from remote_log_handler import setup_remote_logging
 
 logging.basicConfig(
     level=logging.INFO,
@@ -56,9 +57,49 @@ class DigitalSignageClient:
         self.current_layout: Optional[Dict[str, Any]] = None
         self.connected = False
         self.offline_mode = False
+        self.remote_log_handler = None
+
+        # Setup remote logging if enabled
+        if self.config.remote_logging_enabled:
+            self._setup_remote_logging()
 
         # Register event handlers
         self.setup_event_handlers()
+
+    def _setup_remote_logging(self):
+        """Setup remote logging to send logs to server"""
+        try:
+            # Get log level from config
+            log_level_map = {
+                "DEBUG": logging.DEBUG,
+                "INFO": logging.INFO,
+                "WARNING": logging.WARNING,
+                "ERROR": logging.ERROR,
+                "CRITICAL": logging.CRITICAL
+            }
+            level = log_level_map.get(self.config.remote_logging_level.upper(), logging.INFO)
+
+            # Setup remote logging handler
+            self.remote_log_handler = setup_remote_logging(
+                logger=logging.getLogger(),  # Root logger
+                websocket_client=self,
+                client_id=self.config.client_id,
+                level=level,
+                batch_size=self.config.remote_logging_batch_size,
+                batch_interval=self.config.remote_logging_batch_interval
+            )
+            logger.info("Remote logging enabled - sending logs to server")
+        except Exception as e:
+            logger.error(f"Failed to setup remote logging: {e}")
+
+    def send_message(self, message: Dict[str, Any]):
+        """Send a message to the server (used by remote log handler)"""
+        try:
+            if self.connected:
+                asyncio.create_task(self.sio.emit('message', message))
+        except Exception as e:
+            # Don't log errors here to avoid recursion
+            pass
 
     def setup_event_handlers(self):
         """Setup WebSocket event handlers"""

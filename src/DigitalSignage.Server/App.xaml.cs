@@ -90,6 +90,7 @@ public partial class App : Application
                 services.AddTransient<PreviewViewModel>();
                 services.AddTransient<SchedulingViewModel>();
                 services.AddTransient<MediaLibraryViewModel>();
+                services.AddTransient<LogViewerViewModel>();
 
                 // Register Services
                 services.AddSingleton<ILayoutService, LayoutService>();
@@ -104,6 +105,7 @@ public partial class App : Application
                 services.AddSingleton<ICommunicationService, WebSocketCommunicationService>();
                 services.AddSingleton<IMediaService, EnhancedMediaService>();
                 services.AddScoped<IAuthenticationService, AuthenticationService>();
+                services.AddSingleton<LogStorageService>();
 
                 // Register Repositories
                 services.AddSingleton<DataSourceRepository>();
@@ -112,6 +114,7 @@ public partial class App : Application
                 services.AddHostedService<DataRefreshService>();
                 services.AddHostedService<HeartbeatMonitoringService>();
                 services.AddHostedService<DiscoveryService>();
+                services.AddHostedService<MessageHandlerService>();
 
                 // Register Windows
                 services.AddTransient<Views.MainWindow>();

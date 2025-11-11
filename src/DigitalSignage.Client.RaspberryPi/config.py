@@ -23,6 +23,10 @@ class Config:
     data_dir: str = str(Path.home() / ".digitalsignage" / "data")
     auto_discover: bool = False  # Automatically discover server via UDP broadcast
     discovery_timeout: float = 5.0  # Discovery timeout in seconds
+    remote_logging_enabled: bool = True  # Send logs to server
+    remote_logging_level: str = "INFO"  # Minimum level for remote logs
+    remote_logging_batch_size: int = 50  # Batch size for log messages
+    remote_logging_batch_interval: float = 5.0  # Batch interval in seconds
 
     def get_server_url(self) -> str:
         """Get the full server URL based on SSL configuration"""
@@ -71,5 +75,9 @@ class Config:
             fullscreen=os.getenv("DS_FULLSCREEN", "true").lower() == "true",
             log_level=os.getenv("DS_LOG_LEVEL", "INFO"),
             auto_discover=os.getenv("DS_AUTO_DISCOVER", "false").lower() == "true",
-            discovery_timeout=float(os.getenv("DS_DISCOVERY_TIMEOUT", "5.0"))
+            discovery_timeout=float(os.getenv("DS_DISCOVERY_TIMEOUT", "5.0")),
+            remote_logging_enabled=os.getenv("DS_REMOTE_LOGGING", "true").lower() == "true",
+            remote_logging_level=os.getenv("DS_REMOTE_LOG_LEVEL", "INFO"),
+            remote_logging_batch_size=int(os.getenv("DS_REMOTE_LOG_BATCH_SIZE", "50")),
+            remote_logging_batch_interval=float(os.getenv("DS_REMOTE_LOG_BATCH_INTERVAL", "5.0"))
         )

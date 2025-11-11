@@ -15,6 +15,9 @@
 
     <Window.Resources>
         <local:NullToVisibilityConverter x:Key="NullToVisibilityConverter"/>
+        <local:LogLevelToColorConverter x:Key="LogLevelToColorConverter"/>
+        <local:LogLevelToBackgroundConverter x:Key="LogLevelToBackgroundConverter"/>
+        <local:LogLevelToStringConverter x:Key="LogLevelToStringConverter"/>
     </Window.Resources>
 
     <DockPanel>
@@ -1318,6 +1321,121 @@
                                 </StackPanel>
                             </StackPanel>
                         </ScrollViewer>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- Logs Tab -->
+            <TabItem Header="Logs">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Toolbar -->
+                    <Border Grid.Row="0" Background="#F5F5F5" BorderBrush="#E0E0E0" BorderThickness="0,0,0,1" Padding="8">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Client Filter -->
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="0,0,16,0">
+                                <TextBlock Text="Client:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <ComboBox Width="200"
+                                         ItemsSource="{Binding LogViewerViewModel.AvailableClients}"
+                                         SelectedItem="{Binding LogViewerViewModel.SelectedClientId}"/>
+                            </StackPanel>
+
+                            <!-- Log Level Filters -->
+                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <TextBlock Text="Levels:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <CheckBox Content="Debug" IsChecked="{Binding LogViewerViewModel.FilterDebug}" Margin="0,0,8,0"/>
+                                <CheckBox Content="Info" IsChecked="{Binding LogViewerViewModel.FilterInfo}" Margin="0,0,8,0"/>
+                                <CheckBox Content="Warning" IsChecked="{Binding LogViewerViewModel.FilterWarning}" Margin="0,0,8,0"/>
+                                <CheckBox Content="Error" IsChecked="{Binding LogViewerViewModel.FilterError}" Margin="0,0,8,0"/>
+                                <CheckBox Content="Critical" IsChecked="{Binding LogViewerViewModel.FilterCritical}" Margin="0,0,8,0"/>
+                            </StackPanel>
+
+                            <!-- Actions -->
+                            <StackPanel Grid.Column="3" Orientation="Horizontal">
+                                <CheckBox Content="Auto-scroll" IsChecked="{Binding LogViewerViewModel.AutoScroll}" Margin="0,0,16,0" VerticalAlignment="Center"/>
+                                <Button Content="Refresh" Command="{Binding LogViewerViewModel.RefreshLogsCommand}" Margin="0,0,8,0" Padding="12,4"/>
+                                <Button Content="Clear" Command="{Binding LogViewerViewModel.ClearLogsCommand}" Margin="0,0,8,0" Padding="12,4"/>
+                                <Button Content="Export..." Command="{Binding LogViewerViewModel.ExportLogsCommand}" Padding="12,4"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- Logs DataGrid -->
+                    <DataGrid Grid.Row="1"
+                             ItemsSource="{Binding LogViewerViewModel.FilteredLogs}"
+                             AutoGenerateColumns="False"
+                             IsReadOnly="True"
+                             CanUserAddRows="False"
+                             CanUserDeleteRows="False"
+                             SelectionMode="Extended"
+                             GridLinesVisibility="Horizontal"
+                             AlternatingRowBackground="#F9F9F9"
+                             HeadersVisibility="Column"
+                             VerticalScrollBarVisibility="Auto"
+                             HorizontalScrollBarVisibility="Auto">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Time" Width="150" Binding="{Binding Timestamp, StringFormat='{}{0:yyyy-MM-dd HH:mm:ss}'}"/>
+                            <DataGridTextColumn Header="Client" Width="150" Binding="{Binding ClientName}"/>
+                            <DataGridTemplateColumn Header="Level" Width="80">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Level, Converter={StaticResource LogLevelToStringConverter}}"
+                                                  Foreground="{Binding Level, Converter={StaticResource LogLevelToColorConverter}}"
+                                                  FontWeight="Bold"
+                                                  HorizontalAlignment="Center"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Header="Message" Width="*" Binding="{Binding Message}">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="TextWrapping" Value="NoWrap"/>
+                                        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                                        <Setter Property="ToolTip" Value="{Binding Message}"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                        </DataGrid.Columns>
+                        <DataGrid.RowStyle>
+                            <Style TargetType="DataGridRow">
+                                <Setter Property="Background" Value="{Binding Level, Converter={StaticResource LogLevelToBackgroundConverter}}"/>
+                                <Style.Triggers>
+                                    <Trigger Property="IsSelected" Value="True">
+                                        <Setter Property="Background" Value="#E3F2FD"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </DataGrid.RowStyle>
+                    </DataGrid>
+
+                    <!-- Status Bar -->
+                    <Border Grid.Row="2" Background="#F5F5F5" BorderBrush="#E0E0E0" BorderThickness="0,1,0,0" Padding="8,4">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Column="0" Text="{Binding LogViewerViewModel.StatusText}" VerticalAlignment="Center"/>
+
+                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <Button Content="All" Command="{Binding LogViewerViewModel.SelectAllFiltersCommand}" Margin="0,0,4,0" Padding="8,2" ToolTip="Enable all log levels"/>
+                                <Button Content="None" Command="{Binding LogViewerViewModel.DeselectAllFiltersCommand}" Margin="0,0,4,0" Padding="8,2" ToolTip="Disable all log levels"/>
+                                <Button Content="Errors Only" Command="{Binding LogViewerViewModel.ShowErrorsOnlyCommand}" Padding="8,2" ToolTip="Show only errors and critical"/>
+                            </StackPanel>
+                        </Grid>
                     </Border>
                 </Grid>
             </TabItem>

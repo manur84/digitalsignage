@@ -1,0 +1,237 @@
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using DigitalSignage.Core.Interfaces;
+using DigitalSignage.Core.Models;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+
+namespace DigitalSignage.Server.Services;
+
+/// <summary>
+/// Background service that handles incoming WebSocket messages
+/// </summary>
+public class MessageHandlerService : BackgroundService
+{
+    private readonly ICommunicationService _communicationService;
+    private readonly IClientService _clientService;
+    private readonly LogStorageService _logStorageService;
+    private readonly ILogger<MessageHandlerService> _logger;
+
+    public MessageHandlerService(
+        ICommunicationService communicationService,
+        IClientService clientService,
+        LogStorageService logStorageService,
+        ILogger<MessageHandlerService> logger)
+    {
+        _communicationService = communicationService ?? throw new ArgumentNullException(nameof(communicationService));
+        _clientService = clientService ?? throw new ArgumentNullException(nameof(clientService));
+        _logStorageService = logStorageService ?? throw new ArgumentNullException(nameof(logStorageService));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+    }
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        _logger.LogInformation("Message Handler Service starting...");
+
+        // Subscribe to message events
+        _communicationService.MessageReceived += OnMessageReceived;
+
+        // Keep the service running
+        try
+        {
+            await Task.Delay(Timeout.Infinite, stoppingToken);
+        }
+        catch (OperationCanceledException)
+        {
+            // Service is stopping
+        }
+
+        _logger.LogInformation("Message Handler Service stopped");
+    }
+
+    private async void OnMessageReceived(object? sender, MessageReceivedEventArgs e)
+    {
+        try
+        {
+            await HandleMessageAsync(e.ClientId, e.Message);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error handling message from client {ClientId}", e.ClientId);
+        }
+    }
+
+    private async Task HandleMessageAsync(string clientId, Message message)
+    {
+        _logger.LogDebug("Handling message type {MessageType} from client {ClientId}", message.Type, clientId);
+
+        switch (message.Type)
+        {
+            case "REGISTER":
+                await HandleRegisterMessageAsync(clientId, message);
+                break;
+
+            case "HEARTBEAT":
+                await HandleHeartbeatMessageAsync(clientId, message);
+                break;
+
+            case "STATUS_REPORT":
+                await HandleStatusReportMessageAsync(clientId, message);
+                break;
+
+            case "LOG":
+                await HandleLogMessageAsync(clientId, message);
+                break;
+
+            case "SCREENSHOT":
+                await HandleScreenshotMessageAsync(clientId, message);
+                break;
+
+            default:
+                _logger.LogWarning("Unknown message type {MessageType} from client {ClientId}", message.Type, clientId);
+                break;
+        }
+    }
+
+    private async Task HandleRegisterMessageAsync(string clientId, Message message)
+    {
+        try
+        {
+            var registerMessage = DeserializeMessage<RegisterMessage>(message);
+            if (registerMessage != null)
+            {
+                var client = await _clientService.RegisterClientAsync(registerMessage);
+                _logger.LogInformation("Client registered: {ClientId} from {IpAddress}", client.Id, client.IpAddress);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error handling REGISTER message from client {ClientId}", clientId);
+        }
+    }
+
+    private async Task HandleHeartbeatMessageAsync(string clientId, Message message)
+    {
+        try
+        {
+            var heartbeatMessage = DeserializeMessage<HeartbeatMessage>(message);
+            if (heartbeatMessage != null)
+            {
+                await _clientService.UpdateClientStatusAsync(
+                    heartbeatMessage.ClientId,
+                    heartbeatMessage.Status,
+                    heartbeatMessage.DeviceInfo);
+
+                _logger.LogDebug("Heartbeat received from client {ClientId}", heartbeatMessage.ClientId);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error handling HEARTBEAT message from client {ClientId}", clientId);
+        }
+    }
+
+    private async Task HandleStatusReportMessageAsync(string clientId, Message message)
+    {
+        try
+        {
+            var statusMessage = DeserializeMessage<StatusReportMessage>(message);
+            if (statusMessage != null)
+            {
+                await _clientService.UpdateClientStatusAsync(
+                    statusMessage.ClientId,
+                    statusMessage.Status,
+                    statusMessage.DeviceInfo);
+
+                if (!string.IsNullOrEmpty(statusMessage.ErrorMessage))
+                {
+                    _logger.LogWarning("Client {ClientId} reported error: {Error}",
+                        statusMessage.ClientId, statusMessage.ErrorMessage);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error handling STATUS_REPORT message from client {ClientId}", clientId);
+        }
+    }
+
+    private async Task HandleLogMessageAsync(string clientId, Message message)
+    {
+        try
+        {
+            var logMessage = DeserializeMessage<LogMessage>(message);
+            if (logMessage != null)
+            {
+                // Get client info for better log display
+                var client = await _clientService.GetClientByIdAsync(logMessage.ClientId);
+
+                var logEntry = new LogEntry
+                {
+                    ClientId = logMessage.ClientId,
+                    ClientName = client?.Name ?? logMessage.ClientId,
+                    Timestamp = logMessage.Timestamp,
+                    Level = logMessage.Level,
+                    Message = logMessage.Message,
+                    Exception = logMessage.Exception,
+                    Source = "Client"
+                };
+
+                _logStorageService.AddLog(logEntry);
+
+                // Also log to server logs if it's warning or error
+                if (logMessage.Level >= Core.Models.LogLevel.Warning)
+                {
+                    _logger.LogWarning("Client {ClientId} [{Level}]: {Message}",
+                        logMessage.ClientId, logMessage.Level, logMessage.Message);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error handling LOG message from client {ClientId}", clientId);
+        }
+    }
+
+    private async Task HandleScreenshotMessageAsync(string clientId, Message message)
+    {
+        try
+        {
+            var screenshotMessage = DeserializeMessage<ScreenshotMessage>(message);
+            if (screenshotMessage != null)
+            {
+                _logger.LogInformation("Screenshot received from client {ClientId}, size: {Size} bytes",
+                    screenshotMessage.ClientId,
+                    screenshotMessage.ImageData?.Length ?? 0);
+
+                // TODO: Store screenshot or notify UI
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error handling SCREENSHOT message from client {ClientId}", clientId);
+        }
+    }
+
+    private T? DeserializeMessage<T>(Message message) where T : Message
+    {
+        try
+        {
+            // Re-serialize and deserialize to get proper type
+            var json = JsonConvert.SerializeObject(message);
+            return JsonConvert.DeserializeObject<T>(json);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to deserialize message of type {MessageType}", typeof(T).Name);
+            return null;
+        }
+    }
+
+    public override async Task StopAsync(CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Message Handler Service stopping...");
+        _communicationService.MessageReceived -= OnMessageReceived;
+        await base.StopAsync(cancellationToken);
+    }
+}
