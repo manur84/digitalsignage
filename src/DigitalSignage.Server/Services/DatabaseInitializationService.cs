@@ -125,9 +125,10 @@ public class DatabaseInitializationService : IHostedService
 
             var templates = new[]
             {
+                // Blank Templates - Various Resolutions
                 new LayoutTemplate
                 {
-                    Name = "Blank 1920x1080",
+                    Name = "Blank 1920x1080 (Full HD)",
                     Description = "Empty landscape template at Full HD resolution",
                     Category = LayoutTemplateCategory.Blank,
                     Resolution = new Core.Models.Resolution { Width = 1920, Height = 1080, Orientation = "landscape" },
@@ -138,7 +139,7 @@ public class DatabaseInitializationService : IHostedService
                 },
                 new LayoutTemplate
                 {
-                    Name = "Blank 1080x1920 Portrait",
+                    Name = "Blank 1080x1920 Portrait (Full HD)",
                     Description = "Empty portrait template at Full HD resolution",
                     Category = LayoutTemplateCategory.Blank,
                     Resolution = new Core.Models.Resolution { Width = 1080, Height = 1920, Orientation = "portrait" },
@@ -147,6 +148,41 @@ public class DatabaseInitializationService : IHostedService
                     IsBuiltIn = true,
                     IsPublic = true
                 },
+                new LayoutTemplate
+                {
+                    Name = "Blank 1280x720 (HD)",
+                    Description = "Empty landscape template at HD resolution",
+                    Category = LayoutTemplateCategory.Blank,
+                    Resolution = new Core.Models.Resolution { Width = 1280, Height = 720, Orientation = "landscape" },
+                    BackgroundColor = "#FFFFFF",
+                    ElementsJson = "[]",
+                    IsBuiltIn = true,
+                    IsPublic = true
+                },
+                new LayoutTemplate
+                {
+                    Name = "Blank 3840x2160 (4K UHD)",
+                    Description = "Empty landscape template at 4K Ultra HD resolution",
+                    Category = LayoutTemplateCategory.Blank,
+                    Resolution = new Core.Models.Resolution { Width = 3840, Height = 2160, Orientation = "landscape" },
+                    BackgroundColor = "#FFFFFF",
+                    ElementsJson = "[]",
+                    IsBuiltIn = true,
+                    IsPublic = true
+                },
+                new LayoutTemplate
+                {
+                    Name = "Blank 2160x3840 Portrait (4K UHD)",
+                    Description = "Empty portrait template at 4K Ultra HD resolution",
+                    Category = LayoutTemplateCategory.Blank,
+                    Resolution = new Core.Models.Resolution { Width = 2160, Height = 3840, Orientation = "portrait" },
+                    BackgroundColor = "#FFFFFF",
+                    ElementsJson = "[]",
+                    IsBuiltIn = true,
+                    IsPublic = true
+                },
+
+                // Information Boards
                 new LayoutTemplate
                 {
                     Name = "Simple Information Board",
@@ -158,14 +194,68 @@ public class DatabaseInitializationService : IHostedService
                     IsBuiltIn = true,
                     IsPublic = true
                 },
+
+                // Room Occupancy
                 new LayoutTemplate
                 {
                     Name = "Room Occupancy Display",
-                    Description = "Room status and occupancy information",
+                    Description = "Room status and occupancy information with dynamic data",
                     Category = LayoutTemplateCategory.RoomOccupancy,
                     Resolution = new Core.Models.Resolution { Width = 1920, Height = 1080, Orientation = "landscape" },
                     BackgroundColor = "#34495E",
                     ElementsJson = "[{\"Id\":\"roomname\",\"Type\":\"text\",\"X\":100,\"Y\":100,\"Width\":1720,\"Height\":200,\"Content\":\"{{RoomName}}\",\"Style\":{\"FontSize\":\"86\",\"FontWeight\":\"bold\",\"Color\":\"#FFFFFF\",\"TextAlign\":\"center\"}},{\"Id\":\"status\",\"Type\":\"text\",\"X\":100,\"Y\":400,\"Width\":1720,\"Height\":300,\"Content\":\"{{Status}}\",\"Style\":{\"FontSize\":\"64\",\"Color\":\"#2ECC71\",\"TextAlign\":\"center\"}},{\"Id\":\"time\",\"Type\":\"text\",\"X\":100,\"Y\":800,\"Width\":1720,\"Height\":150,\"Content\":\"{{CurrentTime}}\",\"Style\":{\"FontSize\":\"48\",\"Color\":\"#BDC3C7\",\"TextAlign\":\"center\"}}]",
+                    IsBuiltIn = true,
+                    IsPublic = true
+                },
+
+                // Welcome Screen
+                new LayoutTemplate
+                {
+                    Name = "Corporate Welcome Screen",
+                    Description = "Professional welcome display for visitors",
+                    Category = LayoutTemplateCategory.WelcomeScreen,
+                    Resolution = new Core.Models.Resolution { Width = 1920, Height = 1080, Orientation = "landscape" },
+                    BackgroundColor = "#1A1A2E",
+                    ElementsJson = "[{\"Id\":\"header\",\"Type\":\"text\",\"X\":100,\"Y\":150,\"Width\":1720,\"Height\":120,\"Content\":\"Welcome to\",\"Style\":{\"FontSize\":\"48\",\"Color\":\"#BDC3C7\",\"TextAlign\":\"center\"}},{\"Id\":\"company\",\"Type\":\"text\",\"X\":100,\"Y\":300,\"Width\":1720,\"Height\":180,\"Content\":\"{{CompanyName}}\",\"Style\":{\"FontSize\":\"96\",\"FontWeight\":\"bold\",\"Color\":\"#FFFFFF\",\"TextAlign\":\"center\"}},{\"Id\":\"datetime\",\"Type\":\"text\",\"X\":100,\"Y\":850,\"Width\":1720,\"Height\":80,\"Content\":\"{{date_format DateTime \\\"dddd, MMMM d, yyyy - HH:mm\\\"}}\",\"Style\":{\"FontSize\":\"36\",\"Color\":\"#95A5A6\",\"TextAlign\":\"center\"}}]",
+                    IsBuiltIn = true,
+                    IsPublic = true
+                },
+
+                // Menu Board
+                new LayoutTemplate
+                {
+                    Name = "Digital Menu Board",
+                    Description = "Menu display template with header and item list",
+                    Category = LayoutTemplateCategory.MenuBoard,
+                    Resolution = new Core.Models.Resolution { Width = 1920, Height = 1080, Orientation = "landscape" },
+                    BackgroundColor = "#ECEFF1",
+                    ElementsJson = "[{\"Id\":\"menutitle\",\"Type\":\"text\",\"X\":50,\"Y\":30,\"Width\":1820,\"Height\":100,\"Content\":\"Today's Menu\",\"Style\":{\"FontSize\":\"64\",\"FontWeight\":\"bold\",\"Color\":\"#263238\",\"TextAlign\":\"center\"}},{\"Id\":\"menuitems\",\"Type\":\"text\",\"X\":100,\"Y\":200,\"Width\":1720,\"Height\":800,\"Content\":\"Menu items will be displayed here\",\"Style\":{\"FontSize\":\"32\",\"Color\":\"#37474F\",\"TextAlign\":\"left\"}}]",
+                    IsBuiltIn = true,
+                    IsPublic = true
+                },
+
+                // Wayfinding
+                new LayoutTemplate
+                {
+                    Name = "Directory Wayfinding",
+                    Description = "Building directory and wayfinding display",
+                    Category = LayoutTemplateCategory.Wayfinding,
+                    Resolution = new Core.Models.Resolution { Width = 1920, Height = 1080, Orientation = "landscape" },
+                    BackgroundColor = "#FAFAFA",
+                    ElementsJson = "[{\"Id\":\"dirheader\",\"Type\":\"text\",\"X\":50,\"Y\":40,\"Width\":1820,\"Height\":100,\"Content\":\"Building Directory\",\"Style\":{\"FontSize\":\"58\",\"FontWeight\":\"bold\",\"Color\":\"#212121\",\"TextAlign\":\"center\"}},{\"Id\":\"directions\",\"Type\":\"text\",\"X\":100,\"Y\":180,\"Width\":1720,\"Height\":820,\"Content\":\"Floor information and directions\",\"Style\":{\"FontSize\":\"36\",\"Color\":\"#424242\",\"TextAlign\":\"left\"}}]",
+                    IsBuiltIn = true,
+                    IsPublic = true
+                },
+
+                // Emergency
+                new LayoutTemplate
+                {
+                    Name = "Emergency Information",
+                    Description = "Emergency alerts and safety information",
+                    Category = LayoutTemplateCategory.Emergency,
+                    Resolution = new Core.Models.Resolution { Width = 1920, Height = 1080, Orientation = "landscape" },
+                    BackgroundColor = "#B71C1C",
+                    ElementsJson = "[{\"Id\":\"emergtitle\",\"Type\":\"text\",\"X\":100,\"Y\":200,\"Width\":1720,\"Height\":150,\"Content\":\"EMERGENCY INFORMATION\",\"Style\":{\"FontSize\":\"72\",\"FontWeight\":\"bold\",\"Color\":\"#FFFFFF\",\"TextAlign\":\"center\"}},{\"Id\":\"emergmsg\",\"Type\":\"text\",\"X\":150,\"Y\":450,\"Width\":1620,\"Height\":400,\"Content\":\"{{EmergencyMessage}}\",\"Style\":{\"FontSize\":\"48\",\"Color\":\"#FFEBEE\",\"TextAlign\":\"center\"}}]",
                     IsBuiltIn = true,
                     IsPublic = true
                 }

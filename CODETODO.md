@@ -26,11 +26,20 @@ Basierend auf dem Entwicklungsauftrag und dem aktuellen Code-Stand.
   - ✅ Template Metadaten: Name, Description, Thumbnail, Resolution
   - ✅ ElementsJson für vordefinierte Element-Layouts
   - ✅ Usage Tracking (LastUsedAt, UsageCount)
-  - ✅ Default Templates beim DB-Init:
-    - Blank 1920x1080 Landscape
-    - Blank 1080x1920 Portrait
-    - Simple Information Board
-    - Room Occupancy Display
+  - ✅ 11 Built-in Templates beim DB-Init:
+    - **Blank Templates (5):**
+      - Blank 1920x1080 (Full HD Landscape)
+      - Blank 1080x1920 (Full HD Portrait)
+      - Blank 1280x720 (HD)
+      - Blank 3840x2160 (4K UHD Landscape)
+      - Blank 2160x3840 (4K UHD Portrait)
+    - **Content Templates (6):**
+      - Simple Information Board
+      - Room Occupancy Display (mit Template-Variablen)
+      - Corporate Welcome Screen (mit date_format)
+      - Digital Menu Board
+      - Directory Wayfinding
+      - Emergency Information
   - ❌ Template-Auswahl-Dialog in UI
 - ❌ 🟡 **Layout-Kategorien und Tags** für bessere Organisation
   - Kategorisierung in `DisplayLayout` Model
@@ -84,9 +93,15 @@ Basierend auf dem Entwicklungsauftrag und dem aktuellen Code-Stand.
 
 #### Skalierbarkeit und Anpassung
 - ✅ Resolution in DisplayLayout definiert
-- ❌ 🔴 **Vordefinierte Auflösungs-Templates**
-  - 1920x1080, 1280x720, 3840x2160, Portrait-Modi
-  - Template-Auswahl beim Erstellen
+- ✅ **Vordefinierte Auflösungs-Templates**
+  - ✅ Layout Templates mit verschiedenen Auflösungen
+  - ✅ 1920x1080 (Full HD) Landscape & Portrait
+  - ✅ 1280x720 (HD) Landscape
+  - ✅ 3840x2160 (4K UHD) Landscape & Portrait
+  - ✅ Resolution Objekt in LayoutTemplate Entity
+  - ✅ Orientation Support (landscape/portrait)
+  - ✅ 5 verschiedene Auflösungs-Templates verfügbar
+  - ❌ Template-Auswahl-Dialog in UI
 - ❌ 🟡 **Responsive Design-Optionen**
   - Prozentuale Positionierung neben Pixel
   - Anchor-Points für Elemente
