@@ -43,10 +43,16 @@ public class Program
             if (UrlAclManager.IsRunningAsAdministrator())
             {
                 // We're admin but URL ACL still not configured
-                // Configure it now SILENTLY
-                Console.WriteLine("Running as administrator, configuring URL ACL automatically...");
-                if (UrlAclManager.ConfigureUrlAcl(defaultPort))
+                // Configure it now SILENTLY (including Firewall)
+                Console.WriteLine("Running as administrator, configuring URL ACL and Firewall automatically...");
+
+                bool urlAclSuccess = UrlAclManager.ConfigureUrlAcl(defaultPort);
+                bool firewallSuccess = FirewallManager.ConfigureFirewallRules(defaultPort);
+
+                if (urlAclSuccess && firewallSuccess)
                 {
+                    Console.WriteLine("✓ All configurations successful");
+
                     // Mark setup as completed
                     MarkSetupCompleted();
 
@@ -56,12 +62,15 @@ public class Program
                 }
                 else
                 {
-                    // Only show message if setup FAILED
+                    // Show what failed
+                    string errorMsg = "Konfiguration fehlgeschlagen:\n\n";
+                    if (!urlAclSuccess) errorMsg += "✗ URL ACL Konfiguration fehlgeschlagen\n";
+                    if (!firewallSuccess) errorMsg += "✗ Firewall Konfiguration fehlgeschlagen\n";
+                    errorMsg += "\nSiehe urlacl-setup.log für Details.";
+
                     MessageBox.Show(
-                        "URL ACL Konfiguration fehlgeschlagen.\n\n" +
-                        "Bitte führen Sie setup-urlacl.bat manuell aus.\n\n" +
-                        "Siehe urlacl-setup.log für Details.",
-                        "Fehler",
+                        errorMsg,
+                        "Setup Fehler",
                         MessageBoxButton.OK,
                         MessageBoxImage.Error);
                     return;
@@ -138,7 +147,11 @@ public class Program
             var portArg = args.FirstOrDefault(a => int.TryParse(a, out _));
             var port = portArg != null ? int.Parse(portArg) : 8080;
 
-            var success = UrlAclManager.ConfigureUrlAcl(port);
+            // Configure both URL ACL and Firewall
+            var urlAclSuccess = UrlAclManager.ConfigureUrlAcl(port);
+            var firewallSuccess = FirewallManager.ConfigureFirewallRules(port);
+
+            var success = urlAclSuccess && firewallSuccess;
 
             // Restore console
             Console.SetOut(originalOut);
@@ -147,7 +160,7 @@ public class Program
             // Always write log to file for debugging
             try
             {
-                var logPath = Path.Combine(Environment.CurrentDirectory, "urlacl-setup.log");
+                var logPath = Path.Combine(Environment.CurrentDirectory, "setup.log");
                 File.WriteAllText(logPath, log);
                 Console.WriteLine($"Log written to: {logPath}");
             }
@@ -158,6 +171,9 @@ public class Program
 
             if (success)
             {
+                Console.WriteLine("✓ URL ACL configured");
+                Console.WriteLine("✓ Firewall configured");
+
                 // Mark setup as completed
                 MarkSetupCompleted();
 
@@ -167,8 +183,13 @@ public class Program
             }
             else
             {
+                // Show what failed
+                Console.WriteLine();
+                if (!urlAclSuccess) Console.WriteLine("✗ URL ACL configuration failed");
+                if (!firewallSuccess) Console.WriteLine("✗ Firewall configuration failed");
+
                 // Show detailed error window with log
-                ShowDetailedErrorWindow(log, port);
+                ShowDetailedErrorWindow(log, port, urlAclSuccess, firewallSuccess);
             }
         }
         catch (Exception ex)
@@ -189,11 +210,11 @@ public class Program
         }
     }
 
-    private static void ShowDetailedErrorWindow(string log, int port)
+    private static void ShowDetailedErrorWindow(string log, int port, bool urlAclSuccess, bool firewallSuccess)
     {
         var errorWindow = new Window
         {
-            Title = "URL ACL Setup Fehler - Detailliertes Log",
+            Title = "Setup Fehler - Detailliertes Log",
             Width = 800,
             Height = 600,
             WindowStartupLocation = WindowStartupLocation.CenterScreen,
@@ -206,9 +227,13 @@ public class Program
         grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
         // Header
+        string headerText = "Setup fehlgeschlagen:";
+        if (!urlAclSuccess) headerText += "\n✗ URL ACL";
+        if (!firewallSuccess) headerText += "\n✗ Windows Firewall";
+
         var header = new TextBlock
         {
-            Text = "URL ACL Konfiguration fehlgeschlagen!",
+            Text = headerText,
             FontSize = 16,
             FontWeight = FontWeights.Bold,
             Foreground = new SolidColorBrush(Colors.Red),
@@ -226,31 +251,28 @@ public class Program
                    log + "\n\n" +
                    "LÖSUNGEN:\n" +
                    "=========\n\n" +
-                   "OPTION 1: Manuelle Batch-Datei (EMPFOHLEN)\n" +
-                   "-------------------------------------------\n" +
+                   "OPTION 1: Anwendung neu starten als Administrator\n" +
+                   "------------------------------------------------\n" +
                    "1. Schließen Sie dieses Fenster\n" +
-                   "2. Öffnen Sie den Ordner der Anwendung\n" +
-                   "3. Rechtsklick auf 'setup-urlacl.bat'\n" +
-                   "4. Wählen Sie 'Als Administrator ausführen'\n\n" +
-                   "OPTION 2: Manueller Befehl in PowerShell\n" +
-                   "-----------------------------------------\n" +
-                   "1. Öffnen Sie PowerShell als Administrator\n" +
-                   "2. Führen Sie aus:\n" +
-                   $"   netsh http add urlacl url=http://+:{port}/ws/ user=Everyone\n" +
-                   $"   netsh http add urlacl url=http://+:{port}/ user=Everyone\n\n" +
-                   "OPTION 3: HTTP.sys Service prüfen\n" +
-                   "----------------------------------\n" +
-                   "1. Öffnen Sie PowerShell als Administrator\n" +
-                   "2. Prüfen Sie den Service: sc query HTTP\n" +
-                   "3. Falls gestoppt, starten Sie: net start HTTP\n\n" +
-                   "OPTION 4: Windows neu starten\n" +
-                   "------------------------------\n" +
-                   "Manchmal hilft ein Neustart von Windows, dann\n" +
-                   "die Anwendung erneut als Administrator starten.\n\n" +
+                   "2. Rechtsklick auf die Anwendung\n" +
+                   "3. Wählen Sie 'Als Administrator ausführen'\n" +
+                   "4. Die Konfiguration läuft automatisch\n\n" +
+                   "OPTION 2: Manuelle PowerShell-Befehle\n" +
+                   "-------------------------------------\n" +
+                   "Öffnen Sie PowerShell als Administrator und führen Sie aus:\n\n" +
+                   (!urlAclSuccess ?
+                   $"# URL ACL konfigurieren:\n" +
+                   $"netsh http add urlacl url=http://+:{port}/ws/ sddl=D:(A;;GX;;;S-1-1-0)\n" +
+                   $"netsh http add urlacl url=http://+:{port}/ sddl=D:(A;;GX;;;S-1-1-0)\n\n" : "") +
+                   (!firewallSuccess ?
+                   "# Firewall-Regeln hinzufügen:\n" +
+                   $"New-NetFirewallRule -DisplayName 'Digital Signage - UDP Discovery' -Direction Inbound -Protocol UDP -LocalPort 5555 -Action Allow\n" +
+                   $"New-NetFirewallRule -DisplayName 'Digital Signage - mDNS' -Direction Inbound -Protocol UDP -LocalPort 5353 -Action Allow\n" +
+                   $"New-NetFirewallRule -DisplayName 'Digital Signage - WebSocket' -Direction Inbound -Protocol TCP -LocalPort {port} -Action Allow\n\n" : "") +
                    "SUPPORT:\n" +
                    "--------\n" +
                    "Falls nichts funktioniert, senden Sie bitte die\n" +
-                   "Datei 'urlacl-setup.log' an den Support.",
+                   "Datei 'setup.log' an den Support.",
             IsReadOnly = true,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
