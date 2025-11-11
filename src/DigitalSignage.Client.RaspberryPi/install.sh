@@ -268,7 +268,7 @@ Group=$ACTUAL_USER
 WorkingDirectory=$INSTALL_DIR
 Environment="DISPLAY=:0"
 Environment="XAUTHORITY=$USER_HOME/.Xauthority"
-ExecStartPre=/bin/sleep 10
+ExecStartPre=/bin/sleep 2
 ExecStart=$VENV_DIR/bin/python3 $INSTALL_DIR/client.py
 Restart=always
 RestartSec=10
@@ -380,13 +380,23 @@ echo "✓ Service enabled"
 # Start the service
 echo ""
 echo "Starting service..."
-systemctl start digitalsignage-client
-echo "✓ Service started"
+# Use --no-block to avoid hanging if service takes long to start
+systemctl start digitalsignage-client --no-block
+sleep 3  # Give it a moment to initialize
 
-# Wait a moment and check status
+# Check if it's running or starting
+if systemctl is-active digitalsignage-client &>/dev/null || systemctl is-activating digitalsignage-client &>/dev/null; then
+    echo "✓ Service started successfully"
+else
+    echo "⚠ Service failed to start"
+    echo "  Check status: sudo systemctl status digitalsignage-client"
+    echo "  Check logs: sudo journalctl -u digitalsignage-client -n 50"
+fi
+
+# Wait for service to stabilize
 echo ""
 echo "Waiting for service to initialize..."
-sleep 3
+sleep 2
 
 if systemctl is-active --quiet digitalsignage-client; then
     echo "✓ Service is running successfully!"

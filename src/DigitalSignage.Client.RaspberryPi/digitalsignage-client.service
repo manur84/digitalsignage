@@ -4,8 +4,7 @@ After=network-online.target graphical.target
 Wants=network-online.target
 
 [Service]
-Type=notify
-NotifyAccess=main
+Type=simple
 User=INSTALL_USER
 Group=INSTALL_USER
 WorkingDirectory=/opt/digitalsignage-client
@@ -13,8 +12,8 @@ Environment="PYTHONUNBUFFERED=1"
 Environment="QT_QPA_PLATFORM=xcb"
 Environment="QT_LOGGING_RULES=*.debug=false"
 
-# Pre-start checks
-ExecStartPre=/bin/sleep 10
+# Pre-start checks (reduced sleep from 10s to 2s)
+ExecStartPre=/bin/sleep 2
 ExecStartPre=/bin/bash -c 'test -f /opt/digitalsignage-client/start-with-display.sh || (echo "ERROR: start-with-display.sh not found" && exit 1)'
 ExecStartPre=/bin/bash -c 'test -x /opt/digitalsignage-client/start-with-display.sh || (echo "ERROR: start-with-display.sh not executable" && exit 1)'
 ExecStartPre=/bin/bash -c 'test -f /opt/digitalsignage-client/venv/bin/python3 || (echo "ERROR: Python venv not found" && exit 1)'
@@ -33,11 +32,6 @@ RestartSec=10
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=digitalsignage-client
-
-# Watchdog - will restart if no ping received within 60 seconds
-WatchdogSec=60
-# Give service 60 seconds to start and notify ready (increased from 30)
-TimeoutStartSec=60
 
 # Security
 NoNewPrivileges=true
