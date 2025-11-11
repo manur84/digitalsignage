@@ -38,12 +38,79 @@ echo "Installing for user: $ACTUAL_USER"
 echo "User home directory: $USER_HOME"
 echo ""
 
+# Check for existing installation and prompt for confirmation
+if [ -d "/opt/digitalsignage-client" ] || systemctl list-unit-files | grep -q "digitalsignage-client.service"; then
+    echo ""
+    echo "WARNING: Existing installation detected"
+    echo "This will:"
+    echo "  - Stop and disable the current service"
+    echo "  - Backup config.py to /tmp (if exists)"
+    echo "  - Remove the old installation completely"
+    echo "  - Install fresh version"
+    echo "  - Enable and start the service automatically"
+    echo ""
+    read -p "Continue with installation? (y/N): " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        echo "Installation cancelled."
+        exit 0
+    fi
+fi
+
+# Clean up old installation
+echo ""
+echo "========================================="
+echo "Cleaning Up Old Installation"
+echo "========================================="
+echo ""
+
+# Stop service if running
+if systemctl is-active --quiet digitalsignage-client 2>/dev/null; then
+    echo "Stopping existing service..."
+    systemctl stop digitalsignage-client
+    echo "✓ Service stopped"
+else
+    echo "✓ No running service found"
+fi
+
+# Disable service if enabled
+if systemctl is-enabled --quiet digitalsignage-client 2>/dev/null; then
+    echo "Disabling existing service..."
+    systemctl disable digitalsignage-client
+    echo "✓ Service disabled"
+else
+    echo "✓ Service not enabled"
+fi
+
+# Backup old config if exists
+if [ -f "/opt/digitalsignage-client/config.py" ]; then
+    BACKUP_FILE="/tmp/digitalsignage-config-backup-$(date +%s).py"
+    cp /opt/digitalsignage-client/config.py "$BACKUP_FILE"
+    echo "✓ Old config backed up to: $BACKUP_FILE"
+    echo "  (You can restore this later if needed)"
+fi
+
+# Remove old installation directory
+if [ -d "/opt/digitalsignage-client" ]; then
+    echo "Removing old installation directory..."
+    rm -rf /opt/digitalsignage-client
+    echo "✓ Old installation removed"
+else
+    echo "✓ No old installation found (fresh install)"
+fi
+
+echo ""
+echo "========================================="
+echo "Installing Digital Signage Client"
+echo "========================================="
+echo ""
+
 # Update package lists
-echo "[1/9] Updating package lists..."
+echo "[1/10] Updating package lists..."
 apt-get update
 
 # Install system dependencies
-echo "[2/9] Installing system dependencies..."
+echo "[2/10] Installing system dependencies..."
 apt-get install -y \
     python3 \
     python3-pip \
@@ -60,7 +127,7 @@ apt-get install -y \
     libqt5multimedia5-plugins
 
 echo ""
-echo "[3/9] Verifying PyQt5 installation..."
+echo "[3/10] Verifying PyQt5 installation..."
 if python3 -c "import PyQt5" 2>/dev/null; then
     PYQT5_VERSION=$(python3 -c "from PyQt5.QtCore import PYQT_VERSION_STR; print(PYQT_VERSION_STR)" 2>/dev/null)
     echo "✓ PyQt5 $PYQT5_VERSION installed successfully"
@@ -160,7 +227,6 @@ EOF
 fi
 
 systemctl daemon-reload
-systemctl enable digitalsignage-client.service
 
 # Configure autostart
 echo "[10/10] Configuring autostart..."
@@ -206,28 +272,86 @@ fi
 
 echo ""
 echo "========================================="
-echo "Installation Complete!"
+echo "Starting Digital Signage Client Service"
 echo "========================================="
 echo ""
-echo "Configuration:"
-echo "  - Installation directory: $INSTALL_DIR"
-echo "  - Virtual environment: $VENV_DIR"
-echo "  - Config directory: $CONFIG_DIR"
-echo "  - Service file: /etc/systemd/system/digitalsignage-client.service"
+
+# Enable service to start on boot
+echo "Enabling service to start on boot..."
+systemctl enable digitalsignage-client
+echo "✓ Service enabled"
+
+# Start the service
 echo ""
-echo "Next steps:"
-echo "  1. Edit configuration: sudo nano $INSTALL_DIR/config.py"
-echo "  2. Set server host and port"
-echo "  3. Start service: sudo systemctl start digitalsignage-client"
-echo "  4. Check status: sudo systemctl status digitalsignage-client"
-echo "  5. View logs: sudo journalctl -u digitalsignage-client -f"
+echo "Starting service..."
+systemctl start digitalsignage-client
+echo "✓ Service started"
+
+# Wait a moment and check status
 echo ""
-echo "Note: Python packages are installed in a virtual environment at $VENV_DIR"
-echo "This avoids conflicts with system Python packages (Python 3.11+ requirement)."
-echo "The venv uses --system-site-packages to access system packages:"
-echo "  - PyQt5 (python3-pyqt5, python3-pyqt5.qtsvg, python3-pyqt5.qtmultimedia)"
-echo "  - psutil (python3-psutil)"
-echo ""
-echo "The service will automatically start on boot."
-echo "To disable autostart: sudo systemctl disable digitalsignage-client"
-echo ""
+echo "Waiting for service to initialize..."
+sleep 3
+
+if systemctl is-active --quiet digitalsignage-client; then
+    echo "✓ Service is running successfully!"
+    echo ""
+    echo "========================================="
+    echo "Installation Complete!"
+    echo "========================================="
+    echo ""
+    echo "Configuration:"
+    echo "  - Installation directory: $INSTALL_DIR"
+    echo "  - Virtual environment: $VENV_DIR"
+    echo "  - Config directory: $CONFIG_DIR"
+    echo "  - Service file: /etc/systemd/system/digitalsignage-client.service"
+    echo ""
+    echo "Service Status: RUNNING"
+    echo ""
+    echo "Next steps:"
+    echo "  1. Edit configuration: sudo nano $INSTALL_DIR/config.py"
+    echo "  2. Set server host and port"
+    echo "  3. Restart service: sudo systemctl restart digitalsignage-client"
+    echo ""
+    echo "Useful commands:"
+    echo "  View status:  sudo systemctl status digitalsignage-client"
+    echo "  View logs:    sudo journalctl -u digitalsignage-client -f"
+    echo "  Restart:      sudo systemctl restart digitalsignage-client"
+    echo "  Stop:         sudo systemctl stop digitalsignage-client"
+    echo "  Disable:      sudo systemctl disable digitalsignage-client"
+    echo ""
+    echo "Note: Python packages are installed in a virtual environment at $VENV_DIR"
+    echo "This avoids conflicts with system Python packages (Python 3.11+ requirement)."
+    echo "The venv uses --system-site-packages to access system packages:"
+    echo "  - PyQt5 (python3-pyqt5, python3-pyqt5.qtsvg, python3-pyqt5.qtmultimedia)"
+    echo "  - psutil (python3-psutil)"
+    echo ""
+    echo "The service is configured to start automatically on boot."
+    echo ""
+else
+    echo "✗ WARNING: Service failed to start"
+    echo ""
+    echo "========================================="
+    echo "Installation Complete (with warnings)"
+    echo "========================================="
+    echo ""
+    echo "The installation completed but the service failed to start."
+    echo ""
+    echo "Check the logs for errors:"
+    echo "  sudo journalctl -u digitalsignage-client -n 50"
+    echo ""
+    echo "Common issues:"
+    echo "  - Missing dependencies (check PyQt5 import above)"
+    echo "  - Configuration errors in config.py"
+    echo "  - Display server (X11) not available"
+    echo "  - Server host not reachable (expected on fresh install)"
+    echo ""
+    echo "After fixing configuration, restart the service:"
+    echo "  sudo systemctl restart digitalsignage-client"
+    echo ""
+    echo "Configuration:"
+    echo "  - Installation directory: $INSTALL_DIR"
+    echo "  - Virtual environment: $VENV_DIR"
+    echo "  - Config directory: $CONFIG_DIR"
+    echo ""
+    exit 1
+fi
