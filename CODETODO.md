@@ -64,10 +64,11 @@ Basierend auf dem Entwicklungsauftrag und dem aktuellen Code-Stand.
   - WHERE-Klausel Builder
   - JOIN-Unterstützung
 - ❌ 🟡 **Stored Procedures Browser und Executor**
-- ❌ 🔴 **Daten-Refresh-Mechanismus**
-  - Polling-Timer basierend auf DataSource.RefreshInterval
-  - Event-Handler für automatische Updates
-  - Differenzielle Updates
+- ✅ **Daten-Refresh-Mechanismus**
+  - ✅ DataRefreshService implementiert als BackgroundService
+  - ✅ Polling-Timer basierend auf DataSource.RefreshInterval
+  - ✅ Automatische Updates an aktive Clients
+  - ❌ 🟡 Differenzielle Updates (nur geänderte Daten übertragen)
 - ❌ 🟢 **SQL Service Broker Integration** für Event-basierte Updates
 - ❌ 🟡 **Connection Pooling** konfigurieren
 - ❌ 🟡 **Query-Caching** implementieren
@@ -182,10 +183,12 @@ Basierend auf dem Entwicklungsauftrag und dem aktuellen Code-Stand.
   - In Query-Builder integrieren
 
 #### Caching-Strategie
-- ❌ 🔴 **Client-seitiger Cache** für Offline-Betrieb
-  - Layout-Daten lokal speichern (SQLite)
-  - Automatisches Fallback bei Verbindungsabbruch
+- ✅ **Client-seitiger Cache** für Offline-Betrieb
+  - ✅ Layout-Daten lokal speichern (SQLite)
+  - ✅ Automatisches Fallback bei Verbindungsabbruch
+  - ✅ Cache-Metadaten und Statistiken
 - ❌ 🟡 **TTL für Cache-Einträge**
+  - Cache-Alterung und automatische Bereinigung
 - ❌ 🟡 **Differenzielle Updates**
   - Nur geänderte Daten übertragen
   - Delta-Komprimierung
@@ -207,10 +210,10 @@ Basierend auf dem Entwicklungsauftrag und dem aktuellen Code-Stand.
   - Screensaver nach Inaktivität
 
 #### Systemintegration
-- ❌ 🔴 **systemd Service**
-  - digitalsignage.service Unit-File erstellen
-  - Auto-Restart bei Absturz
-  - Installation-Script
+- ✅ **systemd Service**
+  - ✅ digitalsignage-client.service Unit-File erstellt
+  - ✅ Auto-Restart bei Absturz (Restart=always)
+  - ✅ Installation-Script (install.sh mit systemd Integration)
 - ❌ 🟡 **Watchdog**
   - Heartbeat-Monitor
   - Automatischer Neustart bei Freeze
@@ -224,12 +227,18 @@ Basierend auf dem Entwicklungsauftrag und dem aktuellen Code-Stand.
 #### Datenempfang
 - ✅ WebSocket-Verbindung funktioniert
 - ❌ 🟡 **Fallback auf HTTP-Polling** bei WebSocket-Problemen
-- ❌ 🔴 **Lokale Datenpufferung**
-  - SQLite-Cache für Layouts
-  - Offline-Modus
-- ❌ 🔴 **TLS/SSL-Verschlüsselung**
-  - WSS statt WS
-  - Zertifikat-Validierung
+- ✅ **Lokale Datenpufferung**
+  - ✅ SQLite-Cache für Layouts (CacheManager implementiert)
+  - ✅ Offline-Modus mit automatischem Fallback
+  - ✅ Cached Layout beim Startup wenn Server offline
+  - ✅ Offline-Status in Heartbeat-Nachrichten
+- ✅ **TLS/SSL-Verschlüsselung**
+  - ✅ Server unterstützt HTTPS/WSS via ServerSettings
+  - ✅ Client unterstützt WSS mit SSL-Verifikation
+  - ✅ Konfigurierbare SSL-Einstellungen (appsettings.json / config.py)
+  - ✅ Umfassende SSL Setup Dokumentation (SSL_SETUP.md)
+  - ✅ Support für Self-Signed und CA-Zertifikate
+  - ✅ Reverse Proxy Konfigurationsbeispiele (nginx, IIS)
 
 ### 2.2 Kommunikationsprotokoll
 
@@ -241,9 +250,10 @@ Basierend auf dem Entwicklungsauftrag und dem aktuellen Code-Stand.
 
 #### Fehlerbehandlung
 - ✅ Automatische Wiederverbindung implementiert
-- ❌ 🔴 **Offline-Modus mit gecachten Daten**
-  - Letzte bekannte Layouts anzeigen
-  - Offline-Indikator
+- ✅ **Offline-Modus mit gecachten Daten**
+  - ✅ Letzte bekannte Layouts anzeigen
+  - ✅ Offline-Indikator (offline_mode Flag)
+  - ✅ Automatischer Wechsel bei Disconnect
 - ❌ 🟡 **Fehler-Queue**
   - Failed Messages aufbewahren
   - Retry bei Reconnect
@@ -258,10 +268,10 @@ Basierend auf dem Entwicklungsauftrag und dem aktuellen Code-Stand.
 
 - ✅ WPF mit .NET 8
 - ✅ MVVM Pattern (CommunityToolkit.Mvvm)
-- ❌ 🔴 **Dependency Injection Container** konfigurieren
-  - Microsoft.Extensions.DependencyInjection
-  - Startup-Klasse
-  - Service-Registrierung
+- ✅ **Dependency Injection Container** konfiguriert
+  - ✅ Microsoft.Extensions.DependencyInjection
+  - ✅ App.xaml.cs mit IHost
+  - ✅ Service-Registrierung (alle Services + Background Services)
 - ❌ 🟡 **Entity Framework Core** für Datenbank
   - DbContext erstellen
   - Migrations
@@ -294,9 +304,10 @@ Basierend auf dem Entwicklungsauftrag und dem aktuellen Code-Stand.
 
 ### 3.4 Sicherheitsanforderungen
 
-- ❌ 🔴 **TLS 1.2+ Verschlüsselung**
-  - Server-seitiges SSL-Zertifikat
-  - Client-seitige Zertifikat-Validierung
+- ✅ **TLS 1.2+ Verschlüsselung**
+  - ✅ Server-seitiges SSL-Zertifikat (konfigurierbar)
+  - ✅ Client-seitige Zertifikat-Validierung
+  - ✅ Reverse Proxy Support (empfohlen für Produktion)
 - ❌ 🔴 **Authentifizierung**
   - API-Key-System
   - Client-Registrierung mit Token
@@ -375,11 +386,15 @@ Basierend auf dem Entwicklungsauftrag und dem aktuellen Code-Stand.
 
 ### 5.2 Raspberry Pi Setup
 
-- ❌ 🔴 **Installations-Script (Bash)**
-  - Abhängigkeiten installieren (apt-get)
-  - Python-Packages (pip)
-  - systemd Service einrichten
-  - Auto-Start konfigurieren
+- ✅ **Installations-Script (Bash)**
+  - ✅ Abhängigkeiten installieren (apt-get)
+  - ✅ Python-Packages (pip)
+  - ✅ systemd Service einrichten
+  - ✅ Auto-Start konfigurieren
+  - ✅ Benutzer-Erkennung für sudo
+  - ✅ Konfigurationsverzeichnisse erstellen
+  - ✅ Screen blanking deaktivieren
+  - ✅ Cursor ausblenden
 - ❌ 🟡 **Konfiguration**
   - Web-Interface für Erstkonfiguration
   - Oder: Interactive Setup-Script
@@ -465,14 +480,14 @@ Basierend auf dem Entwicklungsauftrag und dem aktuellen Code-Stand.
    - Remote-Befehle
 
 3. **Client-Stabilität**
-   - systemd Service
-   - Offline-Cache
-   - TLS-Verschlüsselung
+   - ✅ systemd Service
+   - ✅ Offline-Cache
+   - ✅ TLS-Verschlüsselung
 
 4. **Daten-Integration**
-   - SQL-Datenquellen funktional
-   - Auto-Refresh
-   - Variable-Ersetzung im Server
+   - ✅ SQL-Datenquellen funktional
+   - ✅ Auto-Refresh (DataRefreshService)
+   - ❌ Variable-Ersetzung im Server (.NET Template Engine)
 
 ### Phase 2: Erweiterungen - 🟡 Mittlere Priorität
 

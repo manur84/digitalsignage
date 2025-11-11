@@ -14,10 +14,21 @@ class Config:
     client_id: str
     server_host: str = "localhost"
     server_port: int = 8080
+    use_ssl: bool = False
+    verify_ssl: bool = True
     fullscreen: bool = True
     log_level: str = "INFO"
     cache_dir: str = str(Path.home() / ".digitalsignage" / "cache")
     data_dir: str = str(Path.home() / ".digitalsignage" / "data")
+
+    def get_server_url(self) -> str:
+        """Get the full server URL based on SSL configuration"""
+        protocol = "https" if self.use_ssl else "http"
+        return f"{protocol}://{self.server_host}:{self.server_port}"
+
+    def get_websocket_protocol(self) -> str:
+        """Get the WebSocket protocol based on SSL configuration"""
+        return "wss" if self.use_ssl else "ws"
 
     @classmethod
     def load(cls, config_path: str = "/etc/digitalsignage/config.json") -> 'Config':
@@ -51,6 +62,8 @@ class Config:
             client_id=os.getenv("DS_CLIENT_ID", str(uuid.uuid4())),
             server_host=os.getenv("DS_SERVER_HOST", "localhost"),
             server_port=int(os.getenv("DS_SERVER_PORT", "8080")),
+            use_ssl=os.getenv("DS_USE_SSL", "false").lower() == "true",
+            verify_ssl=os.getenv("DS_VERIFY_SSL", "true").lower() == "true",
             fullscreen=os.getenv("DS_FULLSCREEN", "true").lower() == "true",
             log_level=os.getenv("DS_LOG_LEVEL", "INFO")
         )

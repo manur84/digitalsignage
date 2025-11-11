@@ -1,8 +1,10 @@
 using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Configuration;
 using DigitalSignage.Server.ViewModels;
 using DigitalSignage.Server.Services;
+using DigitalSignage.Server.Configuration;
 using DigitalSignage.Core.Interfaces;
 using DigitalSignage.Data.Services;
 using Serilog;
@@ -21,8 +23,20 @@ public partial class App : Application
             .CreateLogger();
 
         _host = Host.CreateDefaultBuilder()
+            .ConfigureAppConfiguration((context, config) =>
+            {
+                // Load configuration from appsettings.json
+                config.SetBasePath(AppDomain.CurrentDomain.BaseDirectory);
+                config.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
+                config.AddJsonFile($"appsettings.{context.HostingEnvironment.EnvironmentName}.json", optional: true, reloadOnChange: true);
+            })
             .ConfigureServices((context, services) =>
             {
+                // Bind and register ServerSettings from configuration
+                var serverSettings = new ServerSettings();
+                context.Configuration.GetSection("ServerSettings").Bind(serverSettings);
+                services.AddSingleton(serverSettings);
+
                 // Register ViewModels
                 services.AddSingleton<MainViewModel>();
                 services.AddTransient<DesignerViewModel>();
@@ -32,9 +46,12 @@ public partial class App : Application
                 // Register Services
                 services.AddSingleton<ILayoutService, LayoutService>();
                 services.AddSingleton<IClientService, ClientService>();
-                services.AddSingleton<IDataService, SqlDataService>();
+                services.AddSingleton<ISqlDataService, SqlDataService>();
                 services.AddSingleton<ICommunicationService, WebSocketCommunicationService>();
                 services.AddSingleton<IMediaService, MediaService>();
+
+                // Register Background Services
+                services.AddHostedService<DataRefreshService>();
 
                 // Register Windows
                 services.AddTransient<Views.MainWindow>();

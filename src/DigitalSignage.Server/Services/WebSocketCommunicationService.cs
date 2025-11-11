@@ -1,5 +1,6 @@
 using DigitalSignage.Core.Interfaces;
 using DigitalSignage.Core.Models;
+using DigitalSignage.Server.Configuration;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using System.Collections.Concurrent;
@@ -14,12 +15,16 @@ public class WebSocketCommunicationService : ICommunicationService
 {
     private readonly ConcurrentDictionary<string, WebSocket> _clients = new();
     private readonly ILogger<WebSocketCommunicationService> _logger;
+    private readonly ServerSettings _settings;
     private HttpListener? _httpListener;
     private CancellationTokenSource? _cancellationTokenSource;
 
-    public WebSocketCommunicationService(ILogger<WebSocketCommunicationService> logger)
+    public WebSocketCommunicationService(
+        ILogger<WebSocketCommunicationService> logger,
+        ServerSettings settings)
     {
-        _logger = logger;
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _settings = settings ?? throw new ArgumentNullException(nameof(settings));
     }
 
     public event EventHandler<MessageReceivedEventArgs>? MessageReceived;
@@ -33,14 +38,39 @@ public class WebSocketCommunicationService : ICommunicationService
             _cancellationTokenSource = new CancellationTokenSource();
 
             _httpListener = new HttpListener();
-            _httpListener.Prefixes.Add("http://+:8080/ws/");
+            var urlPrefix = _settings.GetUrlPrefix();
+            _httpListener.Prefixes.Add(urlPrefix);
+
+            // Log SSL configuration warning if SSL is enabled
+            if (_settings.EnableSsl)
+            {
+                _logger.LogWarning("SSL/TLS is enabled. Ensure SSL certificate is properly configured.");
+                _logger.LogWarning("For Windows: Use 'netsh http add sslcert' to bind certificate to port {Port}", _settings.Port);
+                _logger.LogWarning("For production: Consider using a reverse proxy (nginx/IIS) for SSL termination");
+
+                if (string.IsNullOrWhiteSpace(_settings.CertificateThumbprint) &&
+                    string.IsNullOrWhiteSpace(_settings.CertificatePath))
+                {
+                    _logger.LogError("SSL enabled but no certificate configured. Server may fail to accept connections.");
+                }
+            }
+
             _httpListener.Start();
 
-            _logger.LogInformation("WebSocket server started on port 8080");
+            var protocol = _settings.EnableSsl ? "HTTPS/WSS" : "HTTP/WS";
+            _logger.LogInformation("WebSocket server started on port {Port} using {Protocol}",
+                _settings.Port, protocol);
+            _logger.LogInformation("WebSocket endpoint: {Endpoint}", urlPrefix);
 
             _ = Task.Run(() => AcceptClientsAsync(_cancellationTokenSource.Token));
 
             await Task.CompletedTask;
+        }
+        catch (HttpListenerException ex) when (ex.ErrorCode == 5)
+        {
+            _logger.LogError("Access denied. Run as Administrator or configure URL ACL:");
+            _logger.LogError("netsh http add urlacl url={Prefix} user=Everyone", _settings.GetUrlPrefix());
+            throw;
         }
         catch (Exception ex)
         {

@@ -9,13 +9,19 @@ public class ClientService : IClientService
 {
     private readonly ConcurrentDictionary<string, RaspberryPiClient> _clients = new();
     private readonly ICommunicationService _communicationService;
+    private readonly ILayoutService _layoutService;
+    private readonly ISqlDataService _dataService;
     private readonly ILogger<ClientService> _logger;
 
     public ClientService(
         ICommunicationService communicationService,
+        ILayoutService layoutService,
+        ISqlDataService dataService,
         ILogger<ClientService> logger)
     {
         _communicationService = communicationService ?? throw new ArgumentNullException(nameof(communicationService));
+        _layoutService = layoutService ?? throw new ArgumentNullException(nameof(layoutService));
+        _dataService = dataService ?? throw new ArgumentNullException(nameof(dataService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -148,7 +154,7 @@ public class ClientService : IClientService
         }
     }
 
-    public Task<bool> AssignLayoutAsync(
+    public async Task<bool> AssignLayoutAsync(
         string clientId,
         string layoutId,
         CancellationToken cancellationToken = default)
@@ -156,25 +162,81 @@ public class ClientService : IClientService
         if (string.IsNullOrWhiteSpace(clientId))
         {
             _logger.LogWarning("AssignLayoutAsync called with null or empty clientId");
-            return Task.FromResult(false);
+            return false;
         }
 
         if (string.IsNullOrWhiteSpace(layoutId))
         {
             _logger.LogWarning("AssignLayoutAsync called with null or empty layoutId");
-            return Task.FromResult(false);
+            return false;
         }
 
         if (_clients.TryGetValue(clientId, out var client))
         {
             client.AssignedLayoutId = layoutId;
             _logger.LogInformation("Assigned layout {LayoutId} to client {ClientId}", layoutId, clientId);
-            // TODO: Send layout update to client
-            return Task.FromResult(true);
+
+            // Send layout update to client
+            return await SendLayoutToClientAsync(clientId, layoutId, cancellationToken);
         }
 
         _logger.LogWarning("Client {ClientId} not found for layout assignment", clientId);
-        return Task.FromResult(false);
+        return false;
+    }
+
+    private async Task<bool> SendLayoutToClientAsync(
+        string clientId,
+        string layoutId,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            // Load layout
+            var layout = await _layoutService.GetLayoutByIdAsync(layoutId, cancellationToken);
+            if (layout == null)
+            {
+                _logger.LogError("Layout {LayoutId} not found", layoutId);
+                return false;
+            }
+
+            // Fetch data from all data sources
+            var layoutData = new Dictionary<string, object>();
+            if (layout.DataSources != null && layout.DataSources.Count > 0)
+            {
+                foreach (var dataSource in layout.DataSources)
+                {
+                    try
+                    {
+                        var data = await _dataService.GetDataAsync(dataSource, cancellationToken);
+                        layoutData[dataSource.Id] = data;
+                        _logger.LogDebug("Loaded data for source {DataSourceId}", dataSource.Id);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to load data for source {DataSourceId}, using empty data", dataSource.Id);
+                        layoutData[dataSource.Id] = new Dictionary<string, object>();
+                    }
+                }
+            }
+
+            // Create and send display update message
+            var displayUpdateMessage = new DisplayUpdateMessage
+            {
+                LayoutId = layoutId,
+                Layout = layout,
+                Data = layoutData
+            };
+
+            await _communicationService.SendMessageAsync(clientId, displayUpdateMessage, cancellationToken);
+            _logger.LogInformation("Sent DISPLAY_UPDATE with full layout {LayoutId} and {DataSourceCount} data sources to client {ClientId}",
+                layoutId, layout.DataSources?.Count ?? 0, clientId);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send layout update to client {ClientId}", clientId);
+            return false;
+        }
     }
 
     public Task<bool> RemoveClientAsync(string clientId, CancellationToken cancellationToken = default)

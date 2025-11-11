@@ -1,0 +1,33 @@
+[Unit]
+Description=Digital Signage Client
+After=network-online.target graphical.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/opt/digitalsignage-client
+Environment="DISPLAY=:0"
+Environment="XAUTHORITY=/home/pi/.Xauthority"
+ExecStartPre=/bin/sleep 10
+ExecStart=/usr/bin/python3 /opt/digitalsignage-client/client.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=digitalsignage-client
+
+# Watchdog
+WatchdogSec=60
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+
+# Restart policy
+StartLimitInterval=200
+StartLimitBurst=5
+
+[Install]
+WantedBy=graphical.target

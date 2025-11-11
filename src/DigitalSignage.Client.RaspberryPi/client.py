@@ -18,6 +18,7 @@ from PyQt5.QtCore import QTimer
 
 from display_renderer import DisplayRenderer
 from device_manager import DeviceManager
+from cache_manager import CacheManager
 from config import Config
 
 logging.basicConfig(
@@ -37,15 +38,22 @@ class DigitalSignageClient:
 
     def __init__(self, config: Config):
         self.config = config
+
+        # Configure SSL verification
+        ssl_verify = self.config.verify_ssl if self.config.use_ssl else False
+
         self.sio = socketio.AsyncClient(
             reconnection=True,
             reconnection_delay=5,
-            reconnection_delay_max=60
+            reconnection_delay_max=60,
+            ssl_verify=ssl_verify
         )
         self.device_manager = DeviceManager()
+        self.cache_manager = CacheManager()
         self.display_renderer: Optional[DisplayRenderer] = None
         self.current_layout: Optional[Dict[str, Any]] = None
         self.connected = False
+        self.offline_mode = False
 
         # Register event handlers
         self.setup_event_handlers()
@@ -57,12 +65,16 @@ class DigitalSignageClient:
         async def connect():
             logger.info("Connected to server")
             self.connected = True
+            self.offline_mode = False
             await self.register_client()
 
         @self.sio.event
         async def disconnect():
-            logger.info("Disconnected from server")
+            logger.warning("Disconnected from server - entering offline mode")
             self.connected = False
+            self.offline_mode = True
+            # Load cached layout to continue operation
+            await self.load_cached_layout()
 
         @self.sio.event
         async def connect_error(data):
@@ -132,6 +144,9 @@ class DigitalSignageClient:
                 self.current_layout = layout
                 logger.info(f"Updating display with layout: {layout.get('Name')}")
 
+                # Save layout and data to cache for offline operation
+                self.cache_manager.save_layout(layout, layout_data, set_current=True)
+
                 if self.display_renderer:
                     await self.display_renderer.render_layout(layout, layout_data)
                 else:
@@ -175,15 +190,22 @@ class DigitalSignageClient:
         try:
             device_info = await self.device_manager.get_device_info()
 
+            # Get cache info
+            cache_info = self.cache_manager.get_cache_info()
+
             heartbeat_message = {
                 "Type": "HEARTBEAT",
                 "ClientId": self.config.client_id,
-                "Status": "Online",
+                "Status": "Online" if not self.offline_mode else "OfflineRecovery",
                 "DeviceInfo": {
                     "CpuTemperature": device_info["cpu_temp"],
                     "CpuUsage": device_info["cpu_usage"],
                     "MemoryUsed": device_info["memory_used"],
                     "Uptime": device_info["uptime"]
+                },
+                "CacheInfo": {
+                    "LayoutCount": cache_info.get("layout_count", 0),
+                    "CurrentLayoutId": cache_info.get("current_layout_id")
                 },
                 "Timestamp": datetime.utcnow().isoformat()
             }
@@ -251,24 +273,31 @@ class DigitalSignageClient:
         # TODO: Implement app restart logic
         pass
 
+    async def load_cached_layout(self):
+        """Load cached layout for offline operation"""
+        try:
+            cached = self.cache_manager.get_current_layout()
+            if cached:
+                layout, layout_data = cached
+                self.current_layout = layout
+                logger.info(f"Loaded cached layout: {layout.get('Name')} (Offline Mode)")
+
+                if self.display_renderer:
+                    await self.display_renderer.render_layout(layout, layout_data)
+                    logger.info("Displaying cached layout in offline mode")
+            else:
+                logger.warning("No cached layout available for offline mode")
+        except Exception as e:
+            logger.error(f"Failed to load cached layout: {e}", exc_info=True)
+
     async def clear_cache(self):
         """Clear local cache"""
         try:
-            cache_dir = Path.home() / ".digitalsignage" / "cache"
-            if cache_dir.exists():
-                try:
-                    import shutil
-                    shutil.rmtree(cache_dir)
-                    logger.debug(f"Removed cache directory: {cache_dir}")
-                except Exception as e:
-                    logger.error(f"Failed to remove cache directory: {e}")
-                    return
-
-            try:
-                cache_dir.mkdir(parents=True, exist_ok=True)
+            if self.cache_manager.clear_cache():
                 logger.info("Cache cleared successfully")
-            except Exception as e:
-                logger.error(f"Failed to recreate cache directory: {e}")
+                self.current_layout = None
+            else:
+                logger.error("Failed to clear cache")
         except Exception as e:
             logger.error(f"Failed to clear cache: {e}", exc_info=True)
 
@@ -279,12 +308,22 @@ class DigitalSignageClient:
         # Connect to server with retry logic
         max_retries = 5
         retry_delay = 2
+        connection_successful = False
 
         for attempt in range(max_retries):
             try:
-                server_url = f"http://{self.config.server_host}:{self.config.server_port}"
-                logger.info(f"Connecting to server at {server_url} (attempt {attempt + 1}/{max_retries})")
+                server_url = self.config.get_server_url()
+                protocol = self.config.get_websocket_protocol().upper()
+                logger.info(f"Connecting to server at {server_url} using {protocol} (attempt {attempt + 1}/{max_retries})")
+
+                if self.config.use_ssl:
+                    if self.config.verify_ssl:
+                        logger.info("SSL certificate verification enabled")
+                    else:
+                        logger.warning("SSL certificate verification disabled - not recommended for production!")
+
                 await self.sio.connect(server_url)
+                connection_successful = True
                 break
             except Exception as e:
                 if attempt < max_retries - 1:
@@ -293,7 +332,12 @@ class DigitalSignageClient:
                     retry_delay = min(retry_delay * 2, 60)  # Exponential backoff
                 else:
                     logger.error(f"Failed to connect after {max_retries} attempts")
-                    raise
+
+        # If connection failed, enter offline mode with cached layout
+        if not connection_successful:
+            logger.warning("Starting in offline mode with cached data")
+            self.offline_mode = True
+            await self.load_cached_layout()
 
         # Setup heartbeat timer
         async def heartbeat_loop():
