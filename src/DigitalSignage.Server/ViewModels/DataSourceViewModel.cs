@@ -19,11 +19,47 @@ public partial class DataSourceViewModel : ObservableObject
     [ObservableProperty]
     private bool _isTesting = false;
 
+    [ObservableProperty]
+    private bool _isStaticDataSource = false;
+
+    [ObservableProperty]
+    private string _staticDataJson = string.Empty;
+
     public ObservableCollection<DataSource> DataSources { get; } = new();
 
     public DataSourceViewModel(IDataService dataService)
     {
         _dataService = dataService;
+    }
+
+    partial void OnSelectedDataSourceChanged(DataSource? value)
+    {
+        if (value != null)
+        {
+            IsStaticDataSource = value.Type == DataSourceType.StaticData;
+            StaticDataJson = value.StaticData ?? string.Empty;
+        }
+        else
+        {
+            IsStaticDataSource = false;
+            StaticDataJson = string.Empty;
+        }
+    }
+
+    partial void OnIsStaticDataSourceChanged(bool value)
+    {
+        if (SelectedDataSource != null)
+        {
+            SelectedDataSource.Type = value ? DataSourceType.StaticData : DataSourceType.SQL;
+        }
+    }
+
+    partial void OnStaticDataJsonChanged(string value)
+    {
+        if (SelectedDataSource != null)
+        {
+            SelectedDataSource.StaticData = value;
+        }
     }
 
     [RelayCommand]
@@ -33,6 +69,24 @@ public partial class DataSourceViewModel : ObservableObject
         {
             Name = "New Data Source",
             Type = DataSourceType.SQL
+        };
+
+        DataSources.Add(newDataSource);
+        SelectedDataSource = newDataSource;
+    }
+
+    [RelayCommand]
+    private void AddStaticDataSource()
+    {
+        var newDataSource = new DataSource
+        {
+            Name = "New Static Data Source",
+            Type = DataSourceType.StaticData,
+            StaticData = @"{
+  ""room_name"": ""Conference Room A"",
+  ""status"": ""Available"",
+  ""temperature"": ""22°C""
+}"
         };
 
         DataSources.Add(newDataSource);

@@ -4,6 +4,7 @@ using DigitalSignage.Core.Models;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using System.Data;
+using System.Text.Json;
 
 namespace DigitalSignage.Data.Services;
 
@@ -23,6 +24,12 @@ public class SqlDataService : ISqlDataService
         {
             _logger.LogError("GetDataAsync called with null dataSource");
             throw new ArgumentNullException(nameof(dataSource));
+        }
+
+        // Handle static data sources
+        if (dataSource.Type == DataSourceType.StaticData)
+        {
+            return await GetStaticDataAsync(dataSource, cancellationToken);
         }
 
         if (string.IsNullOrWhiteSpace(dataSource.ConnectionString))
@@ -149,6 +156,12 @@ public class SqlDataService : ISqlDataService
         {
             _logger.LogWarning("TestConnectionAsync called with null dataSource");
             return false;
+        }
+
+        // Handle static data sources
+        if (dataSource.Type == DataSourceType.StaticData)
+        {
+            return await TestStaticDataAsync(dataSource, cancellationToken);
         }
 
         if (string.IsNullOrWhiteSpace(dataSource.ConnectionString))
@@ -286,5 +299,141 @@ public class SqlDataService : ISqlDataService
             _logger.LogError(ex, "Unexpected error retrieving columns");
             throw;
         }
+    }
+
+    /// <summary>
+    /// Retrieves static data from a DataSource configured with StaticData type
+    /// </summary>
+    private async Task<Dictionary<string, object>> GetStaticDataAsync(
+        DataSource dataSource,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(dataSource.StaticData))
+        {
+            _logger.LogWarning("Static data source {DataSourceId} has empty StaticData", dataSource.Id);
+            return new Dictionary<string, object>();
+        }
+
+        try
+        {
+            _logger.LogDebug("Parsing static data from DataSource {DataSourceId}", dataSource.Id);
+
+            // Parse JSON data
+            var jsonDocument = JsonDocument.Parse(dataSource.StaticData);
+            var resultDict = new Dictionary<string, object>();
+
+            // Convert JSON to dictionary
+            if (jsonDocument.RootElement.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var property in jsonDocument.RootElement.EnumerateObject())
+                {
+                    resultDict[property.Name] = ConvertJsonValue(property.Value);
+                }
+            }
+            else if (jsonDocument.RootElement.ValueKind == JsonValueKind.Array)
+            {
+                // If it's an array, treat it as rows
+                var rows = new List<object>();
+                foreach (var element in jsonDocument.RootElement.EnumerateArray())
+                {
+                    if (element.ValueKind == JsonValueKind.Object)
+                    {
+                        var row = new Dictionary<string, object>();
+                        foreach (var property in element.EnumerateObject())
+                        {
+                            row[property.Name] = ConvertJsonValue(property.Value);
+                        }
+                        rows.Add(row);
+                    }
+                }
+                resultDict["_rows"] = rows;
+                resultDict["_count"] = rows.Count;
+
+                // Also add first row properties to top level for template compatibility
+                if (rows.Count > 0 && rows[0] is Dictionary<string, object> firstRow)
+                {
+                    foreach (var kvp in firstRow)
+                    {
+                        resultDict[kvp.Key] = kvp.Value;
+                    }
+                }
+            }
+
+            _logger.LogInformation("Successfully parsed static data from DataSource {DataSourceId}", dataSource.Id);
+            return await Task.FromResult(resultDict);
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogError(ex, "Invalid JSON in static data source {DataSourceId}: {ErrorMessage}", dataSource.Id, ex.Message);
+            throw new InvalidOperationException($"Invalid JSON in static data: {ex.Message}", ex);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected error parsing static data from DataSource {DataSourceId}", dataSource.Id);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Tests if static data is valid JSON
+    /// </summary>
+    private async Task<bool> TestStaticDataAsync(
+        DataSource dataSource,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(dataSource.StaticData))
+        {
+            _logger.LogWarning("TestStaticDataAsync called with empty StaticData");
+            return false;
+        }
+
+        try
+        {
+            _logger.LogDebug("Testing static data JSON validity");
+            var jsonDocument = JsonDocument.Parse(dataSource.StaticData);
+            _logger.LogInformation("Static data JSON is valid");
+            return await Task.FromResult(true);
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogError(ex, "Static data JSON is invalid: {ErrorMessage}", ex.Message);
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected error testing static data");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Converts JSON element to appropriate .NET type
+    /// </summary>
+    private object ConvertJsonValue(JsonElement element)
+    {
+        return element.ValueKind switch
+        {
+            JsonValueKind.String => element.GetString() ?? string.Empty,
+            JsonValueKind.Number => element.TryGetInt32(out var intValue) ? intValue : element.GetDouble(),
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            JsonValueKind.Null => string.Empty,
+            JsonValueKind.Array => element.EnumerateArray().Select(ConvertJsonValue).ToList(),
+            JsonValueKind.Object => ParseJsonObject(element),
+            _ => element.ToString()
+        };
+    }
+
+    /// <summary>
+    /// Parses JSON object into dictionary
+    /// </summary>
+    private Dictionary<string, object> ParseJsonObject(JsonElement element)
+    {
+        var dict = new Dictionary<string, object>();
+        foreach (var property in element.EnumerateObject())
+        {
+            dict[property.Name] = ConvertJsonValue(property.Value);
+        }
+        return dict;
     }
 }

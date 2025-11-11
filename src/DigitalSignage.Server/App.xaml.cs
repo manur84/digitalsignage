@@ -106,7 +106,9 @@ public partial class App : Application
         await _host.StartAsync();
 
         var mainWindow = _host.Services.GetRequiredService<Views.MainWindow>();
+        mainWindow.WindowState = WindowState.Maximized;
         mainWindow.Show();
+        mainWindow.Activate();
     }
 
     protected override async void OnExit(ExitEventArgs e)

@@ -443,9 +443,19 @@
                     <Border Grid.Column="0" Background="White" BorderBrush="#CCCCCC" BorderThickness="0,0,1,0">
                         <DockPanel>
                             <StackPanel DockPanel.Dock="Top" Margin="8">
-                                <Button Content="Add Data Source" Style="{StaticResource PrimaryButton}" Margin="0,0,0,8"/>
+                                <Button Content="Add SQL Data Source"
+                                        Command="{Binding DataSourceViewModel.AddDataSourceCommand}"
+                                        Style="{StaticResource PrimaryButton}"
+                                        Margin="0,0,0,4"/>
+                                <Button Content="Add Static Data Source"
+                                        Command="{Binding DataSourceViewModel.AddStaticDataSourceCommand}"
+                                        Style="{StaticResource SecondaryButton}"
+                                        Margin="0,0,0,8"/>
                             </StackPanel>
-                            <ListBox Margin="8,0"/>
+                            <ListBox ItemsSource="{Binding DataSourceViewModel.DataSources}"
+                                     SelectedItem="{Binding DataSourceViewModel.SelectedDataSource}"
+                                     DisplayMemberPath="Name"
+                                     Margin="8,0"/>
                         </DockPanel>
                     </Border>
 
@@ -454,29 +464,95 @@
                         <StackPanel Margin="16">
                             <TextBlock Text="Data Source Configuration" FontSize="20" FontWeight="Bold" Margin="0,0,0,16"/>
 
-                            <TextBlock Text="Name:" Margin="0,8,0,4"/>
-                            <TextBox/>
+                            <!-- Show when no data source is selected -->
+                            <TextBlock Text="No data source selected. Click 'Add SQL Data Source' or 'Add Static Data Source' to begin."
+                                      Foreground="Gray"
+                                      Margin="0,8"
+                                      TextWrapping="Wrap">
+                                <TextBlock.Visibility>
+                                    <Binding Path="DataSourceViewModel.SelectedDataSource">
+                                        <Binding.Converter>
+                                            <local:NullToVisibilityConverter/>
+                                        </Binding.Converter>
+                                    </Binding>
+                                </TextBlock.Visibility>
+                            </TextBlock>
 
-                            <TextBlock Text="Type:" Margin="0,12,0,4"/>
-                            <ComboBox>
-                                <ComboBoxItem Content="SQL Database" IsSelected="True"/>
-                                <ComboBoxItem Content="REST API"/>
-                                <ComboBoxItem Content="Static Data"/>
-                            </ComboBox>
+                            <!-- Show when data source is selected -->
+                            <StackPanel>
+                                <StackPanel.Visibility>
+                                    <Binding Path="DataSourceViewModel.SelectedDataSource">
+                                        <Binding.Converter>
+                                            <local:NullToVisibilityConverter Invert="True"/>
+                                        </Binding.Converter>
+                                    </Binding>
+                                </StackPanel.Visibility>
 
-                            <TextBlock Text="Connection String:" Margin="0,12,0,4"/>
-                            <TextBox Height="60" TextWrapping="Wrap" AcceptsReturn="True"/>
+                                <TextBlock Text="Name:" Margin="0,8,0,4"/>
+                                <TextBox Text="{Binding DataSourceViewModel.SelectedDataSource.Name, UpdateSourceTrigger=PropertyChanged}"/>
 
-                            <TextBlock Text="Query:" Margin="0,12,0,4"/>
-                            <TextBox Height="120" TextWrapping="Wrap" AcceptsReturn="True" FontFamily="Consolas"/>
+                                <TextBlock Text="Type:" Margin="0,12,0,4"/>
+                                <CheckBox Content="Use Static Data (for testing)"
+                                          IsChecked="{Binding DataSourceViewModel.IsStaticDataSource}"
+                                          Margin="0,4"/>
 
-                            <TextBlock Text="Refresh Interval (seconds):" Margin="0,12,0,4"/>
-                            <TextBox Text="60"/>
+                                <!-- Static Data Section (visible when IsStaticDataSource is true) -->
+                                <StackPanel Visibility="{Binding DataSourceViewModel.IsStaticDataSource, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <TextBlock Text="Static Data (JSON):" Margin="0,12,0,4" FontWeight="SemiBold"/>
+                                    <TextBlock Text="Example: { &quot;room_name&quot;: &quot;Conference Room A&quot;, &quot;status&quot;: &quot;Available&quot;, &quot;temperature&quot;: &quot;22°C&quot; }"
+                                              Foreground="Gray"
+                                              FontSize="11"
+                                              Margin="0,0,0,4"
+                                              TextWrapping="Wrap"/>
+                                    <TextBox Text="{Binding DataSourceViewModel.StaticDataJson, UpdateSourceTrigger=PropertyChanged}"
+                                            Height="200"
+                                            TextWrapping="Wrap"
+                                            AcceptsReturn="True"
+                                            FontFamily="Consolas"
+                                            FontSize="12"
+                                            VerticalScrollBarVisibility="Auto"/>
+                                </StackPanel>
 
-                            <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
-                                <Button Content="Test Connection" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0"/>
-                                <Button Content="Save" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0"/>
-                                <Button Content="Cancel" Style="{StaticResource SecondaryButton}"/>
+                                <!-- SQL Database Section (visible when IsStaticDataSource is false) -->
+                                <StackPanel Visibility="{Binding DataSourceViewModel.IsStaticDataSource, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
+                                    <TextBlock Text="Connection String:" Margin="0,12,0,4"/>
+                                    <TextBox Text="{Binding DataSourceViewModel.SelectedDataSource.ConnectionString, UpdateSourceTrigger=PropertyChanged}"
+                                            Height="60"
+                                            TextWrapping="Wrap"
+                                            AcceptsReturn="True"/>
+
+                                    <TextBlock Text="Query:" Margin="0,12,0,4"/>
+                                    <TextBox Text="{Binding DataSourceViewModel.SelectedDataSource.Query, UpdateSourceTrigger=PropertyChanged}"
+                                            Height="120"
+                                            TextWrapping="Wrap"
+                                            AcceptsReturn="True"
+                                            FontFamily="Consolas"/>
+                                </StackPanel>
+
+                                <TextBlock Text="Refresh Interval (seconds):" Margin="0,12,0,4"/>
+                                <TextBox Text="{Binding DataSourceViewModel.SelectedDataSource.RefreshInterval, UpdateSourceTrigger=PropertyChanged}"/>
+
+                                <!-- Test Result -->
+                                <TextBlock Text="{Binding DataSourceViewModel.TestResult}"
+                                          Margin="0,12,0,0"
+                                          FontWeight="SemiBold"
+                                          Foreground="{Binding DataSourceViewModel.TestResult, Converter={StaticResource TestResultToColorConverter}}"
+                                          TextWrapping="Wrap"/>
+
+                                <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                                    <Button Content="Test Connection"
+                                            Command="{Binding DataSourceViewModel.TestConnectionCommand}"
+                                            Style="{StaticResource PrimaryButton}"
+                                            Margin="0,0,8,0"
+                                            IsEnabled="{Binding DataSourceViewModel.IsTesting, Converter={StaticResource InverseBooleanConverter}}"/>
+                                    <Button Content="Save"
+                                            Command="{Binding DataSourceViewModel.SaveDataSourceCommand}"
+                                            Style="{StaticResource PrimaryButton}"
+                                            Margin="0,0,8,0"/>
+                                    <Button Content="Delete"
+                                            Command="{Binding DataSourceViewModel.DeleteDataSourceCommand}"
+                                            Style="{StaticResource SecondaryButton}"/>
+                                </StackPanel>
                             </StackPanel>
                         </StackPanel>
                     </ScrollViewer>

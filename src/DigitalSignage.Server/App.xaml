@@ -10,11 +10,15 @@
 
             <!-- Converters -->
             <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+            <converters:BoolToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
             <converters:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter"/>
+            <converters:InverseBoolToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter"/>
+            <converters:InverseBooleanConverter x:Key="InverseBooleanConverter"/>
             <converters:StringFormatConverter x:Key="StringFormatConverter"/>
             <converters:FileSizeConverter x:Key="FileSizeConverter"/>
             <converters:HexToColorConverter x:Key="HexToColorConverter"/>
             <converters:StatusToColorConverter x:Key="StatusToColorConverter"/>
+            <converters:TestResultToColorConverter x:Key="TestResultToColorConverter"/>
 
             <!-- Global Styles -->
             <Style TargetType="Window">

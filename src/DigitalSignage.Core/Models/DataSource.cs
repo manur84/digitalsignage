@@ -15,6 +15,11 @@ public class DataSource
     public DateTime? LastRefresh { get; set; }
     public bool Enabled { get; set; } = true;
     public Dictionary<string, object> Metadata { get; set; } = new();
+
+    /// <summary>
+    /// Static data in JSON format (used when Type = StaticData)
+    /// </summary>
+    public string StaticData { get; set; } = string.Empty;
 }
 
 public enum DataSourceType

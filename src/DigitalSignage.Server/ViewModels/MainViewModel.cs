@@ -44,19 +44,22 @@ public partial class MainViewModel : ObservableObject
 
     public DesignerViewModel Designer { get; }
     public DeviceManagementViewModel DeviceManagement { get; }
+    public DataSourceViewModel DataSourceViewModel { get; }
 
     public MainViewModel(
         ILayoutService layoutService,
         IClientService clientService,
         ICommunicationService communicationService,
         DesignerViewModel designerViewModel,
-        DeviceManagementViewModel deviceManagementViewModel)
+        DeviceManagementViewModel deviceManagementViewModel,
+        DataSourceViewModel dataSourceViewModel)
     {
         _layoutService = layoutService;
         _clientService = clientService;
         _communicationService = communicationService;
         Designer = designerViewModel ?? throw new ArgumentNullException(nameof(designerViewModel));
         DeviceManagement = deviceManagementViewModel ?? throw new ArgumentNullException(nameof(deviceManagementViewModel));
+        DataSourceViewModel = dataSourceViewModel ?? throw new ArgumentNullException(nameof(dataSourceViewModel));
 
         // Subscribe to communication events
         _communicationService.ClientConnected += OnClientConnected;
