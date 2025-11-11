@@ -42,14 +42,18 @@ public partial class MainViewModel : ObservableObject
 
     public ObservableCollection<RaspberryPiClient> Clients { get; } = new();
 
+    public DesignerViewModel Designer { get; }
+
     public MainViewModel(
         ILayoutService layoutService,
         IClientService clientService,
-        ICommunicationService communicationService)
+        ICommunicationService communicationService,
+        DesignerViewModel designerViewModel)
     {
         _layoutService = layoutService;
         _clientService = clientService;
         _communicationService = communicationService;
+        Designer = designerViewModel ?? throw new ArgumentNullException(nameof(designerViewModel));
 
         // Subscribe to communication events
         _communicationService.ClientConnected += OnClientConnected;

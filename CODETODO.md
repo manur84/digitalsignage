@@ -46,25 +46,38 @@ Basierend auf dem Entwicklungsauftrag und dem aktuellen Code-Stand.
   - Filter- und Suchfunktion in UI
 
 #### Visueller Designer
-- ⚠️ **Designer-Canvas** - Grundstruktur vorhanden, aber nicht funktional
-  - ❌ 🔴 Drag-and-Drop Funktionalität implementieren
-  - ❌ 🔴 Werkzeugleiste mit Element-Buttons erstellen
-  - ❌ 🔴 Selektions- und Transformationshandles
-  - ❌ 🔴 Multi-Selektion mit Ctrl/Shift
-- ⚠️ **Ebenenmanagement** - Z-Index vorhanden, aber keine UI
-  - ❌ 🔴 Ebenenpalette mit Drag-Reorder
+- ✅ **Designer-Canvas** - Vollständig funktional
+  - ✅ DesignerCanvas Control mit Grid-Rendering
+  - ✅ Drag-and-Drop Funktionalität für Elemente
+  - ✅ Werkzeugleiste mit Element-Buttons (Text, Image, Rectangle)
+  - ✅ Selektions- und Transformationshandles (ResizeAdorner)
+  - ✅ DesignerItemControl für Element-Rendering
+  - ❌ 🟡 Multi-Selektion mit Ctrl/Shift
+- ⚠️ **Ebenenmanagement** - Z-Index vorhanden mit grundlegender UI
+  - ✅ Z-Index Move Up/Down Commands
+  - ✅ Z-Index Eingabefeld in Properties Panel
+  - ❌ 🟡 Ebenenpalette mit Drag-Reorder
   - ❌ 🟡 Ebenen-Sichtbarkeit Toggle
   - ❌ 🟡 Ebenen-Gruppierung
-- ⚠️ **Raster und Ausrichtung** - Properties in ViewModel, aber nicht implementiert
-  - ❌ 🔴 Rasteranzeige im Canvas
-  - ❌ 🔴 Snap-to-Grid beim Verschieben
+- ✅ **Raster und Ausrichtung** - Implementiert
+  - ✅ Rasteranzeige im DesignerCanvas
+  - ✅ Snap-to-Grid beim Verschieben
+  - ✅ Konfigurierbare Grid-Größe
+  - ✅ Grid Show/Hide Toggle
   - ❌ 🟡 Ausrichtungshilfslinien (Smart Guides)
   - ❌ 🟡 Objekt-Ausrichtungs-Funktionen (links, rechts, zentriert)
-- ❌ 🔴 **Eigenschaften-Panel** - Kontextsensitives Panel für ausgewählte Elemente
-  - Position, Größe, Rotation Eingabefelder
-  - Schrift-Einstellungen für Text
-  - Farb-Picker
-  - Datenquellen-Bindung UI
+- ✅ **Eigenschaften-Panel** - Kontextsensitives Panel implementiert
+  - ✅ Position (X, Y) Eingabefelder
+  - ✅ Größe (Width, Height) Eingabefelder
+  - ✅ Z-Index mit Up/Down Buttons
+  - ✅ Element-Name Eingabe
+  - ✅ Layout Properties (Name, Resolution, Background)
+  - ✅ Duplicate und Delete Buttons
+  - ✅ Dynamische Anzeige basierend auf Selektion
+  - ❌ 🟡 Rotation Eingabefeld
+  - ❌ 🟡 Schrift-Einstellungen für Text
+  - ❌ 🟡 Farb-Picker
+  - ❌ 🟡 Datenquellen-Bindung UI
 - ❌ 🟡 **Undo/Redo-System** - Befehle in ViewModel vorhanden, nicht implementiert
   - Command Pattern für alle Operationen
   - Undo-Stack Management
@@ -620,29 +633,44 @@ Basierend auf dem Entwicklungsauftrag und dem aktuellen Code-Stand.
 
 ### Implementierungsstand
 
-- **Vollständig:** ~25%
+- **Vollständig:** ~35%
   - Kommunikations-Infrastruktur
   - Grundlegende Datenmodelle
   - Service-Layer-Architektur
   - Python Client Display-Engine
+  - **Designer-Canvas mit Drag-and-Drop** ✅ (NEU)
+  - **Properties Panel mit Echtzeit-Bearbeitung** ✅ (NEU)
+  - **Raster und Snap-to-Grid** ✅ (NEU)
+  - **Resize-Handles für Elemente** ✅ (NEU)
+  - Dependency Injection Setup
+  - systemd Service + Watchdog
+  - TLS/SSL-Verschlüsselung
+  - Client-Offline-Cache
 
-- **Teilweise:** ~15%
-  - UI-Grundgerüst
-  - Datenbank-Integration
-  - Geräte-Management
+- **Teilweise:** ~20%
+  - Datenbank-Integration (EF Core implementiert, Migrationen ausstehend)
+  - Geräte-Management (Backend fertig, UI-Erweiterungen ausstehend)
+  - Ebenen-Management (Grundfunktionen, keine Palette)
 
-- **Nicht implementiert:** ~60%
-  - Visueller Designer (UI)
-  - Medien-Management
-  - Erweiterte Features (Zeitpläne, Auto-Discovery)
-  - Deployment-Tools
-  - Sicherheits-Features
-  - Dokumentation
+- **Nicht implementiert:** ~45%
+  - Erweiterte Designer-Features (Undo/Redo, Gruppierung)
+  - Medien-Management UI
+  - Zeitpläne für Layouts
+  - Auto-Discovery
+  - Deployment-Tools (MSI-Installer)
+  - Erweiterte Dokumentation
 
 ### Nächste Schritte (Quick Wins)
 
-1. **Designer-Canvas** funktional machen (höchste Priorität)
-2. **Dependency Injection** im Server einrichten
-3. **systemd Service** für Raspberry Pi Client
-4. **TLS-Verschlüsselung** aktivieren
-5. **Client-Offline-Cache** implementieren
+1. ✅ **Designer-Canvas** funktional machen (ABGESCHLOSSEN)
+2. ✅ **Dependency Injection** im Server einrichten (ABGESCHLOSSEN)
+3. ✅ **systemd Service** für Raspberry Pi Client (ABGESCHLOSSEN)
+4. ✅ **TLS-Verschlüsselung** aktivieren (ABGESCHLOSSEN)
+5. ✅ **Client-Offline-Cache** implementieren (ABGESCHLOSSEN)
+
+**Neue Prioritäten:**
+1. **EF Core Migrations** anwenden (Datenbank-Schema erstellen)
+2. **Geräte-Tab UI** verbessern (Command-Buttons funktional machen)
+3. **Datenquellen-Tab UI** implementieren (Editor mit Test-Button)
+4. **Zeitpläne-System** für automatische Layout-Wechsel
+5. **Medien-Browser UI** für zentrale Medienbibliothek

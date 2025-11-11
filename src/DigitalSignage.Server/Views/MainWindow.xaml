@@ -3,6 +3,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:controls="clr-namespace:DigitalSignage.Server.Controls"
+        xmlns:local="clr-namespace:DigitalSignage.Server.Converters"
         mc:Ignorable="d"
         Title="Digital Signage Manager"
         Height="800"
@@ -10,6 +12,10 @@
         MinHeight="600"
         MinWidth="1000"
         WindowStartupLocation="CenterScreen">
+
+    <Window.Resources>
+        <local:NullToVisibilityConverter x:Key="NullToVisibilityConverter"/>
+    </Window.Resources>
 
     <DockPanel>
         <!-- Menu Bar -->
@@ -35,13 +41,13 @@
                 <MenuItem Header="_Delete" Command="{Binding DeleteCommand}"/>
             </MenuItem>
             <MenuItem Header="_View">
-                <MenuItem Header="Zoom _In" Command="{Binding ZoomInCommand}"/>
-                <MenuItem Header="Zoom _Out" Command="{Binding ZoomOutCommand}"/>
-                <MenuItem Header="Zoom to _Fit" Command="{Binding ZoomToFitCommand}"/>
+                <MenuItem Header="Zoom _In" Command="{Binding Designer.ZoomInCommand}"/>
+                <MenuItem Header="Zoom _Out" Command="{Binding Designer.ZoomOutCommand}"/>
+                <MenuItem Header="Zoom to _Fit" Command="{Binding Designer.ZoomToFitCommand}"/>
                 <Separator/>
-                <MenuItem Header="Show _Grid" IsCheckable="True" IsChecked="{Binding ShowGrid}"/>
+                <MenuItem Header="Show _Grid" IsCheckable="True" IsChecked="{Binding Designer.ShowGrid}"/>
                 <MenuItem Header="Show _Rulers" IsCheckable="True" IsChecked="{Binding ShowRulers}"/>
-                <MenuItem Header="Snap to Grid" IsCheckable="True" IsChecked="{Binding SnapToGrid}"/>
+                <MenuItem Header="Snap to Grid" IsCheckable="True" IsChecked="{Binding Designer.SnapToGrid}"/>
             </MenuItem>
             <MenuItem Header="_Tools">
                 <MenuItem Header="_Database Connection" Command="{Binding DatabaseConnectionCommand}"/>
@@ -100,26 +106,49 @@
                     <!-- Tool Palette -->
                     <Border Grid.Column="0" Background="#2D2D30" BorderBrush="#3F3F46" BorderThickness="0,0,1,0">
                         <StackPanel Margin="8">
-                            <Button ToolTip="Select" Style="{StaticResource SecondaryButton}" Margin="0,4" Padding="8">
+                            <Button ToolTip="Select"
+                                    Command="{Binding Designer.SelectToolCommand}"
+                                    CommandParameter="select"
+                                    Style="{StaticResource SecondaryButton}"
+                                    Margin="0,4"
+                                    Padding="8">
                                 <TextBlock Text="⬚" FontSize="20"/>
                             </Button>
-                            <Button ToolTip="Text" Style="{StaticResource SecondaryButton}" Margin="0,4" Padding="8">
+                            <Button ToolTip="Text"
+                                    Command="{Binding Designer.AddTextElementCommand}"
+                                    Style="{StaticResource SecondaryButton}"
+                                    Margin="0,4"
+                                    Padding="8">
                                 <TextBlock Text="T" FontSize="20" FontWeight="Bold"/>
                             </Button>
-                            <Button ToolTip="Image" Style="{StaticResource SecondaryButton}" Margin="0,4" Padding="8">
+                            <Button ToolTip="Image"
+                                    Command="{Binding Designer.AddImageElementCommand}"
+                                    Style="{StaticResource SecondaryButton}"
+                                    Margin="0,4"
+                                    Padding="8">
                                 <TextBlock Text="🖼" FontSize="18"/>
                             </Button>
-                            <Button ToolTip="Rectangle" Style="{StaticResource SecondaryButton}" Margin="0,4" Padding="8">
+                            <Button ToolTip="Rectangle"
+                                    Command="{Binding Designer.AddRectangleElementCommand}"
+                                    Style="{StaticResource SecondaryButton}"
+                                    Margin="0,4"
+                                    Padding="8">
                                 <Rectangle Width="24" Height="16" Fill="Transparent" Stroke="White" StrokeThickness="2"/>
                             </Button>
-                            <Button ToolTip="Circle" Style="{StaticResource SecondaryButton}" Margin="0,4" Padding="8">
-                                <Ellipse Width="20" Height="20" Fill="Transparent" Stroke="White" StrokeThickness="2"/>
+                            <Separator Margin="0,8" Background="#3F3F46"/>
+                            <Button ToolTip="Delete Selected (Del)"
+                                    Command="{Binding Designer.DeleteSelectedElementCommand}"
+                                    Style="{StaticResource SecondaryButton}"
+                                    Margin="0,4"
+                                    Padding="8">
+                                <TextBlock Text="🗑" FontSize="18"/>
                             </Button>
-                            <Button ToolTip="QR Code" Style="{StaticResource SecondaryButton}" Margin="0,4" Padding="8">
-                                <TextBlock Text="⚏" FontSize="20"/>
-                            </Button>
-                            <Button ToolTip="Table" Style="{StaticResource SecondaryButton}" Margin="0,4" Padding="8">
-                                <TextBlock Text="☰" FontSize="20"/>
+                            <Button ToolTip="Duplicate (Ctrl+D)"
+                                    Command="{Binding Designer.DuplicateSelectedElementCommand}"
+                                    Style="{StaticResource SecondaryButton}"
+                                    Margin="0,4"
+                                    Padding="8">
+                                <TextBlock Text="📋" FontSize="18"/>
                             </Button>
                         </StackPanel>
                     </Border>
@@ -127,18 +156,34 @@
                     <!-- Canvas Area -->
                     <Grid Grid.Column="1" Background="#1E1E1E">
                         <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
-                            <Canvas x:Name="DesignerCanvas"
-                                    Background="White"
-                                    Width="1920"
-                                    Height="1080"
-                                    Margin="20">
-                                <!-- Designer content will be rendered here -->
-                                <TextBlock Text="Designer Canvas - Drop elements here"
-                                          Canvas.Left="50"
-                                          Canvas.Top="50"
-                                          FontSize="24"
-                                          Foreground="#CCCCCC"/>
-                            </Canvas>
+                            <controls:DesignerCanvas x:Name="DesignerCanvas"
+                                                    Background="White"
+                                                    Width="{Binding Designer.CurrentLayout.Resolution.Width}"
+                                                    Height="{Binding Designer.CurrentLayout.Resolution.Height}"
+                                                    ShowGrid="{Binding Designer.ShowGrid}"
+                                                    SnapToGrid="{Binding Designer.SnapToGrid}"
+                                                    GridSize="{Binding Designer.GridSize}"
+                                                    Margin="20">
+                                <controls:DesignerCanvas.LayoutTransform>
+                                    <ScaleTransform ScaleX="{Binding Designer.ZoomLevel}"
+                                                   ScaleY="{Binding Designer.ZoomLevel}"/>
+                                </controls:DesignerCanvas.LayoutTransform>
+
+                                <!-- Render all elements from Designer.Elements -->
+                                <ItemsControl ItemsSource="{Binding Designer.Elements}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <Canvas/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <controls:DesignerItemControl DisplayElement="{Binding}"
+                                                                         IsSelected="{Binding Path=DataContext.Designer.SelectedElement, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource EqualityConverter}, ConverterParameter={Binding}}"/>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </controls:DesignerCanvas>
                         </ScrollViewer>
                     </Grid>
 
@@ -148,28 +193,93 @@
                             <StackPanel Margin="12">
                                 <TextBlock Text="Properties" FontSize="18" FontWeight="Bold" Margin="0,0,0,12"/>
 
+                                <!-- Layout Properties -->
                                 <TextBlock Text="Layout" FontWeight="SemiBold" Margin="0,8,0,4"/>
                                 <TextBlock Text="Name:" Margin="0,4,0,2"/>
-                                <TextBox Text="{Binding CurrentLayout.Name, UpdateSourceTrigger=PropertyChanged}"/>
+                                <TextBox Text="{Binding Designer.CurrentLayout.Name, UpdateSourceTrigger=PropertyChanged}"/>
 
                                 <TextBlock Text="Resolution:" Margin="0,8,0,2"/>
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBox Width="80" Text="{Binding CurrentLayout.Resolution.Width}" Margin="0,0,4,0"/>
-                                    <TextBlock Text="x" Margin="4,0" VerticalAlignment="Center"/>
-                                    <TextBox Width="80" Text="{Binding CurrentLayout.Resolution.Height}" Margin="4,0,0,0"/>
+                                    <TextBox Width="80" Text="{Binding Designer.CurrentLayout.Resolution.Width, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,0"/>
+                                    <TextBlock Text="×" Margin="4,0" VerticalAlignment="Center"/>
+                                    <TextBox Width="80" Text="{Binding Designer.CurrentLayout.Resolution.Height, UpdateSourceTrigger=PropertyChanged}" Margin="4,0,0,0"/>
                                 </StackPanel>
 
-                                <TextBlock Text="Background Color:" Margin="0,12,0,4"/>
-                                <TextBox Text="{Binding CurrentLayout.BackgroundColor}"/>
+                                <TextBlock Text="Background:" Margin="0,12,0,4"/>
+                                <TextBox Text="{Binding Designer.CurrentLayout.BackgroundColor, UpdateSourceTrigger=PropertyChanged}"/>
 
                                 <Separator Margin="0,16"/>
 
+                                <!-- Selected Element Properties -->
                                 <TextBlock Text="Selected Element" FontWeight="SemiBold" Margin="0,8,0,4"/>
+
+                                <!-- Show when no element is selected -->
                                 <TextBlock Text="No element selected"
                                           Foreground="Gray"
-                                          Visibility="{Binding HasSelectedElement, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+                                          Margin="0,8">
+                                    <TextBlock.Visibility>
+                                        <Binding Path="Designer.SelectedElement">
+                                            <Binding.Converter>
+                                                <local:NullToVisibilityConverter/>
+                                            </Binding.Converter>
+                                        </Binding>
+                                    </TextBlock.Visibility>
+                                </TextBlock>
 
-                                <!-- Element properties will be shown here based on selection -->
+                                <!-- Show when element is selected -->
+                                <StackPanel>
+                                    <StackPanel.Visibility>
+                                        <Binding Path="Designer.SelectedElement">
+                                            <Binding.Converter>
+                                                <local:NullToVisibilityConverter Invert="True"/>
+                                            </Binding.Converter>
+                                        </Binding>
+                                    </StackPanel.Visibility>
+
+                                    <TextBlock Text="Name:" Margin="0,4,0,2"/>
+                                    <TextBox Text="{Binding Designer.SelectedElement.Name, UpdateSourceTrigger=PropertyChanged}"/>
+
+                                    <TextBlock Text="Position:" Margin="0,12,0,4"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="X:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                        <TextBox Grid.Column="1" Text="{Binding Designer.SelectedElement.Position.X, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,8,0"/>
+                                        <TextBlock Grid.Column="2" Text="Y:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                        <TextBox Grid.Column="3" Text="{Binding Designer.SelectedElement.Position.Y, UpdateSourceTrigger=PropertyChanged}"/>
+                                    </Grid>
+
+                                    <TextBlock Text="Size:" Margin="0,12,0,4"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="W:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                        <TextBox Grid.Column="1" Text="{Binding Designer.SelectedElement.Size.Width, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,8,0"/>
+                                        <TextBlock Grid.Column="2" Text="H:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                        <TextBox Grid.Column="3" Text="{Binding Designer.SelectedElement.Size.Height, UpdateSourceTrigger=PropertyChanged}"/>
+                                    </Grid>
+
+                                    <TextBlock Text="Z-Index:" Margin="0,12,0,4"/>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBox Width="60" Text="{Binding Designer.SelectedElement.ZIndex, UpdateSourceTrigger=PropertyChanged}"/>
+                                        <Button Content="▲" Command="{Binding Designer.MoveElementUpCommand}" Margin="8,0,4,0" Padding="8,2"/>
+                                        <Button Content="▼" Command="{Binding Designer.MoveElementDownCommand}" Padding="8,2"/>
+                                    </StackPanel>
+
+                                    <Separator Margin="0,16"/>
+
+                                    <TextBlock Text="Actions:" FontWeight="SemiBold" Margin="0,8,0,8"/>
+                                    <Button Content="Duplicate Element" Command="{Binding Designer.DuplicateSelectedElementCommand}" Margin="0,0,0,4"/>
+                                    <Button Content="Delete Element" Command="{Binding Designer.DeleteSelectedElementCommand}" Style="{StaticResource SecondaryButton}"/>
+                                </StackPanel>
                             </StackPanel>
                         </ScrollViewer>
                     </Border>
