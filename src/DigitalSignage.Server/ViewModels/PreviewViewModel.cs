@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using DigitalSignage.Core.Interfaces;
 using DigitalSignage.Core.Models;
 using DigitalSignage.Server.Services;
 using Microsoft.Extensions.Logging;
@@ -12,7 +13,7 @@ namespace DigitalSignage.Server.ViewModels;
 /// </summary>
 public partial class PreviewViewModel : ObservableObject
 {
-    private readonly TemplateService _templateService;
+    private readonly ITemplateService _templateService;
     private readonly DataSourceRepository _dataSourceRepository;
     private readonly ILogger<PreviewViewModel> _logger;
 
@@ -35,7 +36,7 @@ public partial class PreviewViewModel : ObservableObject
     public ObservableCollection<DataSource> AvailableDataSources { get; } = new();
 
     public PreviewViewModel(
-        TemplateService templateService,
+        ITemplateService templateService,
         DataSourceRepository dataSourceRepository,
         ILogger<PreviewViewModel> logger)
     {
