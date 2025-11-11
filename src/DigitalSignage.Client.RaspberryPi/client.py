@@ -531,6 +531,15 @@ class DigitalSignageClient:
         await self.watchdog.start()
         self.watchdog.notify_status("Initializing...")
 
+        # DIAGNOSTIC: Check auto_discover configuration
+        logger.info("=" * 70)
+        logger.info("AUTO-DISCOVERY CONFIGURATION CHECK")
+        logger.info("=" * 70)
+        logger.info(f"config.auto_discover = {self.config.auto_discover}")
+        logger.info(f"config.auto_discover type = {type(self.config.auto_discover)}")
+        logger.info(f"discovery_timeout = {self.config.discovery_timeout}")
+        logger.info("=" * 70)
+
         # AUTO-DISCOVERY: Try to find server automatically if enabled
         if self.config.auto_discover:
             logger.info("=" * 70)
@@ -540,8 +549,13 @@ class DigitalSignageClient:
             self.watchdog.notify_status("Searching for servers via Auto-Discovery...")
 
             try:
+                logger.info("Importing discovery module...")
                 from discovery import discover_server
+                logger.info("Discovery module imported successfully")
+                logger.info(f"Calling discover_server with timeout={self.config.discovery_timeout}s")
+
                 discovered_url = discover_server(timeout=self.config.discovery_timeout)
+                logger.info(f"discover_server returned: {discovered_url}")
 
                 if discovered_url:
                     logger.info(f"✓ SERVER FOUND: {discovered_url}")
@@ -569,8 +583,18 @@ class DigitalSignageClient:
                     logger.warning(f"  Manual config: {self.config.server_host}:{self.config.server_port}")
             except Exception as e:
                 logger.error(f"Auto-Discovery failed: {e}")
+                logger.error(f"Exception type: {type(e).__name__}")
+                logger.error(f"Exception details: {str(e)}")
+                import traceback
+                logger.error(f"Traceback:\n{traceback.format_exc()}")
                 logger.warning("Falling back to manual configuration from config.json")
 
+            logger.info("=" * 70)
+        else:
+            logger.info("=" * 70)
+            logger.info("AUTO-DISCOVERY DISABLED")
+            logger.info("Using manual server configuration from config.json")
+            logger.info(f"Server: {self.config.server_host}:{self.config.server_port}")
             logger.info("=" * 70)
 
         # Connect to server with retry logic

@@ -2,6 +2,7 @@ using System.Windows;
 using System.IO;
 using System.Linq;
 using System.Diagnostics;
+using System.Collections.ObjectModel;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Configuration;
@@ -19,8 +20,11 @@ namespace DigitalSignage.Server;
 
 public partial class App : Application
 {
-    private readonly IHost? _host;
+    public readonly IHost? _host;
     private bool _initializationFailed = false;
+
+    // Shared log collection for UISink
+    private static readonly ObservableCollection<string> _liveLogMessages = new();
 
     public App()
     {
@@ -35,10 +39,11 @@ public partial class App : Application
                 .AddJsonFile($"appsettings.{Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Production"}.json", optional: true)
                 .Build();
 
-            // Configure Serilog from configuration
+            // Configure Serilog from configuration AND add UISink for live logs in UI
             Log.Logger = new LoggerConfiguration()
                 .ReadFrom.Configuration(configuration)
                 .Enrich.WithProperty("Application", "DigitalSignage.Server")
+                .WriteTo.UISink(_liveLogMessages, maxMessages: 2000)  // Add UI sink for live logging
                 .CreateLogger();
 
             Log.Information("Digital Signage Server starting...");
@@ -115,6 +120,13 @@ public partial class App : Application
                 services.AddTransient<SchedulingViewModel>();
                 services.AddTransient<MediaLibraryViewModel>();
                 services.AddTransient<LogViewerViewModel>();
+
+                // Register LiveLogsViewModel as singleton with shared log collection
+                services.AddSingleton<LiveLogsViewModel>(sp =>
+                {
+                    var logger = sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<LiveLogsViewModel>>();
+                    return new LiveLogsViewModel(logger, _liveLogMessages);
+                });
 
                 // Register Services
                 services.AddSingleton<ILayoutService, LayoutService>();

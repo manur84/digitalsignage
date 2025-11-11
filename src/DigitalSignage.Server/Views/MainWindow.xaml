@@ -1638,6 +1638,106 @@
                     </Border>
                 </Grid>
             </TabItem>
+
+            <!-- Live Debug Logs Tab -->
+            <TabItem Header="Live Debug Logs">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Toolbar -->
+                    <Border Grid.Row="0" Background="#2D2D30" BorderBrush="#3F3F46" BorderThickness="0,0,0,1" Padding="12,8">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Column="0"
+                                      Text="Live server debug logs - Real-time view of all server activity"
+                                      Foreground="White"
+                                      VerticalAlignment="Center"
+                                      FontWeight="SemiBold"/>
+
+                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <CheckBox Content="Auto-scroll"
+                                         IsChecked="{Binding LiveLogsViewModel.AutoScroll}"
+                                         Foreground="White"
+                                         Margin="0,0,16,0"
+                                         VerticalAlignment="Center"/>
+                                <Button Content="Clear Logs"
+                                       Command="{Binding LiveLogsViewModel.ClearLogsCommand}"
+                                       Style="{StaticResource SecondaryButton}"
+                                       Padding="16,6"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- Log Messages List -->
+                    <ListBox Grid.Row="1"
+                            ItemsSource="{Binding LiveLogsViewModel.LogMessages}"
+                            Background="#1E1E1E"
+                            Foreground="#D4D4D4"
+                            BorderThickness="0"
+                            FontFamily="Consolas"
+                            FontSize="11"
+                            ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                            ScrollViewer.VerticalScrollBarVisibility="Auto"
+                            VirtualizingPanel.IsVirtualizing="True"
+                            VirtualizingPanel.VirtualizationMode="Recycling">
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem">
+                                <Setter Property="Padding" Value="8,2"/>
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Setter Property="BorderThickness" Value="0"/>
+                                <Setter Property="Margin" Value="0"/>
+                                <Style.Triggers>
+                                    <Trigger Property="IsSelected" Value="True">
+                                        <Setter Property="Background" Value="#264F78"/>
+                                        <Setter Property="Foreground" Value="White"/>
+                                    </Trigger>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Background" Value="#2A2D2E"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" TextWrapping="NoWrap"/>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <!-- Status Bar -->
+                    <Border Grid.Row="2" Background="#2D2D30" BorderBrush="#3F3F46" BorderThickness="0,1,0,0" Padding="12,6">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Column="0"
+                                      Text="{Binding LiveLogsViewModel.StatusText}"
+                                      Foreground="#D4D4D4"
+                                      VerticalAlignment="Center"
+                                      FontSize="12"/>
+
+                            <TextBlock Grid.Column="1"
+                                      Foreground="#888888"
+                                      VerticalAlignment="Center"
+                                      FontSize="11">
+                                <Run Text="Total:"/>
+                                <Run Text="{Binding LiveLogsViewModel.LogCount, Mode=OneWay}" FontWeight="SemiBold"/>
+                                <Run Text="logs"/>
+                            </TextBlock>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </TabItem>
         </TabControl>
     </DockPanel>
 </Window>
