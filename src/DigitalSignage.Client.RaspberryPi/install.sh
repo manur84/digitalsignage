@@ -2,6 +2,12 @@
 
 # Digital Signage Client Installation Script for Raspberry Pi
 # Usage: sudo ./install.sh
+#
+# This script automatically detects and configures:
+# - Display mode (real HDMI vs virtual/headless)
+# - Auto-login and X11 startup (for production displays)
+# - Service configuration and startup
+# - Only prompts for reboot if actually needed
 
 set -e
 
@@ -37,6 +43,56 @@ USER_HOME=$(eval echo "~$ACTUAL_USER")
 echo "Installing for user: $ACTUAL_USER"
 echo "User home directory: $USER_HOME"
 echo ""
+
+# ========================================
+# Display Detection Functions
+# ========================================
+
+detect_display_mode() {
+    # Check if X11 is running on real display
+    if sudo -u "$ACTUAL_USER" DISPLAY=:0 xset q &>/dev/null; then
+        echo "X11 detected on :0 (real display)"
+        DETECTED_MODE="desktop"
+        return 0
+    fi
+
+    # Check if running in console mode
+    if ! pgrep -x X &>/dev/null && ! pgrep -x Xorg &>/dev/null; then
+        echo "No X11 server detected"
+        DETECTED_MODE="console"
+        return 1
+    fi
+
+    # X11 running but not accessible on :0
+    echo "X11 running but not on standard display :0"
+    DETECTED_MODE="other"
+    return 1
+}
+
+check_hdmi_display() {
+    # Method 1: tvservice (Raspberry Pi specific)
+    if command -v tvservice &>/dev/null; then
+        if tvservice -s 2>/dev/null | grep -q "HDMI"; then
+            echo "HDMI display detected via tvservice"
+            return 0
+        fi
+    fi
+
+    # Method 2: Check /sys/class/drm
+    if ls /sys/class/drm/*/status 2>/dev/null | xargs cat 2>/dev/null | grep -q "^connected"; then
+        echo "Display connected via DRM"
+        return 0
+    fi
+
+    # Method 3: xrandr (if X11 running)
+    if command -v xrandr &>/dev/null && sudo -u "$ACTUAL_USER" DISPLAY=:0 xrandr 2>/dev/null | grep -q " connected"; then
+        echo "Display detected via xrandr"
+        return 0
+    fi
+
+    echo "No HDMI display detected"
+    return 1
+}
 
 # Check for existing installation and prompt for confirmation
 if [ -d "/opt/digitalsignage-client" ] || systemctl list-unit-files | grep -q "digitalsignage-client.service"; then
@@ -401,32 +457,81 @@ sleep 2
 if systemctl is-active --quiet digitalsignage-client; then
     echo "✓ Service is running successfully!"
 
-    # Deployment Mode Selection
+    # Intelligent Display Configuration
     echo ""
     echo "=========================================="
-    echo "Deployment Mode Selection"
+    echo "Display Configuration"
     echo "=========================================="
     echo ""
+
+    # Detect current configuration
+    echo "Detecting display hardware..."
+    detect_display_mode
+    DISPLAY_DETECTED=$?
+
+    check_hdmi_display
+    HDMI_DETECTED=$?
+
+    echo ""
+    echo "=========================================="
+    echo "Recommended Configuration"
+    echo "=========================================="
+    echo ""
+
+    # Determine recommendation
+    if [ $HDMI_DETECTED -eq 0 ] && [ $DISPLAY_DETECTED -ne 0 ]; then
+        # HDMI connected but X11 not running on :0
+        RECOMMENDED_MODE=1
+        echo "RECOMMENDATION: PRODUCTION MODE"
+        echo ""
+        echo "Reason: HDMI display detected, but X11 not configured"
+        echo ""
+        echo "This will:"
+        echo "  ✓ Enable auto-login to desktop"
+        echo "  ✓ Start X11 automatically on HDMI display"
+        echo "  ✓ Disable screen blanking"
+        echo "  ✓ Hide mouse cursor"
+        echo "  ✓ Show digital signage on your display"
+        echo "  ⚠ Requires reboot"
+        echo ""
+    elif [ $HDMI_DETECTED -eq 0 ] && [ $DISPLAY_DETECTED -eq 0 ]; then
+        # HDMI connected and X11 already running
+        RECOMMENDED_MODE=1
+        echo "RECOMMENDATION: PRODUCTION MODE (Already Configured)"
+        echo ""
+        echo "Reason: X11 already running on display"
+        echo ""
+        echo "This will:"
+        echo "  ✓ Verify auto-login settings"
+        echo "  ✓ Ensure power management is disabled"
+        echo "  ✓ Install the client service"
+        echo "  ℹ May not require reboot"
+        echo ""
+    else
+        # No HDMI or headless mode
+        RECOMMENDED_MODE=2
+        echo "RECOMMENDATION: DEVELOPMENT MODE (Headless)"
+        echo ""
+        echo "Reason: No HDMI display detected or headless environment"
+        echo ""
+        echo "This will:"
+        echo "  ✓ Use Xvfb (virtual display)"
+        echo "  ✓ Allow testing without physical display"
+        echo "  ✓ No reboot required"
+        echo ""
+    fi
+
     echo "Select deployment mode:"
     echo ""
-    echo "  1) PRODUCTION MODE (Recommended)"
-    echo "     - HDMI display connected"
-    echo "     - Auto-login enabled"
-    echo "     - X11 starts automatically on boot"
-    echo "     - Screen blanking disabled"
-    echo "     - Mouse cursor hidden"
-    echo "     - Client starts automatically"
-    echo "     → Requires REBOOT after installation"
+    echo "  1) PRODUCTION MODE"
+    echo "     For digital signage displays with HDMI"
     echo ""
     echo "  2) DEVELOPMENT MODE"
-    echo "     - Headless (no display required)"
-    echo "     - Uses Xvfb virtual display"
-    echo "     - Service runs but no auto-login"
-    echo "     - Good for testing"
-    echo "     → No reboot required"
+    echo "     For headless/testing environments"
     echo ""
-    read -p "Enter choice [1/2] (default: 1): " DEPLOYMENT_MODE
-    DEPLOYMENT_MODE=${DEPLOYMENT_MODE:-1}
+
+    read -p "Enter choice [1/2] (default: $RECOMMENDED_MODE): " DEPLOYMENT_MODE
+    DEPLOYMENT_MODE=${DEPLOYMENT_MODE:-$RECOMMENDED_MODE}
 
     if [ "$DEPLOYMENT_MODE" = "1" ]; then
         echo ""
@@ -435,25 +540,59 @@ if systemctl is-active --quiet digitalsignage-client; then
         echo "=========================================="
         echo ""
 
-        # Enable auto-login
-        echo "[1/4] Enabling auto-login for user $ACTUAL_USER..."
+        # Track if reboot is needed
+        NEEDS_REBOOT=false
+
+        # Check 1: Auto-login
+        echo "[1/5] Checking auto-login..."
         if command -v raspi-config &>/dev/null; then
-            # B4 = Desktop Autologin (boot to desktop, automatically logged in)
-            raspi-config nonint do_boot_behaviour B4 2>/dev/null
-            if [ $? -eq 0 ]; then
-                echo "  ✓ Auto-login enabled"
+            # Check current boot behavior
+            CURRENT_BOOT=$(raspi-config nonint get_boot_behaviour 2>/dev/null || echo "unknown")
+            if [ "$CURRENT_BOOT" != "B4" ]; then
+                echo "  Enabling auto-login to desktop..."
+                raspi-config nonint do_boot_behaviour B4 2>/dev/null
+                if [ $? -eq 0 ]; then
+                    echo "  ✓ Auto-login enabled"
+                    NEEDS_REBOOT=true
+                else
+                    echo "  ⚠ raspi-config completed with warnings (may still be successful)"
+                    NEEDS_REBOOT=true
+                fi
             else
-                echo "  ⚠ raspi-config command completed with warnings (may still be successful)"
+                echo "  ✓ Auto-login already enabled"
             fi
         else
-            echo "  ⚠ raspi-config not found, skipping auto-login setup"
+            echo "  ⚠ raspi-config not found"
             echo "  Manual: Run 'sudo raspi-config' → System Options → Boot/Auto Login"
         fi
 
-        # Create .xinitrc for X11 configuration
+        # Check 2: LightDM configuration
         echo ""
-        echo "[2/4] Configuring X11 startup for user $ACTUAL_USER..."
-        cat > "$USER_HOME/.xinitrc" <<'EOF'
+        echo "[2/5] Configuring display manager..."
+        if [ -f /etc/lightdm/lightdm.conf ]; then
+            if ! grep -q "^autologin-user=$ACTUAL_USER" /etc/lightdm/lightdm.conf; then
+                # Backup if not already backed up
+                if [ ! -f /etc/lightdm/lightdm.conf.backup ]; then
+                    cp /etc/lightdm/lightdm.conf /etc/lightdm/lightdm.conf.backup
+                    echo "  ✓ LightDM config backed up"
+                fi
+
+                sed -i "s/^#autologin-user=.*/autologin-user=$ACTUAL_USER/" /etc/lightdm/lightdm.conf
+                sed -i "s/^autologin-user=.*/autologin-user=$ACTUAL_USER/" /etc/lightdm/lightdm.conf
+                echo "  ✓ LightDM configured"
+                NEEDS_REBOOT=true
+            else
+                echo "  ✓ LightDM already configured"
+            fi
+        else
+            echo "  ℹ LightDM not found (normal for Raspberry Pi OS Lite)"
+        fi
+
+        # Check 3: .xinitrc
+        echo ""
+        echo "[3/5] Configuring X11 startup..."
+        if [ ! -f "$USER_HOME/.xinitrc" ] || ! grep -q "xset -dpms" "$USER_HOME/.xinitrc"; then
+            cat > "$USER_HOME/.xinitrc" <<'EOF'
 #!/bin/sh
 # Digital Signage X11 Startup Configuration
 
@@ -465,81 +604,70 @@ xset s noblank # Don't blank the video device
 # Hide mouse cursor after 0.1 seconds of inactivity
 unclutter -idle 0.1 -root &
 
-# Optional: Start a lightweight desktop environment
-# Uncomment if you want a desktop (not needed for signage)
-# exec startlxde
-
 # Keep X11 running
 exec tail -f /dev/null
 EOF
+            chown "$ACTUAL_USER:$ACTUAL_USER" "$USER_HOME/.xinitrc"
+            chmod +x "$USER_HOME/.xinitrc"
+            echo "  ✓ X11 configuration created (~/.xinitrc)"
+        else
+            echo "  ✓ X11 already configured"
+        fi
 
-        chown "$ACTUAL_USER:$ACTUAL_USER" "$USER_HOME/.xinitrc"
-        chmod +x "$USER_HOME/.xinitrc"
-        echo "  ✓ X11 configuration created (~/.xinitrc)"
-
-        # Configure LightDM for auto-login (if installed)
+        # Check 4: Service display environment
         echo ""
-        echo "[3/4] Configuring display manager..."
-        if [ -f /etc/lightdm/lightdm.conf ]; then
-            # Backup original config if not already backed up
-            if [ ! -f /etc/lightdm/lightdm.conf.backup ]; then
-                cp /etc/lightdm/lightdm.conf /etc/lightdm/lightdm.conf.backup
-                echo "  ✓ LightDM config backed up"
+        echo "[4/5] Updating service configuration..."
+        # Service file already uses start-with-display.sh which handles display detection
+        echo "  ✓ Service configured for display auto-detection"
+
+        # Check 5: Verify
+        echo ""
+        echo "[5/5] Verifying configuration..."
+        if [ "$NEEDS_REBOOT" = true ]; then
+            echo "  ⚠ Reboot required to apply changes"
+        else
+            echo "  ✓ System already configured for production mode"
+            # Check if X11 is running
+            if sudo -u "$ACTUAL_USER" DISPLAY=:0 xset q &>/dev/null; then
+                echo "  ✓ X11 is running - no reboot needed"
+                NEEDS_REBOOT=false
+            else
+                echo "  ⚠ X11 not running - reboot recommended"
+                NEEDS_REBOOT=true
             fi
-
-            # Set auto-login (handle both commented and uncommented lines)
-            sed -i "s/^#autologin-user=.*/autologin-user=$ACTUAL_USER/" /etc/lightdm/lightdm.conf
-            sed -i "s/^autologin-user=.*/autologin-user=$ACTUAL_USER/" /etc/lightdm/lightdm.conf
-            echo "  ✓ LightDM configured for auto-login"
-        else
-            echo "  ⚠ LightDM not found, using raspi-config settings only"
-            echo "  This is normal for Raspberry Pi OS Lite"
-        fi
-
-        # Create autostart entry (already done earlier, but ensure it's there)
-        echo ""
-        echo "[4/4] Verifying autostart entries..."
-        if [ -f "$AUTOSTART_DIR/unclutter.desktop" ] && [ -f "$AUTOSTART_DIR/disable-screensaver.desktop" ]; then
-            echo "  ✓ Autostart entries already configured"
-        else
-            echo "  ⚠ Autostart entries missing (should have been created earlier)"
         fi
 
         echo ""
         echo "=========================================="
-        echo "✓ PRODUCTION MODE configured successfully!"
+        echo "✓ PRODUCTION MODE configured"
         echo "=========================================="
         echo ""
-        echo "Configuration applied:"
-        echo "  1. Auto-login to desktop enabled"
-        echo "  2. X11 will start automatically on boot"
-        echo "  3. Screen blanking and screensaver disabled"
-        echo "  4. Mouse cursor will auto-hide"
-        echo "  5. Digital Signage client will start automatically"
-        echo ""
-        echo "IMPORTANT: A REBOOT IS REQUIRED"
-        echo ""
-        echo "After reboot:"
-        echo "  - System will auto-login as $ACTUAL_USER"
-        echo "  - X11 will start automatically"
-        echo "  - Digital Signage client will start automatically"
-        echo "  - Display will show the signage content"
-        echo ""
-        echo "Requirements:"
-        echo "  - Physical display (HDMI) must be connected"
-        echo "  - Server must be configured in $INSTALL_DIR/config.py"
-        echo ""
-        read -p "Reboot now? (y/N): " -n 1 -r
-        echo
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
+
+        # Smart reboot prompt
+        if [ "$NEEDS_REBOOT" = true ]; then
+            echo "IMPORTANT: A REBOOT IS REQUIRED"
             echo ""
-            echo "Rebooting in 3 seconds..."
-            sleep 3
-            reboot
+            echo "After reboot:"
+            echo "  - System will auto-login as $ACTUAL_USER"
+            echo "  - X11 will start on HDMI display"
+            echo "  - Digital Signage client will start automatically"
+            echo ""
+            read -p "Reboot now? (y/N): " -n 1 -r
+            echo
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                echo ""
+                echo "Rebooting in 3 seconds..."
+                sleep 3
+                reboot
+            else
+                echo ""
+                echo "Please reboot manually when ready:"
+                echo "  sudo reboot"
+                echo ""
+            fi
         else
-            echo ""
-            echo "Please reboot manually when ready:"
-            echo "  sudo reboot"
+            echo "✓ No reboot required - system already configured"
+            echo "  Service is running and ready"
             echo ""
         fi
     else
@@ -557,6 +685,28 @@ EOF
         echo "  sudo $INSTALL_DIR/enable-autologin-x11.sh"
         echo ""
     fi
+
+    # Post-Installation Verification
+    echo ""
+    echo "=========================================="
+    echo "Installation Verification"
+    echo "=========================================="
+    echo ""
+
+    echo "Current Configuration:"
+    if sudo -u "$ACTUAL_USER" DISPLAY=:0 xset q &>/dev/null 2>&1; then
+        echo "  Display Mode: Real X11 on :0 (HDMI)"
+    elif pgrep -f "Xvfb :99" &>/dev/null; then
+        echo "  Display Mode: Virtual (Xvfb)"
+    else
+        echo "  Display Mode: Not running (will start on boot)"
+    fi
+
+    SERVICE_STATUS=$(systemctl is-active digitalsignage-client 2>/dev/null || echo "not running")
+    echo "  Service Status: $SERVICE_STATUS"
+    echo "  User: $ACTUAL_USER"
+    echo "  Installation: $INSTALL_DIR"
+    echo ""
 
     # Show final configuration summary
     echo ""
@@ -577,7 +727,7 @@ EOF
     echo "  2. Set server_host and server_port"
     echo "  3. Set registration_token"
     echo "  4. Restart service: sudo systemctl restart digitalsignage-client"
-    if [ "$DEPLOYMENT_MODE" = "1" ]; then
+    if [ "$DEPLOYMENT_MODE" = "1" ] && [ "$NEEDS_REBOOT" = true ]; then
         echo "  5. Reboot system: sudo reboot"
     fi
     echo ""
