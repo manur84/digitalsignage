@@ -157,6 +157,44 @@ fi
 
 echo ""
 echo "========================================="
+echo "Updating Code from Repository"
+echo "========================================="
+echo ""
+
+# Check if we're in a git repository
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
+if [ -d "../../.git" ]; then
+    echo "Git repository detected - updating to latest version..."
+
+    # Get current user's git config
+    if [ -n "$ACTUAL_USER" ]; then
+        # Temporarily become the actual user to do git operations
+        sudo -u "$ACTUAL_USER" bash -c "cd '$SCRIPT_DIR' && git fetch origin"
+
+        # Get current branch
+        CURRENT_BRANCH=$(sudo -u "$ACTUAL_USER" git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main")
+        echo "Current branch: $CURRENT_BRANCH"
+
+        # Pull latest changes
+        echo "Pulling latest changes from origin/$CURRENT_BRANCH..."
+        if sudo -u "$ACTUAL_USER" git pull origin "$CURRENT_BRANCH"; then
+            echo "✓ Code updated successfully"
+        else
+            echo "⚠ Warning: git pull failed, continuing with current version"
+            echo "  You may need to resolve conflicts manually"
+        fi
+    else
+        echo "⚠ Warning: Could not determine user for git operations"
+        echo "  Continuing with current version"
+    fi
+else
+    echo "ℹ Not a git repository - using files in current directory"
+fi
+
+echo ""
+echo "========================================="
 echo "Installing Digital Signage Client"
 echo "========================================="
 echo ""
@@ -234,6 +272,7 @@ fi
 echo "[7/10] Copying client files..."
 cp client.py "$INSTALL_DIR/"
 cp config.py "$INSTALL_DIR/"
+cp discovery.py "$INSTALL_DIR/"
 cp device_manager.py "$INSTALL_DIR/"
 cp display_renderer.py "$INSTALL_DIR/"
 cp cache_manager.py "$INSTALL_DIR/"
