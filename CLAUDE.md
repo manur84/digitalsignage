@@ -54,6 +54,22 @@ git push
 git remote -v
 ```
 
+**IMPORTANT Git Workflow:**
+⚠️ **ALWAYS push changes to Git after every modification!**
+
+After making any changes to the codebase, follow this workflow:
+1. Stage all changes: `git add -A`
+2. Commit with descriptive message: `git commit -m "Description of changes"`
+3. **IMMEDIATELY push to remote:** `git push`
+
+This ensures:
+- All work is backed up in the repository
+- Changes are synchronized across development environments
+- No work is lost if the local environment has issues
+- Other team members/Claude instances have access to latest changes
+
+**Never skip the git push step!** Always push after completing a task or fixing an issue.
+
 **Security Note:** The `.env` file contains sensitive credentials and must never be committed to version control. It's included in `.gitignore` to prevent accidental commits. The git remote URL includes the token for authentication, but it's not stored in the repository.
 
 ## Commands
