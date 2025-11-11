@@ -22,6 +22,7 @@
         <Menu DockPanel.Dock="Top" Padding="4">
             <MenuItem Header="_File">
                 <MenuItem Header="_New Layout" Command="{Binding NewLayoutCommand}"/>
+                <MenuItem Header="New from _Template..." Command="{Binding NewFromTemplateCommand}"/>
                 <MenuItem Header="_Open Layout" Command="{Binding OpenLayoutCommand}"/>
                 <MenuItem Header="_Save" Command="{Binding SaveCommand}"/>
                 <MenuItem Header="Save _As..." Command="{Binding SaveAsCommand}"/>

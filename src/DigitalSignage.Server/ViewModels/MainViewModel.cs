@@ -2,7 +2,11 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DigitalSignage.Core.Interfaces;
 using DigitalSignage.Core.Models;
+using DigitalSignage.Data;
+using DigitalSignage.Server.Views;
+using Microsoft.Extensions.Logging;
 using System.Collections.ObjectModel;
+using System.Text.Json;
 using System.Windows.Input;
 
 namespace DigitalSignage.Server.ViewModels;
@@ -12,6 +16,8 @@ public partial class MainViewModel : ObservableObject
     private readonly ILayoutService _layoutService;
     private readonly IClientService _clientService;
     private readonly ICommunicationService _communicationService;
+    private readonly DigitalSignageDbContext _dbContext;
+    private readonly ILogger<MainViewModel> _logger;
 
     [ObservableProperty]
     private DisplayLayout? _currentLayout;
@@ -52,11 +58,15 @@ public partial class MainViewModel : ObservableObject
         ICommunicationService communicationService,
         DesignerViewModel designerViewModel,
         DeviceManagementViewModel deviceManagementViewModel,
-        DataSourceViewModel dataSourceViewModel)
+        DataSourceViewModel dataSourceViewModel,
+        DigitalSignageDbContext dbContext,
+        ILogger<MainViewModel> logger)
     {
         _layoutService = layoutService;
         _clientService = clientService;
         _communicationService = communicationService;
+        _dbContext = dbContext;
+        _logger = logger;
         Designer = designerViewModel ?? throw new ArgumentNullException(nameof(designerViewModel));
         DeviceManagement = deviceManagementViewModel ?? throw new ArgumentNullException(nameof(deviceManagementViewModel));
         DataSourceViewModel = dataSourceViewModel ?? throw new ArgumentNullException(nameof(dataSourceViewModel));
@@ -127,6 +137,70 @@ public partial class MainViewModel : ObservableObject
             Resolution = new Resolution { Width = 1920, Height = 1080 }
         };
         StatusText = "New layout created";
+    }
+
+    [RelayCommand]
+    private async Task NewFromTemplate()
+    {
+        try
+        {
+            _logger.LogInformation("Opening template selection dialog");
+            StatusText = "Select a template...";
+
+            // Create the template selection view model
+            var templateViewModel = new TemplateSelectionViewModel(
+                _dbContext,
+                Microsoft.Extensions.Logging.LoggerFactory.Create(builder => builder.AddConsole())
+                    .CreateLogger<TemplateSelectionViewModel>());
+
+            // Create and show the dialog
+            var dialog = new TemplateSelectionWindow(templateViewModel);
+            var result = dialog.ShowDialog();
+
+            if (result == true && templateViewModel.SelectedTemplate != null)
+            {
+                var template = templateViewModel.SelectedTemplate;
+                _logger.LogInformation("Creating layout from template: {TemplateName}", template.Name);
+
+                // Deserialize the elements from the template
+                var elements = JsonSerializer.Deserialize<List<DisplayElement>>(template.ElementsJson)
+                    ?? new List<DisplayElement>();
+
+                // Create new layout from template
+                var newLayout = new DisplayLayout
+                {
+                    Name = $"{template.Name} - Copy",
+                    Resolution = template.Resolution,
+                    BackgroundColor = template.BackgroundColor,
+                    BackgroundImage = template.BackgroundImage,
+                    Elements = elements
+                };
+
+                // Update both the main view model and designer with the new layout
+                CurrentLayout = newLayout;
+                Designer.CurrentLayout = newLayout;
+
+                // Update the designer's elements collection
+                Designer.Elements.Clear();
+                foreach (var element in elements)
+                {
+                    Designer.Elements.Add(element);
+                }
+
+                StatusText = $"Layout created from template: {template.Name}";
+                _logger.LogInformation("Successfully created layout from template");
+            }
+            else
+            {
+                StatusText = "Template selection cancelled";
+                _logger.LogInformation("Template selection cancelled by user");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to create layout from template");
+            StatusText = $"Error: {ex.Message}";
+        }
     }
 
     [RelayCommand]
