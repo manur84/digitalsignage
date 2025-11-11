@@ -53,12 +53,14 @@ Basierend auf dem Entwicklungsauftrag und dem aktuellen Code-Stand.
   - ✅ Selektions- und Transformationshandles (ResizeAdorner)
   - ✅ DesignerItemControl für Element-Rendering
   - ❌ 🟡 Multi-Selektion mit Ctrl/Shift
-- ⚠️ **Ebenenmanagement** - Z-Index vorhanden mit grundlegender UI
+- ✅ **Ebenenmanagement** - Vollständig implementiert
   - ✅ Z-Index Move Up/Down Commands
   - ✅ Z-Index Eingabefeld in Properties Panel
-  - ❌ 🟡 Ebenenpalette mit Drag-Reorder
-  - ❌ 🟡 Ebenen-Sichtbarkeit Toggle
-  - ❌ 🟡 Ebenen-Gruppierung
+  - ✅ Ebenenpalette mit visueller Darstellung (Layer Panel in Designer Tab)
+  - ✅ Ebenen-Sichtbarkeit Toggle (IsVisible Property)
+  - ✅ Layer List mit Type Icons und Z-Index Anzeige
+  - ✅ Move Up/Down Buttons für Layers
+  - ✅ Synchronisierte Selektion zwischen Canvas und Layer Panel
 - ✅ **Raster und Ausrichtung** - Implementiert
   - ✅ Rasteranzeige im DesignerCanvas
   - ✅ Snap-to-Grid beim Verschieben
@@ -66,7 +68,7 @@ Basierend auf dem Entwicklungsauftrag und dem aktuellen Code-Stand.
   - ✅ Grid Show/Hide Toggle
   - ❌ 🟡 Ausrichtungshilfslinien (Smart Guides)
   - ❌ 🟡 Objekt-Ausrichtungs-Funktionen (links, rechts, zentriert)
-- ✅ **Eigenschaften-Panel** - Kontextsensitives Panel implementiert
+- ✅ **Eigenschaften-Panel** - Vollständig implementiert mit erweiterten Features
   - ✅ Position (X, Y) Eingabefelder
   - ✅ Größe (Width, Height) Eingabefelder
   - ✅ Z-Index mit Up/Down Buttons
@@ -74,13 +76,20 @@ Basierend auf dem Entwicklungsauftrag und dem aktuellen Code-Stand.
   - ✅ Layout Properties (Name, Resolution, Background)
   - ✅ Duplicate und Delete Buttons
   - ✅ Dynamische Anzeige basierend auf Selektion
-  - ❌ 🟡 Rotation Eingabefeld
-  - ❌ 🟡 Schrift-Einstellungen für Text
-  - ❌ 🟡 Farb-Picker
+  - ✅ **Rotation Eingabefeld mit Slider (0-360°)**
+  - ✅ **Schrift-Einstellungen für Text** (FontFamily ComboBox, FontSize Slider, Bold/Italic Toggles)
+  - ✅ **Farb-Picker mit Hex-Eingabe und Vorschau** (für Text Color, Fill Color, Border Color)
+  - ✅ **Kontextsensitive Properties** (Text-spezifisch, Rectangle-spezifisch)
   - ❌ 🟡 Datenquellen-Bindung UI
-- ❌ 🟡 **Undo/Redo-System** - Befehle in ViewModel vorhanden, nicht implementiert
-  - Command Pattern für alle Operationen
-  - Undo-Stack Management
+- ✅ **Undo/Redo-System** - Vollständig implementiert mit Command Pattern
+  - ✅ IUndoableCommand Interface definiert
+  - ✅ CommandHistory mit Undo/Redo Stacks (Max 50 Einträge)
+  - ✅ AddElementCommand, DeleteElementCommand implementiert
+  - ✅ MoveElementCommand, ResizeElementCommand implementiert
+  - ✅ ChangePropertyCommand, ChangeZIndexCommand implementiert
+  - ✅ Undo/Redo Commands in DesignerViewModel (Ctrl+Z, Ctrl+Y ready)
+  - ✅ HistoryChanged Event für UI-Updates
+  - ✅ Integration in alle Designer-Operationen
 - ❌ 🟡 **Element-Gruppierung**
   - Gruppe erstellen/auflösen
   - Gruppe als Einheit transformieren
@@ -147,7 +156,7 @@ Basierend auf dem Entwicklungsauftrag und dem aktuellen Code-Stand.
   - Drag-and-Drop von Variablen in Textfelder
 
 #### Medienmanagement
-- ✅ **Zentrale Medienbibliothek**
+- ✅ **Zentrale Medienbibliothek** - Vollständig implementiert (Backend + UI)
   - ✅ MediaFile Entity mit vollständigen Metadaten
   - ✅ MediaType Enum (Image, Video, Audio, Document, Other)
   - ✅ EnhancedMediaService mit Datenbank-Integration
@@ -161,8 +170,16 @@ Basierend auf dem Entwicklungsauftrag und dem aktuellen Code-Stand.
     - Audio: MP3, WAV, OGG, FLAC, AAC, WMA
     - Dokumente: PDF, DOC/DOCX, XLS/XLSX, PPT/PPTX, TXT
   - ✅ 100 MB Max File Size
-  - ❌ Thumbnail-Generierung (UI-Feature)
-  - ❌ Medienbrowser-UI
+  - ✅ **MediaLibraryViewModel** mit vollständiger CRUD-Funktionalität
+  - ✅ **Media Library Tab UI** (Upload, Filter, Search, Details Panel)
+  - ✅ **Filter nach Medientyp** (All, Images, Videos, Audio, Documents)
+  - ✅ **Suchfunktion** (OriginalFileName, Description, Tags)
+  - ✅ **Upload Dialog** mit Multi-Select
+  - ✅ **Delete Confirmation** Dialog
+  - ✅ **Details Panel** mit Edit-Funktionen (Description, Tags, Category)
+  - ✅ **FileSizeConverter** für formatierte Größenangaben
+  - ✅ **Status Messages** für User Feedback
+  - ❌ 🟡 Thumbnail-Generierung für Bildvorschau
 - ❌ 🟡 **Bildbearbeitung**
   - Zuschneiden
   - Größenanpassung
@@ -660,7 +677,7 @@ ganz zum schluss
 
 ### Implementierungsstand
 
-- **Vollständig:** ~60%
+- **Vollständig:** ~75%
   - Kommunikations-Infrastruktur
   - Grundlegende Datenmodelle
   - Service-Layer-Architektur
@@ -668,46 +685,68 @@ ganz zum schluss
   - **Designer-Tab vollständig funktional** ✅
     - Drag-and-Drop Canvas
     - Properties Panel mit Echtzeit-Bearbeitung
+    - **Erweiterte Properties Panel** ✅ (NEU - 2025-11-11)
+      - Rotation Control (0-360° mit Slider)
+      - Font Settings (Family, Size, Bold, Italic)
+      - Color Picker mit Hex-Eingabe und Vorschau
+      - Kontextsensitive Properties (Text/Rectangle)
     - Raster und Snap-to-Grid
     - Resize-Handles für Elemente
     - Zoom-Funktionen
     - Element-Verwaltung (Add/Delete/Duplicate)
+    - **Undo/Redo-System** ✅ (NEU - 2025-11-11)
+      - Command Pattern vollständig implementiert
+      - CommandHistory mit 50 Einträgen
+      - Keyboard Shortcuts ready (Ctrl+Z, Ctrl+Y)
+    - **Layer Management** ✅ (NEU - 2025-11-11)
+      - Layer Panel mit visueller Liste
+      - Visibility Toggle für Layers
+      - Move Up/Down für Z-Index
+      - Synchronisierte Selektion
   - **Geräte-Tab vollständig funktional** ✅
     - Device Management UI mit Control Panel
     - Alle Remote Commands implementiert
     - Layout Assignment UI
     - Volume Control mit Slider
     - Status Monitoring
-  - **Datenquellen-Tab vollständig funktional** ✅ (NEU)
+  - **Datenquellen-Tab vollständig funktional** ✅
     - Data Source Management UI mit Editor
     - Query Builder Integration
     - Connection Test und Data Preview
     - Database Persistence
-  - **Vorschau-Tab vollständig funktional** ✅ (NEU)
+  - **Vorschau-Tab vollständig funktional** ✅
     - Live Preview mit Template Engine
     - Test Data Simulator
     - Auto-Refresh Funktionalität
-  - **Zeitplan-System vollständig funktional** ✅ (NEU)
+  - **Zeitplan-System vollständig funktional** ✅
     - Layout Scheduling mit Editor
     - Automatische Zeitplan-Ausführung
     - Priority-basierte Auswahl
-  - **Zoom-Funktionalität vollständig implementiert** ✅ (NEU)
+  - **Media Library vollständig funktional** ✅ (NEU - 2025-11-11)
+    - MediaLibraryViewModel mit CRUD
+    - Upload mit Multi-Select
+    - Filter nach Typ und Suche
+    - Details Panel mit Edit-Funktionen
+    - FileSizeConverter für Größenanzeige
+    - Vollständige Backend-Integration
+  - **Zoom-Funktionalität vollständig implementiert** ✅
     - Zoom Slider und Mausrad-Support
     - Fit to Screen / Reset Zoom
   - Dependency Injection Setup
   - systemd Service + Watchdog
   - TLS/SSL-Verschlüsselung
   - Client-Offline-Cache
+  - Auto-Discovery (UDP Broadcast)
 
-- **Teilweise:** ~10%
-  - Ebenen-Management (Grundfunktionen, keine Palette)
-  - Medien-Management (Backend vorhanden, UI fehlt)
+- **Teilweise:** ~5%
+  - Element-Gruppierung (Commands vorhanden, UI fehlt)
 
-- **Nicht implementiert:** ~30%
-  - Erweiterte Designer-Features (Undo/Redo, Gruppierung)
-  - Medien-Management UI
-  - Auto-Discovery
+- **Nicht implementiert:** ~20%
   - Deployment-Tools (MSI-Installer)
+  - Smart Guides (Ausrichtungshilfslinien)
+  - Thumbnail-Generierung
+  - Remote Log-Viewer UI
+  - Touch-Unterstützung
   - Erweiterte Dokumentation
 
 ### Nächste Schritte (Quick Wins)
@@ -717,11 +756,15 @@ ganz zum schluss
 3. ✅ **systemd Service** für Raspberry Pi Client (ABGESCHLOSSEN)
 4. ✅ **TLS-Verschlüsselung** aktivieren (ABGESCHLOSSEN)
 5. ✅ **Client-Offline-Cache** implementieren (ABGESCHLOSSEN)
+6. ✅ **Medien-Browser UI** - UI für zentrale Medienbibliothek (ABGESCHLOSSEN - 2025-11-11)
+7. ✅ **Undo/Redo-System** - Command Pattern für Designer-Operationen (ABGESCHLOSSEN - 2025-11-11)
+8. ✅ **Ebenen-Palette** - Layer Panel mit Visibility Toggle (ABGESCHLOSSEN - 2025-11-11)
+9. ✅ **Erweiterte Properties Panel** - Rotation, Font Settings, Color Picker (ABGESCHLOSSEN - 2025-11-11)
 
 **Neue Prioritäten:**
-1. **Auto-Discovery (UDP Broadcast)** - Automatische Netzwerkerkennung für Clients
-2. **Medien-Browser UI** - UI für zentrale Medienbibliothek (Backend bereits vorhanden)
-3. **Undo/Redo-System** - Command Pattern für Designer-Operationen
-4. **Ebenen-Palette** - Drag-Reorder, Sichtbarkeits-Toggle, Gruppierung
-5. **Visuelle Daten-Mapping UI** - SQL-Spalten zu UI-Elementen zuordnen
-6. **Remote Log-Viewer** - Echtzeit-Log-Streaming von Clients
+1. **Visuelle Daten-Mapping UI** - SQL-Spalten zu UI-Elementen zuordnen
+2. **Remote Log-Viewer** - Echtzeit-Log-Streaming von Clients
+3. **Element-Gruppierung** - Mehrere Elemente als Gruppe bearbeiten
+4. **Smart Guides** - Ausrichtungshilfslinien im Designer
+5. **Thumbnail-Generierung** für Medien-Vorschau
+6. **Preview Functionality** - Live-Rendering mit Template Engine (teilweise implementiert)

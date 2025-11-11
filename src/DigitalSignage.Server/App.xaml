@@ -22,6 +22,8 @@
             <converters:HexToColorConverter x:Key="HexToColorConverter"/>
             <converters:StatusToColorConverter x:Key="StatusToColorConverter"/>
             <converters:TestResultToColorConverter x:Key="TestResultToColorConverter"/>
+            <converters:FontWeightToBoolConverter x:Key="FontWeightToBoolConverter"/>
+            <converters:FontStyleToBoolConverter x:Key="FontStyleToBoolConverter"/>
 
             <!-- Global Styles -->
             <Style TargetType="Window">

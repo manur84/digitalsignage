@@ -448,6 +448,175 @@
                                         <Button Content="▼" Command="{Binding Designer.MoveElementDownCommand}" Padding="8,2"/>
                                     </StackPanel>
 
+                                    <TextBlock Text="Rotation:" Margin="0,12,0,4"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Slider Grid.Column="0"
+                                                Minimum="0"
+                                                Maximum="360"
+                                                Value="{Binding Designer.SelectedElement.Properties[Rotation], FallbackValue=0, UpdateSourceTrigger=PropertyChanged}"
+                                                TickFrequency="45"
+                                                IsSnapToTickEnabled="False"
+                                                Margin="0,0,8,0"/>
+                                        <TextBox Grid.Column="1"
+                                                Width="60"
+                                                Text="{Binding Designer.SelectedElement.Properties[Rotation], FallbackValue=0, UpdateSourceTrigger=PropertyChanged}"/>
+                                    </Grid>
+
+                                    <Separator Margin="0,16"/>
+
+                                    <!-- Text Element Properties -->
+                                    <StackPanel>
+                                        <StackPanel.Style>
+                                            <Style TargetType="StackPanel">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Designer.SelectedElement.Type}" Value="text">
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </StackPanel.Style>
+
+                                        <TextBlock Text="Text Properties" FontWeight="SemiBold" Margin="0,0,0,8"/>
+
+                                        <TextBlock Text="Content:" Margin="0,4,0,2"/>
+                                        <TextBox Text="{Binding Designer.SelectedElement.Properties[Content], UpdateSourceTrigger=PropertyChanged}"
+                                                Height="60"
+                                                TextWrapping="Wrap"
+                                                AcceptsReturn="True"
+                                                VerticalScrollBarVisibility="Auto"/>
+
+                                        <TextBlock Text="Font Family:" Margin="0,12,0,4"/>
+                                        <ComboBox SelectedItem="{Binding Designer.SelectedElement.Properties[FontFamily], FallbackValue=Arial}">
+                                            <ComboBoxItem>Arial</ComboBoxItem>
+                                            <ComboBoxItem>Calibri</ComboBoxItem>
+                                            <ComboBoxItem>Times New Roman</ComboBoxItem>
+                                            <ComboBoxItem>Verdana</ComboBoxItem>
+                                            <ComboBoxItem>Georgia</ComboBoxItem>
+                                            <ComboBoxItem>Courier New</ComboBoxItem>
+                                            <ComboBoxItem>Comic Sans MS</ComboBoxItem>
+                                            <ComboBoxItem>Impact</ComboBoxItem>
+                                            <ComboBoxItem>Tahoma</ComboBoxItem>
+                                            <ComboBoxItem>Trebuchet MS</ComboBoxItem>
+                                        </ComboBox>
+
+                                        <TextBlock Text="Font Size:" Margin="0,12,0,4"/>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Slider Grid.Column="0"
+                                                   Minimum="8"
+                                                   Maximum="144"
+                                                   Value="{Binding Designer.SelectedElement.Properties[FontSize], FallbackValue=24}"
+                                                   TickFrequency="4"
+                                                   IsSnapToTickEnabled="True"
+                                                   Margin="0,0,8,0"/>
+                                            <TextBox Grid.Column="1"
+                                                    Width="60"
+                                                    Text="{Binding Designer.SelectedElement.Properties[FontSize], FallbackValue=24, UpdateSourceTrigger=PropertyChanged}"/>
+                                        </Grid>
+
+                                        <TextBlock Text="Font Style:" Margin="0,12,0,4"/>
+                                        <StackPanel Orientation="Horizontal">
+                                            <ToggleButton Content="Bold"
+                                                         IsChecked="{Binding Designer.SelectedElement.Properties[FontWeight], Converter={StaticResource FontWeightToBoolConverter}, FallbackValue=False}"
+                                                         Width="60"
+                                                         Margin="0,0,4,0"
+                                                         Padding="8,4"/>
+                                            <ToggleButton Content="Italic"
+                                                         IsChecked="{Binding Designer.SelectedElement.Properties[FontStyle], Converter={StaticResource FontStyleToBoolConverter}, FallbackValue=False}"
+                                                         Width="60"
+                                                         Padding="8,4"/>
+                                        </StackPanel>
+
+                                        <TextBlock Text="Text Color:" Margin="0,12,0,4"/>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBox Grid.Column="0"
+                                                    Text="{Binding Designer.SelectedElement.Properties[Color], FallbackValue=#000000, UpdateSourceTrigger=PropertyChanged}"
+                                                    Margin="0,0,8,0"/>
+                                            <Border Grid.Column="1"
+                                                   Width="40"
+                                                   Height="30"
+                                                   BorderBrush="#CCCCCC"
+                                                   BorderThickness="1">
+                                                <Border.Background>
+                                                    <SolidColorBrush Color="{Binding Designer.SelectedElement.Properties[Color], Converter={StaticResource HexToColorConverter}, FallbackValue=Black}"/>
+                                                </Border.Background>
+                                            </Border>
+                                        </Grid>
+                                    </StackPanel>
+
+                                    <Separator Margin="0,16"/>
+
+                                    <!-- Rectangle/Shape Properties -->
+                                    <StackPanel>
+                                        <StackPanel.Style>
+                                            <Style TargetType="StackPanel">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Designer.SelectedElement.Type}" Value="rectangle">
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </StackPanel.Style>
+
+                                        <TextBlock Text="Rectangle Properties" FontWeight="SemiBold" Margin="0,0,0,8"/>
+
+                                        <TextBlock Text="Fill Color:" Margin="0,4,0,2"/>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBox Grid.Column="0"
+                                                    Text="{Binding Designer.SelectedElement.Properties[FillColor], FallbackValue=#ADD8E6, UpdateSourceTrigger=PropertyChanged}"
+                                                    Margin="0,0,8,0"/>
+                                            <Border Grid.Column="1"
+                                                   Width="40"
+                                                   Height="30"
+                                                   BorderBrush="#CCCCCC"
+                                                   BorderThickness="1">
+                                                <Border.Background>
+                                                    <SolidColorBrush Color="{Binding Designer.SelectedElement.Properties[FillColor], Converter={StaticResource HexToColorConverter}, FallbackValue=LightBlue}"/>
+                                                </Border.Background>
+                                            </Border>
+                                        </Grid>
+
+                                        <TextBlock Text="Border Color:" Margin="0,12,0,4"/>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBox Grid.Column="0"
+                                                    Text="{Binding Designer.SelectedElement.Properties[BorderColor], FallbackValue=#00008B, UpdateSourceTrigger=PropertyChanged}"
+                                                    Margin="0,0,8,0"/>
+                                            <Border Grid.Column="1"
+                                                   Width="40"
+                                                   Height="30"
+                                                   BorderBrush="#CCCCCC"
+                                                   BorderThickness="1">
+                                                <Border.Background>
+                                                    <SolidColorBrush Color="{Binding Designer.SelectedElement.Properties[BorderColor], Converter={StaticResource HexToColorConverter}, FallbackValue=DarkBlue}"/>
+                                                </Border.Background>
+                                            </Border>
+                                        </Grid>
+
+                                        <TextBlock Text="Border Thickness:" Margin="0,12,0,4"/>
+                                        <TextBox Text="{Binding Designer.SelectedElement.Properties[BorderThickness], FallbackValue=2, UpdateSourceTrigger=PropertyChanged}"/>
+                                    </StackPanel>
+
                                     <Separator Margin="0,16"/>
 
                                     <TextBlock Text="Actions:" FontWeight="SemiBold" Margin="0,8,0,8"/>
