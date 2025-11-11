@@ -303,12 +303,171 @@ sleep 3
 
 if systemctl is-active --quiet digitalsignage-client; then
     echo "✓ Service is running successfully!"
+
+    # Deployment Mode Selection
+    echo ""
+    echo "=========================================="
+    echo "Deployment Mode Selection"
+    echo "=========================================="
+    echo ""
+    echo "Select deployment mode:"
+    echo ""
+    echo "  1) PRODUCTION MODE (Recommended)"
+    echo "     - HDMI display connected"
+    echo "     - Auto-login enabled"
+    echo "     - X11 starts automatically on boot"
+    echo "     - Screen blanking disabled"
+    echo "     - Mouse cursor hidden"
+    echo "     - Client starts automatically"
+    echo "     → Requires REBOOT after installation"
+    echo ""
+    echo "  2) DEVELOPMENT MODE"
+    echo "     - Headless (no display required)"
+    echo "     - Uses Xvfb virtual display"
+    echo "     - Service runs but no auto-login"
+    echo "     - Good for testing"
+    echo "     → No reboot required"
+    echo ""
+    read -p "Enter choice [1/2] (default: 1): " DEPLOYMENT_MODE
+    DEPLOYMENT_MODE=${DEPLOYMENT_MODE:-1}
+
+    if [ "$DEPLOYMENT_MODE" = "1" ]; then
+        echo ""
+        echo "=========================================="
+        echo "Configuring PRODUCTION MODE"
+        echo "=========================================="
+        echo ""
+
+        # Enable auto-login
+        echo "[1/4] Enabling auto-login for user $ACTUAL_USER..."
+        if command -v raspi-config &>/dev/null; then
+            # B4 = Desktop Autologin (boot to desktop, automatically logged in)
+            raspi-config nonint do_boot_behaviour B4 2>/dev/null
+            if [ $? -eq 0 ]; then
+                echo "  ✓ Auto-login enabled"
+            else
+                echo "  ⚠ raspi-config command completed with warnings (may still be successful)"
+            fi
+        else
+            echo "  ⚠ raspi-config not found, skipping auto-login setup"
+            echo "  Manual: Run 'sudo raspi-config' → System Options → Boot/Auto Login"
+        fi
+
+        # Create .xinitrc for X11 configuration
+        echo ""
+        echo "[2/4] Configuring X11 startup for user $ACTUAL_USER..."
+        cat > "$USER_HOME/.xinitrc" <<'EOF'
+#!/bin/sh
+# Digital Signage X11 Startup Configuration
+
+# Disable power management features
+xset -dpms     # Disable DPMS (Energy Star) features
+xset s off     # Disable screen saver
+xset s noblank # Don't blank the video device
+
+# Hide mouse cursor after 0.1 seconds of inactivity
+unclutter -idle 0.1 -root &
+
+# Optional: Start a lightweight desktop environment
+# Uncomment if you want a desktop (not needed for signage)
+# exec startlxde
+
+# Keep X11 running
+exec tail -f /dev/null
+EOF
+
+        chown "$ACTUAL_USER:$ACTUAL_USER" "$USER_HOME/.xinitrc"
+        chmod +x "$USER_HOME/.xinitrc"
+        echo "  ✓ X11 configuration created (~/.xinitrc)"
+
+        # Configure LightDM for auto-login (if installed)
+        echo ""
+        echo "[3/4] Configuring display manager..."
+        if [ -f /etc/lightdm/lightdm.conf ]; then
+            # Backup original config if not already backed up
+            if [ ! -f /etc/lightdm/lightdm.conf.backup ]; then
+                cp /etc/lightdm/lightdm.conf /etc/lightdm/lightdm.conf.backup
+                echo "  ✓ LightDM config backed up"
+            fi
+
+            # Set auto-login (handle both commented and uncommented lines)
+            sed -i "s/^#autologin-user=.*/autologin-user=$ACTUAL_USER/" /etc/lightdm/lightdm.conf
+            sed -i "s/^autologin-user=.*/autologin-user=$ACTUAL_USER/" /etc/lightdm/lightdm.conf
+            echo "  ✓ LightDM configured for auto-login"
+        else
+            echo "  ⚠ LightDM not found, using raspi-config settings only"
+            echo "  This is normal for Raspberry Pi OS Lite"
+        fi
+
+        # Create autostart entry (already done earlier, but ensure it's there)
+        echo ""
+        echo "[4/4] Verifying autostart entries..."
+        if [ -f "$AUTOSTART_DIR/unclutter.desktop" ] && [ -f "$AUTOSTART_DIR/disable-screensaver.desktop" ]; then
+            echo "  ✓ Autostart entries already configured"
+        else
+            echo "  ⚠ Autostart entries missing (should have been created earlier)"
+        fi
+
+        echo ""
+        echo "=========================================="
+        echo "✓ PRODUCTION MODE configured successfully!"
+        echo "=========================================="
+        echo ""
+        echo "Configuration applied:"
+        echo "  1. Auto-login to desktop enabled"
+        echo "  2. X11 will start automatically on boot"
+        echo "  3. Screen blanking and screensaver disabled"
+        echo "  4. Mouse cursor will auto-hide"
+        echo "  5. Digital Signage client will start automatically"
+        echo ""
+        echo "IMPORTANT: A REBOOT IS REQUIRED"
+        echo ""
+        echo "After reboot:"
+        echo "  - System will auto-login as $ACTUAL_USER"
+        echo "  - X11 will start automatically"
+        echo "  - Digital Signage client will start automatically"
+        echo "  - Display will show the signage content"
+        echo ""
+        echo "Requirements:"
+        echo "  - Physical display (HDMI) must be connected"
+        echo "  - Server must be configured in $INSTALL_DIR/config.py"
+        echo ""
+        read -p "Reboot now? (y/N): " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            echo ""
+            echo "Rebooting in 3 seconds..."
+            sleep 3
+            reboot
+        else
+            echo ""
+            echo "Please reboot manually when ready:"
+            echo "  sudo reboot"
+            echo ""
+        fi
+    else
+        echo ""
+        echo "=========================================="
+        echo "✓ DEVELOPMENT MODE selected"
+        echo "=========================================="
+        echo ""
+        echo "The service is configured for headless operation:"
+        echo "  - Uses Xvfb virtual display (via start-with-display.sh)"
+        echo "  - No auto-login configured"
+        echo "  - No reboot required"
+        echo ""
+        echo "To enable production mode later, run:"
+        echo "  sudo $INSTALL_DIR/enable-autologin-x11.sh"
+        echo ""
+    fi
+
+    # Show final configuration summary
     echo ""
     echo "========================================="
     echo "Installation Complete!"
     echo "========================================="
     echo ""
-    echo "Configuration:"
+    echo "Installation Paths:"
     echo "  - Installation directory: $INSTALL_DIR"
     echo "  - Virtual environment: $VENV_DIR"
     echo "  - Config directory: $CONFIG_DIR"
@@ -316,27 +475,28 @@ if systemctl is-active --quiet digitalsignage-client; then
     echo ""
     echo "Service Status: RUNNING"
     echo ""
-    echo "Next steps:"
+    echo "Next Steps:"
     echo "  1. Edit configuration: sudo nano $INSTALL_DIR/config.py"
-    echo "  2. Set server host and port"
-    echo "  3. Restart service: sudo systemctl restart digitalsignage-client"
+    echo "  2. Set server_host and server_port"
+    echo "  3. Set registration_token"
+    echo "  4. Restart service: sudo systemctl restart digitalsignage-client"
+    if [ "$DEPLOYMENT_MODE" = "1" ]; then
+        echo "  5. Reboot system: sudo reboot"
+    fi
     echo ""
-    echo "Useful commands:"
+    echo "Useful Commands:"
     echo "  View status:    sudo systemctl status digitalsignage-client"
     echo "  View logs:      sudo journalctl -u digitalsignage-client -f"
     echo "  Run diagnostic: sudo $INSTALL_DIR/diagnose.sh"
     echo "  Test client:    sudo -u $ACTUAL_USER $VENV_DIR/bin/python3 $INSTALL_DIR/client.py --test"
     echo "  Restart:        sudo systemctl restart digitalsignage-client"
     echo "  Stop:           sudo systemctl stop digitalsignage-client"
-    echo "  Disable:        sudo systemctl disable digitalsignage-client"
     echo ""
     echo "Note: Python packages are installed in a virtual environment at $VENV_DIR"
     echo "This avoids conflicts with system Python packages (Python 3.11+ requirement)."
     echo "The venv uses --system-site-packages to access system packages:"
     echo "  - PyQt5 (python3-pyqt5, python3-pyqt5.qtsvg, python3-pyqt5.qtmultimedia)"
     echo "  - psutil (python3-psutil)"
-    echo ""
-    echo "The service is configured to start automatically on boot."
     echo ""
 else
     echo "✗ WARNING: Service failed to start"
