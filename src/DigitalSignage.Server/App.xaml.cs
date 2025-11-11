@@ -85,7 +85,7 @@ public partial class App : Application
                 services.AddSingleton<ISqlDataService, SqlDataService>();
                 services.AddSingleton<ITemplateService, TemplateService>();
                 services.AddSingleton<ICommunicationService, WebSocketCommunicationService>();
-                services.AddSingleton<IMediaService, MediaService>();
+                services.AddSingleton<IMediaService, EnhancedMediaService>();
                 services.AddScoped<IAuthenticationService, AuthenticationService>();
 
                 // Register Background Services

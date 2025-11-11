@@ -18,11 +18,15 @@ public class DigitalSignageDbContext : DbContext
     public DbSet<RaspberryPiClient> Clients => Set<RaspberryPiClient>();
     public DbSet<DisplayLayout> Layouts => Set<DisplayLayout>();
     public DbSet<DataSource> DataSources => Set<DataSource>();
+    public DbSet<LayoutTemplate> LayoutTemplates => Set<LayoutTemplate>();
 
     // Authentication entities
     public DbSet<User> Users => Set<User>();
     public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
     public DbSet<ClientRegistrationToken> ClientRegistrationTokens => Set<ClientRegistrationToken>();
+
+    // Media entities
+    public DbSet<MediaFile> MediaFiles => Set<MediaFile>();
 
     // Audit entities
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
@@ -215,6 +219,67 @@ public class DigitalSignageDbContext : DbContext
             entity.HasIndex(e => e.Timestamp);
             entity.HasIndex(e => e.Action);
             entity.HasIndex(e => new { e.EntityType, e.EntityId });
+        });
+
+        // Configure MediaFile
+        modelBuilder.Entity<MediaFile>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.FileName).IsRequired().HasMaxLength(255);
+            entity.Property(e => e.OriginalFileName).IsRequired().HasMaxLength(255);
+            entity.Property(e => e.FilePath).IsRequired().HasMaxLength(500);
+            entity.Property(e => e.Type).HasConversion<string>();
+            entity.Property(e => e.MimeType).HasMaxLength(100);
+            entity.Property(e => e.ThumbnailPath).HasMaxLength(500);
+            entity.Property(e => e.Description).HasMaxLength(1000);
+            entity.Property(e => e.Tags).HasMaxLength(500);
+            entity.Property(e => e.Category).HasMaxLength(100);
+            entity.Property(e => e.Hash).HasMaxLength(64); // SHA256 hash
+
+            // Relationships
+            entity.HasOne(e => e.UploadedByUser)
+                .WithMany()
+                .HasForeignKey(e => e.UploadedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Indexes
+            entity.HasIndex(e => e.FileName);
+            entity.HasIndex(e => e.Type);
+            entity.HasIndex(e => e.Category);
+            entity.HasIndex(e => e.UploadedAt);
+            entity.HasIndex(e => e.Hash).IsUnique();
+            entity.HasIndex(e => e.Tags);
+        });
+
+        // Configure LayoutTemplate
+        modelBuilder.Entity<LayoutTemplate>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Description).IsRequired().HasMaxLength(1000);
+            entity.Property(e => e.Category).HasConversion<string>();
+            entity.Property(e => e.ThumbnailPath).HasMaxLength(500);
+            entity.Property(e => e.BackgroundColor).HasMaxLength(20);
+            entity.Property(e => e.BackgroundImage).HasMaxLength(500);
+            entity.Property(e => e.ElementsJson).IsRequired();
+
+            // Store Resolution as JSON
+            entity.OwnsOne(e => e.Resolution, r =>
+            {
+                r.ToJson();
+            });
+
+            // Relationships
+            entity.HasOne(e => e.CreatedByUser)
+                .WithMany()
+                .HasForeignKey(e => e.CreatedByUserId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // Indexes
+            entity.HasIndex(e => e.Name);
+            entity.HasIndex(e => e.Category);
+            entity.HasIndex(e => e.IsBuiltIn);
+            entity.HasIndex(e => e.CreatedAt);
         });
     }
 }

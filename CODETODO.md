@@ -19,10 +19,19 @@ Basierend auf dem Entwicklungsauftrag und dem aktuellen Code-Stand.
 #### Anzeigeverwaltung
 - ✅ Grundlegende Layoutverwaltung (LayoutService implementiert)
 - ✅ Versionsverwaltung (Version-Feld vorhanden)
-- ❌ 🔴 **Unterschiedliche Anzeigetypen** (Raumbelegung, Informationstafeln, Wegweiser)
-  - `DisplayType` Enum zu Models hinzufügen
-  - Layout-Templates für verschiedene Typen erstellen
-  - Template-Auswahl-Dialog implementieren
+- ✅ **Layout Templates System**
+  - ✅ LayoutTemplate Entity mit Category Enum
+  - ✅ Kategorien: RoomOccupancy, InformationBoard, Wayfinding, MenuBoard, WelcomeScreen, Emergency, Blank, Custom
+  - ✅ Built-in Templates (können nicht gelöscht werden)
+  - ✅ Template Metadaten: Name, Description, Thumbnail, Resolution
+  - ✅ ElementsJson für vordefinierte Element-Layouts
+  - ✅ Usage Tracking (LastUsedAt, UsageCount)
+  - ✅ Default Templates beim DB-Init:
+    - Blank 1920x1080 Landscape
+    - Blank 1080x1920 Portrait
+    - Simple Information Board
+    - Room Occupancy Display
+  - ❌ Template-Auswahl-Dialog in UI
 - ❌ 🟡 **Layout-Kategorien und Tags** für bessere Organisation
   - Kategorisierung in `DisplayLayout` Model
   - Filter- und Suchfunktion in UI
@@ -105,11 +114,22 @@ Basierend auf dem Entwicklungsauftrag und dem aktuellen Code-Stand.
   - Drag-and-Drop von Variablen in Textfelder
 
 #### Medienmanagement
-- ❌ 🔴 **Zentrale Medienbibliothek**
-  - Medien-Datenbank (Dateien + Metadaten)
-  - Upload-Funktion
-  - Thumbnail-Generierung
-  - Medienbrowser-UI
+- ✅ **Zentrale Medienbibliothek**
+  - ✅ MediaFile Entity mit vollständigen Metadaten
+  - ✅ MediaType Enum (Image, Video, Audio, Document, Other)
+  - ✅ EnhancedMediaService mit Datenbank-Integration
+  - ✅ File Validation (Größe, Typ, Extension)
+  - ✅ SHA256 Hash für Duplikat-Erkennung
+  - ✅ Access Tracking (LastAccessedAt, AccessCount)
+  - ✅ MIME Type Detection
+  - ✅ Unterstützte Formate:
+    - Bilder: JPG, PNG, GIF, BMP, WEBP, SVG
+    - Videos: MP4, AVI, MOV, WMV, FLV, MKV, WEBM
+    - Audio: MP3, WAV, OGG, FLAC, AAC, WMA
+    - Dokumente: PDF, DOC/DOCX, XLS/XLSX, PPT/PPTX, TXT
+  - ✅ 100 MB Max File Size
+  - ❌ Thumbnail-Generierung (UI-Feature)
+  - ❌ Medienbrowser-UI
 - ❌ 🟡 **Bildbearbeitung**
   - Zuschneiden
   - Größenanpassung

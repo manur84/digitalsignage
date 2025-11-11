@@ -117,6 +117,69 @@ public class DatabaseInitializationService : IHostedService
         {
             _logger.Information("Users already exist, skipping default user creation");
         }
+
+        // Seed default layout templates
+        if (!await dbContext.LayoutTemplates.AnyAsync(cancellationToken))
+        {
+            _logger.Information("No layout templates found. Creating built-in templates...");
+
+            var templates = new[]
+            {
+                new LayoutTemplate
+                {
+                    Name = "Blank 1920x1080",
+                    Description = "Empty landscape template at Full HD resolution",
+                    Category = LayoutTemplateCategory.Blank,
+                    Resolution = new Core.Models.Resolution { Width = 1920, Height = 1080, Orientation = "landscape" },
+                    BackgroundColor = "#FFFFFF",
+                    ElementsJson = "[]",
+                    IsBuiltIn = true,
+                    IsPublic = true
+                },
+                new LayoutTemplate
+                {
+                    Name = "Blank 1080x1920 Portrait",
+                    Description = "Empty portrait template at Full HD resolution",
+                    Category = LayoutTemplateCategory.Blank,
+                    Resolution = new Core.Models.Resolution { Width = 1080, Height = 1920, Orientation = "portrait" },
+                    BackgroundColor = "#FFFFFF",
+                    ElementsJson = "[]",
+                    IsBuiltIn = true,
+                    IsPublic = true
+                },
+                new LayoutTemplate
+                {
+                    Name = "Simple Information Board",
+                    Description = "Basic information display with title and content area",
+                    Category = LayoutTemplateCategory.InformationBoard,
+                    Resolution = new Core.Models.Resolution { Width = 1920, Height = 1080, Orientation = "landscape" },
+                    BackgroundColor = "#2C3E50",
+                    ElementsJson = "[{\"Id\":\"title\",\"Type\":\"text\",\"X\":50,\"Y\":50,\"Width\":1820,\"Height\":150,\"Content\":\"Welcome\",\"Style\":{\"FontSize\":\"72\",\"FontWeight\":\"bold\",\"Color\":\"#FFFFFF\",\"TextAlign\":\"center\"}},{\"Id\":\"content\",\"Type\":\"text\",\"X\":100,\"Y\":250,\"Width\":1720,\"Height\":700,\"Content\":\"Your content here\",\"Style\":{\"FontSize\":\"36\",\"Color\":\"#FFFFFF\",\"TextAlign\":\"left\"}}]",
+                    IsBuiltIn = true,
+                    IsPublic = true
+                },
+                new LayoutTemplate
+                {
+                    Name = "Room Occupancy Display",
+                    Description = "Room status and occupancy information",
+                    Category = LayoutTemplateCategory.RoomOccupancy,
+                    Resolution = new Core.Models.Resolution { Width = 1920, Height = 1080, Orientation = "landscape" },
+                    BackgroundColor = "#34495E",
+                    ElementsJson = "[{\"Id\":\"roomname\",\"Type\":\"text\",\"X\":100,\"Y\":100,\"Width\":1720,\"Height\":200,\"Content\":\"{{RoomName}}\",\"Style\":{\"FontSize\":\"86\",\"FontWeight\":\"bold\",\"Color\":\"#FFFFFF\",\"TextAlign\":\"center\"}},{\"Id\":\"status\",\"Type\":\"text\",\"X\":100,\"Y\":400,\"Width\":1720,\"Height\":300,\"Content\":\"{{Status}}\",\"Style\":{\"FontSize\":\"64\",\"Color\":\"#2ECC71\",\"TextAlign\":\"center\"}},{\"Id\":\"time\",\"Type\":\"text\",\"X\":100,\"Y\":800,\"Width\":1720,\"Height\":150,\"Content\":\"{{CurrentTime}}\",\"Style\":{\"FontSize\":\"48\",\"Color\":\"#BDC3C7\",\"TextAlign\":\"center\"}}]",
+                    IsBuiltIn = true,
+                    IsPublic = true
+                }
+            };
+
+            dbContext.LayoutTemplates.AddRange(templates);
+            await dbContext.SaveChangesAsync(cancellationToken);
+
+            _logger.Information("Created {Count} built-in layout templates", templates.Length);
+        }
+        else
+        {
+            _logger.Information("Layout templates already exist, skipping template creation");
+        }
     }
 
     /// <summary>
