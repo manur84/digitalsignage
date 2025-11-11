@@ -13,6 +13,28 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
+# Detect the current user (the one who ran sudo)
+INSTALL_USER="${SUDO_USER:-$USER}"
+
+# Validate user exists
+if [ -z "$INSTALL_USER" ] || [ "$INSTALL_USER" = "root" ]; then
+    echo "ERROR: Could not detect non-root user"
+    echo "Please run this script with sudo as a regular user:"
+    echo "  sudo ./deploy-client.sh"
+    exit 1
+fi
+
+if ! id "$INSTALL_USER" &>/dev/null; then
+    echo "ERROR: User '$INSTALL_USER' does not exist"
+    exit 1
+fi
+
+USER_HOME=$(eval echo "~$INSTALL_USER")
+
+echo "Installing for user: $INSTALL_USER"
+echo "User home directory: $USER_HOME"
+echo ""
+
 # Configuration
 CLIENT_DIR="/usr/local/lib/digitalsignage"
 BIN_DIR="/usr/local/bin"
@@ -50,17 +72,17 @@ chmod +x "$BIN_DIR/digitalsignage-client"
 
 # Create systemd service
 echo "Creating systemd service..."
-cat > "$SERVICE_FILE" << 'EOF'
+cat > "$SERVICE_FILE" <<EOF
 [Unit]
 Description=Digital Signage Client
 After=network.target graphical.target
 
 [Service]
 Type=simple
-User=pi
-Group=pi
+User=$INSTALL_USER
+Group=$INSTALL_USER
 Environment="DISPLAY=:0"
-Environment="XAUTHORITY=/home/pi/.Xauthority"
+Environment="XAUTHORITY=$USER_HOME/.Xauthority"
 WorkingDirectory=/usr/local/lib/digitalsignage
 ExecStart=/usr/bin/python3 /usr/local/lib/digitalsignage/client.py
 Restart=always
@@ -90,7 +112,7 @@ EOF
 fi
 
 # Set permissions
-chown -R pi:pi "$LOG_DIR"
+chown -R "$INSTALL_USER:$INSTALL_USER" "$LOG_DIR"
 chmod 755 "$CLIENT_DIR"
 chmod 644 "$CONFIG_DIR/config.json"
 

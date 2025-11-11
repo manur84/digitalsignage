@@ -81,6 +81,8 @@ sc.exe start DigitalSignageServer
 - Display connected via HDMI
 - Network connection to server
 
+**Note:** Modern Raspberry Pi OS (since Bullseye/2022) no longer has a default "pi" user. The installation scripts automatically detect and use your current username.
+
 ### Automatic Installation
 
 ```bash
@@ -89,6 +91,8 @@ wget https://raw.githubusercontent.com/yourusername/digitalsignage/main/scripts/
 chmod +x deploy-client.sh
 sudo ./deploy-client.sh
 ```
+
+The installer will automatically detect your username and configure the service accordingly.
 
 ### Manual Installation
 
@@ -131,7 +135,7 @@ Configuration file (`/etc/digitalsignage/config.json`):
 sudo nano /etc/systemd/system/digitalsignage.service
 ```
 
-Content:
+Content (replace `YOUR_USERNAME` with your actual username):
 
 ```ini
 [Unit]
@@ -140,8 +144,9 @@ After=network.target graphical.target
 
 [Service]
 Type=simple
-User=pi
+User=YOUR_USERNAME
 Environment="DISPLAY=:0"
+Environment="XAUTHORITY=/home/YOUR_USERNAME/.Xauthority"
 WorkingDirectory=/usr/local/lib/digitalsignage
 ExecStart=/usr/bin/python3 /usr/local/lib/digitalsignage/client.py
 Restart=always
@@ -150,6 +155,8 @@ RestartSec=10
 [Install]
 WantedBy=graphical.target
 ```
+
+**Note:** Replace `YOUR_USERNAME` with your actual Raspberry Pi username (you can check it with `whoami`).
 
 Enable and start:
 

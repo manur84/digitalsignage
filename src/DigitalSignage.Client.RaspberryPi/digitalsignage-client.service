@@ -6,11 +6,11 @@ Wants=network-online.target
 [Service]
 Type=notify
 NotifyAccess=main
-User=pi
-Group=pi
+User=INSTALL_USER
+Group=INSTALL_USER
 WorkingDirectory=/opt/digitalsignage-client
 Environment="DISPLAY=:0"
-Environment="XAUTHORITY=/home/pi/.Xauthority"
+Environment="XAUTHORITY=/home/INSTALL_USER/.Xauthority"
 ExecStartPre=/bin/sleep 10
 ExecStart=/opt/digitalsignage-client/venv/bin/python3 /opt/digitalsignage-client/client.py
 Restart=always

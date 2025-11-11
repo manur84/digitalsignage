@@ -16,11 +16,26 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
-# Get the actual user (not root)
-ACTUAL_USER="${SUDO_USER:-pi}"
-USER_HOME="/home/$ACTUAL_USER"
+# Detect the current user (the one who ran sudo)
+ACTUAL_USER="${SUDO_USER:-$USER}"
+
+# Validate user exists
+if [ -z "$ACTUAL_USER" ] || [ "$ACTUAL_USER" = "root" ]; then
+    echo "ERROR: Could not detect non-root user"
+    echo "Please run this script with sudo as a regular user:"
+    echo "  sudo ./install.sh"
+    exit 1
+fi
+
+if ! id "$ACTUAL_USER" &>/dev/null; then
+    echo "ERROR: User '$ACTUAL_USER' does not exist"
+    exit 1
+fi
+
+USER_HOME=$(eval echo "~$ACTUAL_USER")
 
 echo "Installing for user: $ACTUAL_USER"
+echo "User home directory: $USER_HOME"
 echo ""
 
 # Update package lists
@@ -96,8 +111,7 @@ chown -R "$ACTUAL_USER:$ACTUAL_USER" "$CONFIG_DIR"
 echo "[8/9] Installing systemd service..."
 if [ -f "digitalsignage-client.service" ]; then
     # Update service file with actual user and venv path
-    sed "s/User=pi/User=$ACTUAL_USER/g" digitalsignage-client.service | \
-    sed "s|/home/pi|$USER_HOME|g" | \
+    sed "s/INSTALL_USER/$ACTUAL_USER/g" digitalsignage-client.service | \
     sed "s|/usr/bin/python3|$VENV_DIR/bin/python3|g" > /tmp/digitalsignage-client.service
     cp /tmp/digitalsignage-client.service /etc/systemd/system/
     rm /tmp/digitalsignage-client.service
