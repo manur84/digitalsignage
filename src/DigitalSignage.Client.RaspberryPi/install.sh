@@ -124,7 +124,9 @@ apt-get install -y \
     x11-xserver-utils \
     unclutter \
     xdotool \
-    libqt5multimedia5-plugins
+    libqt5multimedia5-plugins \
+    xvfb \
+    x11vnc
 
 echo ""
 echo "[3/10] Verifying PyQt5 installation..."
@@ -181,11 +183,15 @@ cp cache_manager.py "$INSTALL_DIR/"
 cp watchdog_monitor.py "$INSTALL_DIR/"
 cp remote_log_handler.py "$INSTALL_DIR/" 2>/dev/null || echo "Note: remote_log_handler.py not found (optional)"
 cp diagnose.sh "$INSTALL_DIR/" 2>/dev/null || echo "Note: diagnose.sh not found (optional)"
+cp start-with-display.sh "$INSTALL_DIR/" 2>/dev/null || echo "Note: start-with-display.sh not found (optional)"
+cp enable-autologin-x11.sh "$INSTALL_DIR/" 2>/dev/null || echo "Note: enable-autologin-x11.sh not found (optional)"
 
 # Set ownership
 chown -R "$ACTUAL_USER:$ACTUAL_USER" "$INSTALL_DIR"
 chmod +x "$INSTALL_DIR/client.py"
 chmod +x "$INSTALL_DIR/diagnose.sh" 2>/dev/null || true
+chmod +x "$INSTALL_DIR/start-with-display.sh" 2>/dev/null || true
+chmod +x "$INSTALL_DIR/enable-autologin-x11.sh" 2>/dev/null || true
 
 # Create config directory
 echo "[8/10] Creating config directory..."

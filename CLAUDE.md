@@ -545,6 +545,19 @@ Follow this priority order when implementing features:
 - Check for TLS/SSL certificate issues if using WSS
 - Verify message serialization (JSON format)
 
+**Display Issues (Raspberry Pi Client):**
+- Run diagnostic: `sudo /opt/digitalsignage-client/diagnose.sh`
+- Check X11 running: `ps aux | grep X`
+- For production with HDMI: Run `sudo /opt/digitalsignage-client/enable-autologin-x11.sh`
+- For headless/testing: Xvfb starts automatically via `start-with-display.sh`
+- Check HDMI connection: `tvservice -s` (Raspberry Pi only)
+- Verify DISPLAY variable: `echo $DISPLAY` (should be :0 or :99)
+
+**Python/PyQt5 Issues:**
+- socketio version error: Fixed with fallback to pkg_resources
+- PyQt5 import error: Ensure virtual environment created with `--system-site-packages`
+- Missing packages: Run `sudo apt-get install python3-pyqt5 xvfb`
+
 ## Additional Resources
 
 - `README.md` - Project overview and installation instructions

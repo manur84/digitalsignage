@@ -129,6 +129,59 @@ sudo systemctl enable digitalsignage-client
 
 Die Installation überprüft automatisch, ob PyQt5 korrekt installiert wurde und aus der virtuellen Umgebung zugänglich ist. Alle anderen Abhängigkeiten werden isoliert in dieser Umgebung installiert.
 
+#### Display-Konfiguration
+
+Der Client unterstützt zwei Display-Modi:
+
+**1. Produktionsmodus (mit physischem Display)**
+
+Für Produktionsumgebungen mit HDMI-Display muss X11 automatisch starten:
+
+```bash
+# X11 Auto-Start konfigurieren
+sudo /opt/digitalsignage-client/enable-autologin-x11.sh
+
+# System neu starten
+sudo reboot
+```
+
+Dies konfiguriert:
+- Auto-Login zum Desktop
+- Bildschirmschoner deaktiviert
+- Energie-Management (DPMS) deaktiviert
+- Mauszeiger wird automatisch versteckt
+- X11 startet automatisch beim Booten
+
+**2. Headless-Modus (ohne physisches Display)**
+
+Für Test- und Entwicklungsumgebungen ohne physisches Display wird automatisch Xvfb (X Virtual Framebuffer) verwendet:
+
+```bash
+# Xvfb ist bereits installiert durch install.sh
+# Der Client erkennt automatisch, ob ein Display vorhanden ist
+
+# Manuelle Xvfb-Nutzung:
+Xvfb :99 -screen 0 1920x1080x24 &
+export DISPLAY=:99
+```
+
+Das Installationsskript (`start-with-display.sh`) erkennt automatisch:
+- Wenn X11 läuft (DISPLAY=:0) → nutzt X11
+- Wenn kein X11 läuft → startet Xvfb auf DISPLAY=:99
+
+**Display-Status prüfen:**
+
+```bash
+# Diagnostic-Tool ausführen
+sudo /opt/digitalsignage-client/diagnose.sh
+
+# HDMI-Status prüfen (nur Raspberry Pi)
+tvservice -s
+
+# X11-Prozesse anzeigen
+ps aux | grep X
+```
+
 ## 📖 Verwendung
 
 ### 1. Layout erstellen

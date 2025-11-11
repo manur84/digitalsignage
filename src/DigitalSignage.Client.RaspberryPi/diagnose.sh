@@ -32,18 +32,50 @@ print_status() {
 }
 
 echo "========================================================================"
-echo "1. X11 Display Server"
+echo "1. Display Configuration"
 echo "========================================================================"
 echo ""
 
+# Check HDMI status (Raspberry Pi specific)
+if command -v tvservice &> /dev/null; then
+    echo "Checking HDMI output..."
+    HDMI_STATUS=$(tvservice -s 2>/dev/null || echo "unknown")
+    if echo "$HDMI_STATUS" | grep -q "HDMI"; then
+        print_status "OK" "HDMI display connected"
+        echo "    Status: $HDMI_STATUS"
+    else
+        print_status "WARN" "No HDMI display detected (running headless)"
+        echo "    Status: $HDMI_STATUS"
+        echo "    Note: Xvfb (virtual display) will be used automatically"
+    fi
+    echo ""
+else
+    print_status "WARN" "tvservice not available (not on Raspberry Pi?)"
+    echo ""
+fi
+
 # Check if X11 is running
 if ps aux | grep -v grep | grep -q "X.*:0"; then
-    print_status "OK" "X11 server is running"
+    print_status "OK" "X11 server is running on :0"
     X11_PID=$(ps aux | grep -v grep | grep "X.*:0" | awk '{print $2}' | head -1)
     echo "    PID: $X11_PID"
 else
-    print_status "FAIL" "X11 server not running"
-    echo "    Fix: Start X11 or run 'startx'"
+    print_status "WARN" "X11 server not running on :0"
+    echo "    Note: This is OK if running headless - Xvfb will be used"
+fi
+
+echo ""
+
+# Check for Xvfb
+if command -v Xvfb &> /dev/null; then
+    print_status "OK" "Xvfb (virtual display) is installed"
+    if ps aux | grep -v grep | grep -q "Xvfb :99"; then
+        print_status "OK" "Xvfb is currently running on :99"
+    fi
+else
+    print_status "WARN" "Xvfb not installed"
+    echo "    Fix: sudo apt-get install xvfb"
+    echo "    Note: Xvfb is needed for headless operation"
 fi
 
 echo ""
@@ -51,9 +83,17 @@ echo ""
 # Check DISPLAY variable
 if [ -n "$DISPLAY" ]; then
     print_status "OK" "DISPLAY is set to: $DISPLAY"
+
+    # Test if display is accessible
+    if xset q &>/dev/null; then
+        print_status "OK" "Display is accessible"
+    else
+        print_status "WARN" "DISPLAY set but not accessible"
+        echo "    The display may not be running yet"
+    fi
 else
-    print_status "FAIL" "DISPLAY environment variable not set"
-    echo "    Fix: export DISPLAY=:0"
+    print_status "WARN" "DISPLAY environment variable not set"
+    echo "    Note: start-with-display.sh will set this automatically"
 fi
 
 echo ""
@@ -66,10 +106,12 @@ if [ -n "$XAUTHORITY" ]; then
         print_status "WARN" "XAUTHORITY set but file missing: $XAUTHORITY"
     fi
 else
-    print_status "WARN" "XAUTHORITY not set (may use default)"
+    print_status "WARN" "XAUTHORITY not set"
     DEFAULT_XAUTH="$HOME/.Xauthority"
     if [ -f "$DEFAULT_XAUTH" ]; then
         echo "    Default location exists: $DEFAULT_XAUTH"
+    else
+        echo "    Note: Not needed for Xvfb (headless mode)"
     fi
 fi
 

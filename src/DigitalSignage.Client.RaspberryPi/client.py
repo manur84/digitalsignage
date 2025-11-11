@@ -50,7 +50,19 @@ except ImportError as e:
 try:
     logger.info("Testing socketio import...")
     import socketio
-    logger.info(f"  socketio version: {socketio.__version__}")
+
+    # Get socketio version (python-socketio doesn't always expose __version__)
+    try:
+        socketio_version = socketio.__version__
+    except AttributeError:
+        # Fallback: try pkg_resources
+        try:
+            import pkg_resources
+            socketio_version = pkg_resources.get_distribution('python-socketio').version
+        except:
+            socketio_version = "unknown"
+
+    logger.info(f"  socketio version: {socketio_version}")
 except ImportError as e:
     logger.error(f"  FAILED - socketio import error: {e}")
     logger.error("  Install with: pip install python-socketio[client]")
