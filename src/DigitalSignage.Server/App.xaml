@@ -18,6 +18,7 @@
             <converters:FileSizeConverter x:Key="FileSizeConverter"/>
             <converters:MediaTypeToIconConverter x:Key="MediaTypeToIconConverter"/>
             <converters:MediaTypeToStringConverter x:Key="MediaTypeToStringConverter"/>
+            <converters:ElementTypeIconConverter x:Key="ElementTypeIconConverter"/>
             <converters:HexToColorConverter x:Key="HexToColorConverter"/>
             <converters:StatusToColorConverter x:Key="StatusToColorConverter"/>
             <converters:TestResultToColorConverter x:Key="TestResultToColorConverter"/>

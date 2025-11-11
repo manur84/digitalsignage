@@ -33,7 +33,11 @@ public partial class DesignerViewModel : ObservableObject
     [ObservableProperty]
     private int _gridSize = 10;
 
+    [ObservableProperty]
+    private DisplayElement? _selectedLayer;
+
     public ObservableCollection<DisplayElement> Elements { get; } = new();
+    public ObservableCollection<DisplayElement> Layers { get; } = new();
 
     public DesignerViewModel(ILayoutService layoutService, ILogger<DesignerViewModel> logger)
     {
@@ -134,6 +138,7 @@ public partial class DesignerViewModel : ObservableObject
 
         Elements.Add(textElement);
         SelectedElement = textElement;
+        UpdateLayers();
         _logger.LogDebug("Added text element: {ElementName}", textElement.Name);
     }
 
@@ -157,6 +162,7 @@ public partial class DesignerViewModel : ObservableObject
 
         Elements.Add(imageElement);
         SelectedElement = imageElement;
+        UpdateLayers();
         _logger.LogDebug("Added image element: {ElementName}", imageElement.Name);
     }
 
@@ -181,6 +187,7 @@ public partial class DesignerViewModel : ObservableObject
 
         Elements.Add(rectangleElement);
         SelectedElement = rectangleElement;
+        UpdateLayers();
         _logger.LogDebug("Added rectangle element: {ElementName}", rectangleElement.Name);
     }
 
@@ -192,6 +199,7 @@ public partial class DesignerViewModel : ObservableObject
             var elementName = SelectedElement.Name;
             Elements.Remove(SelectedElement);
             SelectedElement = null;
+            UpdateLayers();
             _logger.LogDebug("Deleted element: {ElementName}", elementName);
         }
     }
@@ -202,6 +210,7 @@ public partial class DesignerViewModel : ObservableObject
         if (SelectedElement != null)
         {
             SelectedElement.ZIndex++;
+            UpdateLayers();
             _logger.LogDebug("Moved element up: {ElementName}, ZIndex: {ZIndex}",
                 SelectedElement.Name, SelectedElement.ZIndex);
         }
@@ -213,6 +222,7 @@ public partial class DesignerViewModel : ObservableObject
         if (SelectedElement != null)
         {
             SelectedElement.ZIndex--;
+            UpdateLayers();
             _logger.LogDebug("Moved element down: {ElementName}, ZIndex: {ZIndex}",
                 SelectedElement.Name, SelectedElement.ZIndex);
         }
@@ -244,6 +254,7 @@ public partial class DesignerViewModel : ObservableObject
 
             Elements.Add(duplicate);
             SelectedElement = duplicate;
+            UpdateLayers();
             _logger.LogDebug("Duplicated element: {ElementName}", duplicate.Name);
         }
     }
@@ -272,5 +283,153 @@ public partial class DesignerViewModel : ObservableObject
     partial void OnSelectedElementChanged(DisplayElement? value)
     {
         _logger.LogDebug("Selection changed: {ElementName}", value?.Name ?? "None");
+        SelectedLayer = value;
+    }
+
+    partial void OnSelectedLayerChanged(DisplayElement? value)
+    {
+        if (value != null && value != SelectedElement)
+        {
+            SelectedElement = value;
+        }
+    }
+
+    [RelayCommand]
+    private void ToggleLayerVisibility(DisplayElement element)
+    {
+        if (element == null) return;
+
+        // Toggle visibility property
+        if (element.Properties.ContainsKey("IsVisible"))
+        {
+            element.Properties["IsVisible"] = !(bool)element.Properties["IsVisible"];
+        }
+        else
+        {
+            element.Properties["IsVisible"] = false;
+        }
+
+        _logger.LogDebug("Toggled visibility for {ElementName}: {IsVisible}",
+            element.Name, element.Properties["IsVisible"]);
+
+        OnPropertyChanged(nameof(Layers));
+    }
+
+    [RelayCommand]
+    private void ToggleLayerLock(DisplayElement element)
+    {
+        if (element == null) return;
+
+        // Toggle lock property
+        if (element.Properties.ContainsKey("IsLocked"))
+        {
+            element.Properties["IsLocked"] = !(bool)element.Properties["IsLocked"];
+        }
+        else
+        {
+            element.Properties["IsLocked"] = true;
+        }
+
+        _logger.LogDebug("Toggled lock for {ElementName}: {IsLocked}",
+            element.Name, element.Properties["IsLocked"]);
+
+        OnPropertyChanged(nameof(Layers));
+    }
+
+    [RelayCommand]
+    private void MoveLayerUp(DisplayElement element)
+    {
+        if (element == null) return;
+
+        var currentIndex = Elements.IndexOf(element);
+        if (currentIndex < Elements.Count - 1)
+        {
+            // Swap Z-indices with the element above
+            var upperElement = Elements[currentIndex + 1];
+            var tempZ = element.ZIndex;
+            element.ZIndex = upperElement.ZIndex;
+            upperElement.ZIndex = tempZ;
+
+            UpdateLayers();
+            _logger.LogDebug("Moved layer up: {ElementName}", element.Name);
+        }
+    }
+
+    [RelayCommand]
+    private void MoveLayerDown(DisplayElement element)
+    {
+        if (element == null) return;
+
+        var currentIndex = Elements.IndexOf(element);
+        if (currentIndex > 0)
+        {
+            // Swap Z-indices with the element below
+            var lowerElement = Elements[currentIndex - 1];
+            var tempZ = element.ZIndex;
+            element.ZIndex = lowerElement.ZIndex;
+            lowerElement.ZIndex = tempZ;
+
+            UpdateLayers();
+            _logger.LogDebug("Moved layer down: {ElementName}", element.Name);
+        }
+    }
+
+    [RelayCommand]
+    private void SelectLayer(DisplayElement element)
+    {
+        if (element != null)
+        {
+            SelectedElement = element;
+            SelectedLayer = element;
+        }
+    }
+
+    private void UpdateLayers()
+    {
+        Layers.Clear();
+        foreach (var element in Elements.OrderByDescending(e => e.ZIndex))
+        {
+            Layers.Add(element);
+        }
+    }
+
+    /// <summary>
+    /// Gets the icon for the element type
+    /// </summary>
+    public static string GetElementTypeIcon(string type)
+    {
+        return type.ToLower() switch
+        {
+            "text" => "T",
+            "image" => "🖼",
+            "rectangle" => "▭",
+            "circle" => "⬤",
+            "video" => "🎥",
+            _ => "?"
+        };
+    }
+
+    /// <summary>
+    /// Checks if an element is visible
+    /// </summary>
+    public static bool IsElementVisible(DisplayElement element)
+    {
+        if (element.Properties.ContainsKey("IsVisible"))
+        {
+            return (bool)element.Properties["IsVisible"];
+        }
+        return true; // Default to visible
+    }
+
+    /// <summary>
+    /// Checks if an element is locked
+    /// </summary>
+    public static bool IsElementLocked(DisplayElement element)
+    {
+        if (element.Properties.ContainsKey("IsLocked"))
+        {
+            return (bool)element.Properties["IsLocked"];
+        }
+        return false; // Default to unlocked
     }
 }

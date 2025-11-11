@@ -100,6 +100,7 @@
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="60"/> <!-- Tool Palette -->
+                        <ColumnDefinition Width="250"/> <!-- Layers Panel -->
                         <ColumnDefinition Width="*"/>  <!-- Canvas -->
                         <ColumnDefinition Width="300"/> <!-- Properties -->
                     </Grid.ColumnDefinitions>
@@ -154,8 +155,131 @@
                         </StackPanel>
                     </Border>
 
+                    <!-- Layers Panel -->
+                    <Border Grid.Column="1" Background="White" BorderBrush="#3F3F46" BorderThickness="0,0,1,0">
+                        <DockPanel>
+                            <Border DockPanel.Dock="Top"
+                                   Background="#F5F5F5"
+                                   BorderBrush="#DDDDDD"
+                                   BorderThickness="0,0,0,1">
+                                <TextBlock Text="Layers"
+                                          FontSize="14"
+                                          FontWeight="Bold"
+                                          Padding="12,8"/>
+                            </Border>
+
+                            <ListBox ItemsSource="{Binding Designer.Layers}"
+                                    SelectedItem="{Binding Designer.SelectedLayer}"
+                                    Margin="0"
+                                    BorderThickness="0"
+                                    ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="Transparent"
+                                               BorderThickness="0,0,0,1"
+                                               BorderBrush="#EEEEEE"
+                                               Padding="8,6">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+
+                                                <!-- Type Icon -->
+                                                <TextBlock Grid.Column="0"
+                                                          Text="{Binding Type, Converter={StaticResource ElementTypeIconConverter}}"
+                                                          FontSize="14"
+                                                          VerticalAlignment="Center"
+                                                          Margin="0,0,8,0"
+                                                          Width="20"
+                                                          TextAlignment="Center"/>
+
+                                                <!-- Element Name -->
+                                                <TextBlock Grid.Column="1"
+                                                          Text="{Binding Name}"
+                                                          VerticalAlignment="Center"
+                                                          TextTrimming="CharacterEllipsis"/>
+
+                                                <!-- Z-Index -->
+                                                <TextBlock Grid.Column="2"
+                                                          Text="{Binding ZIndex}"
+                                                          FontSize="10"
+                                                          Foreground="#999999"
+                                                          VerticalAlignment="Center"
+                                                          Margin="4,0,8,0"/>
+
+                                                <!-- Move Up Button -->
+                                                <Button Grid.Column="3"
+                                                       Content="▲"
+                                                       Command="{Binding DataContext.Designer.MoveLayerUpCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                       CommandParameter="{Binding}"
+                                                       Width="24"
+                                                       Height="24"
+                                                       Padding="0"
+                                                       FontSize="8"
+                                                       Margin="0,0,2,0"
+                                                       ToolTip="Move Up"/>
+
+                                                <!-- Move Down Button -->
+                                                <Button Grid.Column="4"
+                                                       Content="▼"
+                                                       Command="{Binding DataContext.Designer.MoveLayerDownCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                       CommandParameter="{Binding}"
+                                                       Width="24"
+                                                       Height="24"
+                                                       Padding="0"
+                                                       FontSize="8"
+                                                       Margin="0,0,2,0"
+                                                       ToolTip="Move Down"/>
+
+                                                <!-- Visibility Toggle -->
+                                                <Button Grid.Column="5"
+                                                       Command="{Binding DataContext.Designer.ToggleLayerVisibilityCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                       CommandParameter="{Binding}"
+                                                       Width="24"
+                                                       Height="24"
+                                                       Padding="0"
+                                                       FontSize="12"
+                                                       ToolTip="Toggle Visibility">
+                                                    <TextBlock>
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Text" Value="👁"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding Properties[IsVisible], FallbackValue=True}" Value="False">
+                                                                        <Setter Property="Text" Value="🚫"/>
+                                                                        <Setter Property="Opacity" Value="0.5"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                </Button>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                                <ListBox.ItemContainerStyle>
+                                    <Style TargetType="ListBoxItem">
+                                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                        <Setter Property="Padding" Value="0"/>
+                                        <Style.Triggers>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter Property="Background" Value="#E3F2FD"/>
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ListBox.ItemContainerStyle>
+                            </ListBox>
+                        </DockPanel>
+                    </Border>
+
                     <!-- Canvas Area -->
-                    <Grid Grid.Column="1" Background="#1E1E1E">
+                    <Grid Grid.Column="2" Background="#1E1E1E">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="*"/>
                             <RowDefinition Height="Auto"/>
@@ -235,7 +359,7 @@
                     </Grid>
 
                     <!-- Properties Panel -->
-                    <Border Grid.Column="2" Background="White" BorderBrush="#CCCCCC" BorderThickness="1,0,0,0">
+                    <Border Grid.Column="3" Background="White" BorderBrush="#CCCCCC" BorderThickness="1,0,0,0">
                         <ScrollViewer>
                             <StackPanel Margin="12">
                                 <TextBlock Text="Properties" FontSize="18" FontWeight="Bold" Margin="0,0,0,12"/>
