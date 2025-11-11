@@ -317,6 +317,30 @@ if [ ! -f "$INSTALL_DIR/client.py" ]; then
     MISSING_FILES+=("client.py")
 fi
 
+if [ ! -f "$INSTALL_DIR/config.py" ]; then
+    MISSING_FILES+=("config.py")
+fi
+
+if [ ! -f "$INSTALL_DIR/discovery.py" ]; then
+    MISSING_FILES+=("discovery.py")
+fi
+
+if [ ! -f "$INSTALL_DIR/device_manager.py" ]; then
+    MISSING_FILES+=("device_manager.py")
+fi
+
+if [ ! -f "$INSTALL_DIR/display_renderer.py" ]; then
+    MISSING_FILES+=("display_renderer.py")
+fi
+
+if [ ! -f "$INSTALL_DIR/cache_manager.py" ]; then
+    MISSING_FILES+=("cache_manager.py")
+fi
+
+if [ ! -f "$INSTALL_DIR/watchdog_monitor.py" ]; then
+    MISSING_FILES+=("watchdog_monitor.py")
+fi
+
 if [ ! -f "$INSTALL_DIR/start-with-display.sh" ]; then
     MISSING_FILES+=("start-with-display.sh")
 fi

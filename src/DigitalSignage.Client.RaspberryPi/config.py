@@ -45,7 +45,32 @@ class Config:
         if config_file.exists():
             with open(config_file, 'r') as f:
                 data = json.load(f)
-                return cls(**data)
+
+                # Ensure all fields have defaults for backward compatibility
+                # This handles cases where old config.json files don't have new fields
+                defaults = {
+                    'server_host': 'localhost',
+                    'server_port': 8080,
+                    'registration_token': '',
+                    'use_ssl': False,
+                    'verify_ssl': True,
+                    'fullscreen': True,
+                    'log_level': 'INFO',
+                    'cache_dir': str(Path.home() / ".digitalsignage" / "cache"),
+                    'data_dir': str(Path.home() / ".digitalsignage" / "data"),
+                    'auto_discover': True,  # IMPORTANT: Default to True for auto-discovery
+                    'discovery_timeout': 5.0,
+                    'remote_logging_enabled': True,
+                    'remote_logging_level': 'INFO',
+                    'remote_logging_batch_size': 50,
+                    'remote_logging_batch_interval': 5.0
+                }
+
+                # Merge defaults with loaded data (loaded data takes precedence)
+                merged_data = defaults.copy()
+                merged_data.update(data)
+
+                return cls(**merged_data)
         else:
             # Create default configuration
             config = cls(client_id=str(uuid.uuid4()))
