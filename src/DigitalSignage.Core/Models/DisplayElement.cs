@@ -1,36 +1,71 @@
+using CommunityToolkit.Mvvm.ComponentModel;
+
 namespace DigitalSignage.Core.Models;
 
 /// <summary>
 /// Base class for all display elements
 /// </summary>
-public class DisplayElement
+public partial class DisplayElement : ObservableObject
 {
-    public string Id { get; set; } = Guid.NewGuid().ToString();
-    public string Type { get; set; } = "unknown"; // text, image, shape, qrcode, table, datetime
-    public string Name { get; set; } = string.Empty;
-    public Position Position { get; set; } = new();
-    public Size Size { get; set; } = new();
-    public int ZIndex { get; set; } = 0;
-    public double Rotation { get; set; } = 0; // 0-360 degrees
-    public double Opacity { get; set; } = 1.0; // 0.0-1.0
-    public bool Visible { get; set; } = true;
-    public string? DataBinding { get; set; } // {{variable.name}} syntax
-    public Dictionary<string, object> Properties { get; set; } = new();
-    public Animation? Animation { get; set; }
+    [ObservableProperty]
+    private string _id = Guid.NewGuid().ToString();
+
+    [ObservableProperty]
+    private string _type = "unknown"; // text, image, shape, qrcode, table, datetime
+
+    [ObservableProperty]
+    private string _name = string.Empty;
+
+    [ObservableProperty]
+    private Position _position = new();
+
+    [ObservableProperty]
+    private Size _size = new();
+
+    [ObservableProperty]
+    private int _zIndex = 0;
+
+    [ObservableProperty]
+    private double _rotation = 0; // 0-360 degrees
+
+    [ObservableProperty]
+    private double _opacity = 1.0; // 0.0-1.0
+
+    [ObservableProperty]
+    private bool _visible = true;
+
+    [ObservableProperty]
+    private string? _dataBinding; // {{variable.name}} syntax
+
+    [ObservableProperty]
+    private Dictionary<string, object> _properties = new();
+
+    [ObservableProperty]
+    private Animation? _animation;
 }
 
-public class Position
+public partial class Position : ObservableObject
 {
-    public double X { get; set; }
-    public double Y { get; set; }
-    public string Unit { get; set; } = "px"; // px or %
+    [ObservableProperty]
+    private double _x;
+
+    [ObservableProperty]
+    private double _y;
+
+    [ObservableProperty]
+    private string _unit = "px"; // px or %
 }
 
-public class Size
+public partial class Size : ObservableObject
 {
-    public double Width { get; set; }
-    public double Height { get; set; }
-    public string Unit { get; set; } = "px"; // px or %
+    [ObservableProperty]
+    private double _width;
+
+    [ObservableProperty]
+    private double _height;
+
+    [ObservableProperty]
+    private string _unit = "px"; // px or %
 }
 
 public class Animation

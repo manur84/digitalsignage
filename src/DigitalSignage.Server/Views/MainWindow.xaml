@@ -178,8 +178,7 @@
                                     </ItemsControl.ItemsPanel>
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <controls:DesignerItemControl DisplayElement="{Binding}"
-                                                                         IsSelected="{Binding Path=DataContext.Designer.SelectedElement, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource EqualityConverter}, ConverterParameter={Binding}}"/>
+                                            <controls:DesignerItemControl DisplayElement="{Binding}"/>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>

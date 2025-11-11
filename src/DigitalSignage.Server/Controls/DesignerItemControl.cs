@@ -57,9 +57,63 @@ public class DesignerItemControl : ContentControl
 
     private static void OnDisplayElementChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
-        if (d is DesignerItemControl control && e.NewValue is DisplayElement element)
+        if (d is DesignerItemControl control)
         {
-            control.UpdateFromElement();
+            // Unsubscribe from old element
+            if (e.OldValue is DisplayElement oldElement)
+            {
+                oldElement.PropertyChanged -= control.OnElementPropertyChanged;
+                if (oldElement.Position != null)
+                    oldElement.Position.PropertyChanged -= control.OnPositionChanged;
+                if (oldElement.Size != null)
+                    oldElement.Size.PropertyChanged -= control.OnSizeChanged;
+            }
+
+            // Subscribe to new element
+            if (e.NewValue is DisplayElement newElement)
+            {
+                newElement.PropertyChanged += control.OnElementPropertyChanged;
+                if (newElement.Position != null)
+                    newElement.Position.PropertyChanged += control.OnPositionChanged;
+                if (newElement.Size != null)
+                    newElement.Size.PropertyChanged += control.OnSizeChanged;
+
+                control.UpdateFromElement();
+            }
+        }
+    }
+
+    private void OnElementPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(DisplayElement.Position) ||
+            e.PropertyName == nameof(DisplayElement.Size) ||
+            e.PropertyName == nameof(DisplayElement.ZIndex))
+        {
+            Dispatcher.Invoke(() => UpdateFromElement());
+        }
+    }
+
+    private void OnPositionChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (DisplayElement != null)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                Canvas.SetLeft(this, DisplayElement.Position.X);
+                Canvas.SetTop(this, DisplayElement.Position.Y);
+            });
+        }
+    }
+
+    private void OnSizeChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (DisplayElement != null)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                Width = DisplayElement.Size.Width;
+                Height = DisplayElement.Size.Height;
+            });
         }
     }
 
