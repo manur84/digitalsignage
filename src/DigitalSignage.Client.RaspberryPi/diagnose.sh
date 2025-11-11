@@ -256,7 +256,7 @@ echo "5. Configuration"
 echo "========================================================================"
 echo ""
 
-CONFIG_FILE="/etc/digitalsignage/config.json"
+CONFIG_FILE="/opt/digitalsignage-client/config.json"
 
 if [ -f "$CONFIG_FILE" ]; then
     print_status "OK" "Configuration file exists: $CONFIG_FILE"

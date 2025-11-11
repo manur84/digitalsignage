@@ -38,7 +38,7 @@ class Config:
         return "wss" if self.use_ssl else "ws"
 
     @classmethod
-    def load(cls, config_path: str = "/etc/digitalsignage/config.json") -> 'Config':
+    def load(cls, config_path: str = "/opt/digitalsignage-client/config.json") -> 'Config':
         """Load configuration from file"""
         config_file = Path(config_path)
 
@@ -52,7 +52,7 @@ class Config:
             config.save(config_path)
             return config
 
-    def save(self, config_path: str = "/etc/digitalsignage/config.json"):
+    def save(self, config_path: str = "/opt/digitalsignage-client/config.json"):
         """Save configuration to file"""
         config_file = Path(config_path)
         config_file.parent.mkdir(parents=True, exist_ok=True)

@@ -644,7 +644,7 @@ def test_mode():
     print("-" * 70)
     try:
         config = Config.load()
-        print(f"  Config File: /etc/digitalsignage/config.json")
+        print(f"  Config File: /opt/digitalsignage-client/config.json")
         print(f"  Client ID:   {config.client_id}")
         print(f"  Server:      {config.server_host}:{config.server_port}")
         print(f"  SSL:         {config.use_ssl}")
@@ -653,7 +653,7 @@ def test_mode():
     except Exception as e:
         print(f"  Configuration Error: {e}")
         print("  STATUS: FAILED")
-        print("  FIX: Check /etc/digitalsignage/config.json exists and is valid JSON")
+        print("  FIX: Check /opt/digitalsignage-client/config.json exists and is valid JSON")
     print("")
 
     # Test 4: Module Imports
@@ -773,7 +773,7 @@ def main():
         logger.error("  1. Run diagnostic mode: python3 client.py --test")
         logger.error("  2. Check logs: sudo journalctl -u digitalsignage-client -n 50")
         logger.error("  3. Verify X11 is running: echo $DISPLAY")
-        logger.error("  4. Check configuration: cat /etc/digitalsignage/config.json")
+        logger.error("  4. Check configuration: cat /opt/digitalsignage-client/config.json")
         logger.error("=" * 70)
         sys.exit(1)
 

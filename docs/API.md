@@ -301,7 +301,7 @@ Authentifizierung erfolgt nach der Verbindung über die REGISTER-Nachricht.
 
 **Verhalten**:
 1. Client empfängt UPDATE_CONFIG
-2. Client aktualisiert `/etc/digitalsignage/config.json`
+2. Client aktualisiert `/opt/digitalsignage-client/config.json`
 3. Client sendet UPDATE_CONFIG_RESPONSE
 4. Client trennt WebSocket-Verbindung
 5. Client verbindet sich mit neuen Einstellungen neu

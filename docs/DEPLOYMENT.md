@@ -112,11 +112,10 @@ cd /usr/local/lib/digitalsignage
 sudo pip3 install -r requirements.txt
 
 # Create configuration
-sudo mkdir -p /etc/digitalsignage
-sudo nano /etc/digitalsignage/config.json
+sudo nano /opt/digitalsignage-client/config.json
 ```
 
-Configuration file (`/etc/digitalsignage/config.json`):
+Configuration file (`/opt/digitalsignage-client/config.json`):
 
 ```json
 {
@@ -269,7 +268,7 @@ Copy-Item "$env:APPDATA\DigitalSignage\Media\*" -Destination "$BackupDir\Media" 
 
 ```bash
 # Backup configuration
-sudo tar -czf digitalsignage-backup.tar.gz /etc/digitalsignage /usr/local/lib/digitalsignage
+sudo tar -czf digitalsignage-backup.tar.gz /opt/digitalsignage-client /usr/local/lib/digitalsignage
 ```
 
 ## Troubleshooting
@@ -282,7 +281,7 @@ sudo tar -czf digitalsignage-backup.tar.gz /etc/digitalsignage /usr/local/lib/di
 ### Client won't connect
 1. Ping server: `ping <server-ip>`
 2. Check firewall: `telnet <server-ip> 8080`
-3. Verify configuration: `cat /etc/digitalsignage/config.json`
+3. Verify configuration: `cat /opt/digitalsignage-client/config.json`
 4. Check logs: `sudo journalctl -u digitalsignage -n 50`
 
 ### Display issues on Pi

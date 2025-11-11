@@ -323,7 +323,7 @@ sudo update-ca-certificates
 
 ### Configuration File
 
-Edit `/etc/digitalsignage/config.json` on Raspberry Pi:
+Edit `/opt/digitalsignage-client/config.json` on Raspberry Pi:
 
 ```json
 {

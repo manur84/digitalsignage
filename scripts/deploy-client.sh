@@ -38,7 +38,7 @@ echo ""
 # Configuration
 CLIENT_DIR="/usr/local/lib/digitalsignage"
 BIN_DIR="/usr/local/bin"
-CONFIG_DIR="/etc/digitalsignage"
+CONFIG_DIR="/opt/digitalsignage-client"
 LOG_DIR="/var/log/digitalsignage"
 SERVICE_FILE="/etc/systemd/system/digitalsignage.service"
 
