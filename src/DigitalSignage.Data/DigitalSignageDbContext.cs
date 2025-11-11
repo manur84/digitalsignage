@@ -1,0 +1,220 @@
+using Microsoft.EntityFrameworkCore;
+using DigitalSignage.Core.Models;
+using DigitalSignage.Data.Entities;
+
+namespace DigitalSignage.Data;
+
+/// <summary>
+/// Database context for Digital Signage application
+/// </summary>
+public class DigitalSignageDbContext : DbContext
+{
+    public DigitalSignageDbContext(DbContextOptions<DigitalSignageDbContext> options)
+        : base(options)
+    {
+    }
+
+    // Core entities
+    public DbSet<RaspberryPiClient> Clients => Set<RaspberryPiClient>();
+    public DbSet<DisplayLayout> Layouts => Set<DisplayLayout>();
+    public DbSet<DataSource> DataSources => Set<DataSource>();
+
+    // Authentication entities
+    public DbSet<User> Users => Set<User>();
+    public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
+    public DbSet<ClientRegistrationToken> ClientRegistrationTokens => Set<ClientRegistrationToken>();
+
+    // Audit entities
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+
+        // Configure RaspberryPiClient
+        modelBuilder.Entity<RaspberryPiClient>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.IpAddress).HasMaxLength(45); // IPv6 max length
+            entity.Property(e => e.MacAddress).HasMaxLength(17);
+            entity.Property(e => e.Location).HasMaxLength(500);
+            entity.Property(e => e.Group).HasMaxLength(100);
+            entity.Property(e => e.Status).HasConversion<string>();
+
+            // Store DeviceInfo as JSON
+            entity.OwnsOne(e => e.DeviceInfo, di =>
+            {
+                di.ToJson();
+            });
+
+            // Store Schedules as JSON
+            entity.Property(e => e.Schedules)
+                .HasConversion(
+                    v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
+                    v => System.Text.Json.JsonSerializer.Deserialize<List<Schedule>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new List<Schedule>()
+                );
+
+            // Store Metadata as JSON
+            entity.Property(e => e.Metadata)
+                .HasConversion(
+                    v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
+                    v => System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new Dictionary<string, object>()
+                );
+
+            // Indexes
+            entity.HasIndex(e => e.MacAddress).IsUnique();
+            entity.HasIndex(e => e.Status);
+            entity.HasIndex(e => e.LastSeen);
+        });
+
+        // Configure DisplayLayout
+        modelBuilder.Entity<DisplayLayout>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Version).HasMaxLength(20);
+            entity.Property(e => e.BackgroundImage).HasMaxLength(500);
+            entity.Property(e => e.BackgroundColor).HasMaxLength(20);
+
+            // Store Resolution as JSON
+            entity.OwnsOne(e => e.Resolution, r =>
+            {
+                r.ToJson();
+            });
+
+            // Store Elements as JSON
+            entity.Property(e => e.Elements)
+                .HasConversion(
+                    v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
+                    v => System.Text.Json.JsonSerializer.Deserialize<List<DisplayElement>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new List<DisplayElement>()
+                );
+
+            // Store DataSources as JSON
+            entity.Property(e => e.DataSources)
+                .HasConversion(
+                    v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
+                    v => System.Text.Json.JsonSerializer.Deserialize<List<DataSource>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new List<DataSource>()
+                );
+
+            // Store Metadata as JSON
+            entity.Property(e => e.Metadata)
+                .HasConversion(
+                    v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
+                    v => System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new Dictionary<string, object>()
+                );
+
+            // Indexes
+            entity.HasIndex(e => e.Name);
+            entity.HasIndex(e => e.Created);
+        });
+
+        // Configure DataSource (standalone)
+        modelBuilder.Entity<DataSource>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Type).HasConversion<string>();
+            entity.Property(e => e.ConnectionString).IsRequired();
+            entity.Property(e => e.Query).IsRequired();
+
+            // Store Parameters as JSON
+            entity.Property(e => e.Parameters)
+                .HasConversion(
+                    v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
+                    v => System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new Dictionary<string, object>()
+                );
+
+            // Store Metadata as JSON
+            entity.Property(e => e.Metadata)
+                .HasConversion(
+                    v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
+                    v => System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new Dictionary<string, object>()
+                );
+
+            // Indexes
+            entity.HasIndex(e => e.Name);
+            entity.HasIndex(e => e.Enabled);
+        });
+
+        // Configure User
+        modelBuilder.Entity<User>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Username).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Email).IsRequired().HasMaxLength(255);
+            entity.Property(e => e.PasswordHash).IsRequired();
+            entity.Property(e => e.Role).HasConversion<string>();
+
+            // Indexes
+            entity.HasIndex(e => e.Username).IsUnique();
+            entity.HasIndex(e => e.Email).IsUnique();
+        });
+
+        // Configure ApiKey
+        modelBuilder.Entity<ApiKey>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.KeyHash).IsRequired();
+
+            // Relationships
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Indexes
+            entity.HasIndex(e => e.KeyHash);
+            entity.HasIndex(e => e.ExpiresAt);
+            entity.HasIndex(e => e.IsActive);
+        });
+
+        // Configure ClientRegistrationToken
+        modelBuilder.Entity<ClientRegistrationToken>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Token).IsRequired().HasMaxLength(64);
+            entity.Property(e => e.Description).HasMaxLength(500);
+
+            // Relationships
+            entity.HasOne(e => e.CreatedByUser)
+                .WithMany()
+                .HasForeignKey(e => e.CreatedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Indexes
+            entity.HasIndex(e => e.Token).IsUnique();
+            entity.HasIndex(e => e.ExpiresAt);
+            entity.HasIndex(e => e.IsUsed);
+        });
+
+        // Configure AuditLog
+        modelBuilder.Entity<AuditLog>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Action).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.EntityType).HasMaxLength(100);
+            entity.Property(e => e.EntityId).HasMaxLength(100);
+            entity.Property(e => e.IpAddress).HasMaxLength(45);
+
+            // Store Changes as JSON
+            entity.Property(e => e.Changes)
+                .HasConversion(
+                    v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
+                    v => System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new Dictionary<string, object>()
+                );
+
+            // Relationships
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // Indexes
+            entity.HasIndex(e => e.Timestamp);
+            entity.HasIndex(e => e.Action);
+            entity.HasIndex(e => new { e.EntityType, e.EntityId });
+        });
+    }
+}

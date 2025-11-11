@@ -2,10 +2,12 @@ using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Configuration;
+using Microsoft.EntityFrameworkCore;
 using DigitalSignage.Server.ViewModels;
 using DigitalSignage.Server.Services;
 using DigitalSignage.Server.Configuration;
 using DigitalSignage.Core.Interfaces;
+using DigitalSignage.Data;
 using DigitalSignage.Data.Services;
 using Serilog;
 
@@ -47,6 +49,30 @@ public partial class App : Application
                 context.Configuration.GetSection("ServerSettings").Bind(serverSettings);
                 services.AddSingleton(serverSettings);
 
+                // Register Database Context
+                var connectionString = context.Configuration.GetConnectionString("DefaultConnection")
+                    ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+                services.AddDbContext<DigitalSignageDbContext>(options =>
+                {
+                    options.UseSqlServer(connectionString, sqlOptions =>
+                    {
+                        sqlOptions.EnableRetryOnFailure(
+                            maxRetryCount: 3,
+                            maxRetryDelay: TimeSpan.FromSeconds(5),
+                            errorNumbersToAdd: null);
+                        sqlOptions.CommandTimeout(30);
+                    });
+                    // Enable sensitive data logging in development
+                    if (context.HostingEnvironment.IsDevelopment())
+                    {
+                        options.EnableSensitiveDataLogging();
+                        options.EnableDetailedErrors();
+                    }
+                });
+
+                // Register Database Initialization Service
+                services.AddHostedService<DatabaseInitializationService>();
+
                 // Register ViewModels
                 services.AddSingleton<MainViewModel>();
                 services.AddTransient<DesignerViewModel>();
@@ -60,6 +86,7 @@ public partial class App : Application
                 services.AddSingleton<ITemplateService, TemplateService>();
                 services.AddSingleton<ICommunicationService, WebSocketCommunicationService>();
                 services.AddSingleton<IMediaService, MediaService>();
+                services.AddScoped<IAuthenticationService, AuthenticationService>();
 
                 // Register Background Services
                 services.AddHostedService<DataRefreshService>();

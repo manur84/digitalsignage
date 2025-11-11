@@ -22,6 +22,21 @@ public class RegisterMessage : Message
     public string MacAddress { get; set; } = string.Empty;
     public string IpAddress { get; set; } = string.Empty;
     public DeviceInfo DeviceInfo { get; set; } = new();
+    public string? RegistrationToken { get; set; } // Token for authenticated registration
+}
+
+/// <summary>
+/// Registration response message (server -> client)
+/// </summary>
+public class RegistrationResponseMessage : Message
+{
+    public RegistrationResponseMessage() { Type = "REGISTRATION_RESPONSE"; }
+
+    public bool Success { get; set; }
+    public string? ErrorMessage { get; set; }
+    public string? AssignedClientId { get; set; }
+    public string? AssignedGroup { get; set; }
+    public string? AssignedLocation { get; set; }
 }
 
 /// <summary>

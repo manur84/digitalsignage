@@ -280,10 +280,14 @@ Basierend auf dem Entwicklungsauftrag und dem aktuellen Code-Stand.
   - ✅ Microsoft.Extensions.DependencyInjection
   - ✅ App.xaml.cs mit IHost
   - ✅ Service-Registrierung (alle Services + Background Services)
-- ❌ 🟡 **Entity Framework Core** für Datenbank
-  - DbContext erstellen
-  - Migrations
-  - Repository Pattern
+- ✅ **Entity Framework Core** für Datenbank
+  - ✅ DigitalSignageDbContext erstellt mit allen Entitäten
+  - ✅ Fluent API Konfiguration (JSON columns, relationships, indexes)
+  - ✅ Automatische Migrations bei Startup (DatabaseInitializationService)
+  - ✅ Default Admin User Seeding
+  - ✅ Connection String in appsettings.json konfigurierbar
+  - ✅ Retry-Logik und Connection Pooling
+  - ✅ Development vs Production Konfiguration
 - ❌ 🟢 **SignalR statt WebSocket** evaluieren
   - Einfachere RPC-Semantik
 - ✅ **Serilog** für strukturiertes Logging
@@ -319,15 +323,24 @@ Basierend auf dem Entwicklungsauftrag und dem aktuellen Code-Stand.
   - ✅ Server-seitiges SSL-Zertifikat (konfigurierbar)
   - ✅ Client-seitige Zertifikat-Validierung
   - ✅ Reverse Proxy Support (empfohlen für Produktion)
-- ❌ 🔴 **Authentifizierung**
-  - API-Key-System
-  - Client-Registrierung mit Token
+- ✅ **Authentifizierung**
+  - ✅ AuthenticationService implementiert
+  - ✅ API-Key-System (Erstellung, Validierung, Revokation)
+  - ✅ Client-Registrierung mit Token
+  - ✅ ClientRegistrationToken Entity (mit Restriktionen, MaxUses, Expiration)
+  - ✅ User/Password Authentication
+  - ✅ ApiKey Entity mit Usage Tracking
+  - ✅ Password Hashing (SHA256, produktionsreif: BCrypt/Argon2 empfohlen)
+  - ✅ Token Generation mit Secure RNG
 - ❌ 🟡 **Rollbasierte Zugriffskontrolle (RBAC)**
   - User-Roles: Admin, Operator, Viewer
   - Berechtigungsprüfung in APIs
-- ❌ 🟡 **Audit-Logging**
-  - Alle Änderungen protokollieren
-  - Who-When-What
+- ⚠️ **Audit-Logging**
+  - ✅ AuditLog Entity erstellt mit vollständigen Feldern
+  - ✅ Who-When-What Schema (User, Timestamp, Action, EntityType, EntityId)
+  - ✅ JSON Changes Field für Before/After Werte
+  - ❌ Automatische Change Tracking Interceptors (SaveChanges Override)
+  - ❌ UI für Audit-Log-Anzeige
 - ✅ SQL-Injection-Schutz (Parametrisierung)
 - ✅ Input-Validierung (kürzlich hinzugefügt)
 - ❌ 🟡 **Rate-Limiting**
