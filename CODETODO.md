@@ -202,10 +202,15 @@ Basierend auf dem Entwicklungsauftrag und dem aktuellen Code-Stand.
   - ✅ Environment Variable: DS_REGISTRATION_TOKEN
   - ✅ Handler für REGISTRATION_RESPONSE
   - ✅ Automatische Client-ID-Aktualisierung
-- ❌ 🔴 **Automatische Netzwerkerkennung**
-  - UDP-Broadcast auf Port 5555
-  - Discovery-Service im Server
-  - Geräte-Discovery-UI
+- ✅ **Automatische Netzwerkerkennung** - Vollständig implementiert
+  - ✅ UDP-Broadcast auf Port 5555
+  - ✅ DiscoveryService als Background Service im Server
+  - ✅ Automatische Antwort mit Server-Verbindungsdaten (IPs, Port, Protokoll)
+  - ✅ Python DiscoveryClient mit ServerInfo dataclass
+  - ✅ discovery.py Modul mit discover_servers() Funktion
+  - ✅ auto_discover Config-Option für Zero-Configuration Setup
+  - ✅ Discover Devices Button in Device Management UI
+  - ✅ Environment Variables: DS_AUTO_DISCOVER, DS_DISCOVERY_TIMEOUT
 - ❌ 🟡 **QR-Code-Pairing**
   - QR-Code generieren mit Verbindungsdaten
   - Client scannt QR-Code für Auto-Konfiguration
