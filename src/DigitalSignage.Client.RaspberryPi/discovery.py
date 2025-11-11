@@ -26,6 +26,89 @@ except ImportError:
     MDNS_AVAILABLE = False
 
 
+def get_eth0_network_info() -> Optional[Dict[str, str]]:
+    """
+    Get network configuration from eth0 interface.
+
+    Returns:
+        Dict with 'ip', 'netmask', 'broadcast' or None if eth0 not found
+    """
+    try:
+        import netifaces
+
+        # Check if eth0 exists
+        if 'eth0' not in netifaces.interfaces():
+            logger.warning("eth0 interface not found, trying to find primary interface...")
+            # Fallback: find first non-loopback interface
+            interfaces = [i for i in netifaces.interfaces() if i != 'lo']
+            if not interfaces:
+                logger.error("No network interfaces found")
+                return None
+            interface = interfaces[0]
+            logger.info(f"Using interface: {interface}")
+        else:
+            interface = 'eth0'
+
+        # Get IPv4 addresses
+        addrs = netifaces.ifaddresses(interface)
+        if netifaces.AF_INET not in addrs:
+            logger.error(f"No IPv4 address on {interface}")
+            return None
+
+        ipv4_info = addrs[netifaces.AF_INET][0]
+
+        result = {
+            'interface': interface,
+            'ip': ipv4_info.get('addr'),
+            'netmask': ipv4_info.get('netmask'),
+            'broadcast': ipv4_info.get('broadcast')
+        }
+
+        logger.info(f"Network info from {interface}: IP={result['ip']}, Netmask={result['netmask']}, Broadcast={result['broadcast']}")
+        return result
+
+    except ImportError:
+        # Fallback: use subprocess if netifaces not available
+        logger.debug("netifaces not available, using ip command")
+        try:
+            import subprocess
+            result = subprocess.run(['ip', 'addr', 'show', 'eth0'],
+                                  capture_output=True, text=True, timeout=2)
+
+            if result.returncode != 0:
+                logger.warning("eth0 not found via ip command")
+                return None
+
+            # Parse output
+            import re
+            ip_match = re.search(r'inet\s+(\d+\.\d+\.\d+\.\d+)/(\d+)', result.stdout)
+            if ip_match:
+                ip = ip_match.group(1)
+                cidr = int(ip_match.group(2))
+
+                # Calculate netmask and broadcast
+                import ipaddress
+                network = ipaddress.IPv4Network(f"{ip}/{cidr}", strict=False)
+
+                result_info = {
+                    'interface': 'eth0',
+                    'ip': ip,
+                    'netmask': str(network.netmask),
+                    'broadcast': str(network.broadcast_address)
+                }
+
+                logger.info(f"Network info from eth0: IP={result_info['ip']}, Netmask={result_info['netmask']}, Broadcast={result_info['broadcast']}")
+                return result_info
+
+        except Exception as e:
+            logger.error(f"Failed to get eth0 info via ip command: {e}")
+
+    except Exception as e:
+        logger.error(f"Failed to get eth0 network info: {e}")
+
+    return None
+
+
 @dataclass
 class ServerInfo:
     """Information about a discovered server"""
@@ -153,6 +236,7 @@ class MdnsDiscoveryClient:
     def discover_servers(self, timeout: float = 5.0) -> List[ServerInfo]:
         """
         Discover Digital Signage servers via mDNS.
+        Uses eth0 interface if available.
 
         Args:
             timeout: How long to wait for responses (seconds)
@@ -167,10 +251,24 @@ class MdnsDiscoveryClient:
         discovered_servers = []
 
         try:
+            # Get eth0 network info to bind to correct interface
+            net_info = get_eth0_network_info()
+            if net_info:
+                self.logger.info(f"Using interface {net_info['interface']} (IP: {net_info['ip']}) for mDNS discovery")
+
             self.logger.info(f"Starting mDNS discovery for service type: {self.SERVICE_TYPE}")
 
             # Create Zeroconf instance
-            zeroconf = Zeroconf()
+            # If we have eth0 info, pass the IP to bind to that interface
+            if net_info and net_info.get('ip'):
+                try:
+                    zeroconf = Zeroconf(interfaces=[net_info['ip']])
+                    self.logger.debug(f"mDNS bound to {net_info['ip']}")
+                except Exception as e:
+                    self.logger.warning(f"Could not bind to {net_info['ip']}, using default: {e}")
+                    zeroconf = Zeroconf()
+            else:
+                zeroconf = Zeroconf()
 
             # Create listener
             listener = MdnsDiscoveryListener(zeroconf)
@@ -220,6 +318,7 @@ class DiscoveryClient:
     def discover_servers(self, timeout: float = 5.0, broadcast_address: str = "<broadcast>") -> List[ServerInfo]:
         """
         Send UDP broadcast to discover servers on the network.
+        Uses eth0 broadcast address if available.
 
         Args:
             timeout: How long to wait for responses (seconds)
@@ -231,10 +330,24 @@ class DiscoveryClient:
         discovered_servers = []
 
         try:
+            # Get eth0 network info for targeted broadcast
+            net_info = get_eth0_network_info()
+            if net_info and net_info.get('broadcast') and broadcast_address == "<broadcast>":
+                broadcast_address = net_info['broadcast']
+                self.logger.info(f"Using eth0 broadcast address: {broadcast_address}")
+
             # Create UDP socket
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
             sock.settimeout(timeout)
+
+            # Bind to eth0 IP if available
+            if net_info and net_info.get('ip'):
+                try:
+                    sock.bind((net_info['ip'], 0))
+                    self.logger.debug(f"UDP socket bound to {net_info['ip']}")
+                except Exception as e:
+                    self.logger.debug(f"Could not bind to {net_info['ip']}: {e}")
 
             # Send broadcast request
             message = self.DISCOVERY_REQUEST.encode('utf-8')
