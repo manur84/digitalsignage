@@ -66,7 +66,8 @@ foreach ($url in $urls) {
 
     # Add URL ACL
     Write-Host "  Registering URL ACL..." -ForegroundColor Gray
-    $result = netsh http add urlacl url=$url user=Everyone
+    # Use SID S-1-1-0 which is "Everyone" on all Windows language versions (Jeder, Tout le monde, etc.)
+    $result = netsh http add urlacl url=$url sddl=D:(A;;GX;;;S-1-1-0)
 
     if ($LASTEXITCODE -eq 0) {
         Write-Host "  OK: URL ACL registered successfully" -ForegroundColor Green

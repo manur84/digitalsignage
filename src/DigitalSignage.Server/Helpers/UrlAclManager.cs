@@ -119,14 +119,15 @@ public static class UrlAclManager
 
                 // Step 3: Add new URL ACL
                 Console.WriteLine("Step 3: Adding new URL ACL...");
-                var addResult = RunNetshCommand($"http add urlacl url={url} user=Everyone");
+                // Use SID S-1-1-0 which is "Everyone" on all Windows language versions (Jeder, Tout le monde, etc.)
+                var addResult = RunNetshCommand($"http add urlacl url={url} sddl=D:(A;;GX;;;S-1-1-0)");
 
                 if (!addResult)
                 {
                     Console.WriteLine($"[FAILED] Could not configure {url}");
                     Console.WriteLine("\nTroubleshooting:");
                     Console.WriteLine("1. Are you REALLY running as Administrator?");
-                    Console.WriteLine($"2. Try running manually: netsh http add urlacl url={url} user=Everyone");
+                    Console.WriteLine($"2. Try running manually: netsh http add urlacl url={url} sddl=D:(A;;GX;;;S-1-1-0)");
                     Console.WriteLine("3. Check Windows Event Viewer for errors");
                     Console.WriteLine("4. Run setup-urlacl.bat manually");
                     Console.WriteLine("5. Check if HTTP.sys service is running: sc query HTTP");

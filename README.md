@@ -122,9 +122,17 @@ setup-urlacl.bat
 
 ```powershell
 # Als Administrator ausführen
-netsh http add urlacl url=http://+:8080/ws/ user=Everyone
-netsh http add urlacl url=http://+:8080/ user=Everyone
+# Verwendet SID S-1-1-0 (Everyone/Jeder) - funktioniert auf allen Windows-Sprachversionen
+netsh http add urlacl url=http://+:8080/ws/ sddl=D:(A;;GX;;;S-1-1-0)
+netsh http add urlacl url=http://+:8080/ sddl=D:(A;;GX;;;S-1-1-0)
+
+# Alternative für deutsches Windows:
+netsh http add urlacl url=http://+:8080/ws/ user=Jeder
+netsh http add urlacl url=http://+:8080/ user=Jeder
 ```
+
+**Hinweis:** Wir verwenden die SID S-1-1-0 (Everyone/Jeder) statt dem Benutzernamen,
+damit es auf allen Windows-Sprachversionen funktioniert (Deutsch, Englisch, Französisch, etc.).
 
 #### Was ist URL ACL?
 

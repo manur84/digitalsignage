@@ -95,8 +95,9 @@ echo   - Entferne alte Konfiguration (falls vorhanden)...
 netsh http delete urlacl url=http://+:!PORT!/ws/ >nul 2>&1
 
 echo   - Fuege neue URL ACL hinzu...
-echo   - Befehl: netsh http add urlacl url=http://+:!PORT!/ws/ user=Everyone
-netsh http add urlacl url=http://+:!PORT!/ws/ user=Everyone
+echo   - Befehl: netsh http add urlacl url=http://+:!PORT!/ws/ sddl=D:(A;;GX;;;S-1-1-0)
+echo   - Info: SID S-1-1-0 = Everyone/Jeder (funktioniert auf allen Windows-Sprachversionen)
+netsh http add urlacl url=http://+:!PORT!/ws/ sddl=D:(A;;GX;;;S-1-1-0)
 if errorlevel 1 (
     echo   [FEHLER] Konnte URL ACL nicht hinzufuegen!
     echo   Fehlercode: %errorlevel%
@@ -114,8 +115,9 @@ echo   - Entferne alte Konfiguration (falls vorhanden)...
 netsh http delete urlacl url=http://+:!PORT!/ >nul 2>&1
 
 echo   - Fuege neue URL ACL hinzu...
-echo   - Befehl: netsh http add urlacl url=http://+:!PORT!/ user=Everyone
-netsh http add urlacl url=http://+:!PORT!/ user=Everyone
+echo   - Befehl: netsh http add urlacl url=http://+:!PORT!/ sddl=D:(A;;GX;;;S-1-1-0)
+echo   - Info: SID S-1-1-0 = Everyone/Jeder (funktioniert auf allen Windows-Sprachversionen)
+netsh http add urlacl url=http://+:!PORT!/ sddl=D:(A;;GX;;;S-1-1-0)
 if errorlevel 1 (
     echo   [FEHLER] Konnte URL ACL nicht hinzufuegen!
     echo   Fehlercode: %errorlevel%
@@ -191,8 +193,12 @@ echo ============================================
 echo.
 echo Oeffnen Sie PowerShell als Administrator und fuehren Sie aus:
 echo.
-echo   netsh http add urlacl url=http://+:!PORT!/ws/ user=Everyone
-echo   netsh http add urlacl url=http://+:!PORT!/ user=Everyone
+echo   netsh http add urlacl url=http://+:!PORT!/ws/ sddl=D:(A;;GX;;;S-1-1-0)
+echo   netsh http add urlacl url=http://+:!PORT!/ sddl=D:(A;;GX;;;S-1-1-0)
+echo.
+echo Alternative (deutsch): Verwenden Sie "user=Jeder" statt der SID:
+echo   netsh http add urlacl url=http://+:!PORT!/ws/ user=Jeder
+echo   netsh http add urlacl url=http://+:!PORT!/ user=Jeder
 echo.
 echo Zum Pruefen der Konfiguration:
 echo   netsh http show urlacl
