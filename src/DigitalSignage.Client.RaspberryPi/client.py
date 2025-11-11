@@ -194,18 +194,22 @@ class DigitalSignageClient:
 
     async def send_status_report(self):
         """Send status report to server"""
-        device_info = await self.device_manager.get_device_info()
+        try:
+            device_info = await self.device_manager.get_device_info()
 
-        status_message = {
-            "Type": "STATUS_REPORT",
-            "ClientId": self.config.client_id,
-            "Status": "Online",
-            "DeviceInfo": device_info,
-            "CurrentLayoutId": self.current_layout.get("Id") if self.current_layout else None,
-            "Timestamp": datetime.utcnow().isoformat()
-        }
+            status_message = {
+                "Type": "STATUS_REPORT",
+                "ClientId": self.config.client_id,
+                "Status": "Online",
+                "DeviceInfo": device_info,
+                "CurrentLayoutId": self.current_layout.get("Id") if self.current_layout else None,
+                "Timestamp": datetime.utcnow().isoformat()
+            }
 
-        await self.sio.emit('message', status_message)
+            await self.sio.emit('message', status_message)
+            logger.debug("Status report sent successfully")
+        except Exception as e:
+            logger.error(f"Failed to send status report: {e}", exc_info=True)
 
     async def take_screenshot(self) -> bytes:
         """Take screenshot of current display"""
@@ -215,17 +219,31 @@ class DigitalSignageClient:
 
     async def send_screenshot(self, screenshot_data: bytes):
         """Send screenshot to server"""
-        import base64
+        try:
+            if not screenshot_data:
+                logger.warning("Cannot send empty screenshot")
+                return
 
-        screenshot_message = {
-            "Type": "SCREENSHOT",
-            "ClientId": self.config.client_id,
-            "ImageData": base64.b64encode(screenshot_data).decode('utf-8'),
-            "Format": "png",
-            "Timestamp": datetime.utcnow().isoformat()
-        }
+            import base64
 
-        await self.sio.emit('message', screenshot_message)
+            try:
+                encoded_data = base64.b64encode(screenshot_data).decode('utf-8')
+            except Exception as e:
+                logger.error(f"Failed to encode screenshot data: {e}")
+                return
+
+            screenshot_message = {
+                "Type": "SCREENSHOT",
+                "ClientId": self.config.client_id,
+                "ImageData": encoded_data,
+                "Format": "png",
+                "Timestamp": datetime.utcnow().isoformat()
+            }
+
+            await self.sio.emit('message', screenshot_message)
+            logger.info(f"Screenshot sent successfully ({len(screenshot_data)} bytes)")
+        except Exception as e:
+            logger.error(f"Failed to send screenshot: {e}", exc_info=True)
 
     async def restart_app(self):
         """Restart the application"""
@@ -235,12 +253,24 @@ class DigitalSignageClient:
 
     async def clear_cache(self):
         """Clear local cache"""
-        cache_dir = Path.home() / ".digitalsignage" / "cache"
-        if cache_dir.exists():
-            import shutil
-            shutil.rmtree(cache_dir)
-            cache_dir.mkdir(parents=True)
-        logger.info("Cache cleared")
+        try:
+            cache_dir = Path.home() / ".digitalsignage" / "cache"
+            if cache_dir.exists():
+                try:
+                    import shutil
+                    shutil.rmtree(cache_dir)
+                    logger.debug(f"Removed cache directory: {cache_dir}")
+                except Exception as e:
+                    logger.error(f"Failed to remove cache directory: {e}")
+                    return
+
+            try:
+                cache_dir.mkdir(parents=True, exist_ok=True)
+                logger.info("Cache cleared successfully")
+            except Exception as e:
+                logger.error(f"Failed to recreate cache directory: {e}")
+        except Exception as e:
+            logger.error(f"Failed to clear cache: {e}", exc_info=True)
 
     async def start(self):
         """Start the client application"""
