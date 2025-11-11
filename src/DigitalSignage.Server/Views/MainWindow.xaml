@@ -352,6 +352,7 @@
                         <!-- Toolbar -->
                         <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="12,8">
                             <Button Content="🔄 Refresh" Command="{Binding DeviceManagement.LoadClientsCommand}" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0"/>
+                            <Button Content="🔍 Discover Devices" Command="{Binding DeviceManagement.DiscoverDevicesCommand}" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0" ToolTip="Send UDP broadcast to discover clients on the network"/>
                             <Button Content="❌ Remove Device" Command="{Binding DeviceManagement.RemoveClientCommand}" Style="{StaticResource SecondaryButton}"/>
                         </StackPanel>
 

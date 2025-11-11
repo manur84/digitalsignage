@@ -21,6 +21,8 @@ class Config:
     log_level: str = "INFO"
     cache_dir: str = str(Path.home() / ".digitalsignage" / "cache")
     data_dir: str = str(Path.home() / ".digitalsignage" / "data")
+    auto_discover: bool = False  # Automatically discover server via UDP broadcast
+    discovery_timeout: float = 5.0  # Discovery timeout in seconds
 
     def get_server_url(self) -> str:
         """Get the full server URL based on SSL configuration"""
@@ -67,5 +69,7 @@ class Config:
             use_ssl=os.getenv("DS_USE_SSL", "false").lower() == "true",
             verify_ssl=os.getenv("DS_VERIFY_SSL", "true").lower() == "true",
             fullscreen=os.getenv("DS_FULLSCREEN", "true").lower() == "true",
-            log_level=os.getenv("DS_LOG_LEVEL", "INFO")
+            log_level=os.getenv("DS_LOG_LEVEL", "INFO"),
+            auto_discover=os.getenv("DS_AUTO_DISCOVER", "false").lower() == "true",
+            discovery_timeout=float(os.getenv("DS_DISCOVERY_TIMEOUT", "5.0"))
         )
