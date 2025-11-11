@@ -181,17 +181,56 @@ cp device_manager.py "$INSTALL_DIR/"
 cp display_renderer.py "$INSTALL_DIR/"
 cp cache_manager.py "$INSTALL_DIR/"
 cp watchdog_monitor.py "$INSTALL_DIR/"
+cp start-with-display.sh "$INSTALL_DIR/"
 cp remote_log_handler.py "$INSTALL_DIR/" 2>/dev/null || echo "Note: remote_log_handler.py not found (optional)"
 cp diagnose.sh "$INSTALL_DIR/" 2>/dev/null || echo "Note: diagnose.sh not found (optional)"
-cp start-with-display.sh "$INSTALL_DIR/" 2>/dev/null || echo "Note: start-with-display.sh not found (optional)"
 cp enable-autologin-x11.sh "$INSTALL_DIR/" 2>/dev/null || echo "Note: enable-autologin-x11.sh not found (optional)"
 
 # Set ownership
 chown -R "$ACTUAL_USER:$ACTUAL_USER" "$INSTALL_DIR"
+
+# Convert line endings to Unix format (in case files were edited on Windows)
+echo "Converting line endings to Unix format..."
+if command -v dos2unix &>/dev/null; then
+    dos2unix "$INSTALL_DIR/start-with-display.sh" 2>/dev/null || true
+    dos2unix "$INSTALL_DIR/diagnose.sh" 2>/dev/null || true
+    dos2unix "$INSTALL_DIR/enable-autologin-x11.sh" 2>/dev/null || true
+else
+    # Fallback: use sed to remove carriage returns
+    sed -i 's/\r$//' "$INSTALL_DIR/start-with-display.sh" 2>/dev/null || true
+    sed -i 's/\r$//' "$INSTALL_DIR/diagnose.sh" 2>/dev/null || true
+    sed -i 's/\r$//' "$INSTALL_DIR/enable-autologin-x11.sh" 2>/dev/null || true
+fi
+
+# Make scripts executable
 chmod +x "$INSTALL_DIR/client.py"
+chmod +x "$INSTALL_DIR/start-with-display.sh"
 chmod +x "$INSTALL_DIR/diagnose.sh" 2>/dev/null || true
-chmod +x "$INSTALL_DIR/start-with-display.sh" 2>/dev/null || true
 chmod +x "$INSTALL_DIR/enable-autologin-x11.sh" 2>/dev/null || true
+
+# Verify critical files
+echo "Verifying installation files..."
+MISSING_FILES=()
+
+if [ ! -f "$INSTALL_DIR/client.py" ]; then
+    MISSING_FILES+=("client.py")
+fi
+
+if [ ! -f "$INSTALL_DIR/start-with-display.sh" ]; then
+    MISSING_FILES+=("start-with-display.sh")
+fi
+
+if [ ! -x "$INSTALL_DIR/start-with-display.sh" ]; then
+    echo "WARNING: start-with-display.sh not executable, fixing..."
+    chmod +x "$INSTALL_DIR/start-with-display.sh"
+fi
+
+if [ ${#MISSING_FILES[@]} -gt 0 ]; then
+    echo "ERROR: Critical files missing: ${MISSING_FILES[*]}"
+    exit 1
+fi
+
+echo "✓ All required files present and executable"
 
 # Create config directory
 echo "[8/10] Creating config directory..."
