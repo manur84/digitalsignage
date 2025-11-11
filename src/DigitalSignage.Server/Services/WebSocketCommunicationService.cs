@@ -1,5 +1,6 @@
 using DigitalSignage.Core.Interfaces;
 using DigitalSignage.Core.Models;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using System.Collections.Concurrent;
 using System.Net;
@@ -12,8 +13,14 @@ namespace DigitalSignage.Server.Services;
 public class WebSocketCommunicationService : ICommunicationService
 {
     private readonly ConcurrentDictionary<string, WebSocket> _clients = new();
+    private readonly ILogger<WebSocketCommunicationService> _logger;
     private HttpListener? _httpListener;
     private CancellationTokenSource? _cancellationTokenSource;
+
+    public WebSocketCommunicationService(ILogger<WebSocketCommunicationService> logger)
+    {
+        _logger = logger;
+    }
 
     public event EventHandler<MessageReceivedEventArgs>? MessageReceived;
     public event EventHandler<ClientConnectedEventArgs>? ClientConnected;
@@ -21,15 +28,25 @@ public class WebSocketCommunicationService : ICommunicationService
 
     public async Task StartAsync(CancellationToken cancellationToken = default)
     {
-        _cancellationTokenSource = new CancellationTokenSource();
+        try
+        {
+            _cancellationTokenSource = new CancellationTokenSource();
 
-        _httpListener = new HttpListener();
-        _httpListener.Prefixes.Add("http://+:8080/ws/");
-        _httpListener.Start();
+            _httpListener = new HttpListener();
+            _httpListener.Prefixes.Add("http://+:8080/ws/");
+            _httpListener.Start();
 
-        _ = Task.Run(() => AcceptClientsAsync(_cancellationTokenSource.Token));
+            _logger.LogInformation("WebSocket server started on port 8080");
 
-        await Task.CompletedTask;
+            _ = Task.Run(() => AcceptClientsAsync(_cancellationTokenSource.Token));
+
+            await Task.CompletedTask;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to start WebSocket server");
+            throw;
+        }
     }
 
     public async Task StopAsync(CancellationToken cancellationToken = default)
@@ -55,13 +72,33 @@ public class WebSocketCommunicationService : ICommunicationService
     {
         if (_clients.TryGetValue(clientId, out var socket))
         {
-            var json = JsonConvert.SerializeObject(message);
-            var bytes = Encoding.UTF8.GetBytes(json);
-            await socket.SendAsync(
-                new ArraySegment<byte>(bytes),
-                WebSocketMessageType.Text,
-                true,
-                cancellationToken);
+            try
+            {
+                if (socket.State != WebSocketState.Open)
+                {
+                    _logger.LogWarning("Cannot send message to client {ClientId}: connection not open", clientId);
+                    return;
+                }
+
+                var json = JsonConvert.SerializeObject(message);
+                var bytes = Encoding.UTF8.GetBytes(json);
+                await socket.SendAsync(
+                    new ArraySegment<byte>(bytes),
+                    WebSocketMessageType.Text,
+                    true,
+                    cancellationToken);
+
+                _logger.LogDebug("Sent {MessageType} to client {ClientId}", message.Type, clientId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send message to client {ClientId}", clientId);
+                throw;
+            }
+        }
+        else
+        {
+            _logger.LogWarning("Client {ClientId} not found", clientId);
         }
     }
 
@@ -93,10 +130,13 @@ public class WebSocketCommunicationService : ICommunicationService
                     var clientId = Guid.NewGuid().ToString();
                     _clients[clientId] = wsContext.WebSocket;
 
+                    var ipAddress = context.Request.RemoteEndPoint?.Address.ToString() ?? "unknown";
+                    _logger.LogInformation("Client {ClientId} connected from {IpAddress}", clientId, ipAddress);
+
                     ClientConnected?.Invoke(this, new ClientConnectedEventArgs
                     {
                         ClientId = clientId,
-                        IpAddress = context.Request.RemoteEndPoint?.Address.ToString() ?? "unknown"
+                        IpAddress = ipAddress
                     });
 
                     _ = Task.Run(() => HandleClientAsync(clientId, wsContext.WebSocket, cancellationToken));
@@ -107,9 +147,13 @@ public class WebSocketCommunicationService : ICommunicationService
                     context.Response.Close();
                 }
             }
-            catch (Exception)
+            catch (HttpListenerException ex)
             {
-                // Log error
+                _logger.LogError(ex, "HTTP listener error while accepting clients");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error while accepting clients");
             }
         }
     }
@@ -147,13 +191,19 @@ public class WebSocketCommunicationService : ICommunicationService
                 }
             }
         }
-        catch (Exception)
+        catch (WebSocketException ex)
         {
-            // Log error
+            _logger.LogWarning(ex, "WebSocket error for client {ClientId}", clientId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected error handling client {ClientId}", clientId);
         }
         finally
         {
             _clients.TryRemove(clientId, out _);
+            _logger.LogInformation("Client {ClientId} disconnected", clientId);
+
             ClientDisconnected?.Invoke(this, new ClientDisconnectedEventArgs
             {
                 ClientId = clientId,

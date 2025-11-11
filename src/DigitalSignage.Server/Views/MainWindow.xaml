@@ -167,7 +167,7 @@
                                 <TextBlock Text="Selected Element" FontWeight="SemiBold" Margin="0,8,0,4"/>
                                 <TextBlock Text="No element selected"
                                           Foreground="Gray"
-                                          Visibility="{Binding HasSelectedElement, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                          Visibility="{Binding HasSelectedElement, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
 
                                 <!-- Element properties will be shown here based on selection -->
                             </StackPanel>
@@ -186,21 +186,35 @@
 
                     <!-- Toolbar -->
                     <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="12,8">
-                        <Button Content="Refresh" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0"/>
-                        <Button Content="Add Device" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0"/>
-                        <Button Content="Remove" Style="{StaticResource SecondaryButton}"/>
+                        <Button Content="Refresh" Command="{Binding RefreshClientsCommand}" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0"/>
+                        <Button Content="Add Device" Command="{Binding AddDeviceCommand}" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0"/>
+                        <Button Content="Remove" Command="{Binding RemoveDeviceCommand}" Style="{StaticResource SecondaryButton}" IsEnabled="{Binding SelectedClient, Converter={StaticResource BoolToVisibilityConverter}}"/>
                     </StackPanel>
 
                     <!-- Device List -->
                     <DataGrid Grid.Row="1"
+                             ItemsSource="{Binding Clients}"
+                             SelectedItem="{Binding SelectedClient}"
                              AutoGenerateColumns="False"
                              CanUserAddRows="False"
+                             IsReadOnly="True"
+                             SelectionMode="Single"
                              Margin="12">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="150"/>
                             <DataGridTextColumn Header="IP Address" Binding="{Binding IpAddress}" Width="120"/>
-                            <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="80"/>
-                            <DataGridTextColumn Header="Last Seen" Binding="{Binding LastSeen}" Width="150"/>
+                            <DataGridTemplateColumn Header="Status" Width="80">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal">
+                                            <Ellipse Width="8" Height="8" Margin="0,0,8,0"
+                                                    Fill="{Binding Status, Converter={StaticResource StatusToColorConverter}}"/>
+                                            <TextBlock Text="{Binding Status}" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Header="Last Seen" Binding="{Binding LastSeen, StringFormat='{}{0:dd.MM.yyyy HH:mm:ss}'}" Width="150"/>
                             <DataGridTextColumn Header="Assigned Layout" Binding="{Binding AssignedLayoutId}" Width="*"/>
                             <DataGridTemplateColumn Header="Actions" Width="150">
                                 <DataGridTemplateColumn.CellTemplate>

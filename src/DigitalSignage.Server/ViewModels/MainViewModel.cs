@@ -37,6 +37,9 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _hasSelectedElement = false;
 
+    [ObservableProperty]
+    private RaspberryPiClient? _selectedClient;
+
     public ObservableCollection<RaspberryPiClient> Clients { get; } = new();
 
     public MainViewModel(
@@ -71,16 +74,38 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private void OnClientConnected(object? sender, ClientConnectedEventArgs e)
+    private async void OnClientConnected(object? sender, ClientConnectedEventArgs e)
     {
         ConnectedClients++;
         StatusText = $"Client connected: {e.ClientId}";
+        await RefreshClientsAsync();
     }
 
-    private void OnClientDisconnected(object? sender, ClientDisconnectedEventArgs e)
+    private async void OnClientDisconnected(object? sender, ClientDisconnectedEventArgs e)
     {
         ConnectedClients--;
         StatusText = $"Client disconnected: {e.ClientId}";
+        await RefreshClientsAsync();
+    }
+
+    private async Task RefreshClientsAsync()
+    {
+        try
+        {
+            var clients = await _clientService.GetAllClientsAsync();
+            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            {
+                Clients.Clear();
+                foreach (var client in clients)
+                {
+                    Clients.Add(client);
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Failed to refresh clients: {ex.Message}";
+        }
     }
 
     [RelayCommand]
@@ -243,5 +268,38 @@ public partial class MainViewModel : ObservableObject
     private void About()
     {
         StatusText = "Digital Signage Manager v1.0";
+    }
+
+    [RelayCommand]
+    private async Task RefreshClients()
+    {
+        StatusText = "Refreshing clients...";
+        await RefreshClientsAsync();
+        StatusText = $"Clients refreshed - {Clients.Count} found";
+    }
+
+    [RelayCommand]
+    private void AddDevice()
+    {
+        // TODO: Implement add device dialog
+        StatusText = "Add device...";
+    }
+
+    [RelayCommand]
+    private async Task RemoveDevice()
+    {
+        if (SelectedClient == null) return;
+
+        try
+        {
+            await _clientService.RemoveClientAsync(SelectedClient.Id);
+            Clients.Remove(SelectedClient);
+            StatusText = $"Removed client: {SelectedClient.Name}";
+            SelectedClient = null;
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Failed to remove client: {ex.Message}";
+        }
     }
 }

@@ -74,59 +74,72 @@ class DigitalSignageClient:
 
     async def register_client(self):
         """Register this client with the server"""
-        device_info = await self.device_manager.get_device_info()
+        try:
+            device_info = await self.device_manager.get_device_info()
 
-        register_message = {
-            "Type": "REGISTER",
-            "ClientId": self.config.client_id,
-            "MacAddress": device_info["mac_address"],
-            "IpAddress": device_info["ip_address"],
-            "DeviceInfo": {
-                "Model": device_info["model"],
-                "OsVersion": device_info["os_version"],
-                "ClientVersion": "1.0.0",
-                "CpuTemperature": device_info["cpu_temp"],
-                "CpuUsage": device_info["cpu_usage"],
-                "MemoryTotal": device_info["memory_total"],
-                "MemoryUsed": device_info["memory_used"],
-                "DiskTotal": device_info["disk_total"],
-                "DiskUsed": device_info["disk_used"],
-                "ScreenWidth": device_info["screen_width"],
-                "ScreenHeight": device_info["screen_height"],
-                "Uptime": device_info["uptime"]
-            },
-            "Timestamp": datetime.utcnow().isoformat()
-        }
+            register_message = {
+                "Type": "REGISTER",
+                "ClientId": self.config.client_id,
+                "MacAddress": device_info["mac_address"],
+                "IpAddress": device_info["ip_address"],
+                "DeviceInfo": {
+                    "Model": device_info["model"],
+                    "OsVersion": device_info["os_version"],
+                    "ClientVersion": "1.0.0",
+                    "CpuTemperature": device_info["cpu_temp"],
+                    "CpuUsage": device_info["cpu_usage"],
+                    "MemoryTotal": device_info["memory_total"],
+                    "MemoryUsed": device_info["memory_used"],
+                    "DiskTotal": device_info["disk_total"],
+                    "DiskUsed": device_info["disk_used"],
+                    "ScreenWidth": device_info["screen_width"],
+                    "ScreenHeight": device_info["screen_height"],
+                    "Uptime": device_info["uptime"]
+                },
+                "Timestamp": datetime.utcnow().isoformat()
+            }
 
-        await self.sio.emit('message', register_message)
-        logger.info("Client registered with server")
+            await self.sio.emit('message', register_message)
+            logger.info("Client registered with server")
+        except Exception as e:
+            logger.error(f"Failed to register client: {e}", exc_info=True)
 
     async def handle_message(self, data: Dict[str, Any]):
         """Handle incoming messages from server"""
-        message_type = data.get("Type")
+        try:
+            message_type = data.get("Type")
 
-        logger.info(f"Received message: {message_type}")
+            logger.info(f"Received message: {message_type}")
 
-        if message_type == "DISPLAY_UPDATE":
-            await self.handle_display_update(data)
-        elif message_type == "COMMAND":
-            await self.handle_command(data)
-        elif message_type == "HEARTBEAT":
-            await self.send_heartbeat()
-        else:
-            logger.warning(f"Unknown message type: {message_type}")
+            if message_type == "DISPLAY_UPDATE":
+                await self.handle_display_update(data)
+            elif message_type == "COMMAND":
+                await self.handle_command(data)
+            elif message_type == "HEARTBEAT":
+                await self.send_heartbeat()
+            else:
+                logger.warning(f"Unknown message type: {message_type}")
+        except Exception as e:
+            logger.error(f"Error handling message: {e}", exc_info=True)
 
     async def handle_display_update(self, data: Dict[str, Any]):
         """Handle display update message"""
-        layout = data.get("Layout")
-        layout_data = data.get("Data")
+        try:
+            layout = data.get("Layout")
+            layout_data = data.get("Data")
 
-        if layout:
-            self.current_layout = layout
-            logger.info(f"Updating display with layout: {layout.get('Name')}")
+            if layout:
+                self.current_layout = layout
+                logger.info(f"Updating display with layout: {layout.get('Name')}")
 
-            if self.display_renderer:
-                await self.display_renderer.render_layout(layout, layout_data)
+                if self.display_renderer:
+                    await self.display_renderer.render_layout(layout, layout_data)
+                else:
+                    logger.warning("Display renderer not initialized")
+            else:
+                logger.warning("Received DISPLAY_UPDATE without layout data")
+        except Exception as e:
+            logger.error(f"Error updating display: {e}", exc_info=True)
 
     async def handle_command(self, data: Dict[str, Any]):
         """Handle command message from server"""
@@ -135,43 +148,49 @@ class DigitalSignageClient:
 
         logger.info(f"Executing command: {command}")
 
-        if command == "RESTART":
-            await self.device_manager.restart_system()
-        elif command == "RESTART_APP":
-            await self.restart_app()
-        elif command == "SCREENSHOT":
-            screenshot = await self.take_screenshot()
-            await self.send_screenshot(screenshot)
-        elif command == "SCREEN_ON":
-            await self.device_manager.screen_on()
-        elif command == "SCREEN_OFF":
-            await self.device_manager.screen_off()
-        elif command == "SET_VOLUME":
-            volume = parameters.get("volume", 50)
-            await self.device_manager.set_volume(volume)
-        elif command == "CLEAR_CACHE":
-            await self.clear_cache()
-        else:
-            logger.warning(f"Unknown command: {command}")
+        try:
+            if command == "RESTART":
+                await self.device_manager.restart_system()
+            elif command == "RESTART_APP":
+                await self.restart_app()
+            elif command == "SCREENSHOT":
+                screenshot = await self.take_screenshot()
+                await self.send_screenshot(screenshot)
+            elif command == "SCREEN_ON":
+                await self.device_manager.screen_on()
+            elif command == "SCREEN_OFF":
+                await self.device_manager.screen_off()
+            elif command == "SET_VOLUME":
+                volume = parameters.get("volume", 50)
+                await self.device_manager.set_volume(volume)
+            elif command == "CLEAR_CACHE":
+                await self.clear_cache()
+            else:
+                logger.warning(f"Unknown command: {command}")
+        except Exception as e:
+            logger.error(f"Error executing command {command}: {e}", exc_info=True)
 
     async def send_heartbeat(self):
         """Send heartbeat to server"""
-        device_info = await self.device_manager.get_device_info()
+        try:
+            device_info = await self.device_manager.get_device_info()
 
-        heartbeat_message = {
-            "Type": "HEARTBEAT",
-            "ClientId": self.config.client_id,
-            "Status": "Online",
-            "DeviceInfo": {
-                "CpuTemperature": device_info["cpu_temp"],
-                "CpuUsage": device_info["cpu_usage"],
-                "MemoryUsed": device_info["memory_used"],
-                "Uptime": device_info["uptime"]
-            },
-            "Timestamp": datetime.utcnow().isoformat()
-        }
+            heartbeat_message = {
+                "Type": "HEARTBEAT",
+                "ClientId": self.config.client_id,
+                "Status": "Online",
+                "DeviceInfo": {
+                    "CpuTemperature": device_info["cpu_temp"],
+                    "CpuUsage": device_info["cpu_usage"],
+                    "MemoryUsed": device_info["memory_used"],
+                    "Uptime": device_info["uptime"]
+                },
+                "Timestamp": datetime.utcnow().isoformat()
+            }
 
-        await self.sio.emit('message', heartbeat_message)
+            await self.sio.emit('message', heartbeat_message)
+        except Exception as e:
+            logger.error(f"Failed to send heartbeat: {e}", exc_info=True)
 
     async def send_status_report(self):
         """Send status report to server"""
@@ -227,21 +246,42 @@ class DigitalSignageClient:
         """Start the client application"""
         logger.info("Starting Digital Signage Client...")
 
-        # Connect to server
-        server_url = f"http://{self.config.server_host}:{self.config.server_port}"
-        await self.sio.connect(server_url)
+        # Connect to server with retry logic
+        max_retries = 5
+        retry_delay = 2
+
+        for attempt in range(max_retries):
+            try:
+                server_url = f"http://{self.config.server_host}:{self.config.server_port}"
+                logger.info(f"Connecting to server at {server_url} (attempt {attempt + 1}/{max_retries})")
+                await self.sio.connect(server_url)
+                break
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    logger.warning(f"Connection attempt {attempt + 1} failed: {e}. Retrying in {retry_delay}s...")
+                    await asyncio.sleep(retry_delay)
+                    retry_delay = min(retry_delay * 2, 60)  # Exponential backoff
+                else:
+                    logger.error(f"Failed to connect after {max_retries} attempts")
+                    raise
 
         # Setup heartbeat timer
         async def heartbeat_loop():
             while True:
-                if self.connected:
-                    await self.send_heartbeat()
+                try:
+                    if self.connected:
+                        await self.send_heartbeat()
+                except Exception as e:
+                    logger.error(f"Heartbeat error: {e}")
                 await asyncio.sleep(30)
 
         asyncio.create_task(heartbeat_loop())
 
         # Keep the connection alive
-        await self.sio.wait()
+        try:
+            await self.sio.wait()
+        except Exception as e:
+            logger.error(f"Client error: {e}", exc_info=True)
 
     async def stop(self):
         """Stop the client application"""
