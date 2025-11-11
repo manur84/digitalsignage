@@ -40,7 +40,7 @@ Basierend auf dem Entwicklungsauftrag und dem aktuellen Code-Stand.
       - Digital Menu Board
       - Directory Wayfinding
       - Emergency Information
-  - ❌ Template-Auswahl-Dialog in UI
+  - ✅ Template-Auswahl-Dialog in UI (Vollständig implementiert)
 - ❌ 🟡 **Layout-Kategorien und Tags** für bessere Organisation
   - Kategorisierung in `DisplayLayout` Model
   - Filter- und Suchfunktion in UI
@@ -89,11 +89,14 @@ Basierend auf dem Entwicklungsauftrag und dem aktuellen Code-Stand.
 - ✅ SqlDataService mit Basisfunktionalität
 - ✅ Verbindungstest implementiert
 - ✅ Parametrisierte Abfragen
-- ❌ 🔴 **Query-Builder mit visueller Unterstützung**
-  - Tabellen-Browser
-  - Spalten-Auswahl per Checkbox
-  - WHERE-Klausel Builder
-  - JOIN-Unterstützung
+- ✅ **Query-Builder mit visueller Unterstützung**
+  - ✅ Tabellen-Browser mit Refresh
+  - ✅ Spalten-Auswahl per Checkbox
+  - ✅ WHERE-Klausel Builder
+  - ✅ Visual SQL Editor mit Syntax-Highlighting
+  - ✅ Connection Test
+  - ✅ Query Execution und Results Preview
+  - ❌ 🟡 JOIN-Unterstützung (UI-gestützt)
 - ❌ 🟡 **Stored Procedures Browser und Executor**
 - ✅ **Daten-Refresh-Mechanismus**
   - ✅ DataRefreshService implementiert als BackgroundService
@@ -114,13 +117,15 @@ Basierend auf dem Entwicklungsauftrag und dem aktuellen Code-Stand.
   - ✅ Resolution Objekt in LayoutTemplate Entity
   - ✅ Orientation Support (landscape/portrait)
   - ✅ 5 verschiedene Auflösungs-Templates verfügbar
-  - ❌ Template-Auswahl-Dialog in UI
+  - ✅ Template-Auswahl-Dialog in UI (Vollständig implementiert)
 - ❌ 🟡 **Responsive Design-Optionen**
   - Prozentuale Positionierung neben Pixel
   - Anchor-Points für Elemente
-- ⚠️ **Zoom-Funktionalität** - Befehle in ViewModel, nicht implementiert
-  - ❌ 🔴 Zoom-Slider in UI
-  - ❌ 🔴 Zoom mit Mausrad
+- ✅ **Zoom-Funktionalität** - Vollständig implementiert
+  - ✅ Zoom-Slider in UI (25%-200%)
+  - ✅ Zoom mit Mausrad (Strg + Mausrad)
+  - ✅ Zoom-Level Anzeige
+  - ✅ Fit to Screen / Reset Zoom Commands
   - ❌ 🟡 Zoom auf Auswahl
 
 ### 1.2 Creator-Interface Spezifikationen
@@ -169,9 +174,14 @@ Basierend auf dem Entwicklungsauftrag und dem aktuellen Code-Stand.
   - Farbänderung von Icons
 
 #### Vorschau und Test
-- ⚠️ ViewModel hat Vorschau-Befehle, aber nicht implementiert
-  - ❌ 🔴 Live-Vorschau mit Testdaten
-  - ❌ 🟡 Daten-Simulator mit wechselnden Werten
+- ✅ **Live-Vorschau Tab** - Vollständig implementiert
+  - ✅ Live-Vorschau mit aktuellem Layout
+  - ✅ Testdaten-Simulation (JSON Editor)
+  - ✅ Daten-Refresh Button für manuelle Updates
+  - ✅ Auto-Refresh Toggle (alle 5 Sekunden)
+  - ✅ Vollständige Template Engine Integration
+  - ✅ Zoom-Funktionen (Fit, Reset)
+  - ❌ 🟡 Daten-Simulator mit automatisch wechselnden Werten
   - ❌ 🟡 Vollbild-Vorschau
   - ❌ 🟢 Multi-Monitor-Vorschau
   - ❌ 🟢 Export als Bild (PNG/PDF)
@@ -227,11 +237,16 @@ Basierend auf dem Entwicklungsauftrag und dem aktuellen Code-Stand.
   - ✅ Automatisches Markieren als Offline
   - ✅ Logging von Status-Änderungen
 - ✅ Python Client unterstützt RESTART, SCREENSHOT, SCREEN_ON/OFF, SET_VOLUME
-- ❌ 🔴 **Zeitpläne für Layouts**
-  - Schedule-Tabelle in Datenbank
-  - Zeitplan-Editor UI
-  - Cron-Expression Support
-  - Client-seitige Zeitplan-Ausführung
+- ✅ **Zeitpläne für Layouts** - Vollständig implementiert
+  - ✅ LayoutSchedule Entity mit vollständiger Konfiguration
+  - ✅ Zeitplan-Editor UI (Priority, Start/End Date/Time, Days of Week)
+  - ✅ SchedulingService mit Background Worker
+  - ✅ Automatische Zeitplan-Ausführung (alle 60 Sekunden)
+  - ✅ Priority-basierte Auswahl bei Überlappungen
+  - ✅ Aktives Schedule Tracking
+  - ✅ Client-seitige Zeitplan-Ausführung via DisplayUpdate Messages
+  - ✅ Schedule Management UI (Add, Edit, Delete, Enable/Disable)
+  - ❌ 🟡 Cron-Expression Support für komplexere Zeitpläne
 - ❌ 🟡 **Remote Log-Viewer**
   - LOG Nachrichtentyp implementieren
   - Log-Level Filter
@@ -449,15 +464,21 @@ Basierend auf dem Entwicklungsauftrag und dem aktuellen Code-Stand.
   - ✅ Maintenance: Clear Cache
   - ✅ Status-Nachrichtenleiste
   - ✅ DeviceManagementViewModel mit vollständiger Fehlerbehandlung und Logging
-- ❌ 🔴 **Datenquellen-Tab**
-  - Liste der konfigurierten Datenquellen
-  - Datenquellen-Editor
-  - Verbindungstest
-  - Vorschau der Daten
-- ❌ 🟡 **Vorschau-Tab**
-  - Layout-Rendering
-  - Testdaten-Auswahl
-  - Vollbild-Button
+- ✅ **Datenquellen-Tab** - Vollständig implementiert
+  - ✅ Liste der konfigurierten Datenquellen (DataGrid)
+  - ✅ Datenquellen-Editor (Connection String, Query, Refresh Interval)
+  - ✅ Verbindungstest mit Status-Indikator
+  - ✅ Vorschau der Daten (DataGrid mit Results)
+  - ✅ Query Builder Integration
+  - ✅ Add/Edit/Delete Datenquellen
+  - ✅ Database Persistence (EF Core)
+  - ✅ DataSourceManagementViewModel mit vollständiger Fehlerbehandlung
+- ✅ **Vorschau-Tab** - Vollständig implementiert
+  - ✅ Layout-Rendering mit Template Engine
+  - ✅ Testdaten-Simulator (JSON Editor)
+  - ✅ Auto-Refresh Toggle (alle 5 Sekunden)
+  - ✅ Zoom-Funktionen (Fit, Reset)
+  - ❌ 🟡 Vollbild-Button
 
 ### 4.2 Responsive Design
 
@@ -641,7 +662,7 @@ Basierend auf dem Entwicklungsauftrag und dem aktuellen Code-Stand.
 
 ### Implementierungsstand
 
-- **Vollständig:** ~40%
+- **Vollständig:** ~60%
   - Kommunikations-Infrastruktur
   - Grundlegende Datenmodelle
   - Service-Layer-Architektur
@@ -653,26 +674,40 @@ Basierend auf dem Entwicklungsauftrag und dem aktuellen Code-Stand.
     - Resize-Handles für Elemente
     - Zoom-Funktionen
     - Element-Verwaltung (Add/Delete/Duplicate)
-  - **Geräte-Tab vollständig funktional** ✅ (NEU)
+  - **Geräte-Tab vollständig funktional** ✅
     - Device Management UI mit Control Panel
     - Alle Remote Commands implementiert
     - Layout Assignment UI
     - Volume Control mit Slider
     - Status Monitoring
+  - **Datenquellen-Tab vollständig funktional** ✅ (NEU)
+    - Data Source Management UI mit Editor
+    - Query Builder Integration
+    - Connection Test und Data Preview
+    - Database Persistence
+  - **Vorschau-Tab vollständig funktional** ✅ (NEU)
+    - Live Preview mit Template Engine
+    - Test Data Simulator
+    - Auto-Refresh Funktionalität
+  - **Zeitplan-System vollständig funktional** ✅ (NEU)
+    - Layout Scheduling mit Editor
+    - Automatische Zeitplan-Ausführung
+    - Priority-basierte Auswahl
+  - **Zoom-Funktionalität vollständig implementiert** ✅ (NEU)
+    - Zoom Slider und Mausrad-Support
+    - Fit to Screen / Reset Zoom
   - Dependency Injection Setup
   - systemd Service + Watchdog
   - TLS/SSL-Verschlüsselung
   - Client-Offline-Cache
 
-- **Teilweise:** ~15%
-  - Datenbank-Integration (EF Core implementiert, Migrationen ausstehend)
+- **Teilweise:** ~10%
   - Ebenen-Management (Grundfunktionen, keine Palette)
-  - Vorschau-Tab (Grundstruktur vorhanden)
+  - Medien-Management (Backend vorhanden, UI fehlt)
 
-- **Nicht implementiert:** ~45%
+- **Nicht implementiert:** ~30%
   - Erweiterte Designer-Features (Undo/Redo, Gruppierung)
   - Medien-Management UI
-  - Zeitpläne für Layouts
   - Auto-Discovery
   - Deployment-Tools (MSI-Installer)
   - Erweiterte Dokumentation
@@ -686,8 +721,9 @@ Basierend auf dem Entwicklungsauftrag und dem aktuellen Code-Stand.
 5. ✅ **Client-Offline-Cache** implementieren (ABGESCHLOSSEN)
 
 **Neue Prioritäten:**
-1. **EF Core Migrations** anwenden (Datenbank-Schema erstellen)
-2. **Geräte-Tab UI** verbessern (Command-Buttons funktional machen)
-3. **Datenquellen-Tab UI** implementieren (Editor mit Test-Button)
-4. **Zeitpläne-System** für automatische Layout-Wechsel
-5. **Medien-Browser UI** für zentrale Medienbibliothek
+1. **Auto-Discovery (UDP Broadcast)** - Automatische Netzwerkerkennung für Clients
+2. **Medien-Browser UI** - UI für zentrale Medienbibliothek (Backend bereits vorhanden)
+3. **Undo/Redo-System** - Command Pattern für Designer-Operationen
+4. **Ebenen-Palette** - Drag-Reorder, Sichtbarkeits-Toggle, Gruppierung
+5. **Visuelle Daten-Mapping UI** - SQL-Spalten zu UI-Elementen zuordnen
+6. **Remote Log-Viewer** - Echtzeit-Log-Streaming von Clients
