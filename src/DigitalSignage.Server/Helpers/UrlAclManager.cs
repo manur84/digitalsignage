@@ -73,12 +73,15 @@ public static class UrlAclManager
     {
         if (!IsRunningAsAdministrator())
         {
+            Console.WriteLine("ERROR: Cannot configure URL ACL - not running as administrator");
             Log.Error("Cannot configure URL ACL - not running as administrator");
             return false;
         }
 
         try
         {
+            Console.WriteLine($"Configuring URL ACL for port {port}...");
+
             var urls = new[]
             {
                 $"http://+:{port}/ws/",
@@ -87,6 +90,7 @@ public static class UrlAclManager
 
             foreach (var url in urls)
             {
+                Console.WriteLine($"  Registering: {url}");
                 Log.Information($"Configuring URL ACL for: {url}");
 
                 // Try to delete existing (ignore errors)
@@ -97,17 +101,21 @@ public static class UrlAclManager
 
                 if (!result)
                 {
+                    Console.WriteLine($"  FAILED: {url}");
                     Log.Error($"Failed to configure URL ACL for {url}");
                     return false;
                 }
 
+                Console.WriteLine($"  SUCCESS: {url}");
                 Log.Information($"Successfully configured URL ACL for {url}");
             }
 
+            Console.WriteLine("URL ACL configuration completed successfully!");
             return true;
         }
         catch (Exception ex)
         {
+            Console.WriteLine($"ERROR: Failed to configure URL ACL - {ex.Message}");
             Log.Error(ex, "Failed to configure URL ACL");
             return false;
         }

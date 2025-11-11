@@ -86,14 +86,18 @@ dotnet run --project src/DigitalSignage.Server/DigitalSignage.Server.csproj
 
 **Automatische Konfiguration - Keine manuellen Schritte nötig!**
 
-Beim ersten Start der Digital Signage Server App:
+Beim **allerersten Start** der Digital Signage Server App:
 
-1. Die App prüft automatisch die URL ACL Konfiguration
-2. Falls nicht konfiguriert, erscheint ein Dialog
-3. Klicken Sie **"Ja"** für automatische Konfiguration
-4. Windows UAC Prompt erscheint (einmal bestätigen)
-5. App konfiguriert sich selbst und startet neu
-6. **Fertig!** Ab jetzt keine Admin-Rechte mehr nötig
+1. **Programm starten** (Doppelklick auf .exe)
+2. **Dialog erscheint**: "Erstmalige Einrichtung erforderlich"
+3. **Klicken Sie "Ja"**
+4. **Windows UAC erscheint**: Klicken Sie "Ja"
+5. **Setup läuft automatisch** (Sie sehen kurz ein Fenster mit der Konfiguration)
+6. **Success-Meldung**: "URL ACL wurde erfolgreich konfiguriert!"
+7. **App startet automatisch neu**
+8. **Fertig!** Ab jetzt keine Admin-Rechte mehr nötig
+
+Die URL ACL Konfiguration ist eine einmalige Windows-Anforderung für HTTP Server. Danach läuft alles normal.
 
 **Das war's!** Die App läuft jetzt normal und ist für externe Clients erreichbar.
 

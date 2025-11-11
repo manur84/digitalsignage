@@ -24,16 +24,7 @@ public partial class App : Application
 
     public App()
     {
-        // Handle command line arguments for auto-configuration
-        var args = Environment.GetCommandLineArgs();
-
-        // Check if we're in setup mode (restarted as admin)
-        if (args.Contains("--setup-urlacl"))
-        {
-            HandleUrlAclSetup(args);
-            Environment.Exit(0);
-            return;
-        }
+        // URL ACL check is now in Program.cs - this constructor only runs if check passed
 
         try
         {
@@ -56,89 +47,7 @@ public partial class App : Application
 
             // Get server port from configuration
             var serverPort = configuration.GetValue<int>("ServerSettings:Port", 8080);
-
-            // Check URL ACL configuration
-            if (!UrlAclManager.IsUrlAclConfigured(serverPort))
-            {
-                Log.Warning($"URL ACL not configured for port {serverPort}");
-
-                if (!UrlAclManager.IsRunningAsAdministrator())
-                {
-                    // Ask user if they want to configure it now
-                    var result = MessageBox.Show(
-                        $"Erste Ausführung: URL ACL Konfiguration erforderlich\n\n" +
-                        $"Die Digital Signage Server App benötigt eine einmalige\n" +
-                        $"Windows-Konfiguration für Port {serverPort}.\n\n" +
-                        $"Die App wird sich kurz mit Administrator-Rechten neu starten,\n" +
-                        $"die Konfiguration vornehmen, und dann normal weiterlaufen.\n\n" +
-                        $"Möchten Sie die automatische Konfiguration jetzt durchführen?",
-                        "Einmalige Konfiguration erforderlich",
-                        MessageBoxButton.YesNo,
-                        MessageBoxImage.Question);
-
-                    if (result == MessageBoxResult.Yes)
-                    {
-                        Log.Information("User accepted automatic URL ACL configuration");
-
-                        // Restart as admin with setup flag
-                        if (UrlAclManager.RestartAsAdministrator($"--setup-urlacl {serverPort}"))
-                        {
-                            Log.Information("Application restarted with elevation for URL ACL setup");
-                            // This instance will exit, elevated instance will run setup
-                            Environment.Exit(0);
-                            return;
-                        }
-                        else
-                        {
-                            Log.Error("Failed to restart as administrator");
-                            MessageBox.Show(
-                                "Fehler beim Neustart mit Administrator-Rechten.\n\n" +
-                                "Bitte führen Sie setup-urlacl.bat manuell als Administrator aus.",
-                                "Fehler",
-                                MessageBoxButton.OK,
-                                MessageBoxImage.Error);
-                            Environment.Exit(1);
-                            return;
-                        }
-                    }
-                    else
-                    {
-                        Log.Warning("User declined automatic URL ACL configuration");
-                        MessageBox.Show(
-                            $"URL ACL nicht konfiguriert.\n\n" +
-                            $"Die App läuft jetzt im localhost-Modus (nur lokal erreichbar).\n\n" +
-                            $"Für externe Clients führen Sie bitte setup-urlacl.bat\n" +
-                            $"als Administrator aus.",
-                            "Hinweis",
-                            MessageBoxButton.OK,
-                            MessageBoxImage.Information);
-                        // Continue with localhost-only mode
-                    }
-                }
-                else
-                {
-                    // We're already running as admin, configure now
-                    Log.Information("Running as administrator, configuring URL ACL now");
-                    if (UrlAclManager.ConfigureUrlAcl(serverPort))
-                    {
-                        Log.Information("URL ACL configured successfully");
-                        MessageBox.Show(
-                            "URL ACL erfolgreich konfiguriert!\n\n" +
-                            "Die App startet jetzt normal.",
-                            "Konfiguration abgeschlossen",
-                            MessageBoxButton.OK,
-                            MessageBoxImage.Information);
-                    }
-                    else
-                    {
-                        Log.Error("Failed to configure URL ACL even with admin rights");
-                    }
-                }
-            }
-            else
-            {
-                Log.Information($"URL ACL already configured for port {serverPort}");
-            }
+            Log.Information($"URL ACL already configured for port {serverPort} (checked in Program.cs)");
 
             _host = Host.CreateDefaultBuilder()
             .ConfigureAppConfiguration((context, config) =>
@@ -411,75 +320,5 @@ Common Solutions:
             return app._host.Services.GetRequiredService<T>();
         }
         throw new InvalidOperationException("Application is not initialized");
-    }
-
-    /// <summary>
-    /// Handles URL ACL setup when running in elevated mode
-    /// </summary>
-    private void HandleUrlAclSetup(string[] args)
-    {
-        try
-        {
-            // Initialize Serilog for setup logging
-            Log.Logger = new LoggerConfiguration()
-                .WriteTo.Console()
-                .WriteTo.File(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs", "setup-.txt"),
-                    rollingInterval: RollingInterval.Day)
-                .CreateLogger();
-
-            // Get port from command line args
-            var portArg = args.FirstOrDefault(a => int.TryParse(a, out _));
-            var port = portArg != null ? int.Parse(portArg) : 8080;
-
-            Log.Information($"Running URL ACL setup for port {port}");
-
-            if (UrlAclManager.ConfigureUrlAcl(port))
-            {
-                Log.Information("URL ACL setup completed successfully");
-
-                // Show success message
-                MessageBox.Show(
-                    "URL ACL Konfiguration abgeschlossen!\n\n" +
-                    "Die App startet jetzt automatisch normal neu.",
-                    "Setup erfolgreich",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
-
-                // Restart the app normally (without admin)
-                var exePath = Environment.ProcessPath ??
-                             Process.GetCurrentProcess().MainModule?.FileName;
-                if (!string.IsNullOrEmpty(exePath))
-                {
-                    Process.Start(new ProcessStartInfo
-                    {
-                        FileName = exePath,
-                        UseShellExecute = true
-                    });
-                }
-            }
-            else
-            {
-                Log.Error("URL ACL setup failed");
-                MessageBox.Show(
-                    "URL ACL Konfiguration fehlgeschlagen.\n\n" +
-                    "Bitte führen Sie setup-urlacl.bat manuell aus.",
-                    "Setup fehlgeschlagen",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error);
-            }
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "Error during URL ACL setup");
-            MessageBox.Show(
-                $"Fehler während der URL ACL Konfiguration:\n\n{ex.Message}",
-                "Fehler",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
-        }
-        finally
-        {
-            Log.CloseAndFlush();
-        }
     }
 }
