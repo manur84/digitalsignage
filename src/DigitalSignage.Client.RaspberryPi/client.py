@@ -21,6 +21,54 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+# Auto-detect DISPLAY if not set
+if 'DISPLAY' not in os.environ or not os.environ.get('DISPLAY'):
+    logger.warning("DISPLAY environment variable not set - attempting auto-detection")
+
+    # Try common display values
+    for display in [':0', ':1', ':10', ':99']:
+        try:
+            logger.info(f"Testing DISPLAY={display}...")
+            import subprocess
+            result = subprocess.run(
+                ['xdpyinfo'],
+                env={'DISPLAY': display},
+                capture_output=True,
+                timeout=2
+            )
+            if result.returncode == 0:
+                os.environ['DISPLAY'] = display
+                logger.info(f"Auto-detected DISPLAY={display}")
+                break
+        except (FileNotFoundError, subprocess.TimeoutExpired, Exception) as e:
+            logger.debug(f"DISPLAY={display} not accessible: {e}")
+            continue
+    else:
+        # No display found
+        logger.error("=" * 70)
+        logger.error("CRITICAL: No accessible X11 display found")
+        logger.error("=" * 70)
+        logger.error("")
+        logger.error("The Digital Signage client requires an X11 display to run.")
+        logger.error("")
+        logger.error("Solutions:")
+        logger.error("  1. Start X11 manually:")
+        logger.error("     startx")
+        logger.error("")
+        logger.error("  2. Use a virtual display (Xvfb):")
+        logger.error("     sudo apt-get install xvfb")
+        logger.error("     Xvfb :99 -screen 0 1920x1080x24 &")
+        logger.error("     export DISPLAY=:99")
+        logger.error("")
+        logger.error("  3. Set DISPLAY environment variable:")
+        logger.error("     export DISPLAY=:0")
+        logger.error("")
+        logger.error("  4. Enable auto-start of X11:")
+        logger.error("     Add to /etc/rc.local or use systemd")
+        logger.error("")
+        logger.error("=" * 70)
+        sys.exit(1)
+
 # Log startup information
 logger.info("=" * 70)
 logger.info("Digital Signage Client Starting...")
