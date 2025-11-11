@@ -575,6 +575,65 @@
                                             TextWrapping="Wrap"
                                             AcceptsReturn="True"
                                             FontFamily="Consolas"/>
+
+                                    <!-- Query Builder Section -->
+                                    <Border Background="#F8F8F8"
+                                            BorderBrush="#DDDDDD"
+                                            BorderThickness="1"
+                                            CornerRadius="4"
+                                            Padding="12"
+                                            Margin="0,16,0,0">
+                                        <StackPanel>
+                                            <TextBlock Text="Visual Query Builder" FontWeight="SemiBold" FontSize="14" Margin="0,0,0,12"/>
+                                            <TextBlock Text="Build SQL queries visually. Generated query will be applied to the Query field above."
+                                                      FontSize="11"
+                                                      Foreground="#666666"
+                                                      TextWrapping="Wrap"
+                                                      Margin="0,0,0,12"/>
+
+                                            <!-- Table Name -->
+                                            <TextBlock Text="Table Name:" Margin="0,0,0,4"/>
+                                            <TextBox Text="{Binding DataSourceViewModel.QueryTableName, UpdateSourceTrigger=PropertyChanged}"
+                                                    Margin="0,0,0,8"
+                                                    ToolTip="Enter the name of the database table"/>
+
+                                            <!-- Columns -->
+                                            <TextBlock Text="Columns:" Margin="0,0,0,4"/>
+                                            <TextBox Text="{Binding DataSourceViewModel.QueryColumns, UpdateSourceTrigger=PropertyChanged}"
+                                                    Margin="0,0,0,8"
+                                                    ToolTip="Enter column names separated by commas, or * for all columns"/>
+
+                                            <!-- WHERE Clause -->
+                                            <TextBlock Text="WHERE Clause (optional):" Margin="0,0,0,4"/>
+                                            <TextBox Text="{Binding DataSourceViewModel.QueryWhereClause, UpdateSourceTrigger=PropertyChanged}"
+                                                    Margin="0,0,0,8"
+                                                    ToolTip="Example: status = 'active' AND created_at > '2024-01-01'"/>
+
+                                            <!-- ORDER BY -->
+                                            <TextBlock Text="ORDER BY (optional):" Margin="0,0,0,4"/>
+                                            <TextBox Text="{Binding DataSourceViewModel.QueryOrderBy, UpdateSourceTrigger=PropertyChanged}"
+                                                    Margin="0,0,0,12"
+                                                    ToolTip="Example: created_at DESC, name ASC"/>
+
+                                            <!-- Generate Button -->
+                                            <Button Content="Generate Query"
+                                                   Command="{Binding DataSourceViewModel.GenerateQueryCommand}"
+                                                   Style="{StaticResource PrimaryButton}"
+                                                   HorizontalAlignment="Left"
+                                                   Padding="20,8"/>
+
+                                            <!-- Generated Query Preview -->
+                                            <TextBlock Text="Generated Query:" Margin="0,16,0,4" FontWeight="SemiBold"/>
+                                            <TextBox Text="{Binding DataSourceViewModel.GeneratedQuery, Mode=OneWay}"
+                                                    Height="100"
+                                                    IsReadOnly="True"
+                                                    Background="#EEEEEE"
+                                                    FontFamily="Consolas"
+                                                    FontSize="12"
+                                                    TextWrapping="Wrap"
+                                                    VerticalScrollBarVisibility="Auto"/>
+                                        </StackPanel>
+                                    </Border>
                                 </StackPanel>
 
                                 <TextBlock Text="Refresh Interval (seconds):" Margin="0,12,0,4"/>

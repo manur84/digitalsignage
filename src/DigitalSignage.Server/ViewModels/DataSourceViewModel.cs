@@ -29,6 +29,22 @@ public partial class DataSourceViewModel : ObservableObject
     [ObservableProperty]
     private string _staticDataJson = string.Empty;
 
+    // Query Builder Properties
+    [ObservableProperty]
+    private string _queryTableName = string.Empty;
+
+    [ObservableProperty]
+    private string _queryColumns = "*";
+
+    [ObservableProperty]
+    private string _queryWhereClause = string.Empty;
+
+    [ObservableProperty]
+    private string _queryOrderBy = string.Empty;
+
+    [ObservableProperty]
+    private string _generatedQuery = string.Empty;
+
     public ObservableCollection<DataSource> DataSources { get; } = new();
 
     public DataSourceViewModel(IDataService dataService, DataSourceRepository repository)
@@ -207,6 +223,96 @@ public partial class DataSourceViewModel : ObservableObject
         {
             _logger.Error(ex, "Failed to delete data source");
             TestResult = $"Error deleting: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private void GenerateQuery()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(QueryTableName))
+            {
+                GeneratedQuery = "-- Please enter a table name";
+                return;
+            }
+
+            // Build the SELECT clause
+            var columns = string.IsNullOrWhiteSpace(QueryColumns) ? "*" : QueryColumns.Trim();
+            var query = $"SELECT {columns}";
+
+            // Add FROM clause
+            query += $"\nFROM {QueryTableName.Trim()}";
+
+            // Add WHERE clause if provided
+            if (!string.IsNullOrWhiteSpace(QueryWhereClause))
+            {
+                query += $"\nWHERE {QueryWhereClause.Trim()}";
+            }
+
+            // Add ORDER BY clause if provided
+            if (!string.IsNullOrWhiteSpace(QueryOrderBy))
+            {
+                query += $"\nORDER BY {QueryOrderBy.Trim()}";
+            }
+
+            GeneratedQuery = query;
+
+            // Update the selected data source query
+            if (SelectedDataSource != null)
+            {
+                SelectedDataSource.Query = query;
+                TestResult = "Query generated and applied to current data source";
+            }
+            else
+            {
+                TestResult = "Query generated (no data source selected to apply)";
+            }
+
+            _logger.Information("Generated SQL query for table: {TableName}", QueryTableName);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Failed to generate query");
+            GeneratedQuery = $"-- Error: {ex.Message}";
+            TestResult = $"Error generating query: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private void LoadQueryFromDataSource()
+    {
+        if (SelectedDataSource == null || string.IsNullOrWhiteSpace(SelectedDataSource.Query))
+        {
+            TestResult = "No query to load from selected data source";
+            return;
+        }
+
+        // Try to parse the query (basic parsing)
+        var query = SelectedDataSource.Query.Trim();
+        GeneratedQuery = query;
+
+        // Basic parsing - this is a simplified version
+        // In a production system, you'd use a proper SQL parser
+        var upperQuery = query.ToUpperInvariant();
+
+        try
+        {
+            // Extract table name (simplified)
+            var fromIndex = upperQuery.IndexOf("FROM");
+            if (fromIndex > 0)
+            {
+                var afterFrom = query.Substring(fromIndex + 4).Trim();
+                var tableName = afterFrom.Split(new[] { ' ', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)[0];
+                QueryTableName = tableName;
+            }
+
+            TestResult = "Query loaded into builder (basic parsing)";
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Failed to parse query");
+            TestResult = $"Query loaded but parsing failed: {ex.Message}";
         }
     }
 }
