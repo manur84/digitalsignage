@@ -60,6 +60,45 @@ class Config:
         with open(config_file, 'w') as f:
             json.dump(asdict(self), f, indent=2)
 
+    def update_from_server(self, server_config: dict) -> bool:
+        """Update configuration from server UPDATE_CONFIG message
+
+        Args:
+            server_config: Dictionary containing configuration from server
+
+        Returns:
+            True if configuration was updated successfully, False otherwise
+        """
+        try:
+            # Update configuration fields if provided
+            if 'ServerHost' in server_config and server_config['ServerHost']:
+                self.server_host = server_config['ServerHost']
+
+            if 'ServerPort' in server_config and server_config['ServerPort']:
+                self.server_port = int(server_config['ServerPort'])
+
+            if 'UseSSL' in server_config:
+                self.use_ssl = bool(server_config['UseSSL'])
+
+            if 'VerifySSL' in server_config:
+                self.verify_ssl = bool(server_config['VerifySSL'])
+
+            if 'FullScreen' in server_config:
+                self.fullscreen = bool(server_config['FullScreen'])
+
+            if 'LogLevel' in server_config and server_config['LogLevel']:
+                self.log_level = server_config['LogLevel']
+
+            if 'RegistrationToken' in server_config and server_config['RegistrationToken']:
+                self.registration_token = server_config['RegistrationToken']
+
+            # Save updated configuration
+            self.save()
+            return True
+        except Exception as e:
+            print(f"Failed to update configuration from server: {e}")
+            return False
+
     @classmethod
     def from_env(cls) -> 'Config':
         """Load configuration from environment variables"""

@@ -14,4 +14,5 @@ public interface IClientService
     Task<bool> SendCommandAsync(string clientId, string command, Dictionary<string, object>? parameters = null, CancellationToken cancellationToken = default);
     Task<bool> AssignLayoutAsync(string clientId, string layoutId, CancellationToken cancellationToken = default);
     Task<bool> RemoveClientAsync(string clientId, CancellationToken cancellationToken = default);
+    Task<bool> UpdateClientConfigAsync(string clientId, UpdateConfigMessage config, CancellationToken cancellationToken = default);
 }

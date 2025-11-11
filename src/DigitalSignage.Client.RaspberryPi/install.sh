@@ -65,11 +65,11 @@ else
     "$VENV_DIR/bin/pip" install \
         python-socketio[client]==5.10.0 \
         aiohttp==3.9.1 \
-        PyQt5==5.15.10 \
         requests==2.31.0 \
         psutil==5.9.6 \
         pillow==10.1.0 \
         qrcode==7.4.2
+    echo "Note: PyQt5 installed via apt (python3-pyqt5) in step 2"
 fi
 
 # Copy client files

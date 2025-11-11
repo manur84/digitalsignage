@@ -487,4 +487,41 @@ public class ClientService : IClientService
         _logger.LogWarning("Client {ClientId} not found for removal", clientId);
         return Task.FromResult(false);
     }
+
+    public async Task<bool> UpdateClientConfigAsync(
+        string clientId,
+        UpdateConfigMessage config,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(clientId))
+        {
+            _logger.LogWarning("UpdateClientConfigAsync called with null or empty clientId");
+            return false;
+        }
+
+        if (config == null)
+        {
+            _logger.LogWarning("UpdateClientConfigAsync called with null config");
+            return false;
+        }
+
+        if (!_clients.ContainsKey(clientId))
+        {
+            _logger.LogWarning("Client {ClientId} not found for config update", clientId);
+            return false;
+        }
+
+        try
+        {
+            await _communicationService.SendMessageAsync(clientId, config, cancellationToken);
+            _logger.LogInformation("Sent UPDATE_CONFIG to client {ClientId} (Host: {Host}, Port: {Port})",
+                clientId, config.ServerHost, config.ServerPort);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send UPDATE_CONFIG to client {ClientId}", clientId);
+            return false;
+        }
+    }
 }

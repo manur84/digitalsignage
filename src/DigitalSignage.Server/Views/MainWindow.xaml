@@ -599,7 +599,37 @@
 
                                     <!-- Maintenance -->
                                     <TextBlock Text="Maintenance" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                                    <Button Content="🗑 Clear Cache" Command="{Binding DeviceManagement.ClearCacheCommand}" Margin="0,0,0,8" HorizontalAlignment="Stretch" Style="{StaticResource SecondaryButton}"/>
+                                    <Button Content="🗑 Clear Cache" Command="{Binding DeviceManagement.ClearCacheCommand}" Margin="0,0,0,16" HorizontalAlignment="Stretch" Style="{StaticResource SecondaryButton}"/>
+
+                                    <!-- Client Configuration -->
+                                    <TextBlock Text="Client Configuration" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                    <TextBlock Text="Configure client connection settings remotely. Client will reconnect with new settings."
+                                              FontSize="11"
+                                              Foreground="#666666"
+                                              TextWrapping="Wrap"
+                                              Margin="0,0,0,12"/>
+
+                                    <TextBlock Text="Server Host:" Margin="0,4,0,2"/>
+                                    <TextBox Text="{Binding DeviceManagement.ConfigServerHost, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"/>
+
+                                    <TextBlock Text="Server Port:" Margin="0,4,0,2"/>
+                                    <TextBox Text="{Binding DeviceManagement.ConfigServerPort, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"/>
+
+                                    <CheckBox Content="Use SSL/TLS" IsChecked="{Binding DeviceManagement.ConfigUseSSL}" Margin="0,0,0,4"/>
+                                    <CheckBox Content="Verify SSL Certificate" IsChecked="{Binding DeviceManagement.ConfigVerifySSL}" Margin="0,0,0,4"/>
+                                    <CheckBox Content="Full Screen Mode" IsChecked="{Binding DeviceManagement.ConfigFullScreen}" Margin="0,0,0,8"/>
+
+                                    <TextBlock Text="Log Level:" Margin="0,4,0,2"/>
+                                    <ComboBox ItemsSource="{Binding DeviceManagement.LogLevels}"
+                                             SelectedItem="{Binding DeviceManagement.ConfigLogLevel}"
+                                             Margin="0,0,0,12"/>
+
+                                    <Button Content="⚙ Configure Client"
+                                           Command="{Binding DeviceManagement.UpdateClientConfigCommand}"
+                                           Style="{StaticResource PrimaryButton}"
+                                           Margin="0,0,0,8"
+                                           HorizontalAlignment="Stretch"
+                                           ToolTip="Send configuration update to client"/>
                                 </StackPanel>
                             </StackPanel>
                         </ScrollViewer>

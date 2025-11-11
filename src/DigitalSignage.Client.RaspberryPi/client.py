@@ -183,6 +183,8 @@ class DigitalSignageClient:
                 await self.handle_command(data)
             elif message_type == "HEARTBEAT":
                 await self.send_heartbeat()
+            elif message_type == "UPDATE_CONFIG":
+                await self.handle_update_config(data)
             else:
                 logger.warning(f"Unknown message type: {message_type}")
         except Exception as e:
@@ -380,6 +382,73 @@ class DigitalSignageClient:
                 logger.error("Failed to clear cache")
         except Exception as e:
             logger.error(f"Failed to clear cache: {e}", exc_info=True)
+
+    async def handle_update_config(self, data: Dict[str, Any]):
+        """Handle configuration update from server"""
+        try:
+            logger.info("Received UPDATE_CONFIG message from server")
+
+            # Update configuration
+            success = self.config.update_from_server(data)
+
+            # Send response to server
+            response_message = {
+                "Type": "UPDATE_CONFIG_RESPONSE",
+                "ClientId": self.config.client_id,
+                "Success": success,
+                "ErrorMessage": None if success else "Failed to update configuration",
+                "Timestamp": datetime.utcnow().isoformat()
+            }
+
+            await self.sio.emit('message', response_message)
+
+            if success:
+                logger.info("Configuration updated successfully. Reconnecting to server with new settings...")
+                logger.info(f"New server: {self.config.server_host}:{self.config.server_port}")
+                logger.info(f"SSL: {self.config.use_ssl}, FullScreen: {self.config.fullscreen}")
+
+                # Disconnect and reconnect with new configuration
+                await self.sio.disconnect()
+
+                # Wait a moment for disconnect to complete
+                await asyncio.sleep(2)
+
+                # Update SSL verification settings
+                ssl_verify = self.config.verify_ssl if self.config.use_ssl else False
+                self.sio = socketio.AsyncClient(
+                    reconnection=True,
+                    reconnection_delay=5,
+                    reconnection_delay_max=60,
+                    ssl_verify=ssl_verify
+                )
+
+                # Re-register event handlers
+                self.setup_event_handlers()
+
+                # Reconnect to server with new settings
+                server_url = self.config.get_server_url()
+                logger.info(f"Reconnecting to new server at {server_url}")
+                await self.sio.connect(server_url)
+
+                logger.info("Successfully reconnected with new configuration")
+            else:
+                logger.error("Failed to update configuration")
+
+        except Exception as e:
+            logger.error(f"Error handling UPDATE_CONFIG: {e}", exc_info=True)
+
+            # Send error response
+            try:
+                error_response = {
+                    "Type": "UPDATE_CONFIG_RESPONSE",
+                    "ClientId": self.config.client_id,
+                    "Success": False,
+                    "ErrorMessage": str(e),
+                    "Timestamp": datetime.utcnow().isoformat()
+                }
+                await self.sio.emit('message', error_response)
+            except Exception as response_error:
+                logger.error(f"Failed to send error response: {response_error}")
 
     async def start(self):
         """Start the client application"""

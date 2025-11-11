@@ -113,6 +113,33 @@ public class LogMessage : Message
     public string? Exception { get; set; }
 }
 
+/// <summary>
+/// Update configuration message (server -> client)
+/// </summary>
+public class UpdateConfigMessage : Message
+{
+    public UpdateConfigMessage() { Type = "UPDATE_CONFIG"; }
+
+    public string ServerHost { get; set; } = string.Empty;
+    public int ServerPort { get; set; }
+    public bool UseSSL { get; set; }
+    public bool VerifySSL { get; set; } = true;
+    public bool FullScreen { get; set; } = true;
+    public string LogLevel { get; set; } = "INFO";
+    public string? RegistrationToken { get; set; }
+}
+
+/// <summary>
+/// Update configuration response (client -> server)
+/// </summary>
+public class UpdateConfigResponseMessage : Message
+{
+    public UpdateConfigResponseMessage() { Type = "UPDATE_CONFIG_RESPONSE"; }
+
+    public bool Success { get; set; }
+    public string? ErrorMessage { get; set; }
+}
+
 public enum LogLevel
 {
     Debug,

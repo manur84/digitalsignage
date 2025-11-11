@@ -254,6 +254,58 @@ Authentifizierung erfolgt nach der Verbindung über die REGISTER-Nachricht.
 
 **Log Levels**: Debug, Info, Warning, Error, Critical
 
+### 8. UPDATE_CONFIG
+
+**Richtung**: Server → Client (Request), Client → Server (Response)
+
+**Beschreibung**: Server sendet neue Konfiguration an Client. Client aktualisiert seine Konfigurationsdatei und verbindet sich mit den neuen Einstellungen neu.
+
+**Request**:
+```json
+{
+  "Id": "message-uuid",
+  "Type": "UPDATE_CONFIG",
+  "Timestamp": "2024-01-01T12:00:00Z",
+  "SenderId": "server-id",
+  "ServerHost": "192.168.1.100",
+  "ServerPort": 8080,
+  "UseSSL": false,
+  "VerifySSL": true,
+  "FullScreen": true,
+  "LogLevel": "INFO",
+  "RegistrationToken": "optional-token"
+}
+```
+
+**Response**:
+```json
+{
+  "Id": "message-uuid",
+  "Type": "UPDATE_CONFIG_RESPONSE",
+  "Timestamp": "2024-01-01T12:00:00Z",
+  "SenderId": "client-id",
+  "ClientId": "unique-client-id",
+  "Success": true,
+  "ErrorMessage": null
+}
+```
+
+**Felder**:
+- `ServerHost`: Neue Server-Adresse (IP oder Hostname)
+- `ServerPort`: Neue Server-Port-Nummer
+- `UseSSL`: SSL/TLS aktivieren
+- `VerifySSL`: SSL-Zertifikat verifizieren
+- `FullScreen`: Vollbildmodus aktivieren
+- `LogLevel`: Log-Level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+- `RegistrationToken`: (Optional) Neuer Registrierungs-Token
+
+**Verhalten**:
+1. Client empfängt UPDATE_CONFIG
+2. Client aktualisiert `/etc/digitalsignage/config.json`
+3. Client sendet UPDATE_CONFIG_RESPONSE
+4. Client trennt WebSocket-Verbindung
+5. Client verbindet sich mit neuen Einstellungen neu
+
 ## Layout-Schema
 
 ### DisplayLayout

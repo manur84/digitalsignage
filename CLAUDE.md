@@ -251,8 +251,10 @@ All client-server communication uses WebSocket with custom JSON message protocol
 - `HEARTBEAT` - Periodic keep-alive (every 30s)
 - `DISPLAY_UPDATE` - Layout updates sent to client
 - `STATUS_REPORT` - Client status and metrics
-- `COMMAND` - Remote commands (RESTART, SCREENSHOT, SCREEN_ON/OFF, SET_VOLUME)
+- `COMMAND` - Remote commands (RESTART, SCREENSHOT, SCREEN_ON/OFF, SET_VOLUME, CLEAR_CACHE)
 - `SCREENSHOT` - Screenshot data transfer
+- `UPDATE_CONFIG` - Server sends new configuration to client (server host, port, SSL, fullscreen, log level)
+- `UPDATE_CONFIG_RESPONSE` - Client confirms configuration update (success/failure)
 
 **Implementation:**
 - Server: WebSocket server in `CommunicationService` with in-memory client registry

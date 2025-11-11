@@ -25,8 +25,27 @@ public partial class DeviceManagementViewModel : ObservableObject
     [ObservableProperty]
     private int _volumeLevel = 50;
 
+    [ObservableProperty]
+    private string _configServerHost = "localhost";
+
+    [ObservableProperty]
+    private int _configServerPort = 8080;
+
+    [ObservableProperty]
+    private bool _configUseSSL = false;
+
+    [ObservableProperty]
+    private bool _configVerifySSL = true;
+
+    [ObservableProperty]
+    private bool _configFullScreen = true;
+
+    [ObservableProperty]
+    private string _configLogLevel = "INFO";
+
     public ObservableCollection<RaspberryPiClient> Clients { get; } = new();
     public ObservableCollection<DisplayLayout> AvailableLayouts { get; } = new();
+    public ObservableCollection<string> LogLevels { get; } = new() { "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL" };
 
     public DeviceManagementViewModel(
         IClientService clientService,
@@ -277,6 +296,35 @@ public partial class DeviceManagementViewModel : ObservableObject
         }
     }
 
+    [RelayCommand(CanExecute = nameof(CanExecuteClientCommand))]
+    private async Task UpdateClientConfig()
+    {
+        if (SelectedClient == null) return;
+
+        try
+        {
+            var configMessage = new UpdateConfigMessage
+            {
+                ServerHost = ConfigServerHost,
+                ServerPort = ConfigServerPort,
+                UseSSL = ConfigUseSSL,
+                VerifySSL = ConfigVerifySSL,
+                FullScreen = ConfigFullScreen,
+                LogLevel = ConfigLogLevel
+            };
+
+            await _clientService.UpdateClientConfigAsync(SelectedClient.Id, configMessage);
+
+            StatusMessage = $"Configuration update sent to {SelectedClient.Name}";
+            _logger.LogInformation("Configuration update sent to client {ClientId}", SelectedClient.Id);
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Failed to update configuration for {SelectedClient.Name}: {ex.Message}";
+            _logger.LogError(ex, "Failed to update configuration for client {ClientId}", SelectedClient.Id);
+        }
+    }
+
     private bool CanExecuteClientCommand()
     {
         return SelectedClient != null && !IsLoading;
@@ -293,6 +341,7 @@ public partial class DeviceManagementViewModel : ObservableObject
         SetVolumeCommand.NotifyCanExecuteChanged();
         ClearCacheCommand.NotifyCanExecuteChanged();
         RemoveClientCommand.NotifyCanExecuteChanged();
+        UpdateClientConfigCommand.NotifyCanExecuteChanged();
 
         if (value != null)
         {
