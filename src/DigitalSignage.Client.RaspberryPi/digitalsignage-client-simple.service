@@ -1,0 +1,35 @@
+[Unit]
+Description=Digital Signage Client (Simple Mode)
+After=network-online.target graphical.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=INSTALL_USER
+Group=INSTALL_USER
+WorkingDirectory=/opt/digitalsignage-client
+Environment="DISPLAY=:0"
+Environment="XAUTHORITY=/home/INSTALL_USER/.Xauthority"
+Environment="PYTHONUNBUFFERED=1"
+Environment="QT_QPA_PLATFORM=xcb"
+Environment="QT_LOGGING_RULES=*.debug=false"
+ExecStartPre=/bin/sleep 10
+ExecStart=/opt/digitalsignage-client/venv/bin/python3 /opt/digitalsignage-client/client.py
+
+Restart=always
+RestartSec=10
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=digitalsignage-client
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+
+# Restart policy
+StartLimitInterval=200
+StartLimitBurst=5
+
+[Install]
+WantedBy=graphical.target

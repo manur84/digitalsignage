@@ -122,6 +122,7 @@ apt-get install -y \
     sqlite3 \
     libsqlite3-dev \
     x11-xserver-utils \
+    x11-utils \
     unclutter \
     xdotool \
     libqt5multimedia5-plugins \
@@ -184,7 +185,9 @@ cp watchdog_monitor.py "$INSTALL_DIR/"
 cp start-with-display.sh "$INSTALL_DIR/"
 cp remote_log_handler.py "$INSTALL_DIR/" 2>/dev/null || echo "Note: remote_log_handler.py not found (optional)"
 cp diagnose.sh "$INSTALL_DIR/" 2>/dev/null || echo "Note: diagnose.sh not found (optional)"
+cp fix-installation.sh "$INSTALL_DIR/" 2>/dev/null || echo "Note: fix-installation.sh not found (optional)"
 cp enable-autologin-x11.sh "$INSTALL_DIR/" 2>/dev/null || echo "Note: enable-autologin-x11.sh not found (optional)"
+cp TROUBLESHOOTING.md "$INSTALL_DIR/" 2>/dev/null || echo "Note: TROUBLESHOOTING.md not found (optional)"
 
 # Set ownership
 chown -R "$ACTUAL_USER:$ACTUAL_USER" "$INSTALL_DIR"
@@ -194,11 +197,13 @@ echo "Converting line endings to Unix format..."
 if command -v dos2unix &>/dev/null; then
     dos2unix "$INSTALL_DIR/start-with-display.sh" 2>/dev/null || true
     dos2unix "$INSTALL_DIR/diagnose.sh" 2>/dev/null || true
+    dos2unix "$INSTALL_DIR/fix-installation.sh" 2>/dev/null || true
     dos2unix "$INSTALL_DIR/enable-autologin-x11.sh" 2>/dev/null || true
 else
     # Fallback: use sed to remove carriage returns
     sed -i 's/\r$//' "$INSTALL_DIR/start-with-display.sh" 2>/dev/null || true
     sed -i 's/\r$//' "$INSTALL_DIR/diagnose.sh" 2>/dev/null || true
+    sed -i 's/\r$//' "$INSTALL_DIR/fix-installation.sh" 2>/dev/null || true
     sed -i 's/\r$//' "$INSTALL_DIR/enable-autologin-x11.sh" 2>/dev/null || true
 fi
 
@@ -206,6 +211,7 @@ fi
 chmod +x "$INSTALL_DIR/client.py"
 chmod +x "$INSTALL_DIR/start-with-display.sh"
 chmod +x "$INSTALL_DIR/diagnose.sh" 2>/dev/null || true
+chmod +x "$INSTALL_DIR/fix-installation.sh" 2>/dev/null || true
 chmod +x "$INSTALL_DIR/enable-autologin-x11.sh" 2>/dev/null || true
 
 # Verify critical files
@@ -316,6 +322,48 @@ if "$VENV_DIR/bin/python3" -c "import PyQt5; from PyQt5.QtWidgets import QApplic
 else
     echo "✗ WARNING: PyQt5 not accessible from virtual environment"
     echo "  This may cause client startup issues"
+fi
+
+echo ""
+echo "========================================="
+echo "Pre-Flight Check"
+echo "========================================="
+echo ""
+echo "Testing client startup manually before enabling service..."
+echo "This will verify that all dependencies and configuration are correct."
+echo ""
+
+# Run manual test with timeout
+if timeout 15 sudo -u "$ACTUAL_USER" "$INSTALL_DIR/start-with-display.sh" --test; then
+    echo ""
+    echo "✓ Pre-flight check successful!"
+    echo "  The client can start successfully."
+else
+    TEST_EXIT_CODE=$?
+    echo ""
+    if [ $TEST_EXIT_CODE -eq 124 ]; then
+        echo "✗ Pre-flight check timed out after 15 seconds"
+        echo "  This indicates the test is hanging."
+    else
+        echo "✗ Pre-flight check failed with exit code: $TEST_EXIT_CODE"
+    fi
+    echo ""
+    echo "The installation cannot proceed until the pre-flight check passes."
+    echo ""
+    echo "Check the startup log for details:"
+    echo "  sudo cat /var/log/digitalsignage-client-startup.log"
+    echo "  OR"
+    echo "  sudo cat /tmp/digitalsignage-client-startup.log"
+    echo ""
+    echo "Common issues:"
+    echo "  - Missing dependencies (PyQt5, Xvfb, etc.)"
+    echo "  - Syntax errors in config.py"
+    echo "  - Permission issues"
+    echo ""
+    echo "After fixing issues, you can:"
+    echo "  1. Run the fix script: sudo ./fix-installation.sh"
+    echo "  2. Or re-run install.sh: sudo ./install.sh"
+    exit 1
 fi
 
 echo ""
@@ -575,8 +623,22 @@ else
     fi
     echo ""
     echo ""
-    echo "After fixing issues, restart the service:"
-    echo "  sudo systemctl restart digitalsignage-client"
+    echo "========================================="
+    echo "Next Steps"
+    echo "========================================="
+    echo ""
+    echo "1. Run the fix script to diagnose and fix common issues:"
+    echo "   sudo $INSTALL_DIR/fix-installation.sh"
+    echo ""
+    echo "2. Read the troubleshooting guide:"
+    echo "   cat $INSTALL_DIR/TROUBLESHOOTING.md"
+    echo ""
+    echo "3. After fixing issues, restart the service:"
+    echo "   sudo systemctl restart digitalsignage-client"
+    echo ""
+    echo "4. View detailed logs:"
+    echo "   sudo journalctl -u digitalsignage-client -n 100"
+    echo "   sudo cat /var/log/digitalsignage-client-startup.log"
     echo ""
     echo "Configuration:"
     echo "  - Installation directory: $INSTALL_DIR"

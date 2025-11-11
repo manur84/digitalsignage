@@ -12,19 +12,32 @@ WorkingDirectory=/opt/digitalsignage-client
 Environment="PYTHONUNBUFFERED=1"
 Environment="QT_QPA_PLATFORM=xcb"
 Environment="QT_LOGGING_RULES=*.debug=false"
+
+# Pre-start checks
 ExecStartPre=/bin/sleep 10
+ExecStartPre=/bin/bash -c 'test -f /opt/digitalsignage-client/start-with-display.sh || (echo "ERROR: start-with-display.sh not found" && exit 1)'
+ExecStartPre=/bin/bash -c 'test -x /opt/digitalsignage-client/start-with-display.sh || (echo "ERROR: start-with-display.sh not executable" && exit 1)'
+ExecStartPre=/bin/bash -c 'test -f /opt/digitalsignage-client/venv/bin/python3 || (echo "ERROR: Python venv not found" && exit 1)'
+
+# Start the client
 ExecStart=/opt/digitalsignage-client/start-with-display.sh
+
+# Cleanup
 ExecStopPost=/bin/bash -c 'pkill -f "Xvfb :99" || true'
+
+# Restart configuration
 Restart=always
 RestartSec=10
+
+# Logging
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=digitalsignage-client
 
 # Watchdog - will restart if no ping received within 60 seconds
 WatchdogSec=60
-# Give service 30 seconds to start and notify ready
-TimeoutStartSec=30
+# Give service 60 seconds to start and notify ready (increased from 30)
+TimeoutStartSec=60
 
 # Security
 NoNewPrivileges=true
