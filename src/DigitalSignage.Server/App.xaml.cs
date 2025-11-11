@@ -101,12 +101,12 @@ public partial class App : Application
 
     protected override async void OnStartup(StartupEventArgs e)
     {
+        base.OnStartup(e);
+
         await _host.StartAsync();
 
         var mainWindow = _host.Services.GetRequiredService<Views.MainWindow>();
         mainWindow.Show();
-
-        base.OnStartup(e);
     }
 
     protected override async void OnExit(ExitEventArgs e)
