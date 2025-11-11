@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.Linq;
 using System.Security.Principal;
+using System.ServiceProcess;
 using Serilog;
 
 namespace DigitalSignage.Server.Helpers;
@@ -71,16 +72,31 @@ public static class UrlAclManager
     /// <returns>True if configuration was successful, false otherwise</returns>
     public static bool ConfigureUrlAcl(int port)
     {
+        Console.WriteLine("====================================");
+        Console.WriteLine("URL ACL Configuration Starting");
+        Console.WriteLine("====================================");
+        Console.WriteLine($"Port: {port}");
+        Console.WriteLine($"Running as admin: {IsRunningAsAdministrator()}");
+        Console.WriteLine($"User: {Environment.UserName}");
+        Console.WriteLine($"Machine: {Environment.MachineName}");
+        Console.WriteLine($"OS: {Environment.OSVersion}");
+        Console.WriteLine($".NET Version: {Environment.Version}");
+        Console.WriteLine("====================================");
+
         if (!IsRunningAsAdministrator())
         {
-            Console.WriteLine("ERROR: Cannot configure URL ACL - not running as administrator");
+            Console.WriteLine("[ERROR] Not running as administrator!");
             Log.Error("Cannot configure URL ACL - not running as administrator");
             return false;
         }
 
         try
         {
-            Console.WriteLine($"Configuring URL ACL for port {port}...");
+            // Check HTTP.sys service
+            Console.WriteLine("\nStep 0: Checking HTTP.sys service...");
+            Console.WriteLine("------------------------------------");
+            EnsureHttpSysRunning();
+            Console.WriteLine();
 
             var urls = new[]
             {
@@ -90,33 +106,62 @@ public static class UrlAclManager
 
             foreach (var url in urls)
             {
-                Console.WriteLine($"  Registering: {url}");
-                Log.Information($"Configuring URL ACL for: {url}");
+                Console.WriteLine($"Configuring: {url}");
+                Console.WriteLine("------------------------------------");
 
-                // Try to delete existing (ignore errors)
+                // Step 1: Check if already exists
+                Console.WriteLine("Step 1: Checking existing configuration...");
+                var checkResult = RunNetshCommand($"http show urlacl url={url}");
+
+                // Step 2: Try to delete (ignore errors if not exists)
+                Console.WriteLine("Step 2: Removing old configuration (if exists)...");
                 RunNetshCommand($"http delete urlacl url={url}");
 
-                // Add new URL ACL
-                var result = RunNetshCommand($"http add urlacl url={url} user=Everyone");
+                // Step 3: Add new URL ACL
+                Console.WriteLine("Step 3: Adding new URL ACL...");
+                var addResult = RunNetshCommand($"http add urlacl url={url} user=Everyone");
 
-                if (!result)
+                if (!addResult)
                 {
-                    Console.WriteLine($"  FAILED: {url}");
+                    Console.WriteLine($"[FAILED] Could not configure {url}");
+                    Console.WriteLine("\nTroubleshooting:");
+                    Console.WriteLine("1. Are you REALLY running as Administrator?");
+                    Console.WriteLine($"2. Try running manually: netsh http add urlacl url={url} user=Everyone");
+                    Console.WriteLine("3. Check Windows Event Viewer for errors");
+                    Console.WriteLine("4. Run setup-urlacl.bat manually");
+                    Console.WriteLine("5. Check if HTTP.sys service is running: sc query HTTP");
+                    Console.WriteLine("6. Try rebooting Windows and run as admin again");
                     Log.Error($"Failed to configure URL ACL for {url}");
                     return false;
                 }
 
-                Console.WriteLine($"  SUCCESS: {url}");
+                Console.WriteLine($"[SUCCESS] {url} configured");
+                Console.WriteLine();
                 Log.Information($"Successfully configured URL ACL for {url}");
             }
 
-            Console.WriteLine("URL ACL configuration completed successfully!");
+            Console.WriteLine("====================================");
+            Console.WriteLine("URL ACL Configuration COMPLETED");
+            Console.WriteLine("====================================");
+
+            // Verify it worked
+            Console.WriteLine("\nVerification:");
+            Console.WriteLine("------------------------------------");
+            RunNetshCommand("http show urlacl");
+            Console.WriteLine();
+
             return true;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"ERROR: Failed to configure URL ACL - {ex.Message}");
-            Log.Error(ex, "Failed to configure URL ACL");
+            Console.WriteLine($"\n[FATAL ERROR] {ex.Message}");
+            Console.WriteLine($"Exception Type: {ex.GetType().Name}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            if (ex.InnerException != null)
+            {
+                Console.WriteLine($"Inner Exception: {ex.InnerException.Message}");
+            }
+            Log.Error(ex, "Fatal error during URL ACL configuration");
             return false;
         }
     }
@@ -159,12 +204,64 @@ public static class UrlAclManager
     }
 
     /// <summary>
-    /// Executes a netsh command and returns success status
+    /// Checks if HTTP.sys service is running
+    /// </summary>
+    /// <returns>True if HTTP.sys is running, false otherwise</returns>
+    public static bool IsHttpSysRunning()
+    {
+        try
+        {
+            using var sc = new ServiceController("HTTP");
+            return sc.Status == ServiceControllerStatus.Running;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Attempts to start HTTP.sys service if not running
+    /// </summary>
+    /// <returns>True if HTTP.sys is running after this call, false otherwise</returns>
+    public static bool EnsureHttpSysRunning()
+    {
+        try
+        {
+            using var sc = new ServiceController("HTTP");
+
+            if (sc.Status == ServiceControllerStatus.Running)
+            {
+                Console.WriteLine("[OK] HTTP.sys service is already running");
+                return true;
+            }
+
+            Console.WriteLine($"[WARNING] HTTP.sys service status: {sc.Status}");
+            Console.WriteLine("[INFO] Attempting to start HTTP.sys service...");
+
+            sc.Start();
+            sc.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(10));
+
+            Console.WriteLine("[SUCCESS] HTTP.sys service started");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ERROR] Could not start HTTP.sys service: {ex.Message}");
+            Console.WriteLine("[INFO] URL ACL configuration may fail without HTTP.sys running");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Executes a netsh command and returns success status with detailed logging
     /// </summary>
     private static bool RunNetshCommand(string arguments)
     {
         try
         {
+            Console.WriteLine($"[DEBUG] Executing: netsh {arguments}");
+
             var psi = new ProcessStartInfo
             {
                 FileName = "netsh",
@@ -172,17 +269,43 @@ public static class UrlAclManager
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
-                CreateNoWindow = true
+                CreateNoWindow = true,
+                Verb = string.Empty // Important: no elevation verb here
             };
 
             using var process = Process.Start(psi);
-            if (process == null) return false;
+            if (process == null)
+            {
+                Console.WriteLine("[ERROR] Failed to start netsh process");
+                Log.Error("Failed to start netsh process");
+                return false;
+            }
 
+            var output = process.StandardOutput.ReadToEnd();
+            var error = process.StandardError.ReadToEnd();
             process.WaitForExit();
+
+            Console.WriteLine($"[DEBUG] Exit code: {process.ExitCode}");
+
+            if (!string.IsNullOrWhiteSpace(output))
+            {
+                Console.WriteLine($"[DEBUG] Output: {output.Trim()}");
+                Log.Debug($"netsh output: {output.Trim()}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(error))
+            {
+                Console.WriteLine($"[DEBUG] Error: {error.Trim()}");
+                Log.Warning($"netsh error: {error.Trim()}");
+            }
+
             return process.ExitCode == 0;
         }
-        catch
+        catch (Exception ex)
         {
+            Console.WriteLine($"[ERROR] Exception running netsh: {ex.Message}");
+            Console.WriteLine($"[ERROR] Stack trace: {ex.StackTrace}");
+            Log.Error(ex, "Exception running netsh command");
             return false;
         }
     }
