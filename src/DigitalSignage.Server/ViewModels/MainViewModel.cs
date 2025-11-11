@@ -53,6 +53,7 @@ public partial class MainViewModel : ObservableObject
     public DataSourceViewModel DataSourceViewModel { get; }
     public PreviewViewModel PreviewViewModel { get; }
     public SchedulingViewModel SchedulingViewModel { get; }
+    public MediaLibraryViewModel MediaLibraryViewModel { get; }
 
     public MainViewModel(
         ILayoutService layoutService,
@@ -63,6 +64,7 @@ public partial class MainViewModel : ObservableObject
         DataSourceViewModel dataSourceViewModel,
         PreviewViewModel previewViewModel,
         SchedulingViewModel schedulingViewModel,
+        MediaLibraryViewModel mediaLibraryViewModel,
         DigitalSignageDbContext dbContext,
         ILogger<MainViewModel> logger)
     {
@@ -76,6 +78,7 @@ public partial class MainViewModel : ObservableObject
         DataSourceViewModel = dataSourceViewModel ?? throw new ArgumentNullException(nameof(dataSourceViewModel));
         PreviewViewModel = previewViewModel ?? throw new ArgumentNullException(nameof(previewViewModel));
         SchedulingViewModel = schedulingViewModel ?? throw new ArgumentNullException(nameof(schedulingViewModel));
+        MediaLibraryViewModel = mediaLibraryViewModel ?? throw new ArgumentNullException(nameof(mediaLibraryViewModel));
 
         // Subscribe to communication events
         _communicationService.ClientConnected += OnClientConnected;

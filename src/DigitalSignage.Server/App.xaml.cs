@@ -89,6 +89,7 @@ public partial class App : Application
                 services.AddTransient<DataSourceViewModel>();
                 services.AddTransient<PreviewViewModel>();
                 services.AddTransient<SchedulingViewModel>();
+                services.AddTransient<MediaLibraryViewModel>();
 
                 // Register Services
                 services.AddSingleton<ILayoutService, LayoutService>();

@@ -953,6 +953,250 @@
                     </Border>
                 </Grid>
             </TabItem>
+
+            <!-- Media Library Tab -->
+            <TabItem Header="Media Library">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="350"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Media Grid View -->
+                    <Grid Grid.Column="0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Toolbar -->
+                        <Border Grid.Row="0" Background="#F5F5F5" BorderBrush="#DDDDDD" BorderThickness="0,0,0,1" Padding="12,8">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                    <Button Content="Upload Media"
+                                           Command="{Binding MediaLibraryViewModel.UploadMediaCommand}"
+                                           Style="{StaticResource PrimaryButton}"
+                                           Margin="0,0,8,0"/>
+                                    <Button Content="Refresh"
+                                           Command="{Binding MediaLibraryViewModel.RefreshCommand}"
+                                           Style="{StaticResource SecondaryButton}"
+                                           Margin="0,0,16,0"/>
+
+                                    <TextBlock Text="Filter:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <ComboBox ItemsSource="{Binding MediaLibraryViewModel.FilterTypes}"
+                                             SelectedItem="{Binding MediaLibraryViewModel.FilterType}"
+                                             Width="120"
+                                             Margin="0,0,8,0">
+                                        <ComboBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <TextBlock>
+                                                    <TextBlock.Text>
+                                                        <MultiBinding StringFormat="{}{0}">
+                                                            <Binding Path="." Converter="{StaticResource MediaTypeToStringConverter}"/>
+                                                        </MultiBinding>
+                                                    </TextBlock.Text>
+                                                </TextBlock>
+                                            </DataTemplate>
+                                        </ComboBox.ItemTemplate>
+                                    </ComboBox>
+
+                                    <TextBox Width="200"
+                                            Text="{Binding MediaLibraryViewModel.SearchText, UpdateSourceTrigger=PropertyChanged}"
+                                            VerticalContentAlignment="Center"
+                                            Margin="0,0,8,0">
+                                        <TextBox.Style>
+                                            <Style TargetType="TextBox">
+                                                <Style.Triggers>
+                                                    <Trigger Property="Text" Value="">
+                                                        <Setter Property="Background">
+                                                            <Setter.Value>
+                                                                <VisualBrush Stretch="None" AlignmentX="Left">
+                                                                    <VisualBrush.Visual>
+                                                                        <TextBlock Text="Search..." Foreground="Gray" Margin="4,0,0,0"/>
+                                                                    </VisualBrush.Visual>
+                                                                </VisualBrush>
+                                                            </Setter.Value>
+                                                        </Setter>
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBox.Style>
+                                    </TextBox>
+
+                                    <Button Content="Clear Filter"
+                                           Command="{Binding MediaLibraryViewModel.ClearFilterCommand}"
+                                           Padding="8,4"/>
+                                </StackPanel>
+
+                                <TextBlock Grid.Column="1"
+                                          Text="{Binding MediaLibraryViewModel.MediaFiles.Count, StringFormat='Total: {0} files'}"
+                                          VerticalAlignment="Center"
+                                          Foreground="#666666"
+                                          FontWeight="SemiBold"/>
+                            </Grid>
+                        </Border>
+
+                        <!-- Media DataGrid -->
+                        <DataGrid Grid.Row="1"
+                                 ItemsSource="{Binding MediaLibraryViewModel.MediaFiles}"
+                                 SelectedItem="{Binding MediaLibraryViewModel.SelectedMedia}"
+                                 AutoGenerateColumns="False"
+                                 CanUserAddRows="False"
+                                 IsReadOnly="True"
+                                 SelectionMode="Single"
+                                 Margin="12">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Type" Width="60">
+                                    <DataGridTextColumn.Binding>
+                                        <Binding Path="Type">
+                                            <Binding.Converter>
+                                                <local:MediaTypeToIconConverter/>
+                                            </Binding.Converter>
+                                        </Binding>
+                                    </DataGridTextColumn.Binding>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Header="File Name" Binding="{Binding OriginalFileName}" Width="250"/>
+                                <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="100"/>
+                                <DataGridTextColumn Header="Size" Width="100">
+                                    <DataGridTextColumn.Binding>
+                                        <Binding Path="FileSizeBytes" Converter="{StaticResource FileSizeConverter}"/>
+                                    </DataGridTextColumn.Binding>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Header="Dimensions" Width="120">
+                                    <DataGridTextColumn.Binding>
+                                        <MultiBinding StringFormat="{}{0} × {1}">
+                                            <Binding Path="Width"/>
+                                            <Binding Path="Height"/>
+                                        </MultiBinding>
+                                    </DataGridTextColumn.Binding>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Header="Uploaded" Binding="{Binding UploadedAt, StringFormat='{}{0:dd.MM.yyyy HH:mm}'}" Width="140"/>
+                                <DataGridTextColumn Header="Accessed" Binding="{Binding AccessCount, StringFormat='{}{0} times'}" Width="100"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <!-- Status Bar -->
+                        <Border Grid.Row="2" Background="#F5F5F5" BorderBrush="#DDDDDD" BorderThickness="0,1,0,0" Padding="12,8">
+                            <TextBlock Text="{Binding MediaLibraryViewModel.StatusMessage}" FontSize="12" Foreground="#666666"/>
+                        </Border>
+                    </Grid>
+
+                    <!-- Details Panel -->
+                    <Border Grid.Column="1" Background="White" BorderBrush="#CCCCCC" BorderThickness="1,0,0,0">
+                        <ScrollViewer>
+                            <StackPanel Margin="16">
+                                <TextBlock Text="Media Details" FontSize="18" FontWeight="Bold" Margin="0,0,0,16"/>
+
+                                <!-- No selection message -->
+                                <TextBlock Text="No media selected" Foreground="Gray" Margin="0,8">
+                                    <TextBlock.Visibility>
+                                        <Binding Path="MediaLibraryViewModel.SelectedMedia">
+                                            <Binding.Converter>
+                                                <local:NullToVisibilityConverter/>
+                                            </Binding.Converter>
+                                        </Binding>
+                                    </TextBlock.Visibility>
+                                </TextBlock>
+
+                                <!-- Media details when selected -->
+                                <StackPanel>
+                                    <StackPanel.Visibility>
+                                        <Binding Path="MediaLibraryViewModel.SelectedMedia">
+                                            <Binding.Converter>
+                                                <local:NullToVisibilityConverter Invert="True"/>
+                                            </Binding.Converter>
+                                        </Binding>
+                                    </StackPanel.Visibility>
+
+                                    <!-- Thumbnail placeholder -->
+                                    <Border Background="#F0F0F0"
+                                           BorderBrush="#CCCCCC"
+                                           BorderThickness="1"
+                                           Height="200"
+                                           Margin="0,0,0,16">
+                                        <TextBlock Text="Thumbnail Preview"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"
+                                                  Foreground="#999999"
+                                                  FontSize="14"/>
+                                    </Border>
+
+                                    <TextBlock Text="File Information" FontWeight="SemiBold" Margin="0,0,0,8"/>
+
+                                    <TextBlock Text="Original Filename:" Margin="0,4,0,2" FontSize="11" Foreground="#666666"/>
+                                    <TextBlock Text="{Binding MediaLibraryViewModel.SelectedMedia.OriginalFileName}" Margin="0,0,0,8" TextWrapping="Wrap"/>
+
+                                    <TextBlock Text="Type:" Margin="0,4,0,2" FontSize="11" Foreground="#666666"/>
+                                    <TextBlock Text="{Binding MediaLibraryViewModel.SelectedMedia.Type}" Margin="0,0,0,8"/>
+
+                                    <TextBlock Text="MIME Type:" Margin="0,4,0,2" FontSize="11" Foreground="#666666"/>
+                                    <TextBlock Text="{Binding MediaLibraryViewModel.SelectedMedia.MimeType}" Margin="0,0,0,8"/>
+
+                                    <TextBlock Text="File Size:" Margin="0,4,0,2" FontSize="11" Foreground="#666666"/>
+                                    <TextBlock Margin="0,0,0,8">
+                                        <TextBlock.Text>
+                                            <Binding Path="MediaLibraryViewModel.SelectedMedia.FileSizeBytes" Converter="{StaticResource FileSizeConverter}"/>
+                                        </TextBlock.Text>
+                                    </TextBlock>
+
+                                    <TextBlock Text="Dimensions:" Margin="0,4,0,2" FontSize="11" Foreground="#666666"/>
+                                    <TextBlock Margin="0,0,0,8">
+                                        <TextBlock.Text>
+                                            <MultiBinding StringFormat="{}{0} × {1} px">
+                                                <Binding Path="MediaLibraryViewModel.SelectedMedia.Width"/>
+                                                <Binding Path="MediaLibraryViewModel.SelectedMedia.Height"/>
+                                            </MultiBinding>
+                                        </TextBlock.Text>
+                                    </TextBlock>
+
+                                    <TextBlock Text="Uploaded:" Margin="0,4,0,2" FontSize="11" Foreground="#666666"/>
+                                    <TextBlock Text="{Binding MediaLibraryViewModel.SelectedMedia.UploadedAt, StringFormat='{}{0:dd.MM.yyyy HH:mm:ss}'}" Margin="0,0,0,8"/>
+
+                                    <TextBlock Text="Last Accessed:" Margin="0,4,0,2" FontSize="11" Foreground="#666666"/>
+                                    <TextBlock Text="{Binding MediaLibraryViewModel.SelectedMedia.LastAccessedAt, StringFormat='{}{0:dd.MM.yyyy HH:mm:ss}'}" Margin="0,0,0,8"/>
+
+                                    <TextBlock Text="Access Count:" Margin="0,4,0,2" FontSize="11" Foreground="#666666"/>
+                                    <TextBlock Text="{Binding MediaLibraryViewModel.SelectedMedia.AccessCount}" Margin="0,0,0,8"/>
+
+                                    <Separator Margin="0,16"/>
+
+                                    <TextBlock Text="Editable Details" FontWeight="SemiBold" Margin="0,8,0,8"/>
+
+                                    <TextBlock Text="Description:" Margin="0,4,0,2"/>
+                                    <TextBox Text="{Binding MediaLibraryViewModel.SelectedMedia.Description, UpdateSourceTrigger=PropertyChanged}"
+                                            Height="60"
+                                            TextWrapping="Wrap"
+                                            AcceptsReturn="True"
+                                            Margin="0,0,0,8"/>
+
+                                    <TextBlock Text="Tags (comma-separated):" Margin="0,4,0,2"/>
+                                    <TextBox Text="{Binding MediaLibraryViewModel.SelectedMedia.Tags, UpdateSourceTrigger=PropertyChanged}"
+                                            Margin="0,0,0,8"/>
+
+                                    <TextBlock Text="Category:" Margin="0,4,0,2"/>
+                                    <TextBox Text="{Binding MediaLibraryViewModel.SelectedMedia.Category, UpdateSourceTrigger=PropertyChanged}"
+                                            Margin="0,0,0,16"/>
+
+                                    <Button Content="Update Details"
+                                           Command="{Binding MediaLibraryViewModel.UpdateMediaDetailsCommand}"
+                                           Style="{StaticResource PrimaryButton}"
+                                           Margin="0,0,0,8"/>
+
+                                    <Button Content="Delete Media"
+                                           Command="{Binding MediaLibraryViewModel.DeleteMediaCommand}"
+                                           Style="{StaticResource SecondaryButton}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Border>
+                </Grid>
+            </TabItem>
         </TabControl>
     </DockPanel>
 </Window>
