@@ -2,6 +2,8 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DigitalSignage.Core.Interfaces;
 using DigitalSignage.Core.Models;
+using DigitalSignage.Server.Services;
+using Serilog;
 using System.Collections.ObjectModel;
 
 namespace DigitalSignage.Server.ViewModels;
@@ -9,6 +11,8 @@ namespace DigitalSignage.Server.ViewModels;
 public partial class DataSourceViewModel : ObservableObject
 {
     private readonly IDataService _dataService;
+    private readonly DataSourceRepository _repository;
+    private readonly ILogger _logger;
 
     [ObservableProperty]
     private DataSource? _selectedDataSource;
@@ -27,9 +31,14 @@ public partial class DataSourceViewModel : ObservableObject
 
     public ObservableCollection<DataSource> DataSources { get; } = new();
 
-    public DataSourceViewModel(IDataService dataService)
+    public DataSourceViewModel(IDataService dataService, DataSourceRepository repository)
     {
         _dataService = dataService;
+        _repository = repository;
+        _logger = Log.ForContext<DataSourceViewModel>();
+
+        // Load data sources from database
+        _ = LoadDataSourcesAsync();
     }
 
     partial void OnSelectedDataSourceChanged(DataSource? value)
@@ -121,20 +130,83 @@ public partial class DataSourceViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void SaveDataSource()
+    private async Task LoadDataSources()
     {
-        if (SelectedDataSource == null) return;
+        await LoadDataSourcesAsync();
+    }
 
-        // TODO: Persist to database
-        TestResult = "Data source saved";
+    private async Task LoadDataSourcesAsync()
+    {
+        try
+        {
+            var dataSources = await _repository.GetAllAsync();
+
+            DataSources.Clear();
+            foreach (var ds in dataSources)
+            {
+                DataSources.Add(ds);
+            }
+
+            _logger.Information("Loaded {Count} data sources from database", dataSources.Count);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Failed to load data sources from database");
+            TestResult = $"Error loading data sources: {ex.Message}";
+        }
     }
 
     [RelayCommand]
-    private void DeleteDataSource()
+    private async Task SaveDataSource()
     {
         if (SelectedDataSource == null) return;
 
-        DataSources.Remove(SelectedDataSource);
-        SelectedDataSource = null;
+        try
+        {
+            // Check if it's a new data source (empty/null Id) or existing
+            if (string.IsNullOrEmpty(SelectedDataSource.Id) || await _repository.GetByIdAsync(SelectedDataSource.Id) == null)
+            {
+                // New data source
+                await _repository.AddAsync(SelectedDataSource);
+                TestResult = "Data source added successfully!";
+            }
+            else
+            {
+                // Update existing
+                await _repository.UpdateAsync(SelectedDataSource);
+                TestResult = "Data source updated successfully!";
+            }
+
+            // Reload from database to ensure consistency
+            await LoadDataSourcesAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Failed to save data source");
+            TestResult = $"Error saving: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private async Task DeleteDataSource()
+    {
+        if (SelectedDataSource == null) return;
+
+        try
+        {
+            if (!string.IsNullOrEmpty(SelectedDataSource.Id))
+            {
+                await _repository.DeleteAsync(SelectedDataSource.Id);
+            }
+
+            DataSources.Remove(SelectedDataSource);
+            SelectedDataSource = null;
+            TestResult = "Data source deleted successfully!";
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Failed to delete data source");
+            TestResult = $"Error deleting: {ex.Message}";
+        }
     }
 }

@@ -52,12 +52,26 @@ public partial class App : Application
                 // Register Database Context
                 var connectionString = context.Configuration.GetConnectionString("DefaultConnection")
                     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+
+                // Register DbContext for services
                 services.AddDbContext<DigitalSignageDbContext>(options =>
                 {
                     // Use SQLite for cross-platform compatibility
                     options.UseSqlite(connectionString);
 
                     // Enable sensitive data logging in development
+                    if (context.HostingEnvironment.IsDevelopment())
+                    {
+                        options.EnableSensitiveDataLogging();
+                        options.EnableDetailedErrors();
+                    }
+                });
+
+                // Register DbContextFactory for ViewModels (allows transient/singleton usage)
+                services.AddDbContextFactory<DigitalSignageDbContext>(options =>
+                {
+                    options.UseSqlite(connectionString);
+
                     if (context.HostingEnvironment.IsDevelopment())
                     {
                         options.EnableSensitiveDataLogging();
@@ -87,6 +101,9 @@ public partial class App : Application
                 services.AddSingleton<ICommunicationService, WebSocketCommunicationService>();
                 services.AddSingleton<IMediaService, EnhancedMediaService>();
                 services.AddScoped<IAuthenticationService, AuthenticationService>();
+
+                // Register Repositories
+                services.AddSingleton<DataSourceRepository>();
 
                 // Register Background Services
                 services.AddHostedService<DataRefreshService>();
