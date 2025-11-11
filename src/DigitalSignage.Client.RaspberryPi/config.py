@@ -21,7 +21,7 @@ class Config:
     log_level: str = "INFO"
     cache_dir: str = str(Path.home() / ".digitalsignage" / "cache")
     data_dir: str = str(Path.home() / ".digitalsignage" / "data")
-    auto_discover: bool = False  # Automatically discover server via UDP broadcast
+    auto_discover: bool = True  # Automatically discover server via UDP broadcast (ENABLED BY DEFAULT)
     discovery_timeout: float = 5.0  # Discovery timeout in seconds
     remote_logging_enabled: bool = True  # Send logs to server
     remote_logging_level: str = "INFO"  # Minimum level for remote logs

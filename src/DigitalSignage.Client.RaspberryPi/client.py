@@ -531,6 +531,47 @@ class DigitalSignageClient:
         await self.watchdog.start()
         self.watchdog.notify_status("Initializing...")
 
+        # AUTO-DISCOVERY: Try to find server automatically if enabled
+        if self.config.auto_discover:
+            logger.info("=" * 70)
+            logger.info("AUTO-DISCOVERY ENABLED - Searching for servers...")
+            logger.info("=" * 70)
+            self.watchdog.notify_status("Searching for servers via Auto-Discovery...")
+
+            try:
+                from discovery import discover_server
+                discovered_url = discover_server(timeout=self.config.discovery_timeout)
+
+                if discovered_url:
+                    logger.info(f"✓ SERVER FOUND: {discovered_url}")
+                    logger.info("  Using auto-discovered server instead of config.json")
+
+                    # Parse the discovered URL to update config
+                    # Format: ws://192.168.1.100:8080/ws or wss://...
+                    import re
+                    match = re.match(r'(wss?)://([^:]+):(\d+)/(.+)', discovered_url)
+                    if match:
+                        protocol, host, port, endpoint = match.groups()
+                        self.config.server_host = host
+                        self.config.server_port = int(port)
+                        self.config.use_ssl = (protocol == 'wss')
+                        logger.info(f"  Server Host: {host}")
+                        logger.info(f"  Server Port: {port}")
+                        logger.info(f"  SSL: {'Enabled' if self.config.use_ssl else 'Disabled'}")
+
+                        # Save discovered configuration for future use
+                        self.config.save()
+                        logger.info("  Configuration saved")
+                else:
+                    logger.warning("✗ No servers found via Auto-Discovery")
+                    logger.warning("  Falling back to manual configuration from config.json")
+                    logger.warning(f"  Manual config: {self.config.server_host}:{self.config.server_port}")
+            except Exception as e:
+                logger.error(f"Auto-Discovery failed: {e}")
+                logger.warning("Falling back to manual configuration from config.json")
+
+            logger.info("=" * 70)
+
         # Connect to server with retry logic
         max_retries = 5
         retry_delay = 2
