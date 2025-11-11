@@ -17,6 +17,8 @@ public class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        const int defaultPort = 8080;
+
         // VERY FIRST THING: Check if we're in setup mode
         if (args.Contains("--setup-urlacl"))
         {
@@ -25,8 +27,15 @@ public class Program
             return; // Exit after setup
         }
 
-        // SECOND: Check if URL ACL is configured
-        const int defaultPort = 8080;
+        // SECOND: Check if setup is already completed
+        if (IsSetupCompleted())
+        {
+            // Setup was done before, start app normally
+            StartApplication();
+            return;
+        }
+
+        // THIRD: Check if URL ACL is configured
         if (!UrlAclManager.IsUrlAclConfigured(defaultPort))
         {
             // URL ACL not configured
@@ -34,26 +43,24 @@ public class Program
             if (UrlAclManager.IsRunningAsAdministrator())
             {
                 // We're admin but URL ACL still not configured
-                // Configure it now
-                Console.WriteLine("Running as administrator, configuring URL ACL...");
+                // Configure it now SILENTLY
+                Console.WriteLine("Running as administrator, configuring URL ACL automatically...");
                 if (UrlAclManager.ConfigureUrlAcl(defaultPort))
                 {
-                    MessageBox.Show(
-                        "URL ACL wurde erfolgreich konfiguriert!\n\n" +
-                        "Die Anwendung startet jetzt normal neu.",
-                        "Konfiguration erfolgreich",
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Information);
+                    // Mark setup as completed
+                    MarkSetupCompleted();
 
-                    // Restart without admin
+                    // Restart without admin - NO MESSAGE BOX, fully automatic
                     RestartNormally();
                     return;
                 }
                 else
                 {
+                    // Only show message if setup FAILED
                     MessageBox.Show(
                         "URL ACL Konfiguration fehlgeschlagen.\n\n" +
-                        "Bitte führen Sie setup-urlacl.bat manuell aus.",
+                        "Bitte führen Sie setup-urlacl.bat manuell aus.\n\n" +
+                        "Siehe urlacl-setup.log für Details.",
                         "Fehler",
                         MessageBoxButton.OK,
                         MessageBoxImage.Error);
@@ -63,60 +70,59 @@ public class Program
             else
             {
                 // Not admin and URL ACL not configured
-                // Show message and request elevation
-                var result = MessageBox.Show(
-                    "ERSTMALIGE EINRICHTUNG ERFORDERLICH\n\n" +
-                    "Für den ersten Start benötigt die Digital Signage Server App\n" +
-                    "eine einmalige Windows-Konfiguration (URL ACL für Port 8080).\n\n" +
-                    "Die App wird jetzt mit Administrator-Rechten neu gestartet,\n" +
-                    "um diese Konfiguration vorzunehmen.\n\n" +
-                    "Sie müssen dies nur einmal bestätigen!\n\n" +
-                    "Jetzt mit Administrator-Rechten starten?",
-                    "Administrator-Rechte erforderlich",
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Question);
-
-                if (result == MessageBoxResult.Yes)
+                // DIRECTLY trigger elevation WITHOUT showing message box first
+                try
                 {
-                    // Restart as admin
                     if (UrlAclManager.RestartAsAdministrator($"--setup-urlacl {defaultPort}"))
                     {
                         // Success - this instance will exit
+                        // The UAC prompt will be shown by Windows automatically
                         return;
                     }
                     else
                     {
+                        // Failed to elevate - show error
                         MessageBox.Show(
                             "Fehler beim Neustart mit Administrator-Rechten.\n\n" +
-                            "Bitte führen Sie setup-urlacl.bat manuell als Administrator aus.",
-                            "Fehler",
+                            "Für den ersten Start benötigt die Anwendung eine\n" +
+                            "einmalige Windows-Konfiguration (URL ACL).\n\n" +
+                            "Alternativ führen Sie setup-urlacl.bat als Administrator aus.",
+                            "Administrator-Rechte erforderlich",
                             MessageBoxButton.OK,
                             MessageBoxImage.Error);
                         return;
                     }
                 }
-                else
+                catch (System.ComponentModel.Win32Exception)
                 {
-                    MessageBox.Show(
-                        "URL ACL wurde nicht konfiguriert.\n\n" +
-                        "Die App kann nur im localhost-Modus laufen.\n" +
-                        "Raspberry Pi Clients können sich nicht verbinden.\n\n" +
-                        "Für volle Funktionalität führen Sie bitte\n" +
-                        "setup-urlacl.bat als Administrator aus.",
-                        "Eingeschränkter Modus",
-                        MessageBoxButton.OK,
+                    // User cancelled UAC prompt
+                    var retry = MessageBox.Show(
+                        "Administrator-Rechte sind für den ersten Start erforderlich.\n\n" +
+                        "Klicken Sie auf 'Ja' für einen erneuten Versuch,\n" +
+                        "oder 'Nein' um im eingeschränkten Modus fortzufahren\n" +
+                        "(Raspberry Pi Clients können sich nicht verbinden).",
+                        "Setup abgebrochen",
+                        MessageBoxButton.YesNo,
                         MessageBoxImage.Warning);
+
+                    if (retry == MessageBoxResult.Yes)
+                    {
+                        UrlAclManager.RestartAsAdministrator($"--setup-urlacl {defaultPort}");
+                        return;
+                    }
 
                     // Continue in localhost-only mode
                 }
             }
         }
+        else
+        {
+            // URL ACL is configured, mark setup as completed
+            MarkSetupCompleted();
+        }
 
-        // URL ACL is configured (or user chose to continue without it)
         // Start the WPF application normally
-        var app = new App();
-        app.InitializeComponent();
-        app.Run();
+        StartApplication();
     }
 
     private static void HandleUrlAclSetup(string[] args)
@@ -152,15 +158,11 @@ public class Program
 
             if (success)
             {
-                MessageBox.Show(
-                    "URL ACL wurde erfolgreich konfiguriert!\n\n" +
-                    "Die Anwendung startet jetzt automatisch normal neu.\n\n" +
-                    $"Log wurde gespeichert in: urlacl-setup.log",
-                    "Setup erfolgreich",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
+                // Mark setup as completed
+                MarkSetupCompleted();
 
-                // Restart normally
+                // Restart normally WITHOUT showing message box
+                // Fully automatic restart
                 RestartNormally();
             }
             else
@@ -321,5 +323,61 @@ public class Program
         {
             // Ignore errors on restart
         }
+    }
+
+    /// <summary>
+    /// Gets the path to the setup completion marker file
+    /// </summary>
+    private static string GetSetupMarkerPath()
+    {
+        var appDataPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "DigitalSignage.Server");
+
+        Directory.CreateDirectory(appDataPath); // Ensure directory exists
+        return Path.Combine(appDataPath, ".setup-completed");
+    }
+
+    /// <summary>
+    /// Checks if the initial setup has been completed
+    /// </summary>
+    private static bool IsSetupCompleted()
+    {
+        try
+        {
+            return File.Exists(GetSetupMarkerPath());
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Marks the initial setup as completed
+    /// </summary>
+    private static void MarkSetupCompleted()
+    {
+        try
+        {
+            var markerPath = GetSetupMarkerPath();
+            File.WriteAllText(markerPath, $"Setup completed at: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+            Console.WriteLine($"Setup marker created: {markerPath}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Warning: Could not create setup marker: {ex.Message}");
+            // Not critical - app will recheck URL ACL on next start
+        }
+    }
+
+    /// <summary>
+    /// Starts the WPF application
+    /// </summary>
+    private static void StartApplication()
+    {
+        var app = new App();
+        app.InitializeComponent();
+        app.Run();
     }
 }
