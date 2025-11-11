@@ -4,21 +4,18 @@ This guide helps diagnose and fix service startup issues.
 
 ## Quick Fix
 
-If your service is failing, run the quick-fix script:
+If the service fails to start after installation:
 
 ```bash
-cd /opt/digitalsignage-client
-sudo ./quick-fix.sh
+sudo /opt/digitalsignage-client/../fix-installation.sh
 ```
 
-This will:
-- Stop the service
-- Fix permissions
-- Verify Python packages
-- Test imports
-- Create a minimal service file
-- Start the service
-- Show logs
+Or from the source directory:
+
+```bash
+cd src/DigitalSignage.Client.RaspberryPi
+sudo ./fix-installation.sh
+```
 
 ## Diagnostic Commands
 
