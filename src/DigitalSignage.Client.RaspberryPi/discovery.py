@@ -1,8 +1,11 @@
 """
 Network Discovery Module for Digital Signage Client
 
-Handles automatic server discovery via UDP broadcast.
-Clients send discovery requests on port 5555 and receive server connection info.
+Handles automatic server discovery via:
+1. mDNS/Zeroconf (preferred) - works across subnets with multicast routing
+2. UDP broadcast (fallback) - works on local subnet only
+
+Clients discover servers on port 5555 (UDP) or via mDNS service type _digitalsignage._tcp.local.
 """
 
 import socket
@@ -13,6 +16,14 @@ from dataclasses import dataclass
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
+
+# Try to import zeroconf, but make it optional for backward compatibility
+try:
+    from zeroconf import Zeroconf, ServiceBrowser, ServiceListener
+    MDNS_AVAILABLE = True
+except ImportError:
+    logger.warning("zeroconf not available - mDNS discovery disabled. Install with: pip install zeroconf>=0.70.0")
+    MDNS_AVAILABLE = False
 
 
 @dataclass
@@ -37,6 +48,153 @@ class ServerInfo:
         """Get the first/primary WebSocket URL"""
         urls = self.get_urls()
         return urls[0] if urls else ""
+
+
+class MdnsDiscoveryListener(ServiceListener):
+    """
+    Listener for mDNS service discovery events.
+    Collects discovered Digital Signage servers.
+    """
+
+    def __init__(self, zeroconf: 'Zeroconf'):
+        self.zeroconf = zeroconf
+        self.discovered_servers: List[ServerInfo] = []
+        self.logger = logging.getLogger(self.__class__.__name__)
+
+    def add_service(self, zc: 'Zeroconf', service_type: str, name: str) -> None:
+        """Called when a service is discovered"""
+        try:
+            info = zc.get_service_info(service_type, name)
+            if info:
+                # Parse service info
+                server_info = self._parse_service_info(info)
+                if server_info:
+                    # Check for duplicates
+                    if not any(s.server_name == server_info.server_name for s in self.discovered_servers):
+                        self.discovered_servers.append(server_info)
+                        self.logger.info(f"Discovered server via mDNS: {server_info.server_name} at {server_info.get_primary_url()}")
+        except Exception as e:
+            self.logger.error(f"Error processing mDNS service: {e}")
+
+    def remove_service(self, zc: 'Zeroconf', service_type: str, name: str) -> None:
+        """Called when a service goes away"""
+        self.logger.debug(f"Service removed: {name}")
+
+    def update_service(self, zc: 'Zeroconf', service_type: str, name: str) -> None:
+        """Called when service information is updated"""
+        self.logger.debug(f"Service updated: {name}")
+
+    def _parse_service_info(self, info) -> Optional[ServerInfo]:
+        """Parse mDNS service info into ServerInfo object"""
+        try:
+            # Get server properties from TXT records
+            properties = {}
+            if info.properties:
+                for key, value in info.properties.items():
+                    try:
+                        # Decode bytes to string
+                        prop_key = key.decode('utf-8') if isinstance(key, bytes) else key
+                        prop_value = value.decode('utf-8') if isinstance(value, bytes) else value
+                        properties[prop_key] = prop_value
+                    except Exception as e:
+                        self.logger.debug(f"Error decoding property {key}: {e}")
+
+            # Extract server information
+            server_name = properties.get('server_name', info.server or 'Unknown')
+            protocol = properties.get('protocol', 'ws')
+            endpoint_path = properties.get('endpoint', 'ws').lstrip('/')
+            ssl_enabled = properties.get('ssl_enabled', 'false').lower() == 'true'
+            port = info.port
+
+            # Get all IP addresses
+            local_ips = []
+            if hasattr(info, 'parsed_addresses'):
+                # zeroconf >= 0.32.0
+                local_ips = [str(addr) for addr in info.parsed_addresses()]
+            elif hasattr(info, 'addresses'):
+                # Older zeroconf versions
+                import ipaddress
+                local_ips = [str(ipaddress.ip_address(addr)) for addr in info.addresses]
+
+            if not local_ips:
+                self.logger.warning(f"No IP addresses found for service {info.name}")
+                return None
+
+            return ServerInfo(
+                server_name=server_name,
+                local_ips=local_ips,
+                port=port,
+                protocol=protocol,
+                endpoint_path=endpoint_path,
+                ssl_enabled=ssl_enabled,
+                timestamp=datetime.now()
+            )
+
+        except Exception as e:
+            self.logger.error(f"Error parsing mDNS service info: {e}")
+            return None
+
+
+class MdnsDiscoveryClient:
+    """
+    mDNS/Zeroconf discovery client for Digital Signage servers.
+
+    Usage:
+        if MDNS_AVAILABLE:
+            discovery = MdnsDiscoveryClient()
+            servers = discovery.discover_servers(timeout=5.0)
+    """
+
+    SERVICE_TYPE = "_digitalsignage._tcp.local."
+
+    def __init__(self):
+        self.logger = logging.getLogger(self.__class__.__name__)
+
+    def discover_servers(self, timeout: float = 5.0) -> List[ServerInfo]:
+        """
+        Discover Digital Signage servers via mDNS.
+
+        Args:
+            timeout: How long to wait for responses (seconds)
+
+        Returns:
+            List of discovered ServerInfo objects
+        """
+        if not MDNS_AVAILABLE:
+            self.logger.error("mDNS discovery not available - zeroconf package not installed")
+            return []
+
+        discovered_servers = []
+
+        try:
+            self.logger.info(f"Starting mDNS discovery for service type: {self.SERVICE_TYPE}")
+
+            # Create Zeroconf instance
+            zeroconf = Zeroconf()
+
+            # Create listener
+            listener = MdnsDiscoveryListener(zeroconf)
+
+            # Browse for services
+            browser = ServiceBrowser(zeroconf, self.SERVICE_TYPE, listener)
+
+            # Wait for discoveries
+            import time
+            time.sleep(timeout)
+
+            # Get discovered servers
+            discovered_servers = listener.discovered_servers
+
+            # Cleanup
+            browser.cancel()
+            zeroconf.close()
+
+            self.logger.info(f"mDNS discovery complete. Found {len(discovered_servers)} server(s)")
+
+        except Exception as e:
+            self.logger.error(f"mDNS discovery failed: {e}")
+
+        return discovered_servers
 
 
 class DiscoveryClient:
@@ -158,27 +316,90 @@ class DiscoveryClient:
             return None
 
 
-def discover_server(timeout: float = 5.0) -> Optional[str]:
+def discover_server(timeout: float = 5.0, prefer_mdns: bool = True) -> Optional[str]:
     """
     Convenience function to discover a server and return the first WebSocket URL.
+    Tries mDNS first (if available), then falls back to UDP broadcast.
 
     Args:
         timeout: Discovery timeout in seconds
+        prefer_mdns: Try mDNS first before UDP broadcast (default: True)
 
     Returns:
         WebSocket URL string, or None if no server found
     """
-    discovery = DiscoveryClient()
-    servers = discovery.discover_servers(timeout=timeout)
+    servers = []
+
+    # Try mDNS first if available and preferred
+    if prefer_mdns and MDNS_AVAILABLE:
+        logger.info("Attempting mDNS discovery...")
+        mdns_discovery = MdnsDiscoveryClient()
+        servers = mdns_discovery.discover_servers(timeout=timeout)
+
+        if servers:
+            server = servers[0]
+            url = server.get_primary_url()
+            logger.info(f"Auto-discovered server via mDNS: {url}")
+            return url
+        else:
+            logger.info("No servers found via mDNS, falling back to UDP broadcast...")
+
+    # Fallback to UDP broadcast
+    logger.info("Attempting UDP broadcast discovery...")
+    udp_discovery = DiscoveryClient()
+    servers = udp_discovery.discover_servers(timeout=timeout)
 
     if servers:
         server = servers[0]
         url = server.get_primary_url()
-        logger.info(f"Auto-discovered server: {url}")
+        logger.info(f"Auto-discovered server via UDP broadcast: {url}")
         return url
     else:
-        logger.warning("No servers discovered on the network")
+        logger.warning("No servers discovered on the network (tried mDNS and UDP broadcast)")
         return None
+
+
+def discover_all_servers(timeout: float = 5.0, use_mdns: bool = True, use_udp: bool = True) -> List[ServerInfo]:
+    """
+    Discover all available servers using both mDNS and UDP broadcast.
+
+    Args:
+        timeout: Discovery timeout in seconds
+        use_mdns: Use mDNS discovery (default: True)
+        use_udp: Use UDP broadcast discovery (default: True)
+
+    Returns:
+        List of all discovered ServerInfo objects
+    """
+    all_servers = []
+    seen_names = set()
+
+    # Try mDNS
+    if use_mdns and MDNS_AVAILABLE:
+        logger.info("Scanning for servers via mDNS...")
+        mdns_discovery = MdnsDiscoveryClient()
+        mdns_servers = mdns_discovery.discover_servers(timeout=timeout)
+
+        for server in mdns_servers:
+            if server.server_name not in seen_names:
+                all_servers.append(server)
+                seen_names.add(server.server_name)
+                logger.info(f"Found server via mDNS: {server.server_name}")
+
+    # Try UDP broadcast
+    if use_udp:
+        logger.info("Scanning for servers via UDP broadcast...")
+        udp_discovery = DiscoveryClient()
+        udp_servers = udp_discovery.discover_servers(timeout=timeout)
+
+        for server in udp_servers:
+            if server.server_name not in seen_names:
+                all_servers.append(server)
+                seen_names.add(server.server_name)
+                logger.info(f"Found server via UDP: {server.server_name}")
+
+    logger.info(f"Total servers discovered: {len(all_servers)}")
+    return all_servers
 
 
 if __name__ == "__main__":
@@ -188,18 +409,38 @@ if __name__ == "__main__":
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
 
-    print("Starting server discovery...")
-    discovery = DiscoveryClient()
-    servers = discovery.discover_servers(timeout=5.0)
+    print("=" * 70)
+    print("Digital Signage Server Discovery Tool")
+    print("=" * 70)
+    print(f"mDNS/Zeroconf Available: {MDNS_AVAILABLE}")
+    print(f"UDP Broadcast Available: True")
+    print("=" * 70)
+
+    print("\nStarting comprehensive server discovery...")
+    print("This will try both mDNS and UDP broadcast methods...\n")
+
+    servers = discover_all_servers(timeout=5.0)
 
     if servers:
-        print(f"\nFound {len(servers)} server(s):")
+        print(f"\n{'=' * 70}")
+        print(f"Found {len(servers)} server(s):")
+        print(f"{'=' * 70}")
         for i, server in enumerate(servers, 1):
             print(f"\n{i}. {server.server_name}")
             print(f"   Protocol: {server.protocol.upper()}")
             print(f"   SSL: {'Enabled' if server.ssl_enabled else 'Disabled'}")
+            print(f"   Port: {server.port}")
+            print(f"   Endpoint: {server.endpoint_path}")
             print(f"   URLs:")
             for url in server.get_urls():
                 print(f"     - {url}")
     else:
-        print("\nNo servers discovered.")
+        print("\n" + "=" * 70)
+        print("No servers discovered.")
+        print("=" * 70)
+        print("\nTroubleshooting:")
+        if not MDNS_AVAILABLE:
+            print("  - Install zeroconf for mDNS support: pip install zeroconf>=0.70.0")
+        print("  - Ensure Digital Signage server is running")
+        print("  - Check firewall settings (UDP port 5555, mDNS port 5353)")
+        print("  - Verify network connectivity")

@@ -137,6 +137,7 @@ public partial class App : Application
                 services.AddHostedService<DataRefreshService>();
                 services.AddHostedService<HeartbeatMonitoringService>();
                 services.AddHostedService<DiscoveryService>();
+                services.AddHostedService<MdnsDiscoveryService>();
                 services.AddHostedService<MessageHandlerService>();
                 services.AddHostedService<AlertMonitoringService>();
 

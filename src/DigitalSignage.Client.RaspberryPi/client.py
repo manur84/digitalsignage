@@ -535,6 +535,7 @@ class DigitalSignageClient:
         if self.config.auto_discover:
             logger.info("=" * 70)
             logger.info("AUTO-DISCOVERY ENABLED - Searching for servers...")
+            logger.info("Discovery methods: mDNS/Zeroconf (preferred) + UDP Broadcast (fallback)")
             logger.info("=" * 70)
             self.watchdog.notify_status("Searching for servers via Auto-Discovery...")
 
