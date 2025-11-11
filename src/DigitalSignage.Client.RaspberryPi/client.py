@@ -5,34 +5,95 @@ Main client application that connects to the server and displays content
 """
 
 import sys
-import json
-import asyncio
+import os
+import traceback
+
+# Configure logging FIRST before any other imports
 import logging
-from datetime import datetime
-from typing import Optional, Dict, Any
-from pathlib import Path
-
-import socketio
-from PyQt5.QtWidgets import QApplication
-from PyQt5.QtCore import QTimer
-
-from display_renderer import DisplayRenderer
-from device_manager import DeviceManager
-from cache_manager import CacheManager
-from watchdog_monitor import WatchdogMonitor
-from config import Config
-from remote_log_handler import setup_remote_logging
-
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('/var/log/digitalsignage-client.log'),
-        logging.StreamHandler(sys.stdout)
+        logging.StreamHandler(sys.stdout),
+        logging.StreamHandler(sys.stderr)
     ]
 )
 
 logger = logging.getLogger(__name__)
+
+# Log startup information
+logger.info("=" * 70)
+logger.info("Digital Signage Client Starting...")
+logger.info("=" * 70)
+logger.info(f"Python Version: {sys.version}")
+logger.info(f"Python Executable: {sys.executable}")
+logger.info(f"Working Directory: {os.getcwd()}")
+logger.info(f"DISPLAY: {os.environ.get('DISPLAY', 'NOT SET')}")
+logger.info(f"XAUTHORITY: {os.environ.get('XAUTHORITY', 'NOT SET')}")
+logger.info(f"User: {os.environ.get('USER', 'NOT SET')}")
+logger.info("=" * 70)
+
+# Test critical imports one by one
+try:
+    logger.info("Testing standard library imports...")
+    import json
+    import asyncio
+    from datetime import datetime
+    from typing import Optional, Dict, Any
+    from pathlib import Path
+    logger.info("  Standard library imports OK")
+except ImportError as e:
+    logger.error(f"  FAILED - Standard library import error: {e}")
+    logger.error(traceback.format_exc())
+    sys.exit(1)
+
+try:
+    logger.info("Testing socketio import...")
+    import socketio
+    logger.info(f"  socketio version: {socketio.__version__}")
+except ImportError as e:
+    logger.error(f"  FAILED - socketio import error: {e}")
+    logger.error("  Install with: pip install python-socketio[client]")
+    logger.error(traceback.format_exc())
+    sys.exit(1)
+
+try:
+    logger.info("Testing PyQt5 imports...")
+    from PyQt5.QtWidgets import QApplication
+    from PyQt5.QtCore import QTimer, PYQT_VERSION_STR
+    logger.info(f"  PyQt5 version: {PYQT_VERSION_STR}")
+    logger.info("  PyQt5 imports OK")
+except ImportError as e:
+    logger.error(f"  FAILED - PyQt5 import error: {e}")
+    logger.error("")
+    logger.error("PyQt5 is required but not accessible. Possible causes:")
+    logger.error("  1. PyQt5 not installed: sudo apt-get install python3-pyqt5")
+    logger.error("  2. Virtual environment created without --system-site-packages")
+    logger.error("  3. DISPLAY environment variable not set (X11 display required)")
+    logger.error("")
+    logger.error("Current DISPLAY setting: " + os.environ.get('DISPLAY', 'NOT SET'))
+    logger.error("")
+    logger.error(traceback.format_exc())
+    sys.exit(1)
+
+try:
+    logger.info("Testing local module imports...")
+    from display_renderer import DisplayRenderer
+    from device_manager import DeviceManager
+    from cache_manager import CacheManager
+    from watchdog_monitor import WatchdogMonitor
+    from config import Config
+    from remote_log_handler import setup_remote_logging
+    logger.info("  Local module imports OK")
+except ImportError as e:
+    logger.error(f"  FAILED - Local module import error: {e}")
+    logger.error(f"  Make sure all client files are in: {os.getcwd()}")
+    logger.error(traceback.format_exc())
+    sys.exit(1)
+
+logger.info("=" * 70)
+logger.info("All imports successful - proceeding with client initialization")
+logger.info("=" * 70)
 
 
 class DigitalSignageClient:
@@ -524,26 +585,185 @@ class DigitalSignageClient:
         await self.watchdog.stop()
 
 
+def test_mode():
+    """Run diagnostic tests without starting the full client"""
+    print("")
+    print("=" * 70)
+    print("DIGITAL SIGNAGE CLIENT - DIAGNOSTIC MODE")
+    print("=" * 70)
+    print("")
+
+    # Test 1: Environment variables
+    print("[TEST 1] Environment Variables")
+    print("-" * 70)
+    display = os.environ.get('DISPLAY', 'NOT SET')
+    xauth = os.environ.get('XAUTHORITY', 'NOT SET')
+    user = os.environ.get('USER', 'NOT SET')
+
+    print(f"  DISPLAY:     {display}")
+    print(f"  XAUTHORITY:  {xauth}")
+    print(f"  USER:        {user}")
+
+    if display == 'NOT SET':
+        print("  STATUS: FAILED - DISPLAY not set")
+        print("  FIX: Export DISPLAY=:0 or check X11 is running")
+    else:
+        print("  STATUS: OK")
+    print("")
+
+    # Test 2: X11 Connection
+    print("[TEST 2] X11 Display Server")
+    print("-" * 70)
+    try:
+        # Test if we can create a QApplication (requires X11)
+        app = QApplication([])
+        print("  X11 Connection: OK")
+        print("  QApplication created successfully")
+        app.quit()
+        print("  STATUS: OK")
+    except Exception as e:
+        print(f"  X11 Connection: FAILED - {e}")
+        print("  STATUS: FAILED")
+        print("  FIX: Make sure X11 is running and DISPLAY is set correctly")
+    print("")
+
+    # Test 3: Configuration
+    print("[TEST 3] Configuration Loading")
+    print("-" * 70)
+    try:
+        config = Config.load()
+        print(f"  Config File: /etc/digitalsignage/config.json")
+        print(f"  Client ID:   {config.client_id}")
+        print(f"  Server:      {config.server_host}:{config.server_port}")
+        print(f"  SSL:         {config.use_ssl}")
+        print(f"  Fullscreen:  {config.fullscreen}")
+        print("  STATUS: OK")
+    except Exception as e:
+        print(f"  Configuration Error: {e}")
+        print("  STATUS: FAILED")
+        print("  FIX: Check /etc/digitalsignage/config.json exists and is valid JSON")
+    print("")
+
+    # Test 4: Module Imports
+    print("[TEST 4] Required Modules")
+    print("-" * 70)
+    modules = [
+        ('socketio', 'python-socketio[client]'),
+        ('PyQt5.QtWidgets', 'python3-pyqt5'),
+        ('PyQt5.QtCore', 'python3-pyqt5'),
+        ('display_renderer', 'display_renderer.py'),
+        ('device_manager', 'device_manager.py'),
+        ('cache_manager', 'cache_manager.py'),
+        ('watchdog_monitor', 'watchdog_monitor.py'),
+    ]
+
+    all_ok = True
+    for module_name, package in modules:
+        try:
+            __import__(module_name)
+            print(f"  {module_name:25s} OK")
+        except ImportError as e:
+            print(f"  {module_name:25s} FAILED - {e}")
+            all_ok = False
+
+    print("")
+    if all_ok:
+        print("  STATUS: OK - All modules imported successfully")
+    else:
+        print("  STATUS: FAILED - Some modules missing")
+    print("")
+
+    # Test 5: Directories
+    print("[TEST 5] Directories and Permissions")
+    print("-" * 70)
+    dirs_to_check = [
+        Path.home() / ".digitalsignage" / "cache",
+        Path.home() / ".digitalsignage" / "data",
+        Path("/opt/digitalsignage-client"),
+    ]
+
+    for dir_path in dirs_to_check:
+        if dir_path.exists():
+            writable = os.access(dir_path, os.W_OK)
+            status = "OK (writable)" if writable else "WARNING (not writable)"
+            print(f"  {str(dir_path):40s} {status}")
+        else:
+            print(f"  {str(dir_path):40s} MISSING")
+    print("")
+
+    # Test 6: Summary
+    print("=" * 70)
+    print("DIAGNOSTIC SUMMARY")
+    print("=" * 70)
+    print("")
+    print("If all tests passed, the client should start successfully.")
+    print("If any tests failed, fix the issues above before starting the service.")
+    print("")
+    print("To start the service:")
+    print("  sudo systemctl start digitalsignage-client")
+    print("")
+    print("To view logs:")
+    print("  sudo journalctl -u digitalsignage-client -f")
+    print("")
+    print("=" * 70)
+
+
 def main():
     """Main entry point"""
-    config = Config.load()
+    try:
+        # Check for test mode flag
+        if len(sys.argv) > 1 and sys.argv[1] in ['--test', '-t', '--diagnose']:
+            test_mode()
+            sys.exit(0)
 
-    # Create Qt application for display rendering
-    app = QApplication(sys.argv)
+        logger.info("Loading configuration...")
+        config = Config.load()
+        logger.info(f"Configuration loaded - Server: {config.server_host}:{config.server_port}")
 
-    # Create and start client
-    client = DigitalSignageClient(config)
+        logger.info("Creating Qt application...")
+        # Create Qt application for display rendering
+        app = QApplication(sys.argv)
+        logger.info("Qt application created successfully")
 
-    # Create display renderer
-    client.display_renderer = DisplayRenderer(fullscreen=config.fullscreen)
-    client.display_renderer.show()
+        logger.info("Initializing Digital Signage Client...")
+        # Create and start client
+        client = DigitalSignageClient(config)
 
-    # Start client in asyncio event loop
-    loop = asyncio.get_event_loop()
-    loop.create_task(client.start())
+        logger.info("Creating display renderer...")
+        # Create display renderer
+        client.display_renderer = DisplayRenderer(fullscreen=config.fullscreen)
+        client.display_renderer.show()
+        logger.info("Display renderer created and shown")
 
-    # Run Qt event loop
-    sys.exit(app.exec_())
+        logger.info("Starting client event loop...")
+        # Start client in asyncio event loop
+        loop = asyncio.get_event_loop()
+        loop.create_task(client.start())
+
+        logger.info("Starting Qt event loop...")
+        # Run Qt event loop
+        sys.exit(app.exec_())
+
+    except KeyboardInterrupt:
+        logger.info("Received keyboard interrupt - shutting down...")
+        sys.exit(0)
+    except Exception as e:
+        logger.error("=" * 70)
+        logger.error("FATAL ERROR - Client crashed during startup")
+        logger.error("=" * 70)
+        logger.error(f"Error: {e}")
+        logger.error("")
+        logger.error("Full traceback:")
+        logger.error(traceback.format_exc())
+        logger.error("=" * 70)
+        logger.error("")
+        logger.error("Troubleshooting steps:")
+        logger.error("  1. Run diagnostic mode: python3 client.py --test")
+        logger.error("  2. Check logs: sudo journalctl -u digitalsignage-client -n 50")
+        logger.error("  3. Verify X11 is running: echo $DISPLAY")
+        logger.error("  4. Check configuration: cat /etc/digitalsignage/config.json")
+        logger.error("=" * 70)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
