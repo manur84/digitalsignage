@@ -391,32 +391,285 @@ python setup.py sdist bdist_wheel
 
 ## 🐛 Troubleshooting
 
-### Client verbindet nicht zum Server
+### Client läuft mit Xvfb statt echtem Display
 
-1. Firewall-Einstellungen prüfen
-2. Server-IP in Client-Konfiguration korrekt?
-3. Server läuft und ist erreichbar?
+**Problem:** Der Client läuft mit virtuellem Display (Xvfb), obwohl ein HDMI-Display angeschlossen ist.
+
+**Symptome:**
+- Service läuft, aber Display zeigt nichts
+- Logs zeigen "Display renderer created" aber kein Bild
+- `ps aux | grep X` zeigt Xvfb :99 statt X :0
+
+**Lösung:**
 
 ```bash
-# Verbindung testen
-telnet <server-ip> 8080
+# 1. Real Display konfigurieren
+cd ~/digitalsignage/src/DigitalSignage.Client.RaspberryPi
+sudo bash configure-display.sh
+
+# 2. System neu starten (erforderlich!)
+sudo reboot
+
+# 3. Nach Neustart: Display prüfen
+echo $DISPLAY
+# Sollte :0 anzeigen (nicht :99)
+
+# 4. Service-Status prüfen
+sudo systemctl status digitalsignage-client
+
+# 5. Logs überprüfen
+sudo journalctl -u digitalsignage-client -f
+```
+
+**Was macht configure-display.sh:**
+- Aktiviert Auto-Login für den aktuellen Benutzer
+- Konfiguriert X11 Auto-Start auf echtem Display
+- Deaktiviert Bildschirmschoner und Energieverwaltung
+- Versteckt Mauszeiger automatisch
+- Aktualisiert Service für DISPLAY=:0
+
+### Client verbindet nicht zum Server / Server findet Client nicht
+
+**Problem:** Der Server kann den Client nicht finden oder der Client kann sich nicht verbinden.
+
+**Diagnose:**
+
+```bash
+# Netzwerk-Diagnose ausführen
+cd ~/digitalsignage/src/DigitalSignage.Client.RaspberryPi
+sudo bash test-connection.sh
+```
+
+Das Diagnose-Tool prüft:
+1. Netzwerkinterface und IP-Adresse
+2. Gateway-Erreichbarkeit
+3. DNS-Auflösung
+4. Server Ping-Test
+5. Server Port-Verbindung (TCP)
+6. Client-Logs
+7. Konfigurationsvalidierung
+
+**Häufige Ursachen:**
+
+**1. Falsche Server-IP in Konfiguration**
+
+```bash
+# Config bearbeiten
+sudo nano /opt/digitalsignage-client/config.json
+
+# Korrekte Server-IP eintragen:
+{
+  "server_host": "192.168.1.100",  # Windows-Server IP
+  "server_port": 8080,
+  "registration_token": "YOUR_TOKEN"
+}
+
+# Service neu starten
+sudo systemctl restart digitalsignage-client
+```
+
+**2. Firewall blockiert Port 8080**
+
+Windows Server:
+```powershell
+# PowerShell als Administrator:
+New-NetFirewallRule -DisplayName "Digital Signage Server" `
+  -Direction Inbound -LocalPort 8080 -Protocol TCP -Action Allow
+```
+
+Linux Server:
+```bash
+sudo ufw allow 8080/tcp
+sudo ufw reload
+```
+
+**3. Verschiedene Netzwerke/Subnetze**
+
+```bash
+# Client-Netzwerk prüfen:
+ip addr show | grep "inet "
+
+# Windows Server IP prüfen:
+# cmd: ipconfig
+
+# Beide müssen im gleichen Subnet sein (z.B. 192.168.1.x)
+```
+
+**4. Server nicht gestartet oder nicht erreichbar**
+
+```bash
+# Von Client aus testen:
+ping 192.168.1.100
+telnet 192.168.1.100 8080
+
+# Wenn Ping funktioniert aber telnet nicht:
+# → Server-Anwendung läuft nicht oder Port ist falsch
+```
+
+**5. Registration Token fehlt oder falsch**
+
+```bash
+# Token in Config eintragen:
+sudo nano /opt/digitalsignage-client/config.json
+
+{
+  "registration_token": "YOUR_REGISTRATION_TOKEN",
+  ...
+}
+
+# Token muss auf Server konfiguriert sein
+# Server: Settings → Client Registration → Tokens
 ```
 
 ### Layout wird nicht aktualisiert
 
-1. Client-Status in Server-UI prüfen
-2. Logs ansehen:
+1. **Client-Status in Server-UI prüfen**
+   - Server-Anwendung → Devices Tab
+   - Client sollte "Online" Status haben
+   - Letzte Verbindung sollte aktuell sein
+
+2. **Logs ansehen:**
    ```bash
    sudo journalctl -u digitalsignage-client -f
    ```
-3. Layout neu zuweisen
+
+3. **Layout neu zuweisen**
+   - Server → Devices → Client auswählen
+   - "Assign Layout" auswählen
+   - Layout aus Dropdown wählen
+   - "Apply" klicken
+
+4. **Cache leeren (falls Problem weiterhin besteht)**
+   ```bash
+   sudo systemctl stop digitalsignage-client
+   rm -rf ~/.digitalsignage/cache/*
+   sudo systemctl start digitalsignage-client
+   ```
 
 ### SQL-Verbindung schlägt fehl
 
-1. Connection String prüfen
-2. SQL Server erreichbar?
-3. Firewall-Regeln für SQL Server
-4. Authentifizierung korrekt?
+1. **Connection String prüfen**
+   - Server-Anwendung → Data Sources Tab
+   - "Test Connection" Button verwenden
+
+2. **SQL Server erreichbar?**
+   ```bash
+   # Von Windows aus testen:
+   telnet localhost 1433
+   ```
+
+3. **Firewall-Regeln für SQL Server**
+   ```powershell
+   New-NetFirewallRule -DisplayName "SQL Server" `
+     -Direction Inbound -LocalPort 1433 -Protocol TCP -Action Allow
+   ```
+
+4. **SQL Server Browser läuft?**
+   - Services.msc → SQL Server Browser → Started
+
+5. **Authentication Mode**
+   - SQL Server muss Mixed Mode Authentication verwenden
+   - SSMS → Server Properties → Security → SQL Server and Windows Authentication
+
+### Display zeigt nur schwarzen Bildschirm
+
+1. **HDMI-Verbindung prüfen**
+   ```bash
+   # Raspberry Pi:
+   tvservice -s
+   # Sollte aktives HDMI-Display zeigen
+   ```
+
+2. **X11 läuft?**
+   ```bash
+   echo $DISPLAY
+   # Sollte :0 anzeigen
+
+   ps aux | grep X
+   # Sollte X-Server Prozess zeigen
+   ```
+
+3. **Client-Service läuft?**
+   ```bash
+   sudo systemctl status digitalsignage-client
+   ```
+
+4. **GPU Memory erhöhen (bei Raspberry Pi)**
+   ```bash
+   sudo raspi-config
+   # Advanced Options → Memory Split → 128 oder 256
+   sudo reboot
+   ```
+
+### Performance-Probleme / Hohe CPU-Last
+
+1. **Resolution reduzieren**
+   ```json
+   # Layout mit niedrigerer Auflösung verwenden
+   # z.B. 1280x720 statt 1920x1080
+   ```
+
+2. **Update-Intervall für Daten erhöhen**
+   - Server → Data Sources → Refresh Interval erhöhen
+
+3. **Komplexe Layouts vereinfachen**
+   - Weniger Elemente verwenden
+   - Tabellen mit weniger Zeilen
+
+4. **Raspberry Pi übertakten (vorsichtig!)**
+   ```bash
+   sudo raspi-config
+   # Performance Options → Overclock
+   ```
+
+### Service startet nicht / Crasht sofort
+
+1. **Logs analysieren:**
+   ```bash
+   sudo journalctl -u digitalsignage-client -n 100 --no-pager
+   ```
+
+2. **Manuellen Test durchführen:**
+   ```bash
+   cd /opt/digitalsignage-client
+   sudo -u pi ./venv/bin/python3 client.py --test
+   ```
+
+3. **PyQt5-Installation prüfen:**
+   ```bash
+   /opt/digitalsignage-client/venv/bin/python3 -c "import PyQt5; print('OK')"
+   ```
+
+4. **Permissions prüfen:**
+   ```bash
+   ls -la /opt/digitalsignage-client/
+   # Alle Dateien sollten dem richtigen User gehören
+   ```
+
+5. **Fix-Script ausführen:**
+   ```bash
+   sudo /opt/digitalsignage-client/fix-installation.sh
+   ```
+
+### Schnelle Diagnose
+
+```bash
+# All-in-One Diagnostic:
+cd ~/digitalsignage/src/DigitalSignage.Client.RaspberryPi
+
+# 1. Display-Check
+echo "Display: $DISPLAY"
+ps aux | grep -E "X|Xvfb"
+
+# 2. Service-Check
+sudo systemctl status digitalsignage-client
+
+# 3. Network-Check
+sudo bash test-connection.sh
+
+# 4. Logs
+sudo journalctl -u digitalsignage-client -n 50
+```
 
 ## 🗺️ Roadmap
 
