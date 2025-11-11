@@ -150,7 +150,15 @@ sudo systemctl status digitalsignage-client
 sudo journalctl -u digitalsignage-client -f
 ```
 
-**Important:** Python 3.11+ (Debian Bookworm/Raspberry Pi OS 12+) requires using virtual environments due to PEP 668 "externally-managed-environment" restrictions. The install.sh script automatically handles this by creating a venv at `/opt/digitalsignage-client/venv` with `--system-site-packages` flag to allow access to system-installed PyQt5 (installed via apt rather than pip).
+**Important:** Python 3.11+ (Debian Bookworm/Raspberry Pi OS 12+) requires using virtual environments due to PEP 668 "externally-managed-environment" restrictions. The install.sh script automatically handles this by:
+1. Installing PyQt5 and related packages via apt:
+   - `python3-pyqt5` (core Qt5 bindings)
+   - `python3-pyqt5.qtsvg` (SVG support)
+   - `python3-pyqt5.qtmultimedia` (multimedia support)
+   - `libqt5multimedia5-plugins` (multimedia codecs)
+2. Creating a venv at `/opt/digitalsignage-client/venv` with `--system-site-packages` flag
+3. Verifying PyQt5 is accessible from both system Python and virtual environment
+4. Installing remaining dependencies from requirements.txt in the virtual environment
 
 ## Architecture Overview
 

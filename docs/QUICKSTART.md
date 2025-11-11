@@ -56,7 +56,11 @@ Starten Sie den Client:
 sudo systemctl start digitalsignage-client
 ```
 
-**Hinweis:** Die Installation erstellt automatisch eine virtuelle Python-Umgebung unter `/opt/digitalsignage-client/venv` mit `--system-site-packages` Flag. Dies ist erforderlich für Python 3.11+ und ermöglicht sowohl die Isolation von pip-Paketen als auch den Zugriff auf system-installierte Pakete wie PyQt5.
+**Hinweis:** Die Installation erstellt automatisch eine virtuelle Python-Umgebung unter `/opt/digitalsignage-client/venv` mit `--system-site-packages` Flag. Dies ist erforderlich für Python 3.11+ und ermöglicht sowohl die Isolation von pip-Paketen als auch den Zugriff auf system-installierte Pakete wie:
+- PyQt5 (python3-pyqt5, python3-pyqt5.qtsvg, python3-pyqt5.qtmultimedia)
+- psutil (python3-psutil)
+
+Die Installation überprüft automatisch, ob PyQt5 korrekt installiert wurde und aus der virtuellen Umgebung zugänglich ist.
 
 ### Schritt 4: Layout zuweisen
 

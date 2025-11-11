@@ -49,20 +49,35 @@ apt-get install -y \
     python3-pip \
     python3-venv \
     python3-pyqt5 \
+    python3-pyqt5.qtsvg \
+    python3-pyqt5.qtmultimedia \
     python3-psutil \
     sqlite3 \
     libsqlite3-dev \
     x11-xserver-utils \
     unclutter \
-    xdotool
+    xdotool \
+    libqt5multimedia5-plugins
+
+echo ""
+echo "[3/9] Verifying PyQt5 installation..."
+if python3 -c "import PyQt5" 2>/dev/null; then
+    PYQT5_VERSION=$(python3 -c "from PyQt5.QtCore import PYQT_VERSION_STR; print(PYQT_VERSION_STR)" 2>/dev/null)
+    echo "✓ PyQt5 $PYQT5_VERSION installed successfully"
+    echo "✓ PyQt5 modules available for use in virtual environment"
+else
+    echo "✗ ERROR: PyQt5 installation failed"
+    echo "Please check apt-get output above for errors"
+    exit 1
+fi
 
 # Create installation directory
-echo "[3/9] Creating installation directory..."
+echo "[4/10] Creating installation directory..."
 INSTALL_DIR="/opt/digitalsignage-client"
 mkdir -p "$INSTALL_DIR"
 
 # Create virtual environment
-echo "[4/9] Creating Python virtual environment..."
+echo "[5/10] Creating Python virtual environment..."
 VENV_DIR="$INSTALL_DIR/venv"
 if [ -d "$VENV_DIR" ]; then
     echo "Virtual environment already exists, removing old one..."
@@ -73,7 +88,7 @@ fi
 python3 -m venv --system-site-packages "$VENV_DIR"
 
 # Install Python dependencies in virtual environment
-echo "[5/9] Installing Python dependencies in virtual environment..."
+echo "[6/10] Installing Python dependencies in virtual environment..."
 "$VENV_DIR/bin/pip" install --upgrade pip
 if [ -f "requirements.txt" ]; then
     "$VENV_DIR/bin/pip" install -r requirements.txt
@@ -90,7 +105,7 @@ else
 fi
 
 # Copy client files
-echo "[6/9] Copying client files..."
+echo "[7/10] Copying client files..."
 cp client.py "$INSTALL_DIR/"
 cp config.py "$INSTALL_DIR/"
 cp device_manager.py "$INSTALL_DIR/"
@@ -103,14 +118,14 @@ chown -R "$ACTUAL_USER:$ACTUAL_USER" "$INSTALL_DIR"
 chmod +x "$INSTALL_DIR/client.py"
 
 # Create config directory
-echo "[7/9] Creating config directory..."
+echo "[8/10] Creating config directory..."
 CONFIG_DIR="$USER_HOME/.digitalsignage"
 mkdir -p "$CONFIG_DIR/cache"
 mkdir -p "$CONFIG_DIR/logs"
 chown -R "$ACTUAL_USER:$ACTUAL_USER" "$CONFIG_DIR"
 
 # Install systemd service
-echo "[8/9] Installing systemd service..."
+echo "[9/10] Installing systemd service..."
 if [ -f "digitalsignage-client.service" ]; then
     # Update service file with actual user and venv path
     sed "s/INSTALL_USER/$ACTUAL_USER/g" digitalsignage-client.service | \
@@ -148,7 +163,7 @@ systemctl daemon-reload
 systemctl enable digitalsignage-client.service
 
 # Configure autostart
-echo "[9/9] Configuring autostart..."
+echo "[10/10] Configuring autostart..."
 AUTOSTART_DIR="$USER_HOME/.config/autostart"
 mkdir -p "$AUTOSTART_DIR"
 
@@ -178,6 +193,19 @@ chown -R "$ACTUAL_USER:$ACTUAL_USER" "$AUTOSTART_DIR"
 
 echo ""
 echo "========================================="
+echo "Verifying Installation"
+echo "========================================="
+echo ""
+echo "Checking PyQt5 accessibility from virtual environment..."
+if "$VENV_DIR/bin/python3" -c "import PyQt5; from PyQt5.QtWidgets import QApplication; print('PyQt5 OK')" 2>/dev/null; then
+    echo "✓ PyQt5 is accessible from virtual environment"
+else
+    echo "✗ WARNING: PyQt5 not accessible from virtual environment"
+    echo "  This may cause client startup issues"
+fi
+
+echo ""
+echo "========================================="
 echo "Installation Complete!"
 echo "========================================="
 echo ""
@@ -196,7 +224,9 @@ echo "  5. View logs: sudo journalctl -u digitalsignage-client -f"
 echo ""
 echo "Note: Python packages are installed in a virtual environment at $VENV_DIR"
 echo "This avoids conflicts with system Python packages (Python 3.11+ requirement)."
-echo "The venv uses --system-site-packages to access PyQt5 installed via apt."
+echo "The venv uses --system-site-packages to access system packages:"
+echo "  - PyQt5 (python3-pyqt5, python3-pyqt5.qtsvg, python3-pyqt5.qtmultimedia)"
+echo "  - psutil (python3-psutil)"
 echo ""
 echo "The service will automatically start on boot."
 echo "To disable autostart: sudo systemctl disable digitalsignage-client"
