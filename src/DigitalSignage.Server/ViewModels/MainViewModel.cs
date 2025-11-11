@@ -51,6 +51,7 @@ public partial class MainViewModel : ObservableObject
     public DesignerViewModel Designer { get; }
     public DeviceManagementViewModel DeviceManagement { get; }
     public DataSourceViewModel DataSourceViewModel { get; }
+    public PreviewViewModel PreviewViewModel { get; }
 
     public MainViewModel(
         ILayoutService layoutService,
@@ -59,6 +60,7 @@ public partial class MainViewModel : ObservableObject
         DesignerViewModel designerViewModel,
         DeviceManagementViewModel deviceManagementViewModel,
         DataSourceViewModel dataSourceViewModel,
+        PreviewViewModel previewViewModel,
         DigitalSignageDbContext dbContext,
         ILogger<MainViewModel> logger)
     {
@@ -70,10 +72,20 @@ public partial class MainViewModel : ObservableObject
         Designer = designerViewModel ?? throw new ArgumentNullException(nameof(designerViewModel));
         DeviceManagement = deviceManagementViewModel ?? throw new ArgumentNullException(nameof(deviceManagementViewModel));
         DataSourceViewModel = dataSourceViewModel ?? throw new ArgumentNullException(nameof(dataSourceViewModel));
+        PreviewViewModel = previewViewModel ?? throw new ArgumentNullException(nameof(previewViewModel));
 
         // Subscribe to communication events
         _communicationService.ClientConnected += OnClientConnected;
         _communicationService.ClientDisconnected += OnClientDisconnected;
+
+        // Subscribe to layout changes to update preview
+        this.PropertyChanged += (s, e) =>
+        {
+            if (e.PropertyName == nameof(CurrentLayout) && CurrentLayout != null)
+            {
+                PreviewViewModel.LoadLayout(CurrentLayout);
+            }
+        };
 
         // Start the communication service
         _ = StartServerAsync();

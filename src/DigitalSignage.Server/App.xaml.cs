@@ -87,6 +87,7 @@ public partial class App : Application
                 services.AddTransient<DesignerViewModel>();
                 services.AddTransient<DeviceManagementViewModel>();
                 services.AddTransient<DataSourceViewModel>();
+                services.AddTransient<PreviewViewModel>();
 
                 // Register Services
                 services.AddSingleton<ILayoutService, LayoutService>();
