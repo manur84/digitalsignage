@@ -111,13 +111,13 @@ class StatusScreen(QWidget):
     """Main status screen widget for displaying various client states"""
 
     # Color scheme
-    COLOR_BACKGROUND = "#FFFFFF"  # DEBUG: White background to test visibility
+    COLOR_BACKGROUND = "#1a1a2e"  # Dark blue-gray background
     COLOR_PRIMARY = "#4A90E2"  # Blue for info
     COLOR_SUCCESS = "#5CB85C"  # Green for success
     COLOR_WARNING = "#F0AD4E"  # Yellow/Orange for warnings
     COLOR_ERROR = "#D9534F"  # Red for errors
-    COLOR_TEXT_PRIMARY = "#000000"  # DEBUG: Black text for white background
-    COLOR_TEXT_SECONDARY = "#333333"  # DEBUG: Dark gray text
+    COLOR_TEXT_PRIMARY = "#FFFFFF"  # White text for dark background
+    COLOR_TEXT_SECONDARY = "#B0B0B0"  # Light gray text for dark background
 
     def __init__(self, width: int = 1920, height: int = 1080, parent=None):
         super().__init__(parent)
@@ -556,6 +556,9 @@ class StatusScreenManager:
             Qt.FramelessWindowHint |
             Qt.WindowStaysOnTopHint
         )
+
+        # Hide the mouse cursor
+        self.status_screen.setCursor(Qt.BlankCursor)
 
         # Position at top-left and size to screen
         self.status_screen.setGeometry(0, 0, width, height)

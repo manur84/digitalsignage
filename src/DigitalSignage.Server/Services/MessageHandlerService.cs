@@ -180,7 +180,11 @@ public class MessageHandlerService : BackgroundService
                 _logStorageService.AddLog(logEntry);
 
                 // Also log to server logs if it's warning or error
-                if (logMessage.Level >= Core.Models.LogLevel.Warning)
+                // Skip asyncio internal errors as they're handled by the client
+                bool isAsyncioInternalError = logMessage.Message?.Contains("Exception in callback") == true
+                    || logMessage.Message?.Contains("_asyncio.TaskStepMethWrapper") == true;
+
+                if (logMessage.Level >= Core.Models.LogLevel.Warning && !isAsyncioInternalError)
                 {
                     _logger.LogWarning("Client {ClientId} [{Level}]: {Message}",
                         logMessage.ClientId, logMessage.Level, logMessage.Message);

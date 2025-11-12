@@ -209,10 +209,17 @@ class DigitalSignageClient:
         try:
             data = json.loads(message)
             # Schedule message handling in asyncio loop
-            asyncio.run_coroutine_threadsafe(
+            future = asyncio.run_coroutine_threadsafe(
                 self.handle_message(data),
                 self.event_loop
             )
+            # Add a callback to handle any exceptions in the coroutine
+            def handle_future_exception(fut):
+                try:
+                    fut.result()
+                except Exception as e:
+                    logger.error(f"Error in message handler coroutine: {e}", exc_info=True)
+            future.add_done_callback(handle_future_exception)
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse JSON message: {e}")
         except Exception as e:
@@ -233,10 +240,17 @@ class DigitalSignageClient:
             self.watchdog.notify_status("Disconnected - running in offline mode")
 
             # Load cached layout to continue operation
-            asyncio.run_coroutine_threadsafe(
+            future = asyncio.run_coroutine_threadsafe(
                 self.load_cached_layout(),
                 self.event_loop
             )
+            # Add a callback to handle any exceptions in the coroutine
+            def handle_future_exception(fut):
+                try:
+                    fut.result()
+                except Exception as e:
+                    logger.error(f"Error loading cached layout: {e}", exc_info=True)
+            future.add_done_callback(handle_future_exception)
 
     def connect_websocket(self, server_url: str):
         """Connect to WebSocket server"""
