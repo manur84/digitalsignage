@@ -135,7 +135,11 @@ if __name__ == "__main__":
     # Check if python-socketio is installed
     try:
         import socketio
-        print(f"✓ python-socketio version: {socketio.__version__}")
+        try:
+            version = socketio.__version__
+        except AttributeError:
+            version = "unknown"
+        print(f"✓ python-socketio installed (version: {version})")
         print()
     except ImportError:
         print("✗ python-socketio not installed!")
