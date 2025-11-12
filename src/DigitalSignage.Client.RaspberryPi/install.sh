@@ -530,11 +530,13 @@ if systemctl is-active --quiet digitalsignage-client; then
 
     # Detect current configuration
     echo "Detecting display hardware..."
+    set +e  # Temporarily disable exit on error for detection functions
     detect_display_mode
     DISPLAY_DETECTED=$?
 
     check_hdmi_display
     HDMI_DETECTED=$?
+    set -e  # Re-enable exit on error
 
     echo ""
     echo "=========================================="
