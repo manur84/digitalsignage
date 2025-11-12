@@ -137,9 +137,9 @@ else
         log_message "⚠ Display :99 already in use, reusing it"
         export DISPLAY=:99
     else
-        # Start Xvfb on :99 with 1920x1080 resolution, 24-bit color
+        # Start Xvfb on :99 with 1024x768 resolution, 24-bit color
         log_message "Starting Xvfb on :99..."
-        Xvfb :99 -screen 0 1920x1080x24 &
+        Xvfb :99 -screen 0 1024x768x24 &
         XVFB_PID=$!
         export DISPLAY=:99
 

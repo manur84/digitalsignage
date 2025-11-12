@@ -35,8 +35,38 @@ public class ClientService : IClientService
         _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
-        // Load clients from database on startup
-        _ = InitializeClientsAsync();
+        // Load clients from database on startup with retry logic
+        _ = InitializeClientsWithRetryAsync();
+    }
+
+    private async Task InitializeClientsWithRetryAsync()
+    {
+        // Retry initialization with exponential backoff to wait for database initialization
+        var maxRetries = 10;
+        var delayMs = 500;
+
+        for (int attempt = 1; attempt <= maxRetries; attempt++)
+        {
+            try
+            {
+                await InitializeClientsAsync();
+                return; // Success
+            }
+            catch (Exception ex)
+            {
+                if (attempt < maxRetries)
+                {
+                    _logger.LogWarning("Failed to load clients from database (attempt {Attempt}/{MaxRetries}): {Message}. Retrying in {DelayMs}ms...",
+                        attempt, maxRetries, ex.Message, delayMs);
+                    await Task.Delay(delayMs);
+                    delayMs = Math.Min(delayMs * 2, 5000); // Exponential backoff, max 5s
+                }
+                else
+                {
+                    _logger.LogError(ex, "Failed to load clients from database after {MaxRetries} attempts. Service will continue without pre-loaded clients.", maxRetries);
+                }
+            }
+        }
     }
 
     private async Task InitializeClientsAsync()
@@ -49,26 +79,19 @@ public class ClientService : IClientService
             _isInitialized = true;
         }
 
-        try
+        using var scope = _serviceProvider.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<DigitalSignageDbContext>();
+
+        var dbClients = await dbContext.Clients.ToListAsync();
+
+        foreach (var client in dbClients)
         {
-            using var scope = _serviceProvider.CreateScope();
-            var dbContext = scope.ServiceProvider.GetRequiredService<DigitalSignageDbContext>();
-
-            var dbClients = await dbContext.Clients.ToListAsync();
-
-            foreach (var client in dbClients)
-            {
-                // Mark all as offline on startup
-                client.Status = ClientStatus.Offline;
-                _clients[client.Id] = client;
-            }
-
-            _logger.LogInformation("Loaded {Count} clients from database", dbClients.Count);
+            // Mark all as offline on startup
+            client.Status = ClientStatus.Offline;
+            _clients[client.Id] = client;
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to load clients from database");
-        }
+
+        _logger.LogInformation("Loaded {Count} clients from database", dbClients.Count);
     }
 
     public Task<List<RaspberryPiClient>> GetAllClientsAsync(CancellationToken cancellationToken = default)
