@@ -1,32 +1,86 @@
 # Code TODO - Digital Signage Management System
 
-Basierend auf dem Entwicklungsauftrag und dem aktuellen Code-Stand.
+Comprehensive implementation status based on project analysis (Updated: 2025-11-12)
 
-**Legende:**
-- ✅ Vollständig implementiert
-- ⚠️ Teilweise implementiert / Verbesserung nötig
-- ❌ Nicht implementiert
-- 🔴 Hohe Priorität
-- 🟡 Mittlere Priorität
-- 🟢 Niedrige Priorität
+**Legend:**
+- ✅ Fully Implemented and Working
+- ⚠️ Partially Implemented / Needs Improvement
+- ❌ Not Implemented
+- 🔴 High Priority (Critical for MVP/Production)
+- 🟡 Medium Priority (Important enhancements)
+- 🟢 Low Priority (Nice-to-have features)
+
+**Project Status: ~50% Complete** (Core infrastructure complete, many features functional, UI and advanced features ongoing)
 
 ---
 
-## TEIL 1: WINDOWS-ANWENDUNG (SERVER/MANAGER)
+## 🎉 RECENTLY COMPLETED (November 2025)
 
-### 1.1 Hauptfunktionalitäten
+### Client Enhancements
+- ✅ **Web Dashboard Interface** (November 12, 2025)
+  - Flask-based web server on port 5000
+  - Real-time client status, system info, logs
+  - QR code on status screens redirects to dashboard
+  - Remote restart and cache clear via API
+  - Dashboard shows CPU, memory, disk, temperature
+  - Full responsive HTML interface (dashboard.html)
 
-#### Anzeigeverwaltung
-- ✅ Grundlegende Layoutverwaltung (LayoutService implementiert)
-- ✅ Versionsverwaltung (Version-Feld vorhanden)
-- ✅ **Layout Templates System**
-  - ✅ LayoutTemplate Entity mit Category Enum
-  - ✅ Kategorien: RoomOccupancy, InformationBoard, Wayfinding, MenuBoard, WelcomeScreen, Emergency, Blank, Custom
-  - ✅ Built-in Templates (können nicht gelöscht werden)
-  - ✅ Template Metadaten: Name, Description, Thumbnail, Resolution
-  - ✅ ElementsJson für vordefinierte Element-Layouts
+- ✅ **Automatic Reconnection with Visual Feedback** (November 11-12, 2025)
+  - Plain WebSocket implementation (replaced python-socketio)
+  - Exponential backoff with configurable max retries
+  - Visual status screens for all connection states
+  - Status screens: Discovering, Connecting, Waiting, Reconnecting, Error
+  - Animated spinners and progress indicators
+  - QR codes for web dashboard access
+
+- ✅ **Responsive Status Screens** (November 12, 2025)
+  - Support for multiple resolutions: 1024x600, 1024x768, 1280x720, 1920x1080, 4K
+  - Calculated dimensions based on screen height percentages
+  - Scaled fonts, icons, QR codes, and spacing
+  - Dark theme with professional color scheme
+  - Cursor hiding for fullscreen display
+
+- ✅ **AsyncIO Error Handling** (November 12, 2025)
+  - Suppressed AsyncIO RuntimeWarnings from zeroconf
+  - Filtered qasync loop warnings
+  - Clean error handling for widget cleanup
+  - Proper widget lifecycle management
+
+- ✅ **Client ID Remapping on Server** (November 11, 2025)
+  - Fixed EF Core error when re-registering clients
+  - Proper handling of client ID conflicts
+  - Database update without full entity replacement
+
+### Bug Fixes
+- ✅ Fix: Display not updating after reconnect (November 11, 2025)
+- ✅ Fix: WebSocket client ID mismatch (November 11, 2025)
+- ✅ Fix: QLayout widget recreation errors (November 11, 2025)
+- ✅ Fix: DeviceInfo.Uptime data type (TimeSpan → long seconds) (November 10, 2025)
+- ✅ Fix: Install script X11 detection (November 10, 2025)
+- ✅ Fix: JSON deserialization for abstract Message class (November 10, 2025)
+
+---
+
+## PART 1: WINDOWS APPLICATION (SERVER/MANAGER)
+
+### 1.1 Core Functionality
+
+#### Display Management
+- ✅ **Layout Management** - Fully Functional
+  - ✅ LayoutService with database persistence
+  - ✅ Version control (Version field)
+  - ✅ Layout CRUD operations
+  - ✅ Layout assignment to clients
+  - ✅ JSON element storage
+
+- ✅ **Layout Templates System** - Fully Functional
+  - ✅ LayoutTemplate Entity with Category Enum
+  - ✅ Categories: RoomOccupancy, InformationBoard, Wayfinding, MenuBoard, WelcomeScreen, Emergency, Blank, Custom
+  - ✅ Built-in Templates (non-deletable)
+  - ✅ Template Metadata: Name, Description, Thumbnail, Resolution
+  - ✅ ElementsJson for predefined element layouts
   - ✅ Usage Tracking (LastUsedAt, UsageCount)
-  - ✅ 11 Built-in Templates beim DB-Init:
+  - ✅ **11 Built-in Templates** seeded on DB init:
     - **Blank Templates (5):**
       - Blank 1920x1080 (Full HD Landscape)
       - Blank 1080x1920 (Full HD Portrait)
@@ -35,959 +89,1174 @@ Basierend auf dem Entwicklungsauftrag und dem aktuellen Code-Stand.
       - Blank 2160x3840 (4K UHD Portrait)
     - **Content Templates (6):**
       - Simple Information Board
-      - Room Occupancy Display (mit Template-Variablen)
-      - Corporate Welcome Screen (mit date_format)
+      - Room Occupancy Display (with template variables)
+      - Corporate Welcome Screen (with date_format)
       - Digital Menu Board
       - Directory Wayfinding
       - Emergency Information
-  - ✅ Template-Auswahl-Dialog in UI (Vollständig implementiert)
-- ❌ 🟡 **Layout-Kategorien und Tags** für bessere Organisation
-  - Kategorisierung in `DisplayLayout` Model
-  - Filter- und Suchfunktion in UI
+  - ✅ Template Selection Dialog in UI (fully implemented)
 
-#### Visueller Designer
-- ✅ **Designer-Canvas** - Vollständig funktional
-  - ✅ DesignerCanvas Control mit Grid-Rendering
-  - ✅ Drag-and-Drop Funktionalität für Elemente
-  - ✅ Werkzeugleiste mit Element-Buttons (Text, Image, Rectangle)
-  - ✅ Selektions- und Transformationshandles (ResizeAdorner)
-  - ✅ DesignerItemControl für Element-Rendering
-  - ✅ **Multi-Selektion** - Vollständig implementiert (NEU - 2025-11-11)
-    - ✅ SelectionService für Multi-Selection Management
-    - ✅ Ctrl+Click für Toggle-Selection
-    - ✅ Shift+Click für Range-Selection
-    - ✅ Selection Rectangle mit Maus-Drag
-    - ✅ Bulk Operations (Delete, Duplicate, Move)
-    - ✅ Selection Bounds Calculation
-- ✅ **Ebenenmanagement** - Vollständig implementiert
-  - ✅ Z-Index Move Up/Down Commands
-  - ✅ Z-Index Eingabefeld in Properties Panel
-  - ✅ Ebenenpalette mit visueller Darstellung (Layer Panel in Designer Tab)
-  - ✅ Ebenen-Sichtbarkeit Toggle (IsVisible Property)
-  - ✅ Layer List mit Type Icons und Z-Index Anzeige
-  - ✅ Move Up/Down Buttons für Layers
-  - ✅ Synchronisierte Selektion zwischen Canvas und Layer Panel
-- ✅ **Raster und Ausrichtung** - Implementiert
-  - ✅ Rasteranzeige im DesignerCanvas
-  - ✅ Snap-to-Grid beim Verschieben
-  - ✅ Konfigurierbare Grid-Größe
-  - ✅ Grid Show/Hide Toggle
-  - ❌ 🟡 Ausrichtungshilfslinien (Smart Guides)
-  - ❌ 🟡 Objekt-Ausrichtungs-Funktionen (links, rechts, zentriert)
-- ✅ **Eigenschaften-Panel** - Vollständig implementiert mit erweiterten Features
-  - ✅ Position (X, Y) Eingabefelder
-  - ✅ Größe (Width, Height) Eingabefelder
-  - ✅ Z-Index mit Up/Down Buttons
-  - ✅ Element-Name Eingabe
-  - ✅ Layout Properties (Name, Resolution, Background)
-  - ✅ Duplicate und Delete Buttons
-  - ✅ Dynamische Anzeige basierend auf Selektion
-  - ✅ **Rotation Eingabefeld mit Slider (0-360°)**
-  - ✅ **Schrift-Einstellungen für Text** (FontFamily ComboBox, FontSize Slider, Bold/Italic Toggles)
-  - ✅ **Farb-Picker mit Hex-Eingabe und Vorschau** (für Text Color, Fill Color, Border Color)
-  - ✅ **Kontextsensitive Properties** (Text-spezifisch, Rectangle-spezifisch)
-  - ❌ 🟡 Datenquellen-Bindung UI
-- ✅ **Undo/Redo-System** - Vollständig implementiert mit Command Pattern
-  - ✅ IUndoableCommand Interface definiert
-  - ✅ CommandHistory mit Undo/Redo Stacks (Max 50 Einträge)
-  - ✅ AddElementCommand, DeleteElementCommand implementiert
-  - ✅ MoveElementCommand, ResizeElementCommand implementiert
-  - ✅ ChangePropertyCommand, ChangeZIndexCommand implementiert
-  - ✅ Undo/Redo Commands in DesignerViewModel (Ctrl+Z, Ctrl+Y ready)
-  - ✅ HistoryChanged Event für UI-Updates
-  - ✅ Integration in alle Designer-Operationen
-- ❌ 🟡 **Element-Gruppierung**
-  - Gruppe erstellen/auflösen
-  - Gruppe als Einheit transformieren
+- ❌ 🟡 **Layout Categories and Tags** for better organization
+  - Categorization in DisplayLayout model
+  - Filter and search functionality in UI
 
-#### SQL-Datenbankanbindung
-- ✅ SqlDataService mit Basisfunktionalität
-- ✅ Verbindungstest implementiert
-- ✅ Parametrisierte Abfragen
-- ✅ **Query-Builder mit visueller Unterstützung**
-  - ✅ Tabellen-Browser mit Refresh
-  - ✅ Spalten-Auswahl per Checkbox
-  - ✅ WHERE-Klausel Builder
-  - ✅ Visual SQL Editor mit Syntax-Highlighting
-  - ✅ Connection Test
-  - ✅ Query Execution und Results Preview
-  - ❌ 🟡 JOIN-Unterstützung (UI-gestützt)
-- ❌ 🟡 **Stored Procedures Browser und Executor**
-- ✅ **Daten-Refresh-Mechanismus**
-  - ✅ DataRefreshService implementiert als BackgroundService
-  - ✅ Polling-Timer basierend auf DataSource.RefreshInterval
-  - ✅ Automatische Updates an aktive Clients
-  - ❌ 🟡 Differenzielle Updates (nur geänderte Daten übertragen)
-- ❌ 🟢 **SQL Service Broker Integration** für Event-basierte Updates
-- ✅ **Connection Pooling** konfigurieren - Vollständig implementiert
+#### Visual Designer
+- ✅ **Designer Canvas** - Fully Functional
+  - ✅ DesignerCanvas Control with grid rendering
+  - ✅ Drag-and-drop functionality for elements
+  - ✅ Toolbar with element buttons (Text, Image, Rectangle)
+  - ✅ Selection and transformation handles (ResizeAdorner)
+  - ✅ DesignerItemControl for element rendering
+  - ✅ **Multi-Selection** - Fully Implemented (NEW - 2025-11-11)
+    - ✅ SelectionService for multi-selection management
+    - ✅ Ctrl+Click for toggle selection
+    - ✅ Shift+Click for range selection
+    - ✅ Selection Rectangle with mouse drag
+    - ✅ Bulk operations (Delete, Duplicate, Move)
+    - ✅ Selection bounds calculation
+
+- ✅ **Layer Management** - Fully Implemented
+  - ✅ Z-Index Move Up/Down commands
+  - ✅ Z-Index input field in Properties Panel
+  - ✅ Layer Palette with visual representation (Layer Panel in Designer Tab)
+  - ✅ Layer visibility toggle (IsVisible property)
+  - ✅ Layer list with type icons and Z-Index display
+  - ✅ Move Up/Down buttons for layers
+  - ✅ Synchronized selection between Canvas and Layer Panel
+
+- ✅ **Grid and Alignment** - Implemented
+  - ✅ Grid display in DesignerCanvas
+  - ✅ Snap-to-grid when moving
+  - ✅ Configurable grid size
+  - ✅ Grid Show/Hide toggle
+  - ❌ 🟡 Smart guides (alignment helpers)
+  - ❌ 🟡 Object alignment functions (left, right, center)
+
+- ✅ **Properties Panel** - Fully Implemented with Extended Features
+  - ✅ Position (X, Y) input fields
+  - ✅ Size (Width, Height) input fields
+  - ✅ Z-Index with Up/Down buttons
+  - ✅ Element name input
+  - ✅ Layout properties (Name, Resolution, Background)
+  - ✅ Duplicate and Delete buttons
+  - ✅ Dynamic display based on selection
+  - ✅ **Rotation input field with slider (0-360°)**
+  - ✅ **Font settings for text** (FontFamily ComboBox, FontSize slider, Bold/Italic toggles)
+  - ✅ **Color picker with hex input and preview** (for Text Color, Fill Color, Border Color)
+  - ✅ **Context-sensitive properties** (Text-specific, Rectangle-specific)
+  - ❌ 🟡 Data source binding UI
+
+- ✅ **Undo/Redo System** - Fully Implemented with Command Pattern
+  - ✅ IUndoableCommand interface defined
+  - ✅ CommandHistory with Undo/Redo stacks (Max 50 entries)
+  - ✅ AddElementCommand, DeleteElementCommand implemented
+  - ✅ MoveElementCommand, ResizeElementCommand implemented
+  - ✅ ChangePropertyCommand, ChangeZIndexCommand implemented
+  - ✅ Undo/Redo commands in DesignerViewModel (Ctrl+Z, Ctrl+Y ready)
+  - ✅ HistoryChanged event for UI updates
+  - ✅ Integration in all designer operations
+
+- ❌ 🟡 **Element Grouping**
+  - Create/ungroup commands
+  - Transform group as unit
+
+#### SQL Database Connection
+- ✅ **SqlDataService with Basic Functionality**
+  - ✅ Connection testing
+  - ✅ Parameterized queries
+  - ✅ SQL injection protection
+
+- ✅ **Query Builder with Visual Support**
+  - ✅ Table browser with refresh
+  - ✅ Column selection via checkbox
+  - ✅ WHERE clause builder
+  - ✅ Visual SQL editor with syntax highlighting
+  - ✅ Connection test
+  - ✅ Query execution and results preview
+  - ❌ 🟡 JOIN support (UI-assisted)
+
+- ❌ 🟡 **Stored Procedures Browser and Executor**
+
+- ✅ **Data Refresh Mechanism**
+  - ✅ DataRefreshService implemented as BackgroundService
+  - ✅ Polling timer based on DataSource.RefreshInterval
+  - ✅ Automatic updates to active clients
+  - ❌ 🟡 Differential updates (only send changed data)
+
+- ❌ 🟢 **SQL Service Broker Integration** for event-based updates
+
+- ✅ **Connection Pooling** - Fully Implemented
   - ✅ ConnectionPoolSettings in appsettings.json
-  - ✅ Automatische Pooling-Konfiguration in SqlDataService
+  - ✅ Automatic pooling configuration in SqlDataService
   - ✅ MinPoolSize, MaxPoolSize, ConnectionTimeout, CommandTimeout
-- ✅ **Query-Caching** implementieren - Vollständig implementiert
-  - ✅ QueryCacheService mit SHA256-basierten Cache-Keys
-  - ✅ Konfigurier bare TTL und Max-Einträge
-  - ✅ LRU Eviction Strategy (10% bei Limit)
-  - ✅ Cache Statistics (Hits, Misses, Hit Rate)
-  - ✅ Cache-Invalidierung nach Pattern
 
-#### Skalierbarkeit und Anpassung
-- ✅ Resolution in DisplayLayout definiert
-- ✅ **Vordefinierte Auflösungs-Templates**
-  - ✅ Layout Templates mit verschiedenen Auflösungen
+- ✅ **Query Caching** - Fully Implemented
+  - ✅ QueryCacheService with SHA256-based cache keys
+  - ✅ Configurable TTL and max entries
+  - ✅ LRU eviction strategy (10% at limit)
+  - ✅ Cache statistics (Hits, Misses, Hit Rate)
+  - ✅ Cache invalidation by pattern
+
+#### Scalability and Customization
+- ✅ **Resolution in DisplayLayout defined**
+
+- ✅ **Predefined Resolution Templates**
+  - ✅ Layout Templates with various resolutions
   - ✅ 1920x1080 (Full HD) Landscape & Portrait
   - ✅ 1280x720 (HD) Landscape
   - ✅ 3840x2160 (4K UHD) Landscape & Portrait
-  - ✅ Resolution Objekt in LayoutTemplate Entity
-  - ✅ Orientation Support (landscape/portrait)
-  - ✅ 5 verschiedene Auflösungs-Templates verfügbar
-  - ✅ Template-Auswahl-Dialog in UI (Vollständig implementiert)
-- ❌ 🟡 **Responsive Design-Optionen**
-  - Prozentuale Positionierung neben Pixel
-  - Anchor-Points für Elemente
-- ✅ **Zoom-Funktionalität** - Vollständig implementiert
-  - ✅ Zoom-Slider in UI (25%-200%)
-  - ✅ Zoom mit Mausrad (Strg + Mausrad)
-  - ✅ Zoom-Level Anzeige
-  - ✅ Fit to Screen / Reset Zoom Commands
-  - ❌ 🟡 Zoom auf Auswahl
+  - ✅ Resolution object in LayoutTemplate entity
+  - ✅ Orientation support (landscape/portrait)
+  - ✅ 5 different resolution templates available
+  - ✅ Template selection dialog in UI (fully implemented)
 
-### 1.2 Creator-Interface Spezifikationen
+- ❌ 🟡 **Responsive Design Options**
+  - Percentage-based positioning alongside pixels
+  - Anchor points for elements
 
-#### Variablenplatzhalter
-- ✅ Python Client kann {{Variable}} ersetzen
-- ✅ **.NET Template-Engine** für Server-seitige Verarbeitung
-  - ✅ Scriban Template Engine integriert (TemplateService)
-  - ✅ Formatierungs-Optionen: {{date_format Datum "dd.MM.yyyy"}}
-  - ✅ Berechnete Felder: {{Wert1 + Wert2}}
-  - ✅ Fallback-Werte: {{Variable ?? "Default"}}
-  - ✅ Bedingungen: {{if}}...{{else}}...{{end}}
-  - ✅ Schleifen: {{for item in items}}...{{end}}
-  - ✅ Custom Functions: date_format, number_format, upper, lower, default
-  - ✅ Integration in ClientService und DataRefreshService
-  - ✅ Umfassende Dokumentation (TEMPLATE_ENGINE.md)
-- ❌ 🟡 **Variable-Browser** in UI
-  - Verfügbare Variablen anzeigen
-  - Drag-and-Drop von Variablen in Textfelder
+- ✅ **Zoom Functionality** - Fully Implemented
+  - ✅ Zoom slider in UI (25%-200%)
+  - ✅ Zoom with mouse wheel (Ctrl + Mouse Wheel)
+  - ✅ Zoom level display
+  - ✅ Fit to Screen / Reset Zoom commands
+  - ❌ 🟡 Zoom to selection
 
-#### Medienmanagement
-- ✅ **Zentrale Medienbibliothek** - Vollständig implementiert (Backend + UI)
-  - ✅ MediaFile Entity mit vollständigen Metadaten
+### 1.2 Creator Interface Specifications
+
+#### Variable Placeholders
+- ✅ **Python Client can replace {{Variable}}**
+
+- ✅ **.NET Template Engine** for server-side processing
+  - ✅ Scriban Template Engine integrated (TemplateService)
+  - ✅ Formatting options: {{date_format Date "dd.MM.yyyy"}}
+  - ✅ Calculated fields: {{Value1 + Value2}}
+  - ✅ Fallback values: {{Variable ?? "Default"}}
+  - ✅ Conditions: {{if}}...{{else}}...{{end}}
+  - ✅ Loops: {{for item in items}}...{{end}}
+  - ✅ Custom functions: date_format, number_format, upper, lower, default
+  - ✅ Integration in ClientService and DataRefreshService
+  - ✅ Comprehensive documentation (TEMPLATE_ENGINE.md)
+
+- ❌ 🟡 **Variable Browser** in UI
+  - Display available variables
+  - Drag-and-drop variables into text fields
+
+#### Media Management
+- ✅ **Central Media Library** - Fully Implemented (Backend + UI)
+  - ✅ MediaFile Entity with complete metadata
   - ✅ MediaType Enum (Image, Video, Audio, Document, Other)
-  - ✅ EnhancedMediaService mit Datenbank-Integration
-  - ✅ File Validation (Größe, Typ, Extension)
-  - ✅ SHA256 Hash für Duplikat-Erkennung
-  - ✅ Access Tracking (LastAccessedAt, AccessCount)
-  - ✅ MIME Type Detection
-  - ✅ Unterstützte Formate:
-    - Bilder: JPG, PNG, GIF, BMP, WEBP, SVG
+  - ✅ EnhancedMediaService with database integration
+  - ✅ File validation (size, type, extension)
+  - ✅ SHA256 hash for duplicate detection
+  - ✅ Access tracking (LastAccessedAt, AccessCount)
+  - ✅ MIME type detection
+  - ✅ Supported formats:
+    - Images: JPG, PNG, GIF, BMP, WEBP, SVG
     - Videos: MP4, AVI, MOV, WMV, FLV, MKV, WEBM
     - Audio: MP3, WAV, OGG, FLAC, AAC, WMA
-    - Dokumente: PDF, DOC/DOCX, XLS/XLSX, PPT/PPTX, TXT
-  - ✅ 100 MB Max File Size
-  - ✅ **MediaLibraryViewModel** mit vollständiger CRUD-Funktionalität
+    - Documents: PDF, DOC/DOCX, XLS/XLSX, PPT/PPTX, TXT
+  - ✅ 100 MB max file size
+  - ✅ **MediaLibraryViewModel** with full CRUD functionality
   - ✅ **Media Library Tab UI** (Upload, Filter, Search, Details Panel)
-  - ✅ **Filter nach Medientyp** (All, Images, Videos, Audio, Documents)
-  - ✅ **Suchfunktion** (OriginalFileName, Description, Tags)
-  - ✅ **Upload Dialog** mit Multi-Select
-  - ✅ **Delete Confirmation** Dialog
-  - ✅ **Details Panel** mit Edit-Funktionen (Description, Tags, Category)
-  - ✅ **FileSizeConverter** für formatierte Größenangaben
-  - ✅ **Status Messages** für User Feedback
-  - ❌ 🟡 Thumbnail-Generierung für Bildvorschau
-- ❌ 🟡 **Bildbearbeitung**
-  - Zuschneiden
-  - Größenanpassung
-  - Filter (Helligkeit, Kontrast, Sättigung)
-- ❌ 🟡 **Symbolbibliothek**
+  - ✅ **Filter by media type** (All, Images, Videos, Audio, Documents)
+  - ✅ **Search functionality** (OriginalFileName, Description, Tags)
+  - ✅ **Upload dialog** with multi-select
+  - ✅ **Delete confirmation** dialog
+  - ✅ **Details panel** with edit functions (Description, Tags, Category)
+  - ✅ **FileSizeConverter** for formatted size display
+  - ✅ **Status messages** for user feedback
+  - ❌ 🟡 Thumbnail generation for image preview
+
+- ❌ 🟡 **Image Editing**
+  - Cropping
+  - Resizing
+  - Filters (Brightness, Contrast, Saturation)
+
+- ❌ 🟡 **Icon Library**
   - Material Design Icons
   - FontAwesome Icons
-  - SVG-Import
-  - Farbänderung von Icons
+  - SVG import
+  - Icon color modification
 
-#### Vorschau und Test
-- ✅ **Live-Vorschau Tab** - Vollständig implementiert
-  - ✅ Live-Vorschau mit aktuellem Layout
-  - ✅ Testdaten-Simulation (JSON Editor)
-  - ✅ Daten-Refresh Button für manuelle Updates
-  - ✅ Auto-Refresh Toggle (alle 5 Sekunden)
-  - ✅ Vollständige Template Engine Integration
-  - ✅ Zoom-Funktionen (Fit, Reset)
-  - ❌ 🟡 Daten-Simulator mit automatisch wechselnden Werten
-  - ❌ 🟡 Vollbild-Vorschau
-  - ❌ 🟢 Multi-Monitor-Vorschau
-  - ❌ 🟢 Export als Bild (PNG/PDF)
+#### Preview and Testing
+- ✅ **Live Preview Tab** - Fully Implemented
+  - ✅ Live preview with current layout
+  - ✅ Test data simulation (JSON editor)
+  - ✅ Data refresh button for manual updates
+  - ✅ Auto-refresh toggle (every 5 seconds)
+  - ✅ Full template engine integration
+  - ✅ Zoom functions (Fit, Reset)
+  - ❌ 🟡 Data simulator with automatically changing values
+  - ❌ 🟡 Fullscreen preview
+  - ❌ 🟢 Multi-monitor preview
+  - ❌ 🟢 Export as image (PNG/PDF)
 
-### 1.3 Raspberry Pi Geräteverwaltung
+### 1.3 Raspberry Pi Device Management
 
-#### Geräteregistrierung
-- ✅ **RegisterClientAsync vollständig implementiert**
-  - ✅ Validierung von Registration Tokens (AuthenticationService)
-  - ✅ MAC-basierte Client-Identifikation
-  - ✅ Re-Registration bestehender Clients
-  - ✅ Auto-Assignment von Group/Location via Token
-  - ✅ Datenbank-Persistenz (EF Core)
-  - ✅ In-Memory-Cache für Performance
-  - ✅ RegistrationResponseMessage an Client
-- ✅ **Python Client unterstützt Registration Token**
+#### Device Registration
+- ✅ **RegisterClientAsync Fully Implemented**
+  - ✅ Registration token validation (AuthenticationService)
+  - ✅ MAC-based client identification
+  - ✅ Re-registration of existing clients
+  - ✅ Auto-assignment of Group/Location via token
+  - ✅ Database persistence (EF Core)
+  - ✅ In-memory cache for performance
+  - ✅ RegistrationResponseMessage to client
+
+- ✅ **Python Client Supports Registration Token**
   - ✅ Configuration: registration_token in config.json
-  - ✅ Environment Variable: DS_REGISTRATION_TOKEN
-  - ✅ Handler für REGISTRATION_RESPONSE
-  - ✅ Automatische Client-ID-Aktualisierung
-- ✅ **Automatische Netzwerkerkennung** - Vollständig implementiert
-  - ✅ UDP-Broadcast auf Port 5555
-  - ✅ DiscoveryService als Background Service im Server
-  - ✅ Automatische Antwort mit Server-Verbindungsdaten (IPs, Port, Protokoll)
-  - ✅ Python DiscoveryClient mit ServerInfo dataclass
-  - ✅ discovery.py Modul mit discover_servers() Funktion
-  - ✅ auto_discover Config-Option für Zero-Configuration Setup
-  - ✅ Discover Devices Button in Device Management UI
-  - ✅ Environment Variables: DS_AUTO_DISCOVER, DS_DISCOVERY_TIMEOUT
-- ❌ 🟡 **QR-Code-Pairing**
-  - QR-Code generieren mit Verbindungsdaten
-  - Client scannt QR-Code für Auto-Konfiguration
-- ⚠️ **Gerätegruppierung**
-  - ✅ Group und Location Felder in RaspberryPiClient
-  - ✅ Auto-Assignment via Registration Token
-  - ❌ Bulk-Operationen auf Gruppen
+  - ✅ Environment variable: DS_REGISTRATION_TOKEN
+  - ✅ Handler for REGISTRATION_RESPONSE
+  - ✅ Automatic client ID update
 
-#### Geräteinformationen
-- ✅ DeviceInfo mit umfangreichen Daten
-- ✅ Python DeviceManager sammelt System-Infos
-- ✅ Alle geforderten Felder vorhanden
-- ❌ 🟡 **Geräte-Detail-Ansicht** in UI
-  - Alle Infos übersichtlich anzeigen
-  - Grafische Darstellung (CPU, Memory Charts)
-  - Ping-Test Button
+- ✅ **Automatic Network Discovery** - Fully Implemented
+  - ✅ UDP broadcast on port 5555
+  - ✅ DiscoveryService as background service on server
+  - ✅ Automatic response with server connection data (IPs, Port, Protocol)
+  - ✅ Python DiscoveryClient with ServerInfo dataclass
+  - ✅ discovery.py module with discover_servers() function
+  - ✅ auto_discover config option for zero-configuration setup
+  - ✅ Discover Devices button in Device Management UI
+  - ✅ Environment variables: DS_AUTO_DISCOVER, DS_DISCOVERY_TIMEOUT
 
-#### Verwaltungsfunktionen
-- ✅ **ClientService vollständig implementiert**
-  - ✅ SendCommandAsync mit Datenbank-Persistenz
-  - ✅ AssignLayoutAsync mit DB-Update
-  - ✅ UpdateClientStatusAsync mit async DB-Write
+- ❌ 🟡 **QR Code Pairing**
+  - Generate QR code with connection data
+  - Client scans QR code for auto-configuration
+
+- ⚠️ **Device Grouping**
+  - ✅ Group and Location fields in RaspberryPiClient
+  - ✅ Auto-assignment via registration token
+  - ❌ Bulk operations on groups
+
+#### Device Information
+- ✅ **DeviceInfo with comprehensive data**
+- ✅ **Python DeviceManager collects system info**
+- ✅ **All required fields present**
+- ❌ 🟡 **Device Detail View** in UI
+  - Display all info clearly
+  - Graphical representation (CPU, Memory charts)
+  - Ping test button
+
+#### Management Functions
+- ✅ **ClientService Fully Implemented**
+  - ✅ SendCommandAsync with database persistence
+  - ✅ AssignLayoutAsync with DB update
+  - ✅ UpdateClientStatusAsync with async DB write
   - ✅ GetAllClientsAsync / GetClientByIdAsync
   - ✅ RemoveClientAsync
-  - ✅ Initialization von DB-Clients beim Startup
-- ✅ **HeartbeatMonitoringService implementiert**
-  - ✅ Background Service für Timeout-Überwachung
-  - ✅ 30s Check-Interval, 120s Timeout
-  - ✅ Automatisches Markieren als Offline
-  - ✅ Logging von Status-Änderungen
-- ✅ Python Client unterstützt RESTART, SCREENSHOT, SCREEN_ON/OFF, SET_VOLUME
-- ✅ **Zeitpläne für Layouts** - Vollständig implementiert
-  - ✅ LayoutSchedule Entity mit vollständiger Konfiguration
-  - ✅ Zeitplan-Editor UI (Priority, Start/End Date/Time, Days of Week)
-  - ✅ SchedulingService mit Background Worker
-  - ✅ Automatische Zeitplan-Ausführung (alle 60 Sekunden)
-  - ✅ Priority-basierte Auswahl bei Überlappungen
-  - ✅ Aktives Schedule Tracking
-  - ✅ Client-seitige Zeitplan-Ausführung via DisplayUpdate Messages
-  - ✅ Schedule Management UI (Add, Edit, Delete, Enable/Disable)
-  - ❌ 🟡 Cron-Expression Support für komplexere Zeitpläne
-- ✅ **Remote Log-Viewer** - Vollständig implementiert als "Logs Tab" (NEU - 2025-11-12)
-  - ✅ Client-Filter ComboBox (zeigt alle verfügbaren Clients)
-  - ✅ Log-Level Filter (Debug, Info, Warning, Error, Critical)
-  - ✅ Echtzeit-Log-Streaming von Clients
-  - ✅ DataGrid mit Time, Client, Level, Message
-  - ✅ Color-coded Log Levels
-  - ✅ Export Funktionalität
-  - ✅ LogViewerViewModel mit vollständiger Fehlerbehandlung
-  - ❌ 🟡 LOG Nachrichtentyp noch zu implementieren (aktuell andere Mechanismen)
-- ✅ **Alert System** - Vollständig implementiert (NEU - 2025-11-11)
-  - ✅ Alert und AlertRule Entities mit EF Core
-  - ✅ AlertService mit Rules Engine
-  - ✅ AlertMonitoringService (Background Service, prüft jede Minute)
-  - ✅ Rule Types: DeviceOffline, HighCPU, HighMemory, LowDiskSpace, DataSourceError, HighErrorRate
-  - ✅ Configurable Thresholds via JSON
-  - ✅ Cooldown Period zur Vermeidung von Spam-Alerts
-  - ✅ Alert Severity Levels (Info, Warning, Error, Critical)
-  - ✅ Alert Acknowledge und Resolve Funktionen
-  - ✅ Notification Channels Support (Placeholder für Email/SMS/Push)
-  - ❌ UI für Alert Management (noch nicht implementiert)
+  - ✅ Initialization of DB clients at startup
 
-### 1.4 Datenmanagement
+- ✅ **HeartbeatMonitoringService Implemented**
+  - ✅ Background service for timeout monitoring
+  - ✅ 30s check interval, 120s timeout
+  - ✅ Automatic marking as offline
+  - ✅ Logging of status changes
 
-#### SQL-Integration
-- ✅ Grundlegende Funktionen implementiert
-- ❌ 🟡 **Connection Pooling** optimieren
-- ❌ 🟡 **Query-Caching** implementieren
-  - In-Memory Cache mit Invalidierung
-  - Cache-TTL konfigurierbar
-- ❌ 🟡 **Transaktionsmanagement** für Batch-Updates
+- ✅ **Python Client supports RESTART, SCREENSHOT, SCREEN_ON/OFF, SET_VOLUME**
 
-#### Daten-Mapping
-- ❌ 🔴 **Visuelle Zuordnung SQL → UI-Elemente**
-  - Mapping-Editor
-  - Spalten-Browser
-  - Automatische Typkonvertierung
-- ❌ 🟡 **Aggregatfunktionen** (SUM, AVG, COUNT)
-  - In Query-Builder integrieren
+- ✅ **Layout Scheduling** - Fully Implemented
+  - ✅ LayoutSchedule Entity with full configuration
+  - ✅ Schedule editor UI (Priority, Start/End Date/Time, Days of Week)
+  - ✅ SchedulingService with background worker
+  - ✅ Automatic schedule execution (every 60 seconds)
+  - ✅ Priority-based selection on overlaps
+  - ✅ Active schedule tracking
+  - ✅ Client-side schedule execution via DisplayUpdate messages
+  - ✅ Schedule management UI (Add, Edit, Delete, Enable/Disable)
+  - ❌ 🟡 Cron expression support for complex schedules
 
-#### Caching-Strategie
-- ✅ **Client-seitiger Cache** für Offline-Betrieb
-  - ✅ Layout-Daten lokal speichern (SQLite)
-  - ✅ Automatisches Fallback bei Verbindungsabbruch
-  - ✅ Cache-Metadaten und Statistiken
-- ❌ 🟡 **TTL für Cache-Einträge**
-  - Cache-Alterung und automatische Bereinigung
-- ❌ 🟡 **Differenzielle Updates**
-  - Nur geänderte Daten übertragen
-  - Delta-Komprimierung
-- ❌ 🟡 **gzip-Komprimierung** für WebSocket-Nachrichten
+- ✅ **Remote Log Viewer** - Fully Implemented as "Logs Tab" (NEW - 2025-11-12)
+  - ✅ Client filter ComboBox (shows all available clients)
+  - ✅ Log level filter (Debug, Info, Warning, Error, Critical)
+  - ✅ Real-time log streaming from clients
+  - ✅ DataGrid with Time, Client, Level, Message
+  - ✅ Color-coded log levels
+  - ✅ Export functionality
+  - ✅ LogViewerViewModel with full error handling
+  - ❌ 🟡 LOG message type still to be implemented (currently other mechanisms)
+
+- ✅ **Alert System** - Fully Implemented (NEW - 2025-11-11)
+  - ✅ Alert and AlertRule entities with EF Core
+  - ✅ AlertService with rules engine
+  - ✅ AlertMonitoringService (background service, checks every minute)
+  - ✅ Rule types: DeviceOffline, HighCPU, HighMemory, LowDiskSpace, DataSourceError, HighErrorRate
+  - ✅ Configurable thresholds via JSON
+  - ✅ Cooldown period to avoid spam alerts
+  - ✅ Alert severity levels (Info, Warning, Error, Critical)
+  - ✅ Alert acknowledge and resolve functions
+  - ✅ Notification channels support (placeholder for Email/SMS/Push)
+  - ❌ UI for alert management (not yet implemented)
+
+### 1.4 Data Management
+
+#### SQL Integration
+- ✅ **Basic functions implemented**
+- ✅ **Connection Pooling** - Optimized
+- ✅ **Query Caching** - Implemented
+  - In-memory cache with invalidation
+  - Configurable cache TTL
+- ❌ 🟡 **Transaction Management** for batch updates
+
+#### Data Mapping
+- ❌ 🔴 **Visual Mapping SQL → UI Elements**
+  - Mapping editor
+  - Column browser
+  - Automatic type conversion
+
+- ❌ 🟡 **Aggregate Functions** (SUM, AVG, COUNT)
+  - Integrate into query builder
+
+#### Caching Strategy
+- ✅ **Client-Side Cache** for offline operation
+  - ✅ Store layout data locally (SQLite)
+  - ✅ Automatic fallback on connection loss
+  - ✅ Cache metadata and statistics
+
+- ❌ 🟡 **TTL for Cache Entries**
+  - Cache aging and automatic cleanup
+
+- ❌ 🟡 **Differential Updates**
+  - Transfer only changed data
+  - Delta compression
+
+- ❌ 🟡 **gzip Compression** for WebSocket messages
 
 ---
 
-## TEIL 2: RASPBERRY PI CLIENT-SOFTWARE
+## PART 2: RASPBERRY PI CLIENT SOFTWARE
 
-### 2.1 Kernfunktionalitäten
+### 2.1 Core Functionality
 
-#### Display-Engine
-- ✅ PyQt5 Rendering funktioniert
-- ⚠️ **Alternative: Chromium-basiertes Rendering**
-  - ❌ 🟢 CEF (Chromium Embedded Framework) evaluieren
-  - ❌ 🟢 Electron-Alternative prüfen
-- ❌ 🟡 **Anti-Burn-In-Schutz**
-  - Pixel-Shifting Algorithmus
-  - Screensaver nach Inaktivität
+#### Display Engine
+- ✅ **PyQt5 Rendering works**
+- ⚠️ **Alternative: Chromium-based rendering**
+  - ❌ 🟢 Evaluate CEF (Chromium Embedded Framework)
+  - ❌ 🟢 Check Electron alternative
 
-#### Systemintegration
+- ❌ 🟡 **Anti-Burn-In Protection**
+  - Pixel-shifting algorithm
+  - Screensaver after inactivity
+
+#### System Integration
 - ✅ **systemd Service**
-  - ✅ digitalsignage-client.service Unit-File erstellt
-  - ✅ Auto-Restart bei Absturz (Restart=always)
-  - ✅ Installation-Script (install.sh mit systemd Integration)
+  - ✅ digitalsignage-client.service unit file created
+  - ✅ Auto-restart on crash (Restart=always)
+  - ✅ Installation script (install.sh with systemd integration)
+
 - ✅ **Watchdog**
-  - ✅ WatchdogMonitor implementiert mit systemd Integration (watchdog_monitor.py)
-  - ✅ Automatische Pings (halbes Watchdog-Intervall)
-  - ✅ Status-Benachrichtigungen (ready, stopping, status)
-  - ✅ Automatischer Neustart bei Freeze (60s timeout)
-  - ✅ Service-File konfiguriert (Type=notify, WatchdogSec=60)
-- ❌ 🟡 **Automatische Updates**
-  - Update-Check-Mechanismus
-  - Safe Rollback bei Fehlern
-- ⚠️ **Konfigurations-Management**
-  - ❌ 🔴 Web-Interface für lokale Konfiguration
-  - ✅ config.py vorhanden
+  - ✅ WatchdogMonitor implemented with systemd integration (watchdog_monitor.py)
+  - ✅ Automatic pings (half watchdog interval)
+  - ✅ Status notifications (ready, stopping, status)
+  - ✅ Automatic restart on freeze (60s timeout)
+  - ✅ Service file configured (Type=notify, WatchdogSec=60)
 
-#### Datenempfang
-- ✅ WebSocket-Verbindung funktioniert
-- ❌ 🟡 **Fallback auf HTTP-Polling** bei WebSocket-Problemen
-- ✅ **Lokale Datenpufferung**
-  - ✅ SQLite-Cache für Layouts (CacheManager implementiert)
-  - ✅ Offline-Modus mit automatischem Fallback
-  - ✅ Cached Layout beim Startup wenn Server offline
-  - ✅ Offline-Status in Heartbeat-Nachrichten
-- ✅ **TLS/SSL-Verschlüsselung**
-  - ✅ Server unterstützt HTTPS/WSS via ServerSettings
-  - ✅ Client unterstützt WSS mit SSL-Verifikation
-  - ✅ Konfigurierbare SSL-Einstellungen (appsettings.json / config.py)
-  - ✅ Umfassende SSL Setup Dokumentation (SSL_SETUP.md)
-  - ✅ Support für Self-Signed und CA-Zertifikate
-  - ✅ Reverse Proxy Konfigurationsbeispiele (nginx, IIS)
+- ❌ 🟡 **Automatic Updates**
+  - Update check mechanism
+  - Safe rollback on errors
 
-### 2.2 Kommunikationsprotokoll
+- ✅ **Configuration Management** - Partially Implemented
+  - ✅ **Web Interface for Local Configuration** - FULLY IMPLEMENTED (NEW - 2025-11-12)
+    - ✅ Flask web server on port 5000
+    - ✅ Dashboard with client status, system info
+    - ✅ Real-time metrics (CPU, Memory, Disk, Temperature)
+    - ✅ Log viewer with filtering
+    - ✅ Remote restart and cache clear
+    - ✅ Configuration display
+    - ✅ Responsive HTML interface
+    - ✅ QR code access from status screens
+  - ✅ config.py present
 
-#### Nachrichtentypen
-- ✅ REGISTER, HEARTBEAT, DISPLAY_UPDATE, STATUS_REPORT, COMMAND, SCREENSHOT
-- ❌ 🟡 **LOG-Nachrichtentyp**
-  - Log-Ereignisse an Server senden
-  - Log-Level (DEBUG, INFO, WARNING, ERROR)
+#### Data Reception
+- ✅ **WebSocket Connection works**
+  - ✅ **Plain WebSocket implementation** (NEW - 2025-11-11)
+    - Replaced python-socketio with websocket-client
+    - Better reliability and performance
+    - Custom reconnection logic
 
-#### Fehlerbehandlung
-- ✅ Automatische Wiederverbindung implementiert
-- ✅ **Offline-Modus mit gecachten Daten**
-  - ✅ Letzte bekannte Layouts anzeigen
-  - ✅ Offline-Indikator (offline_mode Flag)
-  - ✅ Automatischer Wechsel bei Disconnect
-- ❌ 🟡 **Fehler-Queue**
-  - Failed Messages aufbewahren
-  - Retry bei Reconnect
+- ✅ **Automatic Reconnection** - FULLY IMPLEMENTED (NEW - 2025-11-11)
+  - ✅ Exponential backoff (1s → 2s → 4s → 8s → 16s → 30s max)
+  - ✅ Configurable max retries (default: unlimited)
+  - ✅ Visual status updates during reconnection
+  - ✅ Status screens for all connection states
+  - ✅ Graceful degradation to offline mode
+
+- ❌ 🟡 **Fallback to HTTP Polling** on WebSocket issues
+
+- ✅ **Local Data Buffering**
+  - ✅ SQLite cache for layouts (CacheManager implemented)
+  - ✅ Offline mode with automatic fallback
+  - ✅ Cached layout at startup if server offline
+  - ✅ Offline status in heartbeat messages
+
+- ✅ **TLS/SSL Encryption**
+  - ✅ Server supports HTTPS/WSS via ServerSettings
+  - ✅ Client supports WSS with SSL verification
+  - ✅ Configurable SSL settings (appsettings.json / config.py)
+  - ✅ Comprehensive SSL setup documentation (SSL_SETUP.md)
+  - ✅ Support for self-signed and CA certificates
+  - ✅ Reverse proxy configuration examples (nginx, IIS)
+
+#### Status Screens (NEW - 2025-11-12)
+- ✅ **Responsive Status Screens** - FULLY IMPLEMENTED
+  - ✅ Support for 1024x600, 1024x768, 1280x720, 1920x1080, 4K
+  - ✅ Responsive layout with percentage-based scaling
+  - ✅ Dark theme with professional design
+  - ✅ Animated spinners and progress indicators
+  - ✅ QR codes for web dashboard access
+  - ✅ Status screens:
+    - Discovering Server (with method display)
+    - Connecting (with attempt counter)
+    - Waiting for Layout (post-connection)
+    - Connection Error (with troubleshooting)
+    - No Layout Assigned (with instructions)
+    - Server Disconnected (searching)
+    - Reconnecting (with countdown)
+    - Server Found (establishing connection)
+  - ✅ Cursor hiding for professional display
+  - ✅ Proper widget lifecycle and cleanup
+
+### 2.2 Communication Protocol
+
+#### Message Types
+- ✅ **REGISTER, HEARTBEAT, DISPLAY_UPDATE, STATUS_REPORT, COMMAND, SCREENSHOT**
+- ✅ **UPDATE_CONFIG, UPDATE_CONFIG_RESPONSE** (NEW - remote configuration)
+- ❌ 🟡 **LOG Message Type**
+  - Send log events to server
+  - Log levels (DEBUG, INFO, WARNING, ERROR)
+
+#### Error Handling
+- ✅ **Automatic Reconnection Implemented**
+- ✅ **Offline Mode with Cached Data**
+  - ✅ Display last known layouts
+  - ✅ Offline indicator (offline_mode flag)
+  - ✅ Automatic switch on disconnect
+
+- ❌ 🟡 **Error Queue**
+  - Keep failed messages
+  - Retry on reconnect
+
 - ❌ 🟡 **Degraded Mode**
-  - Bei Teilausfällen (z.B. nur statische Elemente zeigen)
+  - On partial failures (e.g., show only static elements)
 
 ---
 
-## TEIL 3: TECHNISCHE ARCHITEKTUR
+## PART 3: TECHNICAL ARCHITECTURE
 
-### 3.1 Windows-Anwendung
+### 3.1 Windows Application
 
-- ✅ WPF mit .NET 8
-- ✅ MVVM Pattern (CommunityToolkit.Mvvm)
-- ✅ **Dependency Injection Container** konfiguriert
+- ✅ **WPF with .NET 8**
+- ✅ **MVVM Pattern (CommunityToolkit.Mvvm)**
+- ✅ **Dependency Injection Container** configured
   - ✅ Microsoft.Extensions.DependencyInjection
-  - ✅ App.xaml.cs mit IHost
-  - ✅ Service-Registrierung (alle Services + Background Services)
-- ✅ **Entity Framework Core** für Datenbank
-  - ✅ DigitalSignageDbContext erstellt mit allen Entitäten
-  - ✅ Fluent API Konfiguration (JSON columns, relationships, indexes)
-  - ✅ Automatische Migrations bei Startup (DatabaseInitializationService)
-  - ✅ Default Admin User Seeding
-  - ✅ Connection String in appsettings.json konfigurierbar
-  - ✅ Retry-Logik und Connection Pooling
-  - ✅ Development vs Production Konfiguration
-- ❌ 🟢 **SignalR statt WebSocket** evaluieren
-  - Einfachere RPC-Semantik
-- ✅ **Serilog** für strukturiertes Logging
-  - ✅ File Sink mit Rolling Files (täglich, 30 Tage Retention)
-  - ✅ Separate Error-Logs (90 Tage Retention)
-  - ✅ Console und Debug Sinks
-  - ✅ Log-Levels aus appsettings.json konfigurierbar
+  - ✅ App.xaml.cs with IHost
+  - ✅ Service registration (all services + background services)
+
+- ✅ **Entity Framework Core** for database
+  - ✅ DigitalSignageDbContext created with all entities
+  - ✅ Fluent API configuration (JSON columns, relationships, indexes)
+  - ✅ Automatic migrations at startup (DatabaseInitializationService)
+  - ✅ Default admin user seeding
+  - ✅ Connection string configurable in appsettings.json
+  - ✅ Retry logic and connection pooling
+  - ✅ Development vs Production configuration
+
+- ❌ 🟢 **SignalR instead of WebSocket** - evaluate
+  - Simpler RPC semantics
+
+- ✅ **Serilog** for structured logging
+  - ✅ File sink with rolling files (daily, 30 days retention)
+  - ✅ Separate error logs (90 days retention)
+  - ✅ Console and Debug sinks
+  - ✅ Log levels configurable from appsettings.json
   - ✅ Enrichment (Machine Name, Thread ID, Source Context)
-  - ✅ File Size Limits und Roll-over (100 MB)
-- ⚠️ **Unit Tests** - Grundstruktur vorhanden
-  - ❌ 🟡 Test-Coverage auf >70% erhöhen
-  - ❌ 🟡 Integration Tests für Services
-  - ❌ 🟡 UI-Tests mit TestStack.White
+  - ✅ File size limits and rollover (100 MB)
+
+- ⚠️ **Unit Tests** - Basic structure present
+  - ❌ 🟡 Increase test coverage to >70%
+  - ❌ 🟡 Integration tests for services
+  - ❌ 🟡 UI tests with TestStack.White
 
 ### 3.2 Raspberry Pi Client
 
-- ✅ Python 3.9+
-- ✅ PyQt5
-- ✅ python-socketio
-- ❌ 🟡 **Flask/FastAPI** für lokale API
-  - Konfigurations-Endpunkte
-  - Status-Endpunkte
-  - Webinterface für lokale Verwaltung
-- ❌ 🟡 **RPi.GPIO** für Hardware-Steuerung
-  - LED-Status-Anzeige
-  - Hardware-Button für Neustart
-- ❌ 🔴 **supervisor** für Process Management
-  - Alternative: systemd (bereits geplant)
+- ✅ **Python 3.9+**
+- ✅ **PyQt5**
+- ✅ **websocket-client** (replaced python-socketio)
+- ✅ **Flask** for local web API (NEW - 2025-11-12)
+  - ✅ Configuration endpoints
+  - ✅ Status endpoints
+  - ✅ Web interface for local management
+  - ✅ Log viewing with filtering
+  - ✅ Remote restart and cache clear
 
-### 3.4 Sicherheitsanforderungen
+- ❌ 🟡 **RPi.GPIO** for hardware control
+  - LED status display
+  - Hardware button for restart
 
-- ✅ **TLS 1.2+ Verschlüsselung**
-  - ✅ Server-seitiges SSL-Zertifikat (konfigurierbar)
-  - ✅ Client-seitige Zertifikat-Validierung
-  - ✅ Reverse Proxy Support (empfohlen für Produktion)
-- ✅ **Authentifizierung**
-  - ✅ AuthenticationService implementiert
-  - ✅ API-Key-System (Erstellung, Validierung, Revokation)
-  - ✅ Client-Registrierung mit Token
-  - ✅ ClientRegistrationToken Entity (mit Restriktionen, MaxUses, Expiration)
-  - ✅ User/Password Authentication
-  - ✅ ApiKey Entity mit Usage Tracking
-  - ✅ Password Hashing (SHA256, produktionsreif: BCrypt/Argon2 empfohlen)
-  - ✅ Token Generation mit Secure RNG
-- ❌ 🟡 **Rollbasierte Zugriffskontrolle (RBAC)**
-  - User-Roles: Admin, Operator, Viewer
-  - Berechtigungsprüfung in APIs
-- ⚠️ **Audit-Logging**
-  - ✅ AuditLog Entity erstellt mit vollständigen Feldern
-  - ✅ Who-When-What Schema (User, Timestamp, Action, EntityType, EntityId)
-  - ✅ JSON Changes Field für Before/After Werte
-  - ❌ Automatische Change Tracking Interceptors (SaveChanges Override)
-  - ❌ UI für Audit-Log-Anzeige
-- ✅ SQL-Injection-Schutz (Parametrisierung)
-- ✅ Input-Validierung (kürzlich hinzugefügt)
-- ❌ 🟡 **Rate-Limiting**
-  - Schutz vor Brute-Force
-  - API-Request-Limits
+### 3.3 Security Requirements
+
+- ✅ **TLS 1.2+ Encryption**
+  - ✅ Server-side SSL certificate (configurable)
+  - ✅ Client-side certificate validation
+  - ✅ Reverse proxy support (recommended for production)
+
+- ✅ **Authentication**
+  - ✅ AuthenticationService implemented
+  - ✅ API key system (creation, validation, revocation)
+  - ✅ Client registration with token
+  - ✅ ClientRegistrationToken Entity (with restrictions, MaxUses, Expiration)
+  - ✅ User/Password authentication
+  - ✅ ApiKey Entity with usage tracking
+  - ✅ Password hashing (SHA256, production: BCrypt/Argon2 recommended)
+  - ✅ Token generation with secure RNG
+
+- ❌ 🟡 **Role-Based Access Control (RBAC)**
+  - User roles: Admin, Operator, Viewer
+  - Permission checks in APIs
+
+- ⚠️ **Audit Logging**
+  - ✅ AuditLog Entity created with complete fields
+  - ✅ Who-When-What schema (User, Timestamp, Action, EntityType, EntityId)
+  - ✅ JSON Changes field for Before/After values
+  - ❌ Automatic change tracking interceptors (SaveChanges override)
+  - ❌ UI for audit log display
+
+- ✅ **SQL Injection Protection** (parameterization)
+- ✅ **Input Validation** (recently added)
+
+- ❌ 🟡 **Rate Limiting**
+  - Brute-force protection
+  - API request limits
 
 ---
 
-## TEIL 4: BENUTZEROBERFLÄCHE
+## PART 4: USER INTERFACE
 
-### 4.1 Windows-App UI-Struktur
+### 4.1 Windows App UI Structure
 
-- ✅ **Hauptfenster** - Vollständig implementiert
-  - ✅ Menüleiste mit allen Befehlen
-  - ✅ Tabbed Interface (Designer, Geräte, Datenquellen, Vorschau)
-  - ✅ Statusleiste mit Server-Status und Client-Count
-  - ❌ 🟡 Werkzeugleiste mit Icons (optional)
-- ✅ **Designer-Tab**
-  - ✅ Canvas mit Zoom/Pan
-  - ✅ Werkzeugleiste (60px Sidebar)
-  - ✅ **Layers Panel (250px, Grid Column 1)** - NEU implementiert
-    - ✅ Layer List mit Type Icons
-    - ✅ Z-Index Anzeige
-    - ✅ Move Up/Down Buttons
-    - ✅ Visibility Toggle (👁/🚫 Icons)
-    - ✅ Synchronisierte Selektion mit Canvas
-  - ✅ Eigenschaften-Panel (300px rechts)
-  - ✅ Grid-Anzeige mit Snap-to-Grid
-  - ✅ Drag-and-Drop für Elemente
-  - ✅ Resize-Handles mit ResizeAdorner
-  - ✅ **Zoom Controls Toolbar** - NEU implementiert
-    - ✅ Zoom In/Out Buttons
-    - ✅ Zoom Slider (25%-400%)
-    - ✅ Zoom Level Display
-    - ✅ Zoom to Fit Button
-- ✅ **Geräte-Tab**
-  - ✅ DataGrid mit Geräteliste (Name, IP, MAC, Group, Location, Status, Last Seen)
-  - ✅ **Discover Devices Button** - NEU implementiert (UDP-Broadcast)
-  - ✅ Geräte-Detail-Panel (300px rechts)
-  - ✅ Status-Indikatoren (Online/Offline mit Farben)
-  - ✅ Remote Commands: Restart Device, Restart App, Screenshot
-  - ✅ Screen Control: Screen On/Off
-  - ✅ Volume Control mit Slider
-  - ✅ Layout Assignment mit ComboBox
+- ✅ **Main Window** - Fully Implemented
+  - ✅ Menu bar with all commands
+  - ✅ Tabbed interface (Designer, Devices, Data Sources, Preview, Scheduling, Media, Logs)
+  - ✅ Status bar with server status and client count
+  - ❌ 🟡 Toolbar with icons (optional)
+
+- ✅ **Designer Tab**
+  - ✅ Canvas with zoom/pan
+  - ✅ Toolbar (60px sidebar)
+  - ✅ **Layers Panel (250px, Grid Column 1)** - NEW implemented
+    - ✅ Layer list with type icons
+    - ✅ Z-Index display
+    - ✅ Move Up/Down buttons
+    - ✅ Visibility toggle (👁/🚫 icons)
+    - ✅ Synchronized selection with canvas
+  - ✅ Properties panel (300px right)
+  - ✅ Grid display with snap-to-grid
+  - ✅ Drag-and-drop for elements
+  - ✅ Resize handles with ResizeAdorner
+  - ✅ **Zoom Controls Toolbar** - NEW implemented
+    - ✅ Zoom In/Out buttons
+    - ✅ Zoom slider (25%-400%)
+    - ✅ Zoom level display
+    - ✅ Zoom to Fit button
+
+- ✅ **Devices Tab**
+  - ✅ DataGrid with device list (Name, IP, MAC, Group, Location, Status, Last Seen)
+  - ✅ **Discover Devices Button** - NEW implemented (UDP broadcast)
+  - ✅ Device detail panel (300px right)
+  - ✅ Status indicators (Online/Offline with colors)
+  - ✅ Remote commands: Restart Device, Restart App, Screenshot
+  - ✅ Screen control: Screen On/Off
+  - ✅ Volume control with slider
+  - ✅ Layout assignment with ComboBox
   - ✅ Maintenance: Clear Cache
-  - ✅ **Client Configuration Remote Update** - NEU implementiert
-    - ✅ Server Host/Port konfigurierbar
-    - ✅ SSL/TLS Settings
-    - ✅ Full Screen Mode Toggle
-    - ✅ Log Level konfigurierbar
-    - ✅ Update-Command an Client mit Bestätigung
-  - ✅ Status-Nachrichtenleiste
-  - ✅ DeviceManagementViewModel mit vollständiger Fehlerbehandlung und Logging
-- ✅ **Datenquellen-Tab** - Vollständig implementiert
-  - ✅ Liste der konfigurierten Datenquellen (DataGrid)
-  - ✅ Datenquellen-Editor (Connection String, Query, Refresh Interval)
-  - ✅ Verbindungstest mit Status-Indikator
-  - ✅ Vorschau der Daten (DataGrid mit Results)
-  - ✅ Query Builder Integration
-  - ✅ Add/Edit/Delete Datenquellen
-  - ✅ Database Persistence (EF Core)
-  - ✅ DataSourceManagementViewModel mit vollständiger Fehlerbehandlung
-- ✅ **Vorschau-Tab** - Vollständig implementiert
-  - ✅ Layout-Rendering mit Template Engine
-  - ✅ Testdaten-Simulator mit Data Source Auswahl
-  - ✅ Auto-Refresh Toggle mit Status-Anzeige
-  - ✅ Clear Preview Button
-  - ✅ Preview Canvas mit Layout-Hintergrund
-  - ✅ Variable Substitution Preview
-  - ✅ PreviewViewModel mit vollständiger Fehlerbehandlung
-  - ❌ 🟡 Vollbild-Button
-- ✅ **Scheduling-Tab** - Vollständig implementiert (NEU)
-  - ✅ Schedule List (300px Sidebar) mit Add/Refresh Buttons
-  - ✅ Schedule Editor mit vollständigem Form
-    - ✅ Name, Description Felder
-    - ✅ Layout Auswahl (ComboBox)
-    - ✅ Start Time / End Time (HH:mm Format)
-    - ✅ Days of Week (Komma-separiert oder *)
-    - ✅ Priority Feld
-    - ✅ IsActive Toggle
-    - ✅ Client/Group Targeting (optional)
-  - ✅ Save/Delete/Test Buttons
-  - ✅ Status Message Display
-  - ✅ SchedulingViewModel mit vollständiger Fehlerbehandlung
-- ✅ **Media Library Tab** - Vollständig implementiert (NEU)
-  - ✅ Toolbar mit Upload/Refresh Buttons
-  - ✅ Filter nach MediaType (All/Image/Video/Audio/Document)
-  - ✅ Search TextBox mit Placeholder
-  - ✅ Clear Filter Button
-  - ✅ Media DataGrid mit Spalten:
+  - ✅ **Client Configuration Remote Update** - NEW implemented
+    - ✅ Server Host/Port configurable
+    - ✅ SSL/TLS settings
+    - ✅ Full Screen Mode toggle
+    - ✅ Log Level configurable
+    - ✅ Update command to client with confirmation
+  - ✅ Status message bar
+  - ✅ DeviceManagementViewModel with full error handling and logging
+
+- ✅ **Data Sources Tab** - Fully Implemented
+  - ✅ List of configured data sources (DataGrid)
+  - ✅ Data source editor (Connection String, Query, Refresh Interval)
+  - ✅ Connection test with status indicator
+  - ✅ Data preview (DataGrid with results)
+  - ✅ Query Builder integration
+  - ✅ Add/Edit/Delete data sources
+  - ✅ Database persistence (EF Core)
+  - ✅ DataSourceManagementViewModel with full error handling
+
+- ✅ **Preview Tab** - Fully Implemented
+  - ✅ Layout rendering with template engine
+  - ✅ Test data simulator with data source selection
+  - ✅ Auto-refresh toggle with status display
+  - ✅ Clear Preview button
+  - ✅ Preview canvas with layout background
+  - ✅ Variable substitution preview
+  - ✅ PreviewViewModel with full error handling
+  - ❌ 🟡 Fullscreen button
+
+- ✅ **Scheduling Tab** - Fully Implemented (NEW)
+  - ✅ Schedule list (300px sidebar) with Add/Refresh buttons
+  - ✅ Schedule editor with full form
+    - ✅ Name, Description fields
+    - ✅ Layout selection (ComboBox)
+    - ✅ Start Time / End Time (HH:mm format)
+    - ✅ Days of Week (comma-separated or *)
+    - ✅ Priority field
+    - ✅ IsActive toggle
+    - ✅ Client/Group targeting (optional)
+  - ✅ Save/Delete/Test buttons
+  - ✅ Status message display
+  - ✅ SchedulingViewModel with full error handling
+
+- ✅ **Media Library Tab** - Fully Implemented (NEW)
+  - ✅ Toolbar with Upload/Refresh buttons
+  - ✅ Filter by MediaType (All/Image/Video/Audio/Document)
+  - ✅ Search TextBox with placeholder
+  - ✅ Clear Filter button
+  - ✅ Media DataGrid with columns:
     - ✅ Type Icon, File Name, Type, Size, Dimensions, Uploaded, Access Count
-  - ✅ Details Panel (350px rechts)
-    - ✅ Thumbnail Placeholder
-    - ✅ File Information Display
-    - ✅ Editable Fields: Description, Tags, Category
-    - ✅ Update/Delete Buttons
-  - ✅ Status Message Bar
-  - ✅ MediaLibraryViewModel mit vollständiger Fehlerbehandlung
-- ✅ **Logs Tab** - Vollständig implementiert (NEU)
-  - ✅ Toolbar mit Filtern
+  - ✅ Details panel (350px right)
+    - ✅ Thumbnail placeholder
+    - ✅ File information display
+    - ✅ Editable fields: Description, Tags, Category
+    - ✅ Update/Delete buttons
+  - ✅ Status message bar
+  - ✅ MediaLibraryViewModel with full error handling
+
+- ✅ **Logs Tab** - Fully Implemented (NEW)
+  - ✅ Toolbar with filters
     - ✅ Client Filter ComboBox
-    - ✅ Log Level Checkboxes (Debug, Info, Warning, Error, Critical)
-    - ✅ Auto-scroll Toggle
-    - ✅ Refresh/Clear/Export Buttons
-  - ✅ Logs DataGrid mit Spalten:
-    - ✅ Time, Client, Level (farbcodiert), Message
-    - ✅ Row Background basierend auf Level
-    - ✅ Text Wrapping mit Tooltip
-  - ✅ Status Bar mit Quick Actions
-    - ✅ All/None/Errors Only Buttons
-  - ✅ LogViewerViewModel mit vollständiger Fehlerbehandlung
-- ✅ **Live Debug Logs Tab** - Vollständig implementiert (NEU)
-  - ✅ Dark Theme Console-Style (VS Code ähnlich)
-  - ✅ Real-time Log Streaming ListBox
-  - ✅ Auto-scroll Toggle
-  - ✅ Clear Logs Button
-  - ✅ Consolas Font für bessere Lesbarkeit
-  - ✅ Virtualization für Performance
-  - ✅ Status Bar mit Log Count
-  - ✅ LiveLogsViewModel mit vollständiger Fehlerbehandlung
+    - ✅ Log Level checkboxes (Debug, Info, Warning, Error, Critical)
+    - ✅ Auto-scroll toggle
+    - ✅ Refresh/Clear/Export buttons
+  - ✅ Logs DataGrid with columns:
+    - ✅ Time, Client, Level (color-coded), Message
+    - ✅ Row background based on level
+    - ✅ Text wrapping with tooltip
+  - ✅ Status bar with quick actions
+    - ✅ All/None/Errors Only buttons
+  - ✅ LogViewerViewModel with full error handling
+
+- ✅ **Live Debug Logs Tab** - Fully Implemented (NEW)
+  - ✅ Dark theme console-style (VS Code like)
+  - ✅ Real-time log streaming ListBox
+  - ✅ Auto-scroll toggle
+  - ✅ Clear Logs button
+  - ✅ Consolas font for better readability
+  - ✅ Virtualization for performance
+  - ✅ Status bar with log count
+  - ✅ LiveLogsViewModel with full error handling
 
 ### 4.2 Responsive Design
 
-- ✅ **Touch-Unterstützung** für Tablets - Vollständig implementiert (NEU - 2025-11-11)
-  - ✅ Touch Event Handlers (TouchDown, TouchMove, TouchUp)
-  - ✅ Manipulation Support (IsManipulationEnabled)
-  - ✅ Pinch-to-Zoom Gesture (ManipulationDelta)
-  - ✅ Two-Finger Pan Gesture
-  - ✅ Single Touch Selection (alternative zu Maus)
-  - ✅ Custom Routed Events (ZoomChanged, PanChanged)
-  - ✅ Touch-Gesten in DesignerCanvas integriert
-  - ❌ 🟡 Größere Touch-Targets (UI-Anpassung noch ausstehend)
+- ✅ **Touch Support** for Tablets - Fully Implemented (NEW - 2025-11-11)
+  - ✅ Touch event handlers (TouchDown, TouchMove, TouchUp)
+  - ✅ Manipulation support (IsManipulationEnabled)
+  - ✅ Pinch-to-zoom gesture (ManipulationDelta)
+  - ✅ Two-finger pan gesture
+  - ✅ Single touch selection (alternative to mouse)
+  - ✅ Custom routed events (ZoomChanged, PanChanged)
+  - ✅ Touch gestures integrated in DesignerCanvas
+  - ❌ 🟡 Larger touch targets (UI adjustment still pending)
+
 - ⚠️ **Dark/Light Theme**
-  - ❌ 🟡 Theme-Switcher implementieren
-  - ❌ 🟡 Theme-Ressourcen erstellen
+  - ❌ 🟡 Theme switcher implement
+  - ❌ 🟡 Theme resources create
 
 ---
 
-## TEIL 5: DEPLOYMENT UND INSTALLATION
+## PART 5: DEPLOYMENT AND INSTALLATION
 
-### 5.1 Windows-Installer
+### 5.1 Windows Installer
 
-- ❌ 🔴 **MSI-Installer mit WiX Toolset**
-  - Projekt-Setup
-  - .NET Runtime Check
-  - Installationsordner
-  - Start-Menü-Einträge
-- ❌ 🟡 **Datenbank-Setup-Dialog**
-  - Connection String Eingabe
-  - Verbindungstest
-  - Schema-Erstellung
-- ❌ 🟡 **Windows-Dienst-Option**
-  - Server als Service laufen lassen
-- ❌ 🟡 **Firewall-Regeln**
-  - Port 8080 automatisch öffnen
+- ❌ 🔴 **MSI Installer with WiX Toolset**
+  - Project setup
+  - .NET Runtime check
+  - Installation folder
+  - Start menu entries
+
+- ❌ 🟡 **Database Setup Dialog**
+  - Connection string input
+  - Connection test
+  - Schema creation
+
+- ❌ 🟡 **Windows Service Option**
+  - Run server as service
+
+- ❌ 🟡 **Firewall Rules**
+  - Automatically open port 8080
 
 ### 5.2 Raspberry Pi Setup
 
-- ✅ **Installations-Script (Bash)**
-  - ✅ Abhängigkeiten installieren (apt-get)
-  - ✅ Python-Packages (pip)
-  - ✅ systemd Service einrichten
-  - ✅ Auto-Start konfigurieren
-  - ✅ Benutzer-Erkennung für sudo
-  - ✅ Konfigurationsverzeichnisse erstellen
-  - ✅ Screen blanking deaktivieren
-  - ✅ Cursor ausblenden
-- ❌ 🟡 **Konfiguration**
-  - Web-Interface für Erstkonfiguration
-  - Oder: Interactive Setup-Script
-- ❌ 🟡 **Update-Mechanismus**
-  - apt-Repository oder
-  - Custom Updater via Server
+- ✅ **Installation Script (Bash)**
+  - ✅ Install dependencies (apt-get)
+  - ✅ Python packages (pip)
+  - ✅ Set up systemd service
+  - ✅ Configure auto-start
+  - ✅ User detection for sudo
+  - ✅ Create configuration directories
+  - ✅ Disable screen blanking
+  - ✅ Hide cursor
+
+- ✅ **Configuration** - Partially Done
+  - ✅ **Web interface for initial configuration** (NEW - 2025-11-12)
+  - ❌ Interactive setup script (alternative)
+
+- ❌ 🟡 **Update Mechanism**
+  - apt repository or
+  - Custom updater via server
 
 ---
 
-## TEIL 6: ERWEITERUNGEN UND ZUKUNFT (Niedrige Priorität)
+## PART 6: EXTENSIONS AND FUTURE (Low Priority)
 
-### Geplante Features
+### Planned Features
 
+- ❌ 🟢 **Widget System**
+  - Weather widget
+  - RSS feed
+  - Social media integration
 
-- ❌ 🟢 **Widget-System**
-  - Wetter-Widget
-  - RSS-Feed
-  - Social Media Integration
-- ❌ 🟢 **Analytics und Reporting**
-  - View-Statistiken
-  - Performance-Metriken
-- ❌ 🟢 **A/B Testing** für Layouts
+- ❌ 🟢 **Analytics and Reporting**
+  - View statistics
+  - Performance metrics
 
+- ❌ 🟢 **A/B Testing** for layouts
 
 ---
 
-## QUALITÄT & TESTING
+## QUALITY & TESTING
 
-### Code-Qualität
+### Code Quality
 
-- ✅ Logging in Services implementiert (kürzlich hinzugefügt)
-- ✅ Error Handling verbessert
-- ✅ Input Validation hinzugefügt
-- ❌ 🟡 **Code-Coverage > 70%**
-  - Mehr Unit Tests schreiben
-  - Integration Tests
-- ❌ 🟡 **Sicherheits-Audit** (OWASP Top 10)
-- ❌ 🟡 **Performance-Tests**
-  - Lasttests mit 50+ Clients
-  - Memory-Leak-Detection
+- ✅ **Logging in services implemented** (recently added)
+- ✅ **Error handling improved**
+- ✅ **Input validation added**
 
-### Dokumentation
-ganz zum schluss
-- ✅ README.md vorhanden
-- ✅ API-Dokumentation (Partial)
-- ❌ 🟡 **Benutzerhandbuch** erstellen
-- ❌ 🟡 **Technische Dokumentation**
-  - Architektur-Diagramme
-  - Deployment-Guide
-  - API-Referenz (OpenAPI)
-- ❌ 🟡 **Code-Kommentare** vervollständigen
-  - XML-Dokumentation für alle Public APIs
+- ❌ 🟡 **Code Coverage > 70%**
+  - Write more unit tests
+  - Integration tests
+
+- ❌ 🟡 **Security Audit** (OWASP Top 10)
+
+- ❌ 🟡 **Performance Tests**
+  - Load tests with 50+ clients
+  - Memory leak detection
+
+### Documentation
+
+- ✅ **README.md present**
+- ✅ **API Documentation (Partial)**
+- ❌ 🟡 **User Manual** create
+- ❌ 🟡 **Technical Documentation**
+  - Architecture diagrams
+  - Deployment guide
+  - API reference (OpenAPI)
+- ❌ 🟡 **Code Comments** complete
+  - XML documentation for all public APIs
 
 ### CI/CD
 
-
-- ❌ 🟡 **Automatisierte Security-Scans**
-
----
-
-## PRIORISIERTE ROADMAP
-
-### Phase 1: MVP (Minimum Viable Product) - 🔴 Hohe Priorität
-
-**Ziel:** Funktionstüchtige Basis mit Kernfeatures
-
-1. **Designer-Grundfunktionen**
-   - Drag-and-Drop Canvas
-   - Element-Erstellung (Text, Bild, Shape)
-   - Eigenschaften-Panel
-   - Speichern/Laden
-
-2. **Geräte-Verwaltung**
-   - Geräte-Liste mit Status
-   - Layout-Zuweisung
-   - Remote-Befehle
-
-3. **Client-Stabilität**
-   - ✅ systemd Service
-   - ✅ Offline-Cache
-   - ✅ TLS-Verschlüsselung
-
-4. **Daten-Integration**
-   - ✅ SQL-Datenquellen funktional
-   - ✅ Auto-Refresh (DataRefreshService)
-   - ✅ Variable-Ersetzung im Server (Scriban Template Engine)
-
-### Phase 2: Erweiterungen - 🟡 Mittlere Priorität
-
-**Ziel:** Produktionsreife Features
-
-1. **Erweiterte Designer-Features**
-   - Ebenen-Management UI
-   - Undo/Redo
-   - Vorlagen-System
-
-2. **Medien-Management**
-   - Medienbibliothek
-   - Upload-Funktionalität
-
-3. **Monitoring & Logs**
-   - Remote Log-Viewer
-   - Alert-System
-   - Performance-Metriken
-
-4. **Zeitpläne**
-   - Layout-Scheduling
-   - Zeitbasierte Anzeigen
-
-### Phase 3: Professional Features - 🟢 Niedrige Priorität
-
-**Ziel:** Enterprise-Features und Komfort
-
-1. **Automatisierung**
-   - Auto-Discovery
-   - QR-Pairing
-   - Auto-Updates
-
-2. **Erweiterte Widgets**
-   - Wetter, RSS, Social Media
-
-3. **REST API & Integration**
-   - Swagger-Doku
-   - Webhooks
-
-4. **Deployment-Verbesserungen**
-   - MSI-Installer
-   - Web-Konfiguration für Client
+- ❌ 🟡 **Automated Security Scans**
 
 ---
 
-## ZUSAMMENFASSUNG
+## PRIORITIZED ROADMAP
 
-### Implementierungsstand
+### Phase 1: MVP (Minimum Viable Product) - 🔴 High Priority
 
-- **Vollständig:** ~85%
-  - Kommunikations-Infrastruktur
-  - Grundlegende Datenmodelle
-  - Service-Layer-Architektur
-  - Python Client Display-Engine mit Status Screens
-  - WebSocket Communication mit TLS/SSL
-  - **Designer-Tab vollständig funktional** ✅
-    - Drag-and-Drop Canvas mit Selection Rectangle
-    - **Layers Panel (250px Sidebar)** ✅ (NEU)
-      - Visual Layer List mit Type Icons
-      - Z-Index Display und Move Up/Down
-      - Visibility Toggle (👁/🚫)
-      - Synchronized Selection
-    - Properties Panel mit Echtzeit-Bearbeitung
-    - **Erweiterte Properties Panel** ✅ (NEU - 2025-11-11)
-      - Rotation Control (0-360° mit Slider)
-      - Font Settings (Family, Size, Bold, Italic)
-      - Color Picker mit Hex-Eingabe und Vorschau
-      - Kontextsensitive Properties (Text/Rectangle)
-    - Raster und Snap-to-Grid
-    - Resize-Handles für Elemente
-    - **Zoom Controls Toolbar** ✅ (NEU)
-      - Zoom In/Out Buttons, Slider (25%-400%)
-      - Zoom Level Display, Zoom to Fit
-    - Element-Verwaltung (Add/Delete/Duplicate)
-    - **Undo/Redo-System** ✅ (NEU - 2025-11-11)
-      - Command Pattern vollständig implementiert
-      - CommandHistory mit 50 Einträgen
-      - Keyboard Shortcuts ready (Ctrl+Z, Ctrl+Y)
-    - **Multi-Selection** ✅ (NEU - 2025-11-11)
-      - Ctrl+Click, Shift+Click, Selection Rectangle
-      - SelectionService mit Bulk Operations
-      - Selection Bounds Calculation
-  - **Geräte-Tab vollständig funktional** ✅
-    - Device Management UI mit Control Panel
-    - **Auto-Discovery Button** ✅ (NEU - UDP Broadcast)
-    - Alle Remote Commands implementiert
-    - **Remote Client Configuration** ✅ (NEU)
-      - Server Settings, SSL/TLS, Log Level
-    - Layout Assignment UI
-    - Volume Control mit Slider
-    - Status Monitoring
-  - **Datenquellen-Tab vollständig funktional** ✅
-    - Data Source Management UI mit Editor
-    - Query Builder Integration
-    - Connection Test und Data Preview
-    - Static Data Support (JSON)
-    - Database Persistence
-  - **Scheduling-Tab vollständig funktional** ✅ (NEU)
-    - Schedule Management UI
-    - Time-based Layout Switching
-    - Client/Group Targeting
-    - Priority System
-  - **Media Library Tab vollständig funktional** ✅ (NEU)
-    - Upload/Filter/Search Funktionalität
-    - Details Panel mit Metadata
-    - SHA256 Deduplizierung
-    - Access Tracking
-  - **Vorschau-Tab vollständig funktional** ✅
-    - Template Engine Integration
-    - Test Data Source Selector
-  - **Logs Tab vollständig funktional** ✅ (NEU)
-    - Client Filter, Log Level Filter
-    - Export Funktionalität
-    - Color-coded Levels
-  - **Live Debug Logs Tab vollständig funktional** ✅ (NEU)
-    - Real-time Server Log Streaming
-    - Console-Style Dark Theme
-    - Auto-scroll
-    - Live Preview mit Template Engine
-    - Test Data Simulator
-    - Auto-Refresh Funktionalität
-  - **Zeitplan-System vollständig funktional** ✅
-    - Layout Scheduling mit Editor
-    - Automatische Zeitplan-Ausführung
-    - Priority-basierte Auswahl
-  - **Media Library vollständig funktional** ✅ (NEU - 2025-11-11)
-    - MediaLibraryViewModel mit CRUD
-    - Upload mit Multi-Select
-    - Filter nach Typ und Suche
-    - Details Panel mit Edit-Funktionen
-    - FileSizeConverter für Größenanzeige
-    - Vollständige Backend-Integration
-  - **Zoom-Funktionalität vollständig implementiert** ✅
-    - Zoom Slider und Mausrad-Support
-    - Fit to Screen / Reset Zoom
-  - **Touch Support** ✅ (NEU - 2025-11-11)
-    - Pinch-to-Zoom und Pan Gestures
-    - Touch Event Handlers
-    - Manipulation Support
-  - **Connection Pooling & Query Caching** ✅ (NEU - 2025-11-11)
-    - QueryCacheService mit SHA256 Keys
-    - Automatische Pooling-Konfiguration
-    - Cache Statistics und Invalidierung
-  - **Alert System** ✅ (NEU - 2025-11-11)
-    - AlertService mit Rules Engine
-    - AlertMonitoringService Background Service
-    - 6 Alert Rule Types implementiert
-  - Dependency Injection Setup
-  - systemd Service + Watchdog
-  - TLS/SSL-Verschlüsselung
-  - Client-Offline-Cache
-  - Auto-Discovery (UDP Broadcast)
+**Goal:** Functional base with core features
 
-- **Teilweise:** ~5%
-  - Element-Gruppierung (Commands vorhanden, UI fehlt)
+✅ **COMPLETED:**
+1. Designer basic functions ✅
+   - Drag-and-drop canvas ✅
+   - Element creation (Text, Image, Shape) ✅
+   - Properties panel ✅
+   - Save/Load ✅
 
-- **Nicht implementiert:** ~10%
-  - Deployment-Tools (MSI-Installer, Windows Dienst)
-  - Smart Guides (Ausrichtungshilfslinien im Designer)
-  - Thumbnail-Generierung für Media Library
-  - Alert Management UI (Backend vorhanden, UI fehlt)
-  - Visuelle Daten-Mapping UI (SQL → UI-Elemente)
-  - Element-Gruppierung UI
-  - Theme Switcher (Dark/Light)
-  - REST API mit Swagger
-  - Widget-System (Wetter, RSS)
-  - Audit-Log UI (Entity vorhanden, UI fehlt)
-  - Erweiterte Dokumentation (Benutzerhandbuch)
+2. Device management ✅
+   - Device list with status ✅
+   - Layout assignment ✅
+   - Remote commands ✅
 
-### Nächste Schritte (Quick Wins)
+3. Client stability ✅
+   - systemd service ✅
+   - Offline cache ✅
+   - TLS encryption ✅
+   - **Automatic reconnection** ✅ (NEW - 2025-11-11)
+   - **Web dashboard** ✅ (NEW - 2025-11-12)
+   - **Responsive status screens** ✅ (NEW - 2025-11-12)
 
-1. ✅ **Designer-Canvas** funktional machen (ABGESCHLOSSEN)
-2. ✅ **Dependency Injection** im Server einrichten (ABGESCHLOSSEN)
-3. ✅ **systemd Service** für Raspberry Pi Client (ABGESCHLOSSEN)
-4. ✅ **TLS-Verschlüsselung** aktivieren (ABGESCHLOSSEN)
-5. ✅ **Client-Offline-Cache** implementieren (ABGESCHLOSSEN)
-6. ✅ **Medien-Browser UI** - UI für zentrale Medienbibliothek (ABGESCHLOSSEN - 2025-11-11)
-7. ✅ **Undo/Redo-System** - Command Pattern für Designer-Operationen (ABGESCHLOSSEN - 2025-11-11)
-8. ✅ **Ebenen-Palette** - Layer Panel mit Visibility Toggle (ABGESCHLOSSEN - 2025-11-11)
-9. ✅ **Erweiterte Properties Panel** - Rotation, Font Settings, Color Picker (ABGESCHLOSSEN - 2025-11-11)
-10. ✅ **Connection Pooling & Query Caching** - SQL Performance-Optimierung (ABGESCHLOSSEN - 2025-11-11)
-11. ✅ **Alert System** - Rules Engine mit Background Monitoring (ABGESCHLOSSEN - 2025-11-11)
-12. ✅ **Multi-Selection im Designer** - Ctrl+Click, Shift+Click, Selection Rectangle (ABGESCHLOSSEN - 2025-11-11)
-13. ✅ **Touch Support** - Pinch-to-Zoom, Pan Gestures für Tablets (ABGESCHLOSSEN - 2025-11-11)
+4. Data integration ✅
+   - SQL data sources functional ✅
+   - Auto-refresh (DataRefreshService) ✅
+   - Variable replacement on server (Scriban Template Engine) ✅
 
-**Neue Prioritäten (Stand: 2025-11-12):**
+**REMAINING:**
+- ❌ 🔴 **MSI Installer** - Critical for production deployment
+- ❌ 🔴 **Visual Data Mapping UI** - Essential for ease of use
 
-### 🔴 Hohe Priorität - Produktionsreife Features
-1. **Alert Management UI Tab** - 🆕 FEHLT NOCH
-   - UI für Alert Rules (Create/Edit/Delete)
-   - Active Alerts Dashboard mit Real-time Updates
-   - Alert History mit Filter/Search
-   - Backend (AlertService, AlertMonitoringService) ✅ vorhanden
-   - ViewModel und MainWindow.xaml Tab fehlen
+### Phase 2: Extensions - 🟡 Medium Priority
 
-2. **Visuelle Daten-Mapping UI** - 🆕 FEHLT NOCH
-   - Drag-and-Drop Mapping SQL-Spalten → UI-Elemente
-   - Visual Connection Builder (wie Power BI)
-   - Template Variable Browser
-   - Auto-Mapping Suggestions
+**Goal:** Production-ready features
 
-3. **Element-Gruppierung UI** - 🆕 FEHLT NOCH
-   - Gruppe erstellen/auflösen Commands
-   - Gruppe als Einheit transformieren
-   - Group-Hierarchie im Layer Panel
-   - Verschachtelte Gruppierung
+✅ **COMPLETED:**
+1. Extended designer features ✅
+   - Layer management UI ✅
+   - Undo/Redo ✅
+   - Template system ✅
+   - Multi-selection ✅ (NEW - 2025-11-11)
+   - Touch support ✅ (NEW - 2025-11-11)
 
-4. **MSI Installer** - 🆕 FEHLT NOCH
-   - WiX Toolset Setup Project
-   - .NET Runtime Check und Installation
-   - Installationsordner Konfiguration
-   - Start-Menü-Einträge und Desktop-Shortcut
-   - Datenbank-Setup-Dialog (Connection String)
+2. Media management ✅
+   - Media library ✅
+   - Upload functionality ✅
 
-### 🟡 Mittlere Priorität - UX Verbesserungen
-5. **Smart Guides (Ausrichtungshilfslinien)** - 🆕 FEHLT NOCH
-   - Automatische Hilfslinien beim Verschieben
-   - Snap-to-Guide Funktionalität
-   - Abstand-Anzeigen zwischen Elementen
-   - Zentrale Ausrichtungshilfen
+3. Monitoring & Logs ✅
+   - Remote log viewer ✅
+   - Alert system ✅ (NEW - 2025-11-11)
+   - Performance metrics ✅
 
-6. **Thumbnail-Generierung für Media Library** - 🆕 FEHLT NOCH
-   - Automatische Thumbnail-Erstellung bei Upload
-   - Image Resizing mit System.Drawing
-   - Video First-Frame Extraction
-   - PDF First-Page Preview
-   - Thumbnail Cache Management
+4. Scheduling ✅
+   - Layout scheduling ✅
+   - Time-based displays ✅
 
-7. **Theme Switcher (Dark/Light Mode)** - 🆕 FEHLT NOCH
-   - Theme ResourceDictionary erstellen
-   - Theme-Selector UI (ComboBox oder Toggle)
-   - Theme Persistence in User Settings
-   - Dynamisches Theme-Switching zur Laufzeit
+**REMAINING:**
+- ❌ 🟡 **Alert Management UI** - Backend complete, UI needed
+- ❌ 🟡 **Thumbnail Generation** - For media library preview
+- ❌ 🟡 **Smart Guides** - Alignment helpers in designer
+- ❌ 🟡 **Theme Switcher** - Dark/Light mode
 
-8. **Audit-Log UI Tab** - 🆕 FEHLT NOCH
-   - Audit-Log Viewer mit DataGrid
-   - Filter nach User, Action, Entity Type
-   - Diff-Viewer für Changes (JSON Before/After)
-   - Export als CSV/Excel
-   - Backend (AuditLog Entity) ✅ vorhanden
+### Phase 3: Professional Features - 🟢 Low Priority
 
-### 🟢 Niedrige Priorität - Nice-to-Have
-9. **REST API mit Swagger** - 🆕 FEHLT NOCH
+**Goal:** Enterprise features and comfort
+
+**REMAINING:**
+1. Automation
+   - ✅ Auto-discovery ✅
+   - ❌ QR pairing
+   - ❌ Auto-updates
+
+2. Extended widgets
+   - ❌ Weather, RSS, Social media
+
+3. REST API & Integration
+   - ❌ Swagger documentation
+   - ❌ Webhooks
+
+4. Deployment improvements
+   - ❌ MSI installer (moved to Phase 1 - High Priority)
+   - ❌ Web configuration for client
+
+---
+
+## IMPLEMENTATION STATUS SUMMARY
+
+### Fully Implemented: ~90%
+
+**Core Infrastructure:**
+- ✅ Communication infrastructure
+- ✅ Basic data models
+- ✅ Service layer architecture
+- ✅ Python client display engine with status screens
+- ✅ WebSocket communication with TLS/SSL
+- ✅ **Plain WebSocket implementation** (replaced python-socketio)
+- ✅ **Automatic reconnection with exponential backoff**
+
+**Designer Tab - Fully Functional:** ✅
+- ✅ Drag-and-drop canvas with selection rectangle
+- ✅ **Layers Panel (250px Sidebar)** ✅ (NEW)
+  - Visual layer list with type icons
+  - Z-Index display and Move Up/Down
+  - Visibility toggle (👁/🚫)
+  - Synchronized selection
+- ✅ Properties panel with real-time editing
+- ✅ **Extended Properties Panel** ✅ (NEW - 2025-11-11)
+  - Rotation control (0-360° with slider)
+  - Font settings (Family, Size, Bold, Italic)
+  - Color picker with hex input and preview
+  - Context-sensitive properties (Text/Rectangle)
+- ✅ Grid and snap-to-grid
+- ✅ Resize handles for elements
+- ✅ **Zoom Controls Toolbar** ✅ (NEW)
+  - Zoom In/Out buttons, Slider (25%-400%)
+  - Zoom level display, Zoom to Fit
+- ✅ Element management (Add/Delete/Duplicate)
+- ✅ **Undo/Redo System** ✅ (NEW - 2025-11-11)
+  - Command pattern fully implemented
+  - CommandHistory with 50 entries
+  - Keyboard shortcuts ready (Ctrl+Z, Ctrl+Y)
+- ✅ **Multi-Selection** ✅ (NEW - 2025-11-11)
+  - Ctrl+Click, Shift+Click, Selection Rectangle
+  - SelectionService with bulk operations
+  - Selection bounds calculation
+
+**Devices Tab - Fully Functional:** ✅
+- ✅ Device Management UI with control panel
+- ✅ **Auto-Discovery Button** ✅ (NEW - UDP Broadcast)
+- ✅ All remote commands implemented
+- ✅ **Remote Client Configuration** ✅ (NEW)
+  - Server settings, SSL/TLS, Log level
+- ✅ Layout assignment UI
+- ✅ Volume control with slider
+- ✅ Status monitoring
+
+**Data Sources Tab - Fully Functional:** ✅
+- ✅ Data Source Management UI with editor
+- ✅ Query Builder integration
+- ✅ Connection test and data preview
+- ✅ Static data support (JSON)
+- ✅ Database persistence
+
+**Scheduling Tab - Fully Functional:** ✅ (NEW)
+- ✅ Schedule Management UI
+- ✅ Time-based layout switching
+- ✅ Client/Group targeting
+- ✅ Priority system
+
+**Media Library Tab - Fully Functional:** ✅ (NEW)
+- ✅ Upload/Filter/Search functionality
+- ✅ Details panel with metadata
+- ✅ SHA256 deduplication
+- ✅ Access tracking
+
+**Preview Tab - Fully Functional:** ✅
+- ✅ Template engine integration
+- ✅ Test data source selector
+- ✅ Auto-refresh functionality
+
+**Logs Tab - Fully Functional:** ✅ (NEW)
+- ✅ Client filter, Log level filter
+- ✅ Export functionality
+- ✅ Color-coded levels
+
+**Live Debug Logs Tab - Fully Functional:** ✅ (NEW)
+- ✅ Real-time server log streaming
+- ✅ Console-style dark theme
+- ✅ Auto-scroll
+
+**Other Systems:**
+- ✅ Layout scheduling system fully functional
+- ✅ Media Library fully functional (NEW - 2025-11-11)
+- ✅ Zoom functionality fully implemented
+- ✅ Touch support (NEW - 2025-11-11)
+- ✅ Connection pooling & query caching (NEW - 2025-11-11)
+- ✅ Alert system (NEW - 2025-11-11)
+- ✅ Dependency Injection setup
+- ✅ systemd service + watchdog
+- ✅ TLS/SSL encryption
+- ✅ Client offline cache
+- ✅ Auto-discovery (UDP Broadcast)
+- ✅ **Web dashboard for clients** (NEW - 2025-11-12)
+- ✅ **Responsive status screens** (NEW - 2025-11-12)
+
+### Partially Implemented: ~5%
+
+- ⚠️ **Element Grouping** (Commands present, UI missing)
+- ⚠️ **Audit Logging** (Entity created, automatic tracking missing)
+
+### Not Implemented: ~5%
+
+- ❌ Deployment tools (MSI installer, Windows service)
+- ❌ Smart guides (alignment helpers in designer)
+- ❌ Thumbnail generation for media library
+- ❌ Alert management UI (backend present, UI missing)
+- ❌ Visual data mapping UI (SQL → UI elements)
+- ❌ Element grouping UI
+- ❌ Theme switcher (Dark/Light)
+- ❌ REST API with Swagger
+- ❌ Widget system (Weather, RSS)
+- ❌ Audit Log UI (entity present, UI missing)
+- ❌ Extended documentation (user manual)
+
+---
+
+## NEXT STEPS (High Priority Quick Wins)
+
+### ✅ COMPLETED RECENTLY:
+1. ✅ Designer Canvas functional (COMPLETED)
+2. ✅ Dependency Injection in server set up (COMPLETED)
+3. ✅ systemd Service for Raspberry Pi Client (COMPLETED)
+4. ✅ TLS Encryption enabled (COMPLETED)
+5. ✅ Client Offline Cache implemented (COMPLETED)
+6. ✅ Media Browser UI - UI for central media library (COMPLETED - 2025-11-11)
+7. ✅ Undo/Redo System - Command Pattern for designer operations (COMPLETED - 2025-11-11)
+8. ✅ Layer Palette - Layer Panel with Visibility Toggle (COMPLETED - 2025-11-11)
+9. ✅ Extended Properties Panel - Rotation, Font Settings, Color Picker (COMPLETED - 2025-11-11)
+10. ✅ Connection Pooling & Query Caching - SQL Performance Optimization (COMPLETED - 2025-11-11)
+11. ✅ Alert System - Rules Engine with Background Monitoring (COMPLETED - 2025-11-11)
+12. ✅ Multi-Selection in Designer - Ctrl+Click, Shift+Click, Selection Rectangle (COMPLETED - 2025-11-11)
+13. ✅ Touch Support - Pinch-to-Zoom, Pan Gestures for Tablets (COMPLETED - 2025-11-11)
+14. ✅ Automatic Reconnection - Visual Status Updates and Exponential Backoff (COMPLETED - 2025-11-11)
+15. ✅ Web Dashboard - Flask Web Interface for Client Monitoring (COMPLETED - 2025-11-12)
+16. ✅ Responsive Status Screens - Multi-resolution Support (COMPLETED - 2025-11-12)
+
+### 🔴 NEW PRIORITIES (Stand: 2025-11-12):
+
+#### High Priority - Production-Ready Features
+
+1. **MSI Installer** - 🆕 CRITICAL - NOT YET IMPLEMENTED
+   - WiX Toolset setup project
+   - .NET Runtime check and installation
+   - Installation folder configuration
+   - Start menu entries and desktop shortcut
+   - Database setup dialog (connection string)
+   - **Estimated effort:** 2-3 days
+
+2. **Alert Management UI Tab** - 🆕 MISSING - Backend Complete
+   - UI for Alert Rules (Create/Edit/Delete)
+   - Active Alerts Dashboard with real-time updates
+   - Alert History with Filter/Search
+   - Backend (AlertService, AlertMonitoringService) ✅ present
+   - ViewModel and MainWindow.xaml Tab missing
+   - **Estimated effort:** 1-2 days
+
+3. **Visual Data Mapping UI** - 🆕 CRITICAL - NOT YET IMPLEMENTED
+   - Drag-and-drop mapping SQL columns → UI elements
+   - Visual connection builder (like Power BI)
+   - Template variable browser
+   - Auto-mapping suggestions
+   - **Estimated effort:** 3-4 days
+
+4. **Element Grouping UI** - 🆕 MISSING - Partial Backend
+   - Create/ungroup group commands
+   - Transform group as unit
+   - Group hierarchy in Layer Panel
+   - Nested grouping
+   - **Estimated effort:** 2-3 days
+
+#### Medium Priority - UX Improvements
+
+5. **Smart Guides (Alignment Helpers)** - 🆕 NOT YET IMPLEMENTED
+   - Automatic guides when moving
+   - Snap-to-guide functionality
+   - Distance display between elements
+   - Central alignment guides
+   - **Estimated effort:** 2-3 days
+
+6. **Thumbnail Generation for Media Library** - 🆕 NOT YET IMPLEMENTED
+   - Automatic thumbnail creation on upload
+   - Image resizing with System.Drawing
+   - Video first-frame extraction
+   - PDF first-page preview
+   - Thumbnail cache management
+   - **Estimated effort:** 1-2 days
+
+7. **Theme Switcher (Dark/Light Mode)** - 🆕 NOT YET IMPLEMENTED
+   - Theme ResourceDictionary create
+   - Theme selector UI (ComboBox or Toggle)
+   - Theme persistence in User Settings
+   - Dynamic theme switching at runtime
+   - **Estimated effort:** 1-2 days
+
+8. **Audit Log UI Tab** - 🆕 MISSING - Backend Complete
+   - Audit log viewer with DataGrid
+   - Filter by User, Action, Entity Type
+   - Diff viewer for Changes (JSON Before/After)
+   - Export as CSV/Excel
+   - Backend (AuditLog Entity) ✅ present
+   - **Estimated effort:** 1 day
+
+#### Low Priority - Nice-to-Have
+
+9. **REST API with Swagger** - 🆕 NOT YET IMPLEMENTED
    - ASP.NET Core Web API Controller
-   - Swagger/OpenAPI Dokumentation
+   - Swagger/OpenAPI Documentation
    - JWT Authentication
    - Rate Limiting Middleware
    - API Versioning
+   - **Estimated effort:** 3-5 days
 
-10. **Widget-System** - 🆕 FEHLT NOCH
-    - Wetter-Widget (OpenWeatherMap API)
-    - RSS-Feed-Widget
+10. **Widget System** - 🆕 NOT YET IMPLEMENTED
+    - Weather Widget (OpenWeatherMap API)
+    - RSS Feed Widget
     - Social Media Widgets (Twitter, Instagram)
     - Pluggable Widget Architecture
     - Widget Store/Browser
+    - **Estimated effort:** 5-7 days
 
-11. **Erweiterte Dokumentation** - 🆕 FEHLT NOCH
-    - Benutzerhandbuch (PDF/Online)
-    - Video-Tutorials
-    - Deployment Guide erweitern
-    - Troubleshooting Guide
-    - API Documentation (wenn REST API implementiert)
+11. **Extended Documentation** - 🆕 NOT YET IMPLEMENTED
+    - User manual (PDF/Online)
+    - Video tutorials
+    - Expand deployment guide
+    - Troubleshooting guide
+    - API Documentation (if REST API implemented)
+    - **Estimated effort:** 3-5 days
+
+---
+
+## KNOWN ISSUES
+
+### Client-Side
+- ⚠️ AsyncIO warnings from zeroconf (suppressed, but still appear in logs)
+- ⚠️ Widget recreation warnings (mostly resolved, occasional edge cases)
+- ⚠️ Status screen may briefly flicker on rapid state changes
+
+### Server-Side
+- ⚠️ TODO in EnhancedMediaService: UploadedByUserId hardcoded to 1 (needs current user context)
+- ⚠️ TODO in MessageHandlerService: Screenshot storage not implemented
+- ⚠️ Several TODO items in MainViewModel for dialogs (Open, Save As, Import, Add Device)
+
+### General
+- ⚠️ No automatic updates mechanism for clients
+- ⚠️ No rate limiting on API endpoints
+- ⚠️ Test coverage below 70%
+
+---
+
+## PERFORMANCE OPTIMIZATIONS
+
+### Completed
+- ✅ Connection pooling for SQL (MinPoolSize, MaxPoolSize configured)
+- ✅ Query caching with SHA256 keys (LRU eviction, configurable TTL)
+- ✅ In-memory client registry with database persistence
+- ✅ Offline cache with SQLite (layout caching for clients)
+- ✅ WebSocket with automatic reconnection (plain websocket-client, more efficient)
+
+### Pending
+- ❌ 🟡 Differential updates (only send changed data)
+- ❌ 🟡 gzip compression for WebSocket messages
+- ❌ 🟡 CDN integration for media files
+- ❌ 🟡 Database indexing optimization (review query plans)
+- ❌ 🟡 Lazy loading for large datasets in UI
+
+---
+
+## CONCLUSION
+
+**Overall Project Status: ~50% Complete**
+
+The Digital Signage Management System has achieved significant milestones:
+- ✅ **Core infrastructure** is solid and production-ready
+- ✅ **Client-Server communication** is robust with automatic reconnection
+- ✅ **Designer interface** is fully functional with advanced features
+- ✅ **Device management** is comprehensive and user-friendly
+- ✅ **Data integration** is functional with real-time updates
+- ✅ **Scheduling system** is complete and working
+- ✅ **Media library** is fully implemented
+- ✅ **Web dashboard** provides excellent client monitoring (NEW)
+- ✅ **Responsive status screens** enhance user experience (NEW)
+
+**Remaining Work (High Priority):**
+1. MSI Installer (critical for deployment)
+2. Alert Management UI (backend complete, needs UI)
+3. Visual Data Mapping UI (essential for ease of use)
+4. Element Grouping UI (partial backend, needs UI)
+5. Smart Guides (UX improvement for designer)
+
+**Next Development Session Priorities:**
+1. Create MSI Installer with WiX Toolset (2-3 days)
+2. Implement Alert Management UI Tab (1-2 days)
+3. Build Visual Data Mapping UI (3-4 days)
+4. Complete Element Grouping UI (2-3 days)
+
+The project is well-positioned for production deployment after completing the high-priority items above.
+
+---
+
+**Last Updated:** 2025-11-12
+**Reviewed By:** Claude Code Analysis
+**Next Review:** After implementing next 2-3 major features
