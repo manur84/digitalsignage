@@ -814,13 +814,36 @@ def main():
         logger.info("Display renderer created and shown")
 
         logger.info("Starting client event loop...")
-        # Start client in asyncio event loop
-        loop = asyncio.get_event_loop()
-        loop.create_task(client.start())
+        # Start client in asyncio event loop using qasync for Qt+asyncio integration
+        try:
+            import qasync
+            loop = qasync.QEventLoop(app)
+            asyncio.set_event_loop(loop)
 
-        logger.info("Starting Qt event loop...")
-        # Run Qt event loop
-        sys.exit(app.exec_())
+            with loop:
+                loop.create_task(client.start())
+                logger.info("Starting Qt+asyncio event loop...")
+                loop.run_forever()
+        except ImportError:
+            # Fallback: Use asyncio event loop with Qt integration
+            logger.warning("qasync not available - using fallback integration")
+            loop = asyncio.get_event_loop()
+
+            # Start the asyncio task
+            loop.create_task(client.start())
+
+            # Run asyncio event loop in a separate thread
+            import threading
+            def run_asyncio_loop():
+                asyncio.set_event_loop(loop)
+                loop.run_forever()
+
+            asyncio_thread = threading.Thread(target=run_asyncio_loop, daemon=True)
+            asyncio_thread.start()
+
+            logger.info("Starting Qt event loop...")
+            # Run Qt event loop
+            sys.exit(app.exec_())
 
     except KeyboardInterrupt:
         logger.info("Received keyboard interrupt - shutting down...")
