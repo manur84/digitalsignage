@@ -283,10 +283,15 @@ Basierend auf dem Entwicklungsauftrag und dem aktuellen Code-Stand.
   - ✅ Client-seitige Zeitplan-Ausführung via DisplayUpdate Messages
   - ✅ Schedule Management UI (Add, Edit, Delete, Enable/Disable)
   - ❌ 🟡 Cron-Expression Support für komplexere Zeitpläne
-- ❌ 🟡 **Remote Log-Viewer**
-  - LOG Nachrichtentyp implementieren
-  - Log-Level Filter
-  - Echtzeit-Log-Streaming
+- ✅ **Remote Log-Viewer** - Vollständig implementiert als "Logs Tab" (NEU - 2025-11-12)
+  - ✅ Client-Filter ComboBox (zeigt alle verfügbaren Clients)
+  - ✅ Log-Level Filter (Debug, Info, Warning, Error, Critical)
+  - ✅ Echtzeit-Log-Streaming von Clients
+  - ✅ DataGrid mit Time, Client, Level, Message
+  - ✅ Color-coded Log Levels
+  - ✅ Export Funktionalität
+  - ✅ LogViewerViewModel mit vollständiger Fehlerbehandlung
+  - ❌ 🟡 LOG Nachrichtentyp noch zu implementieren (aktuell andere Mechanismen)
 - ✅ **Alert System** - Vollständig implementiert (NEU - 2025-11-11)
   - ✅ Alert und AlertRule Entities mit EF Core
   - ✅ AlertService mit Rules Engine
@@ -491,13 +496,24 @@ Basierend auf dem Entwicklungsauftrag und dem aktuellen Code-Stand.
 - ✅ **Designer-Tab**
   - ✅ Canvas mit Zoom/Pan
   - ✅ Werkzeugleiste (60px Sidebar)
+  - ✅ **Layers Panel (250px, Grid Column 1)** - NEU implementiert
+    - ✅ Layer List mit Type Icons
+    - ✅ Z-Index Anzeige
+    - ✅ Move Up/Down Buttons
+    - ✅ Visibility Toggle (👁/🚫 Icons)
+    - ✅ Synchronisierte Selektion mit Canvas
   - ✅ Eigenschaften-Panel (300px rechts)
   - ✅ Grid-Anzeige mit Snap-to-Grid
   - ✅ Drag-and-Drop für Elemente
   - ✅ Resize-Handles mit ResizeAdorner
-  - ❌ 🟡 Ebenen-Panel (separates Panel)
+  - ✅ **Zoom Controls Toolbar** - NEU implementiert
+    - ✅ Zoom In/Out Buttons
+    - ✅ Zoom Slider (25%-400%)
+    - ✅ Zoom Level Display
+    - ✅ Zoom to Fit Button
 - ✅ **Geräte-Tab**
   - ✅ DataGrid mit Geräteliste (Name, IP, MAC, Group, Location, Status, Last Seen)
+  - ✅ **Discover Devices Button** - NEU implementiert (UDP-Broadcast)
   - ✅ Geräte-Detail-Panel (300px rechts)
   - ✅ Status-Indikatoren (Online/Offline mit Farben)
   - ✅ Remote Commands: Restart Device, Restart App, Screenshot
@@ -505,6 +521,12 @@ Basierend auf dem Entwicklungsauftrag und dem aktuellen Code-Stand.
   - ✅ Volume Control mit Slider
   - ✅ Layout Assignment mit ComboBox
   - ✅ Maintenance: Clear Cache
+  - ✅ **Client Configuration Remote Update** - NEU implementiert
+    - ✅ Server Host/Port konfigurierbar
+    - ✅ SSL/TLS Settings
+    - ✅ Full Screen Mode Toggle
+    - ✅ Log Level konfigurierbar
+    - ✅ Update-Command an Client mit Bestätigung
   - ✅ Status-Nachrichtenleiste
   - ✅ DeviceManagementViewModel mit vollständiger Fehlerbehandlung und Logging
 - ✅ **Datenquellen-Tab** - Vollständig implementiert
@@ -518,10 +540,62 @@ Basierend auf dem Entwicklungsauftrag und dem aktuellen Code-Stand.
   - ✅ DataSourceManagementViewModel mit vollständiger Fehlerbehandlung
 - ✅ **Vorschau-Tab** - Vollständig implementiert
   - ✅ Layout-Rendering mit Template Engine
-  - ✅ Testdaten-Simulator (JSON Editor)
-  - ✅ Auto-Refresh Toggle (alle 5 Sekunden)
-  - ✅ Zoom-Funktionen (Fit, Reset)
+  - ✅ Testdaten-Simulator mit Data Source Auswahl
+  - ✅ Auto-Refresh Toggle mit Status-Anzeige
+  - ✅ Clear Preview Button
+  - ✅ Preview Canvas mit Layout-Hintergrund
+  - ✅ Variable Substitution Preview
+  - ✅ PreviewViewModel mit vollständiger Fehlerbehandlung
   - ❌ 🟡 Vollbild-Button
+- ✅ **Scheduling-Tab** - Vollständig implementiert (NEU)
+  - ✅ Schedule List (300px Sidebar) mit Add/Refresh Buttons
+  - ✅ Schedule Editor mit vollständigem Form
+    - ✅ Name, Description Felder
+    - ✅ Layout Auswahl (ComboBox)
+    - ✅ Start Time / End Time (HH:mm Format)
+    - ✅ Days of Week (Komma-separiert oder *)
+    - ✅ Priority Feld
+    - ✅ IsActive Toggle
+    - ✅ Client/Group Targeting (optional)
+  - ✅ Save/Delete/Test Buttons
+  - ✅ Status Message Display
+  - ✅ SchedulingViewModel mit vollständiger Fehlerbehandlung
+- ✅ **Media Library Tab** - Vollständig implementiert (NEU)
+  - ✅ Toolbar mit Upload/Refresh Buttons
+  - ✅ Filter nach MediaType (All/Image/Video/Audio/Document)
+  - ✅ Search TextBox mit Placeholder
+  - ✅ Clear Filter Button
+  - ✅ Media DataGrid mit Spalten:
+    - ✅ Type Icon, File Name, Type, Size, Dimensions, Uploaded, Access Count
+  - ✅ Details Panel (350px rechts)
+    - ✅ Thumbnail Placeholder
+    - ✅ File Information Display
+    - ✅ Editable Fields: Description, Tags, Category
+    - ✅ Update/Delete Buttons
+  - ✅ Status Message Bar
+  - ✅ MediaLibraryViewModel mit vollständiger Fehlerbehandlung
+- ✅ **Logs Tab** - Vollständig implementiert (NEU)
+  - ✅ Toolbar mit Filtern
+    - ✅ Client Filter ComboBox
+    - ✅ Log Level Checkboxes (Debug, Info, Warning, Error, Critical)
+    - ✅ Auto-scroll Toggle
+    - ✅ Refresh/Clear/Export Buttons
+  - ✅ Logs DataGrid mit Spalten:
+    - ✅ Time, Client, Level (farbcodiert), Message
+    - ✅ Row Background basierend auf Level
+    - ✅ Text Wrapping mit Tooltip
+  - ✅ Status Bar mit Quick Actions
+    - ✅ All/None/Errors Only Buttons
+  - ✅ LogViewerViewModel mit vollständiger Fehlerbehandlung
+- ✅ **Live Debug Logs Tab** - Vollständig implementiert (NEU)
+  - ✅ Dark Theme Console-Style (VS Code ähnlich)
+  - ✅ Real-time Log Streaming ListBox
+  - ✅ Auto-scroll Toggle
+  - ✅ Clear Logs Button
+  - ✅ Consolas Font für bessere Lesbarkeit
+  - ✅ Virtualization für Performance
+  - ✅ Status Bar mit Log Count
+  - ✅ LiveLogsViewModel mit vollständiger Fehlerbehandlung
 
 ### 4.2 Responsive Design
 
@@ -704,13 +778,19 @@ ganz zum schluss
 
 ### Implementierungsstand
 
-- **Vollständig:** ~80%
+- **Vollständig:** ~85%
   - Kommunikations-Infrastruktur
   - Grundlegende Datenmodelle
   - Service-Layer-Architektur
-  - Python Client Display-Engine
+  - Python Client Display-Engine mit Status Screens
+  - WebSocket Communication mit TLS/SSL
   - **Designer-Tab vollständig funktional** ✅
-    - Drag-and-Drop Canvas
+    - Drag-and-Drop Canvas mit Selection Rectangle
+    - **Layers Panel (250px Sidebar)** ✅ (NEU)
+      - Visual Layer List mit Type Icons
+      - Z-Index Display und Move Up/Down
+      - Visibility Toggle (👁/🚫)
+      - Synchronized Selection
     - Properties Panel mit Echtzeit-Bearbeitung
     - **Erweiterte Properties Panel** ✅ (NEU - 2025-11-11)
       - Rotation Control (0-360° mit Slider)
@@ -719,24 +799,24 @@ ganz zum schluss
       - Kontextsensitive Properties (Text/Rectangle)
     - Raster und Snap-to-Grid
     - Resize-Handles für Elemente
-    - Zoom-Funktionen
+    - **Zoom Controls Toolbar** ✅ (NEU)
+      - Zoom In/Out Buttons, Slider (25%-400%)
+      - Zoom Level Display, Zoom to Fit
     - Element-Verwaltung (Add/Delete/Duplicate)
     - **Undo/Redo-System** ✅ (NEU - 2025-11-11)
       - Command Pattern vollständig implementiert
       - CommandHistory mit 50 Einträgen
       - Keyboard Shortcuts ready (Ctrl+Z, Ctrl+Y)
-    - **Layer Management** ✅ (NEU - 2025-11-11)
-      - Layer Panel mit visueller Liste
-      - Visibility Toggle für Layers
-      - Move Up/Down für Z-Index
-      - Synchronisierte Selektion
     - **Multi-Selection** ✅ (NEU - 2025-11-11)
       - Ctrl+Click, Shift+Click, Selection Rectangle
       - SelectionService mit Bulk Operations
       - Selection Bounds Calculation
   - **Geräte-Tab vollständig funktional** ✅
     - Device Management UI mit Control Panel
+    - **Auto-Discovery Button** ✅ (NEU - UDP Broadcast)
     - Alle Remote Commands implementiert
+    - **Remote Client Configuration** ✅ (NEU)
+      - Server Settings, SSL/TLS, Log Level
     - Layout Assignment UI
     - Volume Control mit Slider
     - Status Monitoring
@@ -744,8 +824,29 @@ ganz zum schluss
     - Data Source Management UI mit Editor
     - Query Builder Integration
     - Connection Test und Data Preview
+    - Static Data Support (JSON)
     - Database Persistence
+  - **Scheduling-Tab vollständig funktional** ✅ (NEU)
+    - Schedule Management UI
+    - Time-based Layout Switching
+    - Client/Group Targeting
+    - Priority System
+  - **Media Library Tab vollständig funktional** ✅ (NEU)
+    - Upload/Filter/Search Funktionalität
+    - Details Panel mit Metadata
+    - SHA256 Deduplizierung
+    - Access Tracking
   - **Vorschau-Tab vollständig funktional** ✅
+    - Template Engine Integration
+    - Test Data Source Selector
+  - **Logs Tab vollständig funktional** ✅ (NEU)
+    - Client Filter, Log Level Filter
+    - Export Funktionalität
+    - Color-coded Levels
+  - **Live Debug Logs Tab vollständig funktional** ✅ (NEU)
+    - Real-time Server Log Streaming
+    - Console-Style Dark Theme
+    - Auto-scroll
     - Live Preview mit Template Engine
     - Test Data Simulator
     - Auto-Refresh Funktionalität
@@ -784,13 +885,18 @@ ganz zum schluss
 - **Teilweise:** ~5%
   - Element-Gruppierung (Commands vorhanden, UI fehlt)
 
-- **Nicht implementiert:** ~15%
-  - Deployment-Tools (MSI-Installer)
-  - Smart Guides (Ausrichtungshilfslinien)
-  - Thumbnail-Generierung
-  - Remote Log-Viewer UI
-  - Alert Management UI
-  - Erweiterte Dokumentation
+- **Nicht implementiert:** ~10%
+  - Deployment-Tools (MSI-Installer, Windows Dienst)
+  - Smart Guides (Ausrichtungshilfslinien im Designer)
+  - Thumbnail-Generierung für Media Library
+  - Alert Management UI (Backend vorhanden, UI fehlt)
+  - Visuelle Daten-Mapping UI (SQL → UI-Elemente)
+  - Element-Gruppierung UI
+  - Theme Switcher (Dark/Light)
+  - REST API mit Swagger
+  - Widget-System (Wetter, RSS)
+  - Audit-Log UI (Entity vorhanden, UI fehlt)
+  - Erweiterte Dokumentation (Benutzerhandbuch)
 
 ### Nächste Schritte (Quick Wins)
 
@@ -808,11 +914,80 @@ ganz zum schluss
 12. ✅ **Multi-Selection im Designer** - Ctrl+Click, Shift+Click, Selection Rectangle (ABGESCHLOSSEN - 2025-11-11)
 13. ✅ **Touch Support** - Pinch-to-Zoom, Pan Gestures für Tablets (ABGESCHLOSSEN - 2025-11-11)
 
-**Neue Prioritäten:**
-1. **Alert Management UI** - UI für Alert Rules, Active Alerts, Alert History
-2. **Visuelle Daten-Mapping UI** - SQL-Spalten zu UI-Elementen zuordnen
-3. **Remote Log-Viewer** - Echtzeit-Log-Streaming von Clients
-4. **Element-Gruppierung** - Mehrere Elemente als Gruppe bearbeiten
-5. **Smart Guides** - Ausrichtungshilfslinien im Designer
-6. **Thumbnail-Generierung** für Medien-Vorschau
-7. **MSI Installer** - WiX Toolset Deployment
+**Neue Prioritäten (Stand: 2025-11-12):**
+
+### 🔴 Hohe Priorität - Produktionsreife Features
+1. **Alert Management UI Tab** - 🆕 FEHLT NOCH
+   - UI für Alert Rules (Create/Edit/Delete)
+   - Active Alerts Dashboard mit Real-time Updates
+   - Alert History mit Filter/Search
+   - Backend (AlertService, AlertMonitoringService) ✅ vorhanden
+   - ViewModel und MainWindow.xaml Tab fehlen
+
+2. **Visuelle Daten-Mapping UI** - 🆕 FEHLT NOCH
+   - Drag-and-Drop Mapping SQL-Spalten → UI-Elemente
+   - Visual Connection Builder (wie Power BI)
+   - Template Variable Browser
+   - Auto-Mapping Suggestions
+
+3. **Element-Gruppierung UI** - 🆕 FEHLT NOCH
+   - Gruppe erstellen/auflösen Commands
+   - Gruppe als Einheit transformieren
+   - Group-Hierarchie im Layer Panel
+   - Verschachtelte Gruppierung
+
+4. **MSI Installer** - 🆕 FEHLT NOCH
+   - WiX Toolset Setup Project
+   - .NET Runtime Check und Installation
+   - Installationsordner Konfiguration
+   - Start-Menü-Einträge und Desktop-Shortcut
+   - Datenbank-Setup-Dialog (Connection String)
+
+### 🟡 Mittlere Priorität - UX Verbesserungen
+5. **Smart Guides (Ausrichtungshilfslinien)** - 🆕 FEHLT NOCH
+   - Automatische Hilfslinien beim Verschieben
+   - Snap-to-Guide Funktionalität
+   - Abstand-Anzeigen zwischen Elementen
+   - Zentrale Ausrichtungshilfen
+
+6. **Thumbnail-Generierung für Media Library** - 🆕 FEHLT NOCH
+   - Automatische Thumbnail-Erstellung bei Upload
+   - Image Resizing mit System.Drawing
+   - Video First-Frame Extraction
+   - PDF First-Page Preview
+   - Thumbnail Cache Management
+
+7. **Theme Switcher (Dark/Light Mode)** - 🆕 FEHLT NOCH
+   - Theme ResourceDictionary erstellen
+   - Theme-Selector UI (ComboBox oder Toggle)
+   - Theme Persistence in User Settings
+   - Dynamisches Theme-Switching zur Laufzeit
+
+8. **Audit-Log UI Tab** - 🆕 FEHLT NOCH
+   - Audit-Log Viewer mit DataGrid
+   - Filter nach User, Action, Entity Type
+   - Diff-Viewer für Changes (JSON Before/After)
+   - Export als CSV/Excel
+   - Backend (AuditLog Entity) ✅ vorhanden
+
+### 🟢 Niedrige Priorität - Nice-to-Have
+9. **REST API mit Swagger** - 🆕 FEHLT NOCH
+   - ASP.NET Core Web API Controller
+   - Swagger/OpenAPI Dokumentation
+   - JWT Authentication
+   - Rate Limiting Middleware
+   - API Versioning
+
+10. **Widget-System** - 🆕 FEHLT NOCH
+    - Wetter-Widget (OpenWeatherMap API)
+    - RSS-Feed-Widget
+    - Social Media Widgets (Twitter, Instagram)
+    - Pluggable Widget Architecture
+    - Widget Store/Browser
+
+11. **Erweiterte Dokumentation** - 🆕 FEHLT NOCH
+    - Benutzerhandbuch (PDF/Online)
+    - Video-Tutorials
+    - Deployment Guide erweitern
+    - Troubleshooting Guide
+    - API Documentation (wenn REST API implementiert)
