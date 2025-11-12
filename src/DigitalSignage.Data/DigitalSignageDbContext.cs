@@ -16,7 +16,7 @@ public class DigitalSignageDbContext : DbContext
 
     // Core entities
     public DbSet<RaspberryPiClient> Clients => Set<RaspberryPiClient>();
-    public DbSet<DisplayLayout> Layouts => Set<DisplayLayout>();
+    public DbSet<DisplayLayout> DisplayLayouts => Set<DisplayLayout>();
     public DbSet<DataSource> DataSources => Set<DataSource>();
     public DbSet<LayoutTemplate> LayoutTemplates => Set<LayoutTemplate>();
 
@@ -84,6 +84,7 @@ public class DigitalSignageDbContext : DbContext
         {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Description).HasMaxLength(1000);
             entity.Property(e => e.Version).HasMaxLength(20);
             entity.Property(e => e.BackgroundImage).HasMaxLength(500);
             entity.Property(e => e.BackgroundColor).HasMaxLength(20);
