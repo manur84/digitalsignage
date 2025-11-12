@@ -111,13 +111,13 @@ class StatusScreen(QWidget):
     """Main status screen widget for displaying various client states"""
 
     # Color scheme
-    COLOR_BACKGROUND = "#1E1E1E"  # Dark background
+    COLOR_BACKGROUND = "#FFFFFF"  # DEBUG: White background to test visibility
     COLOR_PRIMARY = "#4A90E2"  # Blue for info
     COLOR_SUCCESS = "#5CB85C"  # Green for success
     COLOR_WARNING = "#F0AD4E"  # Yellow/Orange for warnings
     COLOR_ERROR = "#D9534F"  # Red for errors
-    COLOR_TEXT_PRIMARY = "#FFFFFF"  # White text
-    COLOR_TEXT_SECONDARY = "#CCCCCC"  # Light gray text
+    COLOR_TEXT_PRIMARY = "#000000"  # DEBUG: Black text for white background
+    COLOR_TEXT_SECONDARY = "#333333"  # DEBUG: Dark gray text
 
     def __init__(self, width: int = 1920, height: int = 1080, parent=None):
         super().__init__(parent)
@@ -129,7 +129,7 @@ class StatusScreen(QWidget):
         self.setStyleSheet(f"background-color: {self.COLOR_BACKGROUND};")
 
     def clear_screen(self):
-        """Clear all widgets from the screen"""
+        """Clear all widgets from the screen - called before widget destruction"""
         # Cleanup animated widgets
         for widget in self.animated_widgets:
             if hasattr(widget, 'cleanup'):
@@ -140,17 +140,8 @@ class StatusScreen(QWidget):
 
         self.animated_widgets.clear()
 
-        # Delete all child widgets
-        for child in self.findChildren(QWidget):
-            try:
-                child.deleteLater()
-            except Exception as e:
-                logger.warning(f"Failed to delete child widget: {e}")
-
     def show_discovering_server(self, discovery_method: str = "Auto-Discovery"):
         """Show 'Discovering Server...' screen"""
-        self.clear_screen()
-
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignCenter)
         layout.setSpacing(30)
@@ -193,8 +184,6 @@ class StatusScreen(QWidget):
 
     def show_connecting(self, server_url: str, attempt: int = 1, max_attempts: int = 5):
         """Show 'Connecting to Server...' screen"""
-        self.clear_screen()
-
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignCenter)
         layout.setSpacing(30)
@@ -236,8 +225,6 @@ class StatusScreen(QWidget):
 
     def show_waiting_for_layout(self, client_id: str, server_url: str):
         """Show 'Waiting for Layout...' screen after successful connection"""
-        self.clear_screen()
-
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignCenter)
         layout.setSpacing(30)
@@ -283,12 +270,13 @@ class StatusScreen(QWidget):
 
         self.setLayout(layout)
         self.update()
-        logger.info("Status screen: Waiting for Layout")
+        # Force processing of events to ensure rendering
+        from PyQt5.QtWidgets import QApplication
+        QApplication.processEvents()
+        logger.info(f"Status screen: Waiting for Layout (widgets: {len(self.findChildren(QLabel))})")
 
     def show_connection_error(self, server_url: str, error_message: str, client_id: str = "Unknown"):
         """Show 'Connection Error' screen"""
-        self.clear_screen()
-
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignCenter)
         layout.setSpacing(30)
@@ -361,8 +349,6 @@ class StatusScreen(QWidget):
 
     def show_no_layout_assigned(self, client_id: str, server_url: str, ip_address: str = "Unknown"):
         """Show 'No Layout Assigned' screen"""
-        self.clear_screen()
-
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignCenter)
         layout.setSpacing(30)
@@ -537,13 +523,47 @@ class StatusScreenManager:
 
     def _ensure_status_screen(self):
         """Ensure status screen widget exists"""
-        if not self.status_screen:
-            # Get display renderer dimensions
+        # Always recreate the status screen to avoid layout issues
+        if self.status_screen:
+            try:
+                self.status_screen.clear_screen()
+                self.status_screen.deleteLater()
+            except Exception as e:
+                logger.warning(f"Failed to cleanup old status screen: {e}")
+
+        # Get the actual screen dimensions (not widget dimensions which may not be set yet)
+        from PyQt5.QtWidgets import QApplication
+        screen = QApplication.primaryScreen()
+        if screen:
+            screen_geometry = screen.geometry()
+            width = screen_geometry.width()
+            height = screen_geometry.height()
+            logger.info(f"Using screen dimensions: {width}x{height}")
+        else:
+            # Fallback to display renderer dimensions
             width = self.display_renderer.width()
             height = self.display_renderer.height()
+            logger.warning(f"Could not get screen geometry, using widget dimensions: {width}x{height}")
 
-            # Create status screen as child of display renderer
-            self.status_screen = StatusScreen(width, height, self.display_renderer)
-            self.status_screen.setGeometry(0, 0, width, height)
-            self.status_screen.show()
-            self.status_screen.raise_()  # Bring to front
+        # Create fresh status screen as a TOP-LEVEL window (not a child)
+        # This ensures it's displayed on top and not hidden by parent widget
+        self.status_screen = StatusScreen(width, height, parent=None)
+
+        # Set window flags for frameless fullscreen overlay
+        from PyQt5.QtCore import Qt
+        self.status_screen.setWindowFlags(
+            Qt.Window |
+            Qt.FramelessWindowHint |
+            Qt.WindowStaysOnTopHint
+        )
+
+        # Position at top-left and size to screen
+        self.status_screen.setGeometry(0, 0, width, height)
+
+        # Show as fullscreen
+        self.status_screen.showFullScreen()
+        self.status_screen.raise_()  # Bring to front
+        self.status_screen.activateWindow()  # Ensure it's active
+        self.status_screen.repaint()  # Force repaint
+
+        logger.info(f"Status screen created: size={width}x{height}, visible={self.status_screen.isVisible()}, geometry={self.status_screen.geometry()}")
