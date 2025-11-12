@@ -21,6 +21,16 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+# Suppress qasync warnings about pending tasks from zeroconf discovery
+# This is expected behavior when using zeroconf in a synchronous context
+logging.getLogger('qasync._QEventLoop').setLevel(logging.CRITICAL)
+
+# Suppress Python RuntimeWarning about coroutines not being awaited
+# This happens during zeroconf cleanup and is expected/harmless
+import warnings
+warnings.filterwarnings('ignore', message='.*coroutine.*was never awaited.*', category=RuntimeWarning)
+warnings.filterwarnings('ignore', message='.*Enable tracemalloc.*', category=RuntimeWarning)
+
 # Log startup information
 logger.info("=" * 70)
 logger.info("Digital Signage Client Starting...")

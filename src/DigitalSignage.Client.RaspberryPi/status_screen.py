@@ -128,6 +128,49 @@ class StatusScreen(QWidget):
         self.setFixedSize(width, height)
         self.setStyleSheet(f"background-color: {self.COLOR_BACKGROUND};")
 
+        # Calculate scaled dimensions for responsive layout
+        self._calculate_scaled_dimensions()
+
+    def _calculate_scaled_dimensions(self):
+        """
+        Calculate responsive dimensions based on screen resolution
+
+        Supported resolutions:
+        - 1024x600  (Raspberry Pi 7" touchscreen)
+        - 1024x768  (XGA)
+        - 1280x720  (HD Ready / 720p)
+        - 1920x1080 (Full HD / 1080p)
+        - 3840x2160 (4K UHD)
+        """
+        # Scale fonts based on screen height (as percentage)
+        self.title_font_size = int(self.screen_height * 0.06)      # 6% of screen height (36px @ 600, 65px @ 1080, 130px @ 2160)
+        self.subtitle_font_size = int(self.screen_height * 0.04)   # 4% of screen height (24px @ 600, 43px @ 1080, 86px @ 2160)
+        self.body_font_size = int(self.screen_height * 0.03)       # 3% of screen height (18px @ 600, 32px @ 1080, 65px @ 2160)
+        self.small_font_size = int(self.screen_height * 0.02)      # 2% of screen height (12px @ 600, 22px @ 1080, 43px @ 2160)
+        self.icon_font_size = int(self.screen_height * 0.15)       # 15% of screen height (90px @ 600, 162px @ 1080, 324px @ 2160)
+
+        # Scale QR code based on smallest dimension (keep it square and visible but not too large)
+        min_dimension = min(self.screen_width, self.screen_height)
+        self.qr_size = int(min_dimension * 0.25)  # 25% of smallest dimension (150px @ 600, 270px @ 1080, 540px @ 2160)
+
+        # Scale spinner size
+        self.spinner_size = int(self.screen_height * 0.12)  # 12% of screen height (72px @ 600, 130px @ 1080, 260px @ 2160)
+
+        # Scale spacing and padding
+        self.spacing = int(self.screen_height * 0.03)  # 3% of screen height (18px @ 600, 32px @ 1080, 65px @ 2160)
+        self.large_spacing = int(self.screen_height * 0.05)  # 5% of screen height (30px @ 600, 54px @ 1080, 108px @ 2160)
+        self.padding = int(self.screen_height * 0.02)  # 2% of screen height (12px @ 600, 22px @ 1080, 43px @ 2160)
+
+        logger.debug(f"Scaled dimensions calculated for {self.screen_width}x{self.screen_height}:")
+        logger.debug(f"  Title font: {self.title_font_size}pt")
+        logger.debug(f"  Subtitle font: {self.subtitle_font_size}pt")
+        logger.debug(f"  Body font: {self.body_font_size}pt")
+        logger.debug(f"  Small font: {self.small_font_size}pt")
+        logger.debug(f"  Icon font: {self.icon_font_size}pt")
+        logger.debug(f"  QR code size: {self.qr_size}px")
+        logger.debug(f"  Spinner size: {self.spinner_size}px")
+        logger.debug(f"  Spacing: {self.spacing}px, Large spacing: {self.large_spacing}px")
+
     def clear_screen(self):
         """Clear all widgets from the screen - called before widget destruction"""
         # Cleanup animated widgets
@@ -144,10 +187,10 @@ class StatusScreen(QWidget):
         """Show 'Discovering Server...' screen"""
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignCenter)
-        layout.setSpacing(30)
+        layout.setSpacing(self.spacing)
 
         # Spinner
-        spinner = SpinnerWidget(100, self.COLOR_PRIMARY, self)
+        spinner = SpinnerWidget(self.spinner_size, self.COLOR_PRIMARY, self)
         spinner_container = QWidget()
         spinner_layout = QHBoxLayout(spinner_container)
         spinner_layout.addStretch()
@@ -158,20 +201,20 @@ class StatusScreen(QWidget):
 
         # Main text with animated dots
         title_label = AnimatedDotsLabel("Discovering Digital Signage Server", self)
-        title_label.setStyleSheet(f"color: {self.COLOR_TEXT_PRIMARY}; font-size: 48pt; font-weight: bold;")
+        title_label.setStyleSheet(f"color: {self.COLOR_TEXT_PRIMARY}; font-size: {self.title_font_size}pt; font-weight: bold;")
         title_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(title_label)
         self.animated_widgets.append(title_label)
 
         # Discovery method
         method_label = QLabel(f"Using: {discovery_method}", self)
-        method_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: 24pt;")
+        method_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: {self.subtitle_font_size}pt;")
         method_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(method_label)
 
         # Info text
         info_label = QLabel("Please wait while we search for available servers on the network", self)
-        info_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: 18pt;")
+        info_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: {self.body_font_size}pt;")
         info_label.setAlignment(Qt.AlignCenter)
         info_label.setWordWrap(True)
         layout.addWidget(info_label)
@@ -186,10 +229,10 @@ class StatusScreen(QWidget):
         """Show 'Connecting to Server...' screen"""
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignCenter)
-        layout.setSpacing(30)
+        layout.setSpacing(self.spacing)
 
         # Spinner
-        spinner = SpinnerWidget(100, self.COLOR_PRIMARY, self)
+        spinner = SpinnerWidget(self.spinner_size, self.COLOR_PRIMARY, self)
         spinner_container = QWidget()
         spinner_layout = QHBoxLayout(spinner_container)
         spinner_layout.addStretch()
@@ -200,20 +243,20 @@ class StatusScreen(QWidget):
 
         # Main text with animated dots
         title_label = AnimatedDotsLabel("Connecting to Server", self)
-        title_label.setStyleSheet(f"color: {self.COLOR_TEXT_PRIMARY}; font-size: 48pt; font-weight: bold;")
+        title_label.setStyleSheet(f"color: {self.COLOR_TEXT_PRIMARY}; font-size: {self.title_font_size}pt; font-weight: bold;")
         title_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(title_label)
         self.animated_widgets.append(title_label)
 
         # Server URL
         server_label = QLabel(server_url, self)
-        server_label.setStyleSheet(f"color: {self.COLOR_PRIMARY}; font-size: 32pt; font-weight: bold;")
+        server_label.setStyleSheet(f"color: {self.COLOR_PRIMARY}; font-size: {self.subtitle_font_size}pt; font-weight: bold;")
         server_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(server_label)
 
         # Attempt counter
         attempt_label = QLabel(f"Attempt {attempt} of {max_attempts}", self)
-        attempt_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: 24pt;")
+        attempt_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: {self.body_font_size}pt;")
         attempt_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(attempt_label)
 
@@ -227,41 +270,41 @@ class StatusScreen(QWidget):
         """Show 'Waiting for Layout...' screen after successful connection"""
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignCenter)
-        layout.setSpacing(30)
+        layout.setSpacing(self.spacing)
 
         # Success checkmark (static icon)
         checkmark_label = QLabel("✓", self)
-        checkmark_label.setStyleSheet(f"color: {self.COLOR_SUCCESS}; font-size: 120pt; font-weight: bold;")
+        checkmark_label.setStyleSheet(f"color: {self.COLOR_SUCCESS}; font-size: {self.icon_font_size}pt; font-weight: bold;")
         checkmark_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(checkmark_label)
 
         # Connection success
         connected_label = QLabel("Connected to Digital Signage Server", self)
-        connected_label.setStyleSheet(f"color: {self.COLOR_SUCCESS}; font-size: 36pt; font-weight: bold;")
+        connected_label.setStyleSheet(f"color: {self.COLOR_SUCCESS}; font-size: {self.subtitle_font_size}pt; font-weight: bold;")
         connected_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(connected_label)
 
         # Server info
         server_label = QLabel(server_url, self)
-        server_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: 20pt;")
+        server_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: {self.body_font_size}pt;")
         server_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(server_label)
 
         # Spacer
-        layout.addSpacing(40)
+        layout.addSpacing(self.large_spacing)
 
         # Client ID
         id_label = QLabel(f"Client ID: {client_id}", self)
-        id_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: 18pt;")
+        id_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: {self.body_font_size}pt;")
         id_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(id_label)
 
         # Spacer
-        layout.addSpacing(40)
+        layout.addSpacing(self.large_spacing)
 
         # Waiting message with animated dots
         waiting_label = AnimatedDotsLabel("Waiting for layout assignment", self)
-        waiting_label.setStyleSheet(f"color: {self.COLOR_WARNING}; font-size: 28pt;")
+        waiting_label.setStyleSheet(f"color: {self.COLOR_WARNING}; font-size: {self.subtitle_font_size}pt;")
         waiting_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(waiting_label)
         self.animated_widgets.append(waiting_label)
@@ -279,23 +322,23 @@ class StatusScreen(QWidget):
         """Show 'Connection Error' screen"""
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignCenter)
-        layout.setSpacing(30)
+        layout.setSpacing(self.spacing)
 
         # Error icon
         error_icon = QLabel("✗", self)
-        error_icon.setStyleSheet(f"color: {self.COLOR_ERROR}; font-size: 120pt; font-weight: bold;")
+        error_icon.setStyleSheet(f"color: {self.COLOR_ERROR}; font-size: {self.icon_font_size}pt; font-weight: bold;")
         error_icon.setAlignment(Qt.AlignCenter)
         layout.addWidget(error_icon)
 
         # Error title
         title_label = QLabel("Connection Error", self)
-        title_label.setStyleSheet(f"color: {self.COLOR_ERROR}; font-size: 48pt; font-weight: bold;")
+        title_label.setStyleSheet(f"color: {self.COLOR_ERROR}; font-size: {self.title_font_size}pt; font-weight: bold;")
         title_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(title_label)
 
         # Failed server
         server_label = QLabel(f"Failed to connect to: {server_url}", self)
-        server_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: 24pt;")
+        server_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: {self.subtitle_font_size}pt;")
         server_label.setAlignment(Qt.AlignCenter)
         server_label.setWordWrap(True)
         layout.addWidget(server_label)
@@ -303,13 +346,13 @@ class StatusScreen(QWidget):
         # Error message
         if error_message:
             error_label = QLabel(error_message, self)
-            error_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: 18pt;")
+            error_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: {self.body_font_size}pt;")
             error_label.setAlignment(Qt.AlignCenter)
             error_label.setWordWrap(True)
             layout.addWidget(error_label)
 
         # Spacer
-        layout.addSpacing(40)
+        layout.addSpacing(self.large_spacing)
 
         # Instructions
         instructions = [
@@ -320,14 +363,14 @@ class StatusScreen(QWidget):
             "• Server address and port are correct"
         ]
         instructions_label = QLabel("\n".join(instructions), self)
-        instructions_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: 18pt;")
+        instructions_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: {self.body_font_size}pt;")
         instructions_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(instructions_label)
 
         # QR code with debug info
-        layout.addSpacing(30)
+        layout.addSpacing(self.spacing)
         qr_data = f"Client ID: {client_id}\nServer: {server_url}\nError: {error_message}\nTime: {datetime.now().isoformat()}"
-        qr_widget = self._create_qr_code(qr_data, 200)
+        qr_widget = self._create_qr_code(qr_data, self.qr_size)
         if qr_widget:
             qr_container = QWidget()
             qr_layout = QHBoxLayout(qr_container)
@@ -337,7 +380,7 @@ class StatusScreen(QWidget):
             layout.addWidget(qr_container)
 
             qr_label = QLabel("Scan for debug information", self)
-            qr_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: 14pt;")
+            qr_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: {self.small_font_size}pt;")
             qr_label.setAlignment(Qt.AlignCenter)
             layout.addWidget(qr_label)
 
@@ -351,29 +394,29 @@ class StatusScreen(QWidget):
         """Show 'No Layout Assigned' screen"""
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignCenter)
-        layout.setSpacing(30)
+        layout.setSpacing(self.spacing)
 
         # Warning icon
         warning_icon = QLabel("⚠", self)
-        warning_icon.setStyleSheet(f"color: {self.COLOR_WARNING}; font-size: 120pt; font-weight: bold;")
+        warning_icon.setStyleSheet(f"color: {self.COLOR_WARNING}; font-size: {self.icon_font_size}pt; font-weight: bold;")
         warning_icon.setAlignment(Qt.AlignCenter)
         layout.addWidget(warning_icon)
 
         # Title
         title_label = QLabel("No Layout Assigned", self)
-        title_label.setStyleSheet(f"color: {self.COLOR_WARNING}; font-size: 48pt; font-weight: bold;")
+        title_label.setStyleSheet(f"color: {self.COLOR_WARNING}; font-size: {self.title_font_size}pt; font-weight: bold;")
         title_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(title_label)
 
         # Message
         message_label = QLabel("This device is connected but has not been assigned a layout", self)
-        message_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: 24pt;")
+        message_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: {self.subtitle_font_size}pt;")
         message_label.setAlignment(Qt.AlignCenter)
         message_label.setWordWrap(True)
         layout.addWidget(message_label)
 
         # Spacer
-        layout.addSpacing(40)
+        layout.addSpacing(self.large_spacing)
 
         # Device info
         device_info = [
@@ -382,12 +425,12 @@ class StatusScreen(QWidget):
             f"Server: {server_url}"
         ]
         info_label = QLabel("\n".join(device_info), self)
-        info_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: 20pt;")
+        info_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: {self.body_font_size}pt;")
         info_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(info_label)
 
         # Spacer
-        layout.addSpacing(40)
+        layout.addSpacing(self.large_spacing)
 
         # Instructions for admin
         instructions = [
@@ -398,14 +441,14 @@ class StatusScreen(QWidget):
             "4. Assign a layout to this device"
         ]
         instructions_label = QLabel("\n".join(instructions), self)
-        instructions_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: 18pt; background-color: #2A2A2A; padding: 20px; border-radius: 10px;")
+        instructions_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: {self.body_font_size}pt; background-color: #2A2A2A; padding: {self.padding}px; border-radius: 10px;")
         instructions_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(instructions_label)
 
         # QR code with device info
-        layout.addSpacing(30)
+        layout.addSpacing(self.spacing)
         qr_data = f"Client ID: {client_id}\nIP: {ip_address}\nServer: {server_url}\nStatus: No Layout Assigned\nTime: {datetime.now().isoformat()}"
-        qr_widget = self._create_qr_code(qr_data, 200)
+        qr_widget = self._create_qr_code(qr_data, self.qr_size)
         if qr_widget:
             qr_container = QWidget()
             qr_layout = QHBoxLayout(qr_container)
@@ -415,7 +458,7 @@ class StatusScreen(QWidget):
             layout.addWidget(qr_container)
 
             qr_label = QLabel("Scan for device information", self)
-            qr_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: 14pt;")
+            qr_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: {self.small_font_size}pt;")
             qr_label.setAlignment(Qt.AlignCenter)
             layout.addWidget(qr_label)
 
@@ -429,10 +472,10 @@ class StatusScreen(QWidget):
         """Show 'Server Disconnected - Searching...' screen"""
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignCenter)
-        layout.setSpacing(30)
+        layout.setSpacing(self.spacing)
 
         # Spinner
-        spinner = SpinnerWidget(100, self.COLOR_WARNING, self)
+        spinner = SpinnerWidget(self.spinner_size, self.COLOR_WARNING, self)
         spinner_container = QWidget()
         spinner_layout = QHBoxLayout(spinner_container)
         spinner_layout.addStretch()
@@ -441,47 +484,47 @@ class StatusScreen(QWidget):
         layout.addWidget(spinner_container)
         self.animated_widgets.append(spinner)
 
-        # Warning icon
+        # Warning icon (smaller than spinner)
         warning_icon = QLabel("⚠", self)
-        warning_icon.setStyleSheet(f"color: {self.COLOR_WARNING}; font-size: 80pt; font-weight: bold;")
+        warning_icon.setStyleSheet(f"color: {self.COLOR_WARNING}; font-size: {int(self.icon_font_size * 0.7)}pt; font-weight: bold;")
         warning_icon.setAlignment(Qt.AlignCenter)
         layout.addWidget(warning_icon)
 
         # Title
         title_label = QLabel("Server Disconnected", self)
-        title_label.setStyleSheet(f"color: {self.COLOR_WARNING}; font-size: 48pt; font-weight: bold;")
+        title_label.setStyleSheet(f"color: {self.COLOR_WARNING}; font-size: {self.title_font_size}pt; font-weight: bold;")
         title_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(title_label)
 
         # Searching message with animated dots
         searching_label = AnimatedDotsLabel("Searching for server", self)
-        searching_label.setStyleSheet(f"color: {self.COLOR_TEXT_PRIMARY}; font-size: 32pt;")
+        searching_label.setStyleSheet(f"color: {self.COLOR_TEXT_PRIMARY}; font-size: {self.subtitle_font_size}pt;")
         searching_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(searching_label)
         self.animated_widgets.append(searching_label)
 
         # Spacer
-        layout.addSpacing(30)
+        layout.addSpacing(self.spacing)
 
         # Last known server
         server_label = QLabel(f"Last Known Server: {server_url}", self)
-        server_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: 20pt;")
+        server_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: {self.body_font_size}pt;")
         server_label.setAlignment(Qt.AlignCenter)
         server_label.setWordWrap(True)
         layout.addWidget(server_label)
 
         # Client ID
         id_label = QLabel(f"Client ID: {client_id}", self)
-        id_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: 18pt;")
+        id_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: {self.body_font_size}pt;")
         id_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(id_label)
 
         # Spacer
-        layout.addSpacing(40)
+        layout.addSpacing(self.large_spacing)
 
         # Info message
         info_label = QLabel("Automatic reconnection in progress\nNo action required", self)
-        info_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: 18pt;")
+        info_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: {self.body_font_size}pt;")
         info_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(info_label)
 
@@ -495,10 +538,10 @@ class StatusScreen(QWidget):
         """Show 'Reconnecting...' screen with retry countdown"""
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignCenter)
-        layout.setSpacing(30)
+        layout.setSpacing(self.spacing)
 
         # Spinner
-        spinner = SpinnerWidget(100, self.COLOR_PRIMARY, self)
+        spinner = SpinnerWidget(self.spinner_size, self.COLOR_PRIMARY, self)
         spinner_container = QWidget()
         spinner_layout = QHBoxLayout(spinner_container)
         spinner_layout.addStretch()
@@ -509,36 +552,36 @@ class StatusScreen(QWidget):
 
         # Title with animated dots
         title_label = AnimatedDotsLabel("Reconnecting to Server", self)
-        title_label.setStyleSheet(f"color: {self.COLOR_PRIMARY}; font-size: 48pt; font-weight: bold;")
+        title_label.setStyleSheet(f"color: {self.COLOR_PRIMARY}; font-size: {self.title_font_size}pt; font-weight: bold;")
         title_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(title_label)
         self.animated_widgets.append(title_label)
 
         # Server URL
         server_label = QLabel(server_url, self)
-        server_label.setStyleSheet(f"color: {self.COLOR_TEXT_PRIMARY}; font-size: 28pt;")
+        server_label.setStyleSheet(f"color: {self.COLOR_TEXT_PRIMARY}; font-size: {self.subtitle_font_size}pt;")
         server_label.setAlignment(Qt.AlignCenter)
         server_label.setWordWrap(True)
         layout.addWidget(server_label)
 
         # Spacer
-        layout.addSpacing(30)
+        layout.addSpacing(self.spacing)
 
         # Retry info
         retry_label = QLabel(f"Retry in {retry_in} seconds", self)
-        retry_label.setStyleSheet(f"color: {self.COLOR_WARNING}; font-size: 32pt; font-weight: bold;")
+        retry_label.setStyleSheet(f"color: {self.COLOR_WARNING}; font-size: {self.subtitle_font_size}pt; font-weight: bold;")
         retry_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(retry_label)
 
         # Attempt counter
         attempt_label = QLabel(f"Attempt #{attempt}", self)
-        attempt_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: 24pt;")
+        attempt_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: {self.body_font_size}pt;")
         attempt_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(attempt_label)
 
         # Client ID
         id_label = QLabel(f"Client ID: {client_id}", self)
-        id_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: 18pt;")
+        id_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: {self.body_font_size}pt;")
         id_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(id_label)
 
@@ -552,33 +595,33 @@ class StatusScreen(QWidget):
         """Show 'Server Found - Connecting...' screen"""
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignCenter)
-        layout.setSpacing(30)
+        layout.setSpacing(self.spacing)
 
         # Success icon
         success_icon = QLabel("✓", self)
-        success_icon.setStyleSheet(f"color: {self.COLOR_SUCCESS}; font-size: 120pt; font-weight: bold;")
+        success_icon.setStyleSheet(f"color: {self.COLOR_SUCCESS}; font-size: {self.icon_font_size}pt; font-weight: bold;")
         success_icon.setAlignment(Qt.AlignCenter)
         layout.addWidget(success_icon)
 
         # Title
         title_label = QLabel("Server Found!", self)
-        title_label.setStyleSheet(f"color: {self.COLOR_SUCCESS}; font-size: 48pt; font-weight: bold;")
+        title_label.setStyleSheet(f"color: {self.COLOR_SUCCESS}; font-size: {self.title_font_size}pt; font-weight: bold;")
         title_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(title_label)
 
         # Server URL
         server_label = QLabel(server_url, self)
-        server_label.setStyleSheet(f"color: {self.COLOR_TEXT_PRIMARY}; font-size: 28pt;")
+        server_label.setStyleSheet(f"color: {self.COLOR_TEXT_PRIMARY}; font-size: {self.subtitle_font_size}pt;")
         server_label.setAlignment(Qt.AlignCenter)
         server_label.setWordWrap(True)
         layout.addWidget(server_label)
 
         # Spacer
-        layout.addSpacing(40)
+        layout.addSpacing(self.large_spacing)
 
         # Connecting message with animated dots
         connecting_label = AnimatedDotsLabel("Establishing connection", self)
-        connecting_label.setStyleSheet(f"color: {self.COLOR_PRIMARY}; font-size: 28pt;")
+        connecting_label.setStyleSheet(f"color: {self.COLOR_PRIMARY}; font-size: {self.subtitle_font_size}pt;")
         connecting_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(connecting_label)
         self.animated_widgets.append(connecting_label)

@@ -284,9 +284,25 @@ if MDNS_AVAILABLE:
                 # Get discovered servers
                 discovered_servers = listener.discovered_servers
 
-                # Cleanup
-                browser.cancel()
-                zeroconf.close()
+                # Cleanup - suppress async warnings by using sync methods
+                # The zeroconf library creates background async tasks, but we're using
+                # it in a synchronous context. We'll use the sync methods and suppress
+                # any RuntimeWarnings about unclosed tasks - this is expected behavior.
+                import warnings
+                with warnings.catch_warnings():
+                    # Suppress RuntimeWarning about coroutines not being awaited
+                    warnings.filterwarnings('ignore', message='.*coroutine.*was never awaited.*')
+                    warnings.filterwarnings('ignore', message='.*Task was destroyed but it is pending.*')
+
+                    try:
+                        browser.cancel()
+                    except Exception as e:
+                        self.logger.debug(f"Browser cleanup error (non-critical): {e}")
+
+                    try:
+                        zeroconf.close()
+                    except Exception as e:
+                        self.logger.debug(f"Zeroconf cleanup error (non-critical): {e}")
 
                 self.logger.info(f"mDNS discovery complete. Found {len(discovered_servers)} server(s)")
 
