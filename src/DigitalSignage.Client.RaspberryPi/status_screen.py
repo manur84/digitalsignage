@@ -425,6 +425,170 @@ class StatusScreen(QWidget):
         self.update()
         logger.info("Status screen: No Layout Assigned")
 
+    def show_server_disconnected(self, server_url: str, client_id: str = "Unknown"):
+        """Show 'Server Disconnected - Searching...' screen"""
+        layout = QVBoxLayout(self)
+        layout.setAlignment(Qt.AlignCenter)
+        layout.setSpacing(30)
+
+        # Spinner
+        spinner = SpinnerWidget(100, self.COLOR_WARNING, self)
+        spinner_container = QWidget()
+        spinner_layout = QHBoxLayout(spinner_container)
+        spinner_layout.addStretch()
+        spinner_layout.addWidget(spinner)
+        spinner_layout.addStretch()
+        layout.addWidget(spinner_container)
+        self.animated_widgets.append(spinner)
+
+        # Warning icon
+        warning_icon = QLabel("⚠", self)
+        warning_icon.setStyleSheet(f"color: {self.COLOR_WARNING}; font-size: 80pt; font-weight: bold;")
+        warning_icon.setAlignment(Qt.AlignCenter)
+        layout.addWidget(warning_icon)
+
+        # Title
+        title_label = QLabel("Server Disconnected", self)
+        title_label.setStyleSheet(f"color: {self.COLOR_WARNING}; font-size: 48pt; font-weight: bold;")
+        title_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(title_label)
+
+        # Searching message with animated dots
+        searching_label = AnimatedDotsLabel("Searching for server", self)
+        searching_label.setStyleSheet(f"color: {self.COLOR_TEXT_PRIMARY}; font-size: 32pt;")
+        searching_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(searching_label)
+        self.animated_widgets.append(searching_label)
+
+        # Spacer
+        layout.addSpacing(30)
+
+        # Last known server
+        server_label = QLabel(f"Last Known Server: {server_url}", self)
+        server_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: 20pt;")
+        server_label.setAlignment(Qt.AlignCenter)
+        server_label.setWordWrap(True)
+        layout.addWidget(server_label)
+
+        # Client ID
+        id_label = QLabel(f"Client ID: {client_id}", self)
+        id_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: 18pt;")
+        id_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(id_label)
+
+        # Spacer
+        layout.addSpacing(40)
+
+        # Info message
+        info_label = QLabel("Automatic reconnection in progress\nNo action required", self)
+        info_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: 18pt;")
+        info_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(info_label)
+
+        layout.addStretch()
+
+        self.setLayout(layout)
+        self.update()
+        logger.info("Status screen: Server Disconnected - Searching")
+
+    def show_reconnecting(self, server_url: str, attempt: int, retry_in: int, client_id: str = "Unknown"):
+        """Show 'Reconnecting...' screen with retry countdown"""
+        layout = QVBoxLayout(self)
+        layout.setAlignment(Qt.AlignCenter)
+        layout.setSpacing(30)
+
+        # Spinner
+        spinner = SpinnerWidget(100, self.COLOR_PRIMARY, self)
+        spinner_container = QWidget()
+        spinner_layout = QHBoxLayout(spinner_container)
+        spinner_layout.addStretch()
+        spinner_layout.addWidget(spinner)
+        spinner_layout.addStretch()
+        layout.addWidget(spinner_container)
+        self.animated_widgets.append(spinner)
+
+        # Title with animated dots
+        title_label = AnimatedDotsLabel("Reconnecting to Server", self)
+        title_label.setStyleSheet(f"color: {self.COLOR_PRIMARY}; font-size: 48pt; font-weight: bold;")
+        title_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(title_label)
+        self.animated_widgets.append(title_label)
+
+        # Server URL
+        server_label = QLabel(server_url, self)
+        server_label.setStyleSheet(f"color: {self.COLOR_TEXT_PRIMARY}; font-size: 28pt;")
+        server_label.setAlignment(Qt.AlignCenter)
+        server_label.setWordWrap(True)
+        layout.addWidget(server_label)
+
+        # Spacer
+        layout.addSpacing(30)
+
+        # Retry info
+        retry_label = QLabel(f"Retry in {retry_in} seconds", self)
+        retry_label.setStyleSheet(f"color: {self.COLOR_WARNING}; font-size: 32pt; font-weight: bold;")
+        retry_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(retry_label)
+
+        # Attempt counter
+        attempt_label = QLabel(f"Attempt #{attempt}", self)
+        attempt_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: 24pt;")
+        attempt_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(attempt_label)
+
+        # Client ID
+        id_label = QLabel(f"Client ID: {client_id}", self)
+        id_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: 18pt;")
+        id_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(id_label)
+
+        layout.addStretch()
+
+        self.setLayout(layout)
+        self.update()
+        logger.info(f"Status screen: Reconnecting (attempt {attempt}, retry in {retry_in}s)")
+
+    def show_server_found(self, server_url: str):
+        """Show 'Server Found - Connecting...' screen"""
+        layout = QVBoxLayout(self)
+        layout.setAlignment(Qt.AlignCenter)
+        layout.setSpacing(30)
+
+        # Success icon
+        success_icon = QLabel("✓", self)
+        success_icon.setStyleSheet(f"color: {self.COLOR_SUCCESS}; font-size: 120pt; font-weight: bold;")
+        success_icon.setAlignment(Qt.AlignCenter)
+        layout.addWidget(success_icon)
+
+        # Title
+        title_label = QLabel("Server Found!", self)
+        title_label.setStyleSheet(f"color: {self.COLOR_SUCCESS}; font-size: 48pt; font-weight: bold;")
+        title_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(title_label)
+
+        # Server URL
+        server_label = QLabel(server_url, self)
+        server_label.setStyleSheet(f"color: {self.COLOR_TEXT_PRIMARY}; font-size: 28pt;")
+        server_label.setAlignment(Qt.AlignCenter)
+        server_label.setWordWrap(True)
+        layout.addWidget(server_label)
+
+        # Spacer
+        layout.addSpacing(40)
+
+        # Connecting message with animated dots
+        connecting_label = AnimatedDotsLabel("Establishing connection", self)
+        connecting_label.setStyleSheet(f"color: {self.COLOR_PRIMARY}; font-size: 28pt;")
+        connecting_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(connecting_label)
+        self.animated_widgets.append(connecting_label)
+
+        layout.addStretch()
+
+        self.setLayout(layout)
+        self.update()
+        logger.info("Status screen: Server Found - Connecting")
+
     def _create_qr_code(self, data: str, size: int = 200) -> Optional[QLabel]:
         """Create a QR code widget"""
         try:
@@ -505,6 +669,24 @@ class StatusScreenManager:
         """Show no layout assigned screen"""
         self._ensure_status_screen()
         self.status_screen.show_no_layout_assigned(client_id, server_url, ip_address)
+        self.is_showing_status = True
+
+    def show_server_disconnected(self, server_url: str, client_id: str = "Unknown"):
+        """Show server disconnected - searching screen"""
+        self._ensure_status_screen()
+        self.status_screen.show_server_disconnected(server_url, client_id)
+        self.is_showing_status = True
+
+    def show_reconnecting(self, server_url: str, attempt: int, retry_in: int, client_id: str = "Unknown"):
+        """Show reconnecting screen with retry countdown"""
+        self._ensure_status_screen()
+        self.status_screen.show_reconnecting(server_url, attempt, retry_in, client_id)
+        self.is_showing_status = True
+
+    def show_server_found(self, server_url: str):
+        """Show server found - connecting screen"""
+        self._ensure_status_screen()
+        self.status_screen.show_server_found(server_url)
         self.is_showing_status = True
 
     def clear_status_screen(self):

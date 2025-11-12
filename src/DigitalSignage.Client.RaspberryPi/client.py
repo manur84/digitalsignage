@@ -129,6 +129,11 @@ class DigitalSignageClient:
         self.pending_messages = []
         self.message_lock = threading.Lock()
 
+        # Reconnection state
+        self.reconnection_in_progress = False
+        self.reconnection_task = None
+        self.stop_reconnection = False
+
         # Setup remote logging if enabled
         if self.config.remote_logging_enabled:
             self._setup_remote_logging()
@@ -235,11 +240,11 @@ class DigitalSignageClient:
         self.connected = False
 
         if not self.reconnect_requested:
-            # Unexpected disconnect - enter offline mode
+            # Unexpected disconnect - enter offline mode and start reconnection
             self.offline_mode = True
-            self.watchdog.notify_status("Disconnected - running in offline mode")
+            self.watchdog.notify_status("Disconnected - attempting reconnection")
 
-            # Load cached layout to continue operation
+            # Load cached layout to continue operation (if available)
             future = asyncio.run_coroutine_threadsafe(
                 self.load_cached_layout(),
                 self.event_loop
@@ -251,6 +256,21 @@ class DigitalSignageClient:
                 except Exception as e:
                     logger.error(f"Error loading cached layout: {e}", exc_info=True)
             future.add_done_callback(handle_future_exception)
+
+            # Start automatic reconnection if not already in progress
+            if not self.reconnection_in_progress:
+                logger.info("Starting automatic reconnection...")
+                reconnect_future = asyncio.run_coroutine_threadsafe(
+                    self.start_reconnection(),
+                    self.event_loop
+                )
+                # Add error handler for reconnection task
+                def handle_reconnect_exception(fut):
+                    try:
+                        fut.result()
+                    except Exception as e:
+                        logger.error(f"Error in reconnection task: {e}", exc_info=True)
+                reconnect_future.add_done_callback(handle_reconnect_exception)
 
     def connect_websocket(self, server_url: str):
         """Connect to WebSocket server"""
@@ -677,6 +697,124 @@ class DigitalSignageClient:
             except Exception as response_error:
                 logger.error(f"Failed to send error response: {response_error}")
 
+    async def start_reconnection(self):
+        """Start automatic reconnection with exponential backoff and server discovery"""
+        if self.reconnection_in_progress:
+            logger.info("Reconnection already in progress, skipping")
+            return
+
+        self.reconnection_in_progress = True
+        self.stop_reconnection = False
+        attempt = 0
+        retry_delays = [5, 10, 20, 30, 60]  # Exponential backoff delays (seconds)
+
+        logger.info("=" * 70)
+        logger.info("AUTOMATIC RECONNECTION STARTED")
+        logger.info("=" * 70)
+
+        # Show disconnected status if no layout is currently displayed
+        if self.display_renderer and (not self.current_layout or self.display_renderer.status_screen_manager.is_showing_status):
+            server_url = self.config.get_server_url()
+            self.display_renderer.status_screen_manager.show_server_disconnected(
+                server_url,
+                self.config.client_id
+            )
+
+        try:
+            while not self.stop_reconnection and not self.connected:
+                attempt += 1
+                delay_index = min(attempt - 1, len(retry_delays) - 1)
+                retry_delay = retry_delays[delay_index]
+
+                logger.info(f"Reconnection attempt #{attempt}")
+
+                # Step 1: Try server discovery if enabled
+                discovered_url = None
+                if self.config.auto_discover:
+                    logger.info("Attempting server discovery...")
+                    try:
+                        from discovery import discover_server
+                        discovered_url = discover_server(timeout=3.0)  # Quick 3s discovery
+
+                        if discovered_url:
+                            logger.info(f"✓ Server discovered: {discovered_url}")
+
+                            # Show "Server Found" status
+                            if self.display_renderer:
+                                self.display_renderer.status_screen_manager.show_server_found(discovered_url)
+
+                            # Update config with discovered server
+                            import re
+                            match = re.match(r'(wss?)://([^:]+):(\d+)/(.+)', discovered_url)
+                            if match:
+                                protocol, host, port, endpoint = match.groups()
+                                self.config.server_host = host
+                                self.config.server_port = int(port)
+                                self.config.endpoint_path = endpoint
+                                self.config.use_ssl = (protocol == 'wss')
+                                self.config.save()
+
+                            await asyncio.sleep(1)  # Brief pause to show "Server Found" screen
+                        else:
+                            logger.info("No server discovered, using configured address")
+                    except Exception as e:
+                        logger.warning(f"Server discovery failed: {e}")
+
+                # Step 2: Attempt connection
+                server_url = self.config.get_server_url()
+                logger.info(f"Attempting connection to: {server_url}")
+
+                # Show connecting status
+                if self.display_renderer:
+                    self.display_renderer.status_screen_manager.show_connecting(
+                        server_url,
+                        attempt,
+                        5  # Max attempts before delay
+                    )
+
+                try:
+                    self.connect_websocket(server_url)
+
+                    if self.connected:
+                        logger.info("✓ Reconnection successful!")
+                        logger.info("=" * 70)
+                        self.reconnection_in_progress = False
+                        self.offline_mode = False
+                        return
+
+                except Exception as e:
+                    logger.warning(f"Connection attempt failed: {e}")
+
+                # Step 3: Wait before retry with countdown display
+                if not self.connected and not self.stop_reconnection:
+                    logger.info(f"Waiting {retry_delay} seconds before next attempt...")
+
+                    # Show reconnecting screen with countdown
+                    for remaining in range(retry_delay, 0, -1):
+                        if self.stop_reconnection or self.connected:
+                            break
+
+                        if self.display_renderer and remaining % 5 == 0:  # Update every 5 seconds
+                            self.display_renderer.status_screen_manager.show_reconnecting(
+                                server_url,
+                                attempt,
+                                remaining,
+                                self.config.client_id
+                            )
+
+                        await asyncio.sleep(1)
+
+            if self.connected:
+                logger.info("Reconnection successful")
+            elif self.stop_reconnection:
+                logger.info("Reconnection stopped by user")
+
+        except Exception as e:
+            logger.error(f"Error during reconnection: {e}", exc_info=True)
+        finally:
+            self.reconnection_in_progress = False
+            logger.info("Reconnection process ended")
+
     async def start(self):
         """Start the client application"""
         logger.info("Starting Digital Signage Client...")
@@ -855,7 +993,14 @@ class DigitalSignageClient:
         """Stop the client application"""
         logger.info("Stopping Digital Signage Client...")
         self.watchdog.notify_stopping()
+
+        # Stop reconnection if in progress
+        self.stop_reconnection = True
+
+        # Disconnect WebSocket
         self.disconnect_websocket()
+
+        # Stop watchdog
         await self.watchdog.stop()
 
 
