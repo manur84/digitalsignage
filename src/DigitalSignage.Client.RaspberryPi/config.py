@@ -14,6 +14,7 @@ class Config:
     client_id: str
     server_host: str = "localhost"
     server_port: int = 8080
+    endpoint_path: str = "ws/"  # WebSocket endpoint path (default: ws/)
     registration_token: str = ""  # Token for client registration (required for new clients)
     use_ssl: bool = False
     verify_ssl: bool = True
@@ -29,9 +30,14 @@ class Config:
     remote_logging_batch_interval: float = 5.0  # Batch interval in seconds
 
     def get_server_url(self) -> str:
-        """Get the full server URL based on SSL configuration"""
+        """Get the full server URL based on SSL configuration including endpoint path"""
         protocol = "https" if self.use_ssl else "http"
-        return f"{protocol}://{self.server_host}:{self.server_port}"
+        # Ensure endpoint_path starts with / and has correct formatting
+        endpoint = self.endpoint_path.strip('/')
+        if endpoint:
+            return f"{protocol}://{self.server_host}:{self.server_port}/{endpoint}"
+        else:
+            return f"{protocol}://{self.server_host}:{self.server_port}"
 
     def get_websocket_protocol(self) -> str:
         """Get the WebSocket protocol based on SSL configuration"""
@@ -51,6 +57,7 @@ class Config:
                 defaults = {
                     'server_host': 'localhost',
                     'server_port': 8080,
+                    'endpoint_path': 'ws/',  # Default WebSocket endpoint path
                     'registration_token': '',
                     'use_ssl': False,
                     'verify_ssl': True,

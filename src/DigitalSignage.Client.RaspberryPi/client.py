@@ -569,9 +569,11 @@ class DigitalSignageClient:
                         protocol, host, port, endpoint = match.groups()
                         self.config.server_host = host
                         self.config.server_port = int(port)
+                        self.config.endpoint_path = endpoint  # Save the endpoint path (e.g., "ws/")
                         self.config.use_ssl = (protocol == 'wss')
                         logger.info(f"  Server Host: {host}")
                         logger.info(f"  Server Port: {port}")
+                        logger.info(f"  Endpoint Path: {endpoint}")
                         logger.info(f"  SSL: {'Enabled' if self.config.use_ssl else 'Disabled'}")
 
                         # Save discovered configuration for future use
