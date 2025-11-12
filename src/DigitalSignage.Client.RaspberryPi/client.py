@@ -780,6 +780,16 @@ class DigitalSignageClient:
                         logger.info("=" * 70)
                         self.reconnection_in_progress = False
                         self.offline_mode = False
+
+                        # Update display to show "Waiting for Layout" after successful reconnection
+                        if self.display_renderer:
+                            server_url = self.config.get_server_url()
+                            self.display_renderer.status_screen_manager.show_waiting_for_layout(
+                                self.config.client_id,
+                                server_url
+                            )
+                            logger.info("Display updated to 'Waiting for Layout' after reconnection")
+
                         return
 
                 except Exception as e:

@@ -211,6 +211,19 @@ public class WebSocketCommunicationService : ICommunicationService
         await Task.WhenAll(tasks);
     }
 
+    public void UpdateClientId(string oldClientId, string newClientId)
+    {
+        if (_clients.TryRemove(oldClientId, out var socket))
+        {
+            _clients[newClientId] = socket;
+            _logger.LogInformation("Updated WebSocket client ID mapping from {OldId} to {NewId}", oldClientId, newClientId);
+        }
+        else
+        {
+            _logger.LogWarning("Cannot update client ID: old client ID {OldId} not found in WebSocket connections", oldClientId);
+        }
+    }
+
     private async Task AcceptClientsAsync(CancellationToken cancellationToken)
     {
         while (!cancellationToken.IsCancellationRequested && _httpListener != null)
@@ -292,9 +305,25 @@ public class WebSocketCommunicationService : ICommunicationService
 
                 if (message != null)
                 {
+                    // For REGISTER messages, use the ClientId from the message for the event
+                    var eventClientId = clientId;
+                    if (message is RegisterMessage registerMsg && !string.IsNullOrWhiteSpace(registerMsg.ClientId))
+                    {
+                        eventClientId = registerMsg.ClientId;
+
+                        // Update the WebSocket client mapping if the client ID is different
+                        if (eventClientId != clientId)
+                        {
+                            _logger.LogInformation("Client registering with ID {RegisteredId} (WebSocket connection ID: {ConnectionId})",
+                                eventClientId, clientId);
+                            UpdateClientId(clientId, eventClientId);
+                            clientId = eventClientId; // Use the registered ID for the rest of the connection
+                        }
+                    }
+
                     MessageReceived?.Invoke(this, new MessageReceivedEventArgs
                     {
-                        ClientId = clientId,
+                        ClientId = eventClientId,
                         Message = message
                     });
                 }
@@ -304,9 +333,13 @@ public class WebSocketCommunicationService : ICommunicationService
                 }
             }
         }
+        catch (WebSocketException ex) when (ex.WebSocketErrorCode == WebSocketError.ConnectionClosedPrematurely)
+        {
+            _logger.LogInformation("Client {ClientId} closed connection without completing handshake", clientId);
+        }
         catch (WebSocketException ex)
         {
-            _logger.LogWarning(ex, "WebSocket error for client {ClientId}", clientId);
+            _logger.LogWarning(ex, "WebSocket error for client {ClientId}: {ErrorCode}", clientId, ex.WebSocketErrorCode);
         }
         catch (Exception ex)
         {

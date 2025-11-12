@@ -11,6 +11,7 @@ public interface ICommunicationService
     Task StopAsync(CancellationToken cancellationToken = default);
     Task SendMessageAsync(string clientId, Message message, CancellationToken cancellationToken = default);
     Task BroadcastMessageAsync(Message message, CancellationToken cancellationToken = default);
+    void UpdateClientId(string oldClientId, string newClientId);
 
     event EventHandler<MessageReceivedEventArgs>? MessageReceived;
     event EventHandler<ClientConnectedEventArgs>? ClientConnected;
