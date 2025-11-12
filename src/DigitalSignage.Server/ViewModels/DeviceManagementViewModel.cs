@@ -280,19 +280,20 @@ public partial class DeviceManagementViewModel : ObservableObject
     {
         if (SelectedClient == null) return;
 
+        var clientId = SelectedClient.Id;
         var clientName = SelectedClient.Name;
         try
         {
-            await _clientService.RemoveClientAsync(SelectedClient.Id);
+            await _clientService.RemoveClientAsync(clientId);
             await LoadClientsCommand.ExecuteAsync(null);
 
             StatusMessage = $"Removed client {clientName}";
-            _logger.LogInformation("Removed client {ClientId}", SelectedClient.Id);
+            _logger.LogInformation("Removed client {ClientId}", clientId);
         }
         catch (Exception ex)
         {
             StatusMessage = $"Failed to remove client {clientName}: {ex.Message}";
-            _logger.LogError(ex, "Failed to remove client {ClientId}", SelectedClient.Id);
+            _logger.LogError(ex, "Failed to remove client {ClientId}", clientId);
         }
     }
 
