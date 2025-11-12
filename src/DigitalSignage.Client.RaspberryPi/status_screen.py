@@ -143,23 +143,23 @@ class StatusScreen(QWidget):
         - 3840x2160 (4K UHD)
         """
         # Scale fonts based on screen height (as percentage)
-        self.title_font_size = int(self.screen_height * 0.06)      # 6% of screen height (36px @ 600, 65px @ 1080, 130px @ 2160)
-        self.subtitle_font_size = int(self.screen_height * 0.04)   # 4% of screen height (24px @ 600, 43px @ 1080, 86px @ 2160)
-        self.body_font_size = int(self.screen_height * 0.03)       # 3% of screen height (18px @ 600, 32px @ 1080, 65px @ 2160)
-        self.small_font_size = int(self.screen_height * 0.02)      # 2% of screen height (12px @ 600, 22px @ 1080, 43px @ 2160)
-        self.icon_font_size = int(self.screen_height * 0.15)       # 15% of screen height (90px @ 600, 162px @ 1080, 324px @ 2160)
+        self.title_font_size = int(self.screen_height * 0.05)      # 5% of screen height (38px @ 768, 54px @ 1080)
+        self.subtitle_font_size = int(self.screen_height * 0.035)  # 3.5% of screen height (27px @ 768, 38px @ 1080)
+        self.body_font_size = int(self.screen_height * 0.025)      # 2.5% of screen height (19px @ 768, 27px @ 1080)
+        self.small_font_size = int(self.screen_height * 0.018)     # 1.8% of screen height (14px @ 768, 19px @ 1080)
+        self.icon_font_size = int(self.screen_height * 0.12)       # 12% of screen height (92px @ 768, 130px @ 1080)
 
-        # Scale QR code based on smallest dimension (keep it square and visible but not too large)
+        # Scale QR code based on smallest dimension - reduced from 25% to 18% for better fit on 1024x768
         min_dimension = min(self.screen_width, self.screen_height)
-        self.qr_size = int(min_dimension * 0.25)  # 25% of smallest dimension (150px @ 600, 270px @ 1080, 540px @ 2160)
+        self.qr_size = int(min_dimension * 0.18)  # 18% of smallest dimension (138px @ 768, 194px @ 1080)
 
-        # Scale spinner size
-        self.spinner_size = int(self.screen_height * 0.12)  # 12% of screen height (72px @ 600, 130px @ 1080, 260px @ 2160)
+        # Scale spinner size - slightly smaller
+        self.spinner_size = int(self.screen_height * 0.10)  # 10% of screen height (77px @ 768, 108px @ 1080)
 
-        # Scale spacing and padding
-        self.spacing = int(self.screen_height * 0.03)  # 3% of screen height (18px @ 600, 32px @ 1080, 65px @ 2160)
-        self.large_spacing = int(self.screen_height * 0.05)  # 5% of screen height (30px @ 600, 54px @ 1080, 108px @ 2160)
-        self.padding = int(self.screen_height * 0.02)  # 2% of screen height (12px @ 600, 22px @ 1080, 43px @ 2160)
+        # Scale spacing and padding - reduced for tighter layout
+        self.spacing = int(self.screen_height * 0.02)  # 2% of screen height (15px @ 768, 22px @ 1080)
+        self.large_spacing = int(self.screen_height * 0.035)  # 3.5% of screen height (27px @ 768, 38px @ 1080)
+        self.padding = int(self.screen_height * 0.015)  # 1.5% of screen height (12px @ 768, 16px @ 1080)
 
         logger.debug(f"Scaled dimensions calculated for {self.screen_width}x{self.screen_height}:")
         logger.debug(f"  Title font: {self.title_font_size}pt")

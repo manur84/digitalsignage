@@ -791,14 +791,9 @@ class DigitalSignageClient:
                         self.reconnection_in_progress = False
                         self.offline_mode = False
 
-                        # Update display to show "Waiting for Layout" after successful reconnection
-                        if self.display_renderer:
-                            server_url = self.config.get_server_url()
-                            self.display_renderer.status_screen_manager.show_waiting_for_layout(
-                                self.config.client_id,
-                                server_url
-                            )
-                            logger.info("Display updated to 'Waiting for Layout' after reconnection")
+                        # Don't show status screen here - let the registration response handler
+                        # determine whether to show "No Layout Assigned" after 10 seconds
+                        # This prevents duplicate status screens
 
                         return
 
@@ -989,18 +984,13 @@ class DigitalSignageClient:
 
             await asyncio.sleep(batch_wait_time)
 
-        # Connection successful - update status and show waiting screen
+        # Connection successful - update status
         self.watchdog.notify_status("Connected to server")
         self.watchdog.notify_ready()
 
-        # Show "waiting for layout" screen after connection
-        # This will be cleared when first layout is received
-        if self.display_renderer:
-            server_url = self.config.get_server_url()
-            self.display_renderer.status_screen_manager.show_waiting_for_layout(
-                self.config.client_id,
-                server_url
-            )
+        # Don't show "waiting for layout" screen here - it will be shown by the
+        # scheduled task in handle_registration_response if no layout is received
+        # This prevents the flicker of showing two different status screens
 
         # Keep the asyncio loop running
         try:

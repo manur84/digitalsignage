@@ -72,6 +72,15 @@ class RemoteLogHandler(logging.Handler):
             if not hasattr(self.websocket_client, 'connected') or not self.websocket_client.connected:
                 return
 
+            # FILTER OUT zeroconf asyncio task warnings - these are harmless and clutter server logs
+            message = record.getMessage()
+            if 'Task was destroyed but it is pending' in message and 'zeroconf' in message.lower():
+                return  # Skip this log - don't send to server
+
+            # Also filter out related asyncio warnings from zeroconf
+            if record.name == 'asyncio' and 'Task was destroyed' in message:
+                return  # Skip asyncio task warnings
+
             log_entry = self._format_log_entry(record)
 
             # Add to queue (non-blocking)
