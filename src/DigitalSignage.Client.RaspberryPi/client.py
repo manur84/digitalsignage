@@ -623,72 +623,92 @@ class DigitalSignageClient:
             logger.info(f"Server: {self.config.server_host}:{self.config.server_port}")
             logger.info("=" * 70)
 
-        # Connect to server with retry logic
-        max_retries = 5
-        retry_delay = 2
+        # Connect to server with infinite retry logic
+        # Each batch: 5 attempts with exponential backoff (2s, 4s, 8s, 16s, 32s)
+        # Between batches: 60 second wait
+        max_retries_per_batch = 5
+        batch_wait_time = 60
         connection_successful = False
         last_error = None
+        batch_number = 0
 
-        for attempt in range(max_retries):
-            try:
-                server_url = self.config.get_server_url()
-                protocol = self.config.get_websocket_protocol().upper()
-                logger.info(f"Connecting to server at {server_url} using {protocol} (attempt {attempt + 1}/{max_retries})")
+        while not connection_successful:
+            batch_number += 1
+            retry_delay = 2  # Reset delay for each batch
 
-                self.watchdog.notify_status(f"Connecting to server (attempt {attempt + 1}/{max_retries})")
+            logger.info("=" * 70)
+            logger.info(f"CONNECTION RETRY BATCH {batch_number}")
+            logger.info("=" * 70)
 
-                # Show connecting status screen
-                if self.display_renderer:
-                    self.display_renderer.status_screen_manager.show_connecting(server_url, attempt + 1, max_retries)
+            for attempt in range(max_retries_per_batch):
+                try:
+                    server_url = self.config.get_server_url()
+                    protocol = self.config.get_websocket_protocol().upper()
+                    logger.info(f"Connecting to server at {server_url} using {protocol} (batch {batch_number}, attempt {attempt + 1}/{max_retries_per_batch})")
 
-                if self.config.use_ssl:
-                    if self.config.verify_ssl:
-                        logger.info("SSL certificate verification enabled")
+                    self.watchdog.notify_status(f"Connecting (batch {batch_number}, attempt {attempt + 1}/{max_retries_per_batch})")
+
+                    # Show connecting status screen
+                    if self.display_renderer:
+                        self.display_renderer.status_screen_manager.show_connecting(server_url, attempt + 1, max_retries_per_batch)
+
+                    if self.config.use_ssl:
+                        if self.config.verify_ssl:
+                            logger.info("SSL certificate verification enabled")
+                        else:
+                            logger.warning("SSL certificate verification disabled - not recommended for production!")
+
+                    await self.sio.connect(server_url)
+                    connection_successful = True
+                    logger.info("✓ Connection successful!")
+                    break
+                except Exception as e:
+                    last_error = str(e)
+                    if attempt < max_retries_per_batch - 1:
+                        logger.warning(f"Connection attempt {attempt + 1} failed: {e}")
+                        logger.info(f"Retrying in {retry_delay} seconds...")
+                        await asyncio.sleep(retry_delay)
+                        retry_delay = min(retry_delay * 2, 32)  # Exponential backoff (max 32s)
                     else:
-                        logger.warning("SSL certificate verification disabled - not recommended for production!")
+                        logger.error(f"Batch {batch_number}: All {max_retries_per_batch} connection attempts failed")
+                        logger.error(f"Last error: {e}")
 
-                await self.sio.connect(server_url)
-                connection_successful = True
+            # If connection succeeded, break out of infinite loop
+            if connection_successful:
                 break
-            except Exception as e:
-                last_error = str(e)
-                if attempt < max_retries - 1:
-                    logger.warning(f"Connection attempt {attempt + 1} failed: {e}. Retrying in {retry_delay}s...")
-                    await asyncio.sleep(retry_delay)
-                    retry_delay = min(retry_delay * 2, 60)  # Exponential backoff
-                else:
-                    logger.error(f"Failed to connect after {max_retries} attempts")
 
-        # If connection failed, enter offline mode with cached layout
-        if not connection_successful:
-            logger.warning("Starting in offline mode with cached data")
-            self.offline_mode = True
-            self.watchdog.notify_status("Running in offline mode")
+            # Connection failed - wait before next batch
+            logger.warning("=" * 70)
+            logger.warning(f"All {max_retries_per_batch} connection attempts in batch {batch_number} failed.")
+            logger.warning(f"Waiting {batch_wait_time} seconds before next batch...")
+            logger.warning("=" * 70)
 
-            # Show connection error status screen
+            self.watchdog.notify_status(f"Waiting {batch_wait_time}s before retry batch {batch_number + 1}")
+
+            # Show connection error status screen during wait
             if self.display_renderer:
                 server_url = self.config.get_server_url()
-                error_msg = last_error if last_error else "Connection failed after multiple attempts"
+                error_msg = f"{last_error if last_error else 'Connection failed'} (Batch {batch_number})"
                 self.display_renderer.status_screen_manager.show_connection_error(
                     server_url,
                     error_msg,
                     self.config.client_id
                 )
 
-            # Try to load cached layout
-            await self.load_cached_layout()
-        else:
-            self.watchdog.notify_status("Connected to server")
-            self.watchdog.notify_ready()
+            await asyncio.sleep(batch_wait_time)
 
-            # Show "waiting for layout" screen after connection
-            # This will be cleared when first layout is received
-            if self.display_renderer:
-                server_url = self.config.get_server_url()
-                self.display_renderer.status_screen_manager.show_waiting_for_layout(
-                    self.config.client_id,
-                    server_url
-                )
+        # Connection successful - update status and show waiting screen
+        self.watchdog.notify_status("Connected to server")
+        self.watchdog.notify_ready()
+
+        # Show "waiting for layout" screen after connection
+        # This will be cleared when first layout is received
+        if self.display_renderer:
+            server_url = self.config.get_server_url()
+            self.display_renderer.status_screen_manager.show_waiting_for_layout(
+                self.config.client_id,
+                server_url
+            )
 
         # Setup heartbeat timer
         async def heartbeat_loop():
