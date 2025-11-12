@@ -4,6 +4,7 @@ using DigitalSignage.Server.Configuration;
 using DigitalSignage.Server.Helpers;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
@@ -272,7 +273,22 @@ public class WebSocketCommunicationService : ICommunicationService
                 }
 
                 var json = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                var message = JsonConvert.DeserializeObject<Message>(json);
+
+                // Deserialize to JObject first to read the Type field
+                var jObject = Newtonsoft.Json.Linq.JObject.Parse(json);
+                var messageType = jObject["Type"]?.ToString() ?? string.Empty;
+
+                // Deserialize to concrete type based on Type field
+                Message? message = messageType switch
+                {
+                    "REGISTER" => JsonConvert.DeserializeObject<RegisterMessage>(json),
+                    "HEARTBEAT" => JsonConvert.DeserializeObject<HeartbeatMessage>(json),
+                    "STATUS_REPORT" => JsonConvert.DeserializeObject<StatusReportMessage>(json),
+                    "LOG" => JsonConvert.DeserializeObject<LogMessage>(json),
+                    "SCREENSHOT" => JsonConvert.DeserializeObject<ScreenshotMessage>(json),
+                    "UPDATE_CONFIG_RESPONSE" => JsonConvert.DeserializeObject<UpdateConfigResponseMessage>(json),
+                    _ => null
+                };
 
                 if (message != null)
                 {
@@ -281,6 +297,10 @@ public class WebSocketCommunicationService : ICommunicationService
                         ClientId = clientId,
                         Message = message
                     });
+                }
+                else
+                {
+                    _logger.LogWarning("Unknown message type '{MessageType}' from client {ClientId}", messageType, clientId);
                 }
             }
         }
