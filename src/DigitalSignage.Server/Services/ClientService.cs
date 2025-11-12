@@ -178,20 +178,50 @@ public class ClientService : IClientService
             {
                 // Update existing client
                 client = existingClient;
-                client.IpAddress = registerMessage.IpAddress ?? client.IpAddress;
-                client.LastSeen = DateTime.UtcNow;
-                client.Status = ClientStatus.Online;
-                client.DeviceInfo = registerMessage.DeviceInfo ?? client.DeviceInfo;
 
-                // Generate new client ID if provided one is different
+                // Check if client ID needs to be changed
                 if (!string.IsNullOrWhiteSpace(registerMessage.ClientId) && registerMessage.ClientId != client.Id)
                 {
+                    // Client wants to change ID - this requires deleting the old entity and creating a new one
+                    // because EF Core doesn't allow modifying primary keys on tracked entities
+                    _logger.LogInformation("Client MAC {MacAddress} changing ID from {OldId} to {NewId}",
+                        client.MacAddress, client.Id, registerMessage.ClientId);
+
+                    // Remove old entity from database
+                    dbContext.Clients.Remove(existingClient);
+                    await dbContext.SaveChangesAsync(cancellationToken);
+
                     // Remove old ID from cache
                     _clients.TryRemove(client.Id, out _);
-                    client.Id = registerMessage.ClientId;
-                }
 
-                _logger.LogInformation("Re-registered existing client {ClientId} (MAC: {MacAddress})", client.Id, client.MacAddress);
+                    // Create new entity with new ID but same data
+                    client = new RaspberryPiClient
+                    {
+                        Id = registerMessage.ClientId,
+                        MacAddress = existingClient.MacAddress,
+                        IpAddress = registerMessage.IpAddress ?? existingClient.IpAddress,
+                        Group = existingClient.Group,
+                        Location = existingClient.Location,
+                        AssignedLayoutId = existingClient.AssignedLayoutId,
+                        RegisteredAt = existingClient.RegisteredAt,
+                        LastSeen = DateTime.UtcNow,
+                        Status = ClientStatus.Online,
+                        DeviceInfo = registerMessage.DeviceInfo ?? existingClient.DeviceInfo
+                    };
+
+                    dbContext.Clients.Add(client);
+                    _logger.LogInformation("Re-registered existing client with new ID {ClientId} (MAC: {MacAddress})", client.Id, client.MacAddress);
+                }
+                else
+                {
+                    // Same ID, just update the properties
+                    client.IpAddress = registerMessage.IpAddress ?? client.IpAddress;
+                    client.LastSeen = DateTime.UtcNow;
+                    client.Status = ClientStatus.Online;
+                    client.DeviceInfo = registerMessage.DeviceInfo ?? client.DeviceInfo;
+
+                    _logger.LogInformation("Re-registered existing client {ClientId} (MAC: {MacAddress})", client.Id, client.MacAddress);
+                }
             }
             else
             {
