@@ -14,6 +14,7 @@
             <converters:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter"/>
             <converters:InverseBoolToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter"/>
             <converters:InverseBooleanConverter x:Key="InverseBooleanConverter"/>
+            <converters:NullToBooleanConverter x:Key="NullToBooleanConverter"/>
             <converters:StringFormatConverter x:Key="StringFormatConverter"/>
             <converters:FileSizeConverter x:Key="FileSizeConverter"/>
             <converters:MediaTypeToIconConverter x:Key="MediaTypeToIconConverter"/>

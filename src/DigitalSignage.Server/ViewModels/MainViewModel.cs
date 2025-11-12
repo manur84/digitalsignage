@@ -199,12 +199,60 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private async Task NewLayout()
     {
-        CurrentLayout = new DisplayLayout
+        try
         {
-            Name = "New Layout",
-            Resolution = new Resolution { Width = 1920, Height = 1080 }
-        };
-        StatusText = "New layout created";
+            _logger.LogInformation("Opening new layout dialog");
+            StatusText = "Create a new layout...";
+
+            // Create the new layout view model
+            var newLayoutViewModel = new NewLayoutViewModel(
+                Microsoft.Extensions.Logging.LoggerFactory.Create(builder => builder.AddConsole())
+                    .CreateLogger<NewLayoutViewModel>());
+
+            // Create and show the dialog
+            var dialog = new NewLayoutDialog(newLayoutViewModel);
+            var result = dialog.ShowDialog();
+
+            if (result == true && newLayoutViewModel.SelectedResolution != null)
+            {
+                _logger.LogInformation("Creating new layout: {LayoutName}", newLayoutViewModel.LayoutName);
+
+                // Create new layout
+                var newLayout = new DisplayLayout
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    Name = newLayoutViewModel.LayoutName,
+                    Description = newLayoutViewModel.Description,
+                    Resolution = new Resolution
+                    {
+                        Width = newLayoutViewModel.SelectedResolution.Width,
+                        Height = newLayoutViewModel.SelectedResolution.Height,
+                        Orientation = newLayoutViewModel.SelectedResolution.Width > newLayoutViewModel.SelectedResolution.Height ? "landscape" : "portrait"
+                    },
+                    BackgroundColor = newLayoutViewModel.BackgroundColor,
+                    Elements = new List<DisplayElement>(),
+                    Created = DateTime.UtcNow,
+                    Modified = DateTime.UtcNow
+                };
+
+                // Load the new layout into Designer
+                await Designer.CreateNewLayoutAsync(newLayout);
+                CurrentLayout = newLayout;
+
+                StatusText = $"Created new layout: {newLayout.Name}";
+                _logger.LogInformation("Successfully created new layout");
+            }
+            else
+            {
+                StatusText = "New layout cancelled";
+                _logger.LogInformation("New layout creation cancelled by user");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to create new layout");
+            StatusText = $"Error: {ex.Message}";
+        }
     }
 
     [RelayCommand]
@@ -274,11 +322,47 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private async Task OpenLayout()
     {
-        // TODO: Implement layout selection dialog
-        StatusText = "Opening layout...";
+        try
+        {
+            _logger.LogInformation("Opening layout selection dialog");
+            StatusText = "Select a layout to open...";
+
+            // Create the layout selection view model
+            var layoutSelectionViewModel = new LayoutSelectionViewModel(
+                _layoutService,
+                Microsoft.Extensions.Logging.LoggerFactory.Create(builder => builder.AddConsole())
+                    .CreateLogger<LayoutSelectionViewModel>());
+
+            // Create and show the dialog
+            var dialog = new LayoutSelectionDialog(layoutSelectionViewModel);
+            var result = dialog.ShowDialog();
+
+            if (result == true && layoutSelectionViewModel.SelectedLayout != null)
+            {
+                var selectedLayout = layoutSelectionViewModel.SelectedLayout;
+                _logger.LogInformation("Loading layout: {LayoutName}", selectedLayout.Name);
+
+                // Load the selected layout into Designer
+                await Designer.LoadLayoutAsync(selectedLayout);
+                CurrentLayout = selectedLayout;
+
+                StatusText = $"Loaded layout: {selectedLayout.Name}";
+                _logger.LogInformation("Successfully loaded layout");
+            }
+            else
+            {
+                StatusText = "Layout selection cancelled";
+                _logger.LogInformation("Layout selection cancelled by user");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to open layout");
+            StatusText = $"Error: {ex.Message}";
+        }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanSave))]
     private async Task Save()
     {
         if (CurrentLayout == null)
@@ -289,20 +373,44 @@ public partial class MainViewModel : ObservableObject
 
         try
         {
+            _logger.LogInformation("Saving layout: {LayoutName}", CurrentLayout.Name);
+
+            // Update elements from Designer
+            CurrentLayout.Elements = Designer.Elements.ToList();
+            CurrentLayout.Modified = DateTime.UtcNow;
+
             if (string.IsNullOrEmpty(CurrentLayout.Id))
             {
+                CurrentLayout.Id = Guid.NewGuid().ToString();
+                CurrentLayout.Created = DateTime.UtcNow;
                 await _layoutService.CreateLayoutAsync(CurrentLayout);
+                StatusText = $"Layout created successfully: {CurrentLayout.Name}";
+                _logger.LogInformation("Created new layout: {LayoutId}", CurrentLayout.Id);
             }
             else
             {
                 await _layoutService.UpdateLayoutAsync(CurrentLayout);
+                StatusText = $"Layout saved successfully: {CurrentLayout.Name}";
+                _logger.LogInformation("Updated layout: {LayoutId}", CurrentLayout.Id);
             }
-            StatusText = "Layout saved successfully";
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Failed to save layout");
             StatusText = $"Failed to save layout: {ex.Message}";
+            System.Windows.MessageBox.Show(
+                $"Failed to save layout: {ex.Message}",
+                "Error",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Error);
         }
+    }
+
+    private bool CanSave() => CurrentLayout != null;
+
+    partial void OnCurrentLayoutChanged(DisplayLayout? value)
+    {
+        SaveCommand.NotifyCanExecuteChanged();
     }
 
     [RelayCommand]

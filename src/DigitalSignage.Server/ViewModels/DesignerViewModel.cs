@@ -96,8 +96,29 @@ public partial class DesignerViewModel : ObservableObject
         };
 
         Elements.Clear();
+        Layers.Clear();
         SelectedElement = null;
         _logger.LogInformation("Created new layout: {LayoutName}", CurrentLayout.Name);
+    }
+
+    /// <summary>
+    /// Creates a new layout with specified properties
+    /// </summary>
+    public async Task CreateNewLayoutAsync(DisplayLayout layout)
+    {
+        try
+        {
+            CurrentLayout = layout;
+            Elements.Clear();
+            Layers.Clear();
+            SelectedElement = null;
+            _logger.LogInformation("Created new layout: {LayoutName} ({Width}x{Height})",
+                layout.Name, layout.Resolution.Width, layout.Resolution.Height);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to create new layout");
+        }
     }
 
     [RelayCommand]
@@ -108,19 +129,42 @@ public partial class DesignerViewModel : ObservableObject
             var layout = await _layoutService.GetLayoutByIdAsync(layoutId);
             if (layout != null)
             {
-                CurrentLayout = layout;
-                Elements.Clear();
-                foreach (var element in layout.Elements)
-                {
-                    Elements.Add(element);
-                }
-                SelectedElement = null;
-                _logger.LogInformation("Loaded layout: {LayoutName}", layout.Name);
+                await LoadLayoutAsync(layout);
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to load layout: {LayoutId}", layoutId);
+        }
+    }
+
+    /// <summary>
+    /// Loads an existing layout into the designer
+    /// </summary>
+    public async Task LoadLayoutAsync(DisplayLayout layout)
+    {
+        try
+        {
+            CurrentLayout = layout;
+            Elements.Clear();
+            Layers.Clear();
+
+            if (layout.Elements != null)
+            {
+                foreach (var element in layout.Elements)
+                {
+                    Elements.Add(element);
+                }
+            }
+
+            UpdateLayers();
+            SelectedElement = null;
+            _logger.LogInformation("Loaded layout: {LayoutName} with {ElementCount} elements",
+                layout.Name, layout.Elements?.Count ?? 0);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to load layout: {LayoutName}", layout.Name);
         }
     }
 
