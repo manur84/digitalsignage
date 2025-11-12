@@ -45,7 +45,7 @@ public class DeviceInfo
     public int ScreenWidth { get; set; }
     public int ScreenHeight { get; set; }
     public int NetworkLatency { get; set; } // milliseconds
-    public TimeSpan Uptime { get; set; }
+    public long Uptime { get; set; } // seconds since boot
 }
 
 /// <summary>
