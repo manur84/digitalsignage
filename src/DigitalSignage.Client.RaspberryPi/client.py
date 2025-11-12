@@ -283,6 +283,26 @@ class DigitalSignageClient:
                         self.config.save()
                     except Exception as e:
                         logger.warning(f"Failed to save updated config: {e}")
+
+                # Schedule a check for "no layout assigned" after 10 seconds
+                async def check_for_no_layout():
+                    await asyncio.sleep(10)
+                    # If still connected but no layout received, show "no layout assigned" screen
+                    if self.connected and not self.current_layout and self.display_renderer:
+                        if self.display_renderer.status_screen_manager.is_showing_status:
+                            logger.info("No layout received after 10 seconds - showing 'No Layout Assigned' screen")
+                            # Get IP address
+                            device_info = await self.device_manager.get_device_info()
+                            ip_address = device_info.get("ip_address", "Unknown")
+                            server_url = self.config.get_server_url()
+                            self.display_renderer.status_screen_manager.show_no_layout_assigned(
+                                self.config.client_id,
+                                server_url,
+                                ip_address
+                            )
+
+                asyncio.create_task(check_for_no_layout())
+
             else:
                 error_message = data.get("ErrorMessage", "Unknown error")
                 logger.error(f"Registration failed: {error_message}")
@@ -548,6 +568,10 @@ class DigitalSignageClient:
             logger.info("=" * 70)
             self.watchdog.notify_status("Searching for servers via Auto-Discovery...")
 
+            # Show discovering server status screen
+            if self.display_renderer:
+                self.display_renderer.status_screen_manager.show_discovering_server("mDNS/Zeroconf + UDP Broadcast")
+
             try:
                 logger.info("Importing discovery module...")
                 from discovery import discover_server
@@ -603,6 +627,7 @@ class DigitalSignageClient:
         max_retries = 5
         retry_delay = 2
         connection_successful = False
+        last_error = None
 
         for attempt in range(max_retries):
             try:
@@ -611,6 +636,10 @@ class DigitalSignageClient:
                 logger.info(f"Connecting to server at {server_url} using {protocol} (attempt {attempt + 1}/{max_retries})")
 
                 self.watchdog.notify_status(f"Connecting to server (attempt {attempt + 1}/{max_retries})")
+
+                # Show connecting status screen
+                if self.display_renderer:
+                    self.display_renderer.status_screen_manager.show_connecting(server_url, attempt + 1, max_retries)
 
                 if self.config.use_ssl:
                     if self.config.verify_ssl:
@@ -622,6 +651,7 @@ class DigitalSignageClient:
                 connection_successful = True
                 break
             except Exception as e:
+                last_error = str(e)
                 if attempt < max_retries - 1:
                     logger.warning(f"Connection attempt {attempt + 1} failed: {e}. Retrying in {retry_delay}s...")
                     await asyncio.sleep(retry_delay)
@@ -634,10 +664,31 @@ class DigitalSignageClient:
             logger.warning("Starting in offline mode with cached data")
             self.offline_mode = True
             self.watchdog.notify_status("Running in offline mode")
+
+            # Show connection error status screen
+            if self.display_renderer:
+                server_url = self.config.get_server_url()
+                error_msg = last_error if last_error else "Connection failed after multiple attempts"
+                self.display_renderer.status_screen_manager.show_connection_error(
+                    server_url,
+                    error_msg,
+                    self.config.client_id
+                )
+
+            # Try to load cached layout
             await self.load_cached_layout()
         else:
             self.watchdog.notify_status("Connected to server")
             self.watchdog.notify_ready()
+
+            # Show "waiting for layout" screen after connection
+            # This will be cleared when first layout is received
+            if self.display_renderer:
+                server_url = self.config.get_server_url()
+                self.display_renderer.status_screen_manager.show_waiting_for_layout(
+                    self.config.client_id,
+                    server_url
+                )
 
         # Setup heartbeat timer
         async def heartbeat_loop():

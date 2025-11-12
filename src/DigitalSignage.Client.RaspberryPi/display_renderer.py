@@ -11,6 +11,9 @@ from PyQt5.QtCore import Qt, QRect
 from PyQt5.QtGui import QPixmap, QFont, QColor, QPainter, QImage
 import qrcode
 
+# Import status screen manager
+from status_screen import StatusScreenManager
+
 logger = logging.getLogger(__name__)
 
 
@@ -22,6 +25,9 @@ class DisplayRenderer(QWidget):
         self.fullscreen = fullscreen
         self.elements: list[QWidget] = []
         self.setup_ui()
+
+        # Initialize status screen manager
+        self.status_screen_manager = StatusScreenManager(self)
 
     def setup_ui(self):
         """Setup the UI"""
@@ -47,6 +53,11 @@ class DisplayRenderer(QWidget):
 
         layout_name = layout.get('Name', 'Unnamed')
         logger.info(f"Rendering layout: {layout_name}")
+
+        # Clear status screen when rendering actual layout
+        if self.status_screen_manager.is_showing_status:
+            logger.info("Clearing status screen to display layout")
+            self.status_screen_manager.clear_status_screen()
 
         try:
             # Clear existing elements
