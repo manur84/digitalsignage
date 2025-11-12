@@ -105,6 +105,7 @@ try:
     from watchdog_monitor import WatchdogMonitor
     from config import Config
     from remote_log_handler import setup_remote_logging
+    from web_interface import WebInterface
     logger.info("  Local module imports OK")
 except ImportError as e:
     logger.error(f"  FAILED - Local module import error: {e}")
@@ -143,6 +144,9 @@ class DigitalSignageClient:
         self.reconnection_in_progress = False
         self.reconnection_task = None
         self.stop_reconnection = False
+
+        # Web interface
+        self.web_interface: Optional[WebInterface] = None
 
         # Setup remote logging if enabled
         if self.config.remote_logging_enabled:
@@ -834,6 +838,16 @@ class DigitalSignageClient:
         """Start the client application"""
         logger.info("Starting Digital Signage Client...")
 
+        # Start web interface
+        try:
+            logger.info("Starting web interface...")
+            self.web_interface = WebInterface(self, port=5000, host='0.0.0.0')
+            self.web_interface.start()
+            logger.info("Web interface started successfully")
+        except Exception as e:
+            logger.error(f"Failed to start web interface: {e}", exc_info=True)
+            logger.warning("Continuing without web interface...")
+
         # Start watchdog monitoring
         await self.watchdog.start()
         self.watchdog.notify_status("Initializing...")
@@ -1003,6 +1017,13 @@ class DigitalSignageClient:
         """Stop the client application"""
         logger.info("Stopping Digital Signage Client...")
         self.watchdog.notify_stopping()
+
+        # Stop web interface
+        if self.web_interface:
+            try:
+                self.web_interface.stop()
+            except Exception as e:
+                logger.error(f"Error stopping web interface: {e}")
 
         # Stop reconnection if in progress
         self.stop_reconnection = True

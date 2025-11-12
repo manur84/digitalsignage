@@ -367,10 +367,18 @@ class StatusScreen(QWidget):
         instructions_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(instructions_label)
 
-        # QR code with debug info
+        # QR code with web dashboard URL - extract IP from client_id or use default
         layout.addSpacing(self.spacing)
-        qr_data = f"Client ID: {client_id}\nServer: {server_url}\nError: {error_message}\nTime: {datetime.now().isoformat()}"
-        qr_widget = self._create_qr_code(qr_data, self.qr_size)
+        # Try to get IP address from device manager or use localhost
+        try:
+            from device_manager import DeviceManager
+            device_mgr = DeviceManager()
+            ip_address = device_mgr.get_ip_address()
+        except:
+            ip_address = "localhost"
+
+        dashboard_url = f"http://{ip_address}:5000"
+        qr_widget = self._create_qr_code(dashboard_url, self.qr_size)
         if qr_widget:
             qr_container = QWidget()
             qr_layout = QHBoxLayout(qr_container)
@@ -379,7 +387,7 @@ class StatusScreen(QWidget):
             qr_layout.addStretch()
             layout.addWidget(qr_container)
 
-            qr_label = QLabel("Scan for debug information", self)
+            qr_label = QLabel("Scan to view client dashboard", self)
             qr_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: {self.small_font_size}pt;")
             qr_label.setAlignment(Qt.AlignCenter)
             layout.addWidget(qr_label)
@@ -445,10 +453,10 @@ class StatusScreen(QWidget):
         instructions_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(instructions_label)
 
-        # QR code with device info
+        # QR code with web dashboard URL
         layout.addSpacing(self.spacing)
-        qr_data = f"Client ID: {client_id}\nIP: {ip_address}\nServer: {server_url}\nStatus: No Layout Assigned\nTime: {datetime.now().isoformat()}"
-        qr_widget = self._create_qr_code(qr_data, self.qr_size)
+        dashboard_url = f"http://{ip_address}:5000"
+        qr_widget = self._create_qr_code(dashboard_url, self.qr_size)
         if qr_widget:
             qr_container = QWidget()
             qr_layout = QHBoxLayout(qr_container)
@@ -457,7 +465,7 @@ class StatusScreen(QWidget):
             qr_layout.addStretch()
             layout.addWidget(qr_container)
 
-            qr_label = QLabel("Scan for device information", self)
+            qr_label = QLabel("Scan to view client dashboard", self)
             qr_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: {self.small_font_size}pt;")
             qr_label.setAlignment(Qt.AlignCenter)
             layout.addWidget(qr_label)

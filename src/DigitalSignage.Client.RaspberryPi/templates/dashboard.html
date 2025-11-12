@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digital Signage Client Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #e0e0e0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #4A90E2;
+        }
+
+        h1 {
+            color: #4A90E2;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #B0B0B0;
+            font-size: 1.1em;
+        }
+
+        .card {
+            background: rgba(42, 42, 42, 0.8);
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            border: 1px solid #333;
+        }
+
+        .card h2 {
+            color: #4A90E2;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card h2 .icon {
+            font-size: 0.9em;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .info-item {
+            background: rgba(30, 30, 30, 0.5);
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #4A90E2;
+        }
+
+        .info-label {
+            color: #B0B0B0;
+            font-size: 0.85em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+
+        .info-value {
+            color: #FFFFFF;
+            font-size: 1.2em;
+            font-weight: 600;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: 600;
+        }
+
+        .status-online {
+            background: #5CB85C;
+            color: white;
+        }
+
+        .status-offline {
+            background: #D9534F;
+            color: white;
+        }
+
+        .status-warning {
+            background: #F0AD4E;
+            color: white;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 25px;
+            background: rgba(30, 30, 30, 0.5);
+            border-radius: 12px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4A90E2, #357ABD);
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+
+        .progress-fill.warning {
+            background: linear-gradient(90deg, #F0AD4E, #EC971F);
+        }
+
+        .progress-fill.danger {
+            background: linear-gradient(90deg, #D9534F, #C9302C);
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 5px;
+        }
+
+        .btn-primary {
+            background: #4A90E2;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #357ABD;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(74, 144, 226, 0.3);
+        }
+
+        .btn-danger {
+            background: #D9534F;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #C9302C;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(217, 83, 79, 0.3);
+        }
+
+        .btn-success {
+            background: #5CB85C;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #4CAE4C;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(92, 184, 92, 0.3);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .log-container {
+            background: rgba(20, 20, 20, 0.9);
+            border-radius: 8px;
+            padding: 15px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+        }
+
+        .log-entry {
+            padding: 8px;
+            margin-bottom: 5px;
+            border-left: 3px solid #4A90E2;
+            background: rgba(30, 30, 30, 0.5);
+            border-radius: 4px;
+        }
+
+        .log-entry.ERROR {
+            border-left-color: #D9534F;
+        }
+
+        .log-entry.WARNING {
+            border-left-color: #F0AD4E;
+        }
+
+        .log-entry.DEBUG {
+            border-left-color: #B0B0B0;
+        }
+
+        .log-timestamp {
+            color: #B0B0B0;
+            font-size: 0.85em;
+        }
+
+        .log-level {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            font-weight: 600;
+            margin: 0 5px;
+        }
+
+        .log-level.INFO {
+            background: #4A90E2;
+            color: white;
+        }
+
+        .log-level.ERROR {
+            background: #D9534F;
+            color: white;
+        }
+
+        .log-level.WARNING {
+            background: #F0AD4E;
+            color: white;
+        }
+
+        .log-level.DEBUG {
+            background: #B0B0B0;
+            color: white;
+        }
+
+        .log-message {
+            color: #E0E0E0;
+            margin-left: 10px;
+        }
+
+        .filter-buttons {
+            margin-bottom: 15px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            padding: 8px 16px;
+            border: 2px solid #4A90E2;
+            background: transparent;
+            color: #4A90E2;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .filter-btn.active {
+            background: #4A90E2;
+            color: white;
+        }
+
+        .filter-btn:hover {
+            background: #4A90E2;
+            color: white;
+        }
+
+        .help-section {
+            background: rgba(42, 42, 42, 0.6);
+            border-left: 4px solid #5CB85C;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+
+        .help-section h3 {
+            color: #5CB85C;
+            margin-bottom: 15px;
+        }
+
+        .help-section ol {
+            margin-left: 20px;
+        }
+
+        .help-section li {
+            color: #E0E0E0;
+            margin-bottom: 10px;
+            line-height: 1.6;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #B0B0B0;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(74, 144, 226, 0.3);
+            border-top-color: #4A90E2;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .auto-refresh {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #333;
+            transition: 0.4s;
+            border-radius: 24px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: 0.4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: #4A90E2;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+
+        .error-message {
+            background: rgba(217, 83, 79, 0.2);
+            border: 1px solid #D9534F;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            color: #D9534F;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #333;
+            color: #B0B0B0;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 1.8em;
+            }
+
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .actions {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+            }
+        }
+
+        .last-updated {
+            text-align: right;
+            color: #B0B0B0;
+            font-size: 0.85em;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Digital Signage Client Dashboard</h1>
+            <p class="subtitle">Real-time monitoring and management interface</p>
+        </header>
+
+        <!-- Client Information -->
+        <div class="card">
+            <h2><span class="icon">💻</span> Client Information</h2>
+            <div class="info-grid" id="clientInfo">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Loading client information...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Information -->
+        <div class="card">
+            <h2><span class="icon">📊</span> System Information</h2>
+            <div id="systemInfo">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Loading system information...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Connection Status -->
+        <div class="card">
+            <h2><span class="icon">🔌</span> Connection Status</h2>
+            <div class="info-grid" id="connectionStatus">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Loading connection status...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Logs -->
+        <div class="card">
+            <h2><span class="icon">📝</span> Recent Logs</h2>
+            <div class="auto-refresh">
+                <label class="switch">
+                    <input type="checkbox" id="autoRefresh" checked>
+                    <span class="slider"></span>
+                </label>
+                <span>Auto-refresh (every 10 seconds)</span>
+            </div>
+            <div class="filter-buttons">
+                <button class="filter-btn active" onclick="filterLogs('ALL')">All</button>
+                <button class="filter-btn" onclick="filterLogs('INFO')">Info</button>
+                <button class="filter-btn" onclick="filterLogs('WARNING')">Warning</button>
+                <button class="filter-btn" onclick="filterLogs('ERROR')">Error</button>
+            </div>
+            <div class="log-container" id="logContainer">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Loading logs...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="card">
+            <h2><span class="icon">⚙️</span> Actions</h2>
+            <div class="actions">
+                <button class="btn btn-primary" onclick="refreshData()">🔄 Refresh Data</button>
+                <button class="btn btn-danger" onclick="restartClient()">🔄 Restart Client</button>
+                <button class="btn btn-success" onclick="clearCache()">🗑️ Clear Cache</button>
+            </div>
+        </div>
+
+        <!-- Help -->
+        <div class="card">
+            <h2><span class="icon">❓</span> Help & Troubleshooting</h2>
+            <div class="help-section">
+                <h3>How to assign a layout to this device:</h3>
+                <ol>
+                    <li>Open the Digital Signage Management Server in your browser</li>
+                    <li>Navigate to <strong>Device Management</strong> tab</li>
+                    <li>Find this device using its <strong>Client ID</strong> or <strong>IP Address</strong></li>
+                    <li>Select a layout from the <strong>Assigned Layout</strong> dropdown</li>
+                    <li>The device will automatically receive and display the new layout</li>
+                </ol>
+            </div>
+            <div class="help-section" style="margin-top: 20px;">
+                <h3>Troubleshooting:</h3>
+                <ol>
+                    <li><strong>Device not showing in server?</strong> Check network connection and verify server URL is correct</li>
+                    <li><strong>Layout not displaying?</strong> Use "Restart Client" button above to refresh the display</li>
+                    <li><strong>Performance issues?</strong> Use "Clear Cache" to free up disk space</li>
+                    <li><strong>Connection problems?</strong> Check that the server is running and firewall allows connections</li>
+                </ol>
+            </div>
+        </div>
+
+        <footer>
+            <p>Digital Signage Client Dashboard v1.0</p>
+            <p class="last-updated" id="lastUpdated"></p>
+        </footer>
+    </div>
+
+    <script>
+        let currentLogFilter = 'ALL';
+        let autoRefreshEnabled = true;
+        let refreshInterval;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            refreshData();
+            startAutoRefresh();
+
+            // Auto-refresh toggle
+            document.getElementById('autoRefresh').addEventListener('change', function(e) {
+                autoRefreshEnabled = e.target.checked;
+                if (autoRefreshEnabled) {
+                    startAutoRefresh();
+                } else {
+                    stopAutoRefresh();
+                }
+            });
+        });
+
+        function startAutoRefresh() {
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+            }
+            refreshInterval = setInterval(() => {
+                if (autoRefreshEnabled) {
+                    refreshData();
+                }
+            }, 10000); // 10 seconds
+        }
+
+        function stopAutoRefresh() {
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+            }
+        }
+
+        function refreshData() {
+            loadClientInfo();
+            loadSystemInfo();
+            loadConnectionStatus();
+            loadLogs();
+            updateLastUpdated();
+        }
+
+        function updateLastUpdated() {
+            const now = new Date();
+            document.getElementById('lastUpdated').textContent =
+                `Last updated: ${now.toLocaleString()}`;
+        }
+
+        async function loadClientInfo() {
+            try {
+                const response = await fetch('/api/status');
+                const data = await response.json();
+
+                const html = `
+                    <div class="info-item">
+                        <div class="info-label">Client ID</div>
+                        <div class="info-value">${data.client_id || 'Unknown'}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">IP Address</div>
+                        <div class="info-value">${data.ip_address || 'Unknown'}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">MAC Address</div>
+                        <div class="info-value">${data.mac_address || 'Unknown'}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Hostname</div>
+                        <div class="info-value">${data.hostname || 'Unknown'}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Status</div>
+                        <div class="info-value">
+                            <span class="status-badge ${data.connected ? 'status-online' : 'status-offline'}">
+                                ${data.connected ? '✓ Connected' : '✗ Disconnected'}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Server URL</div>
+                        <div class="info-value" style="font-size: 0.9em; word-break: break-all;">
+                            ${data.server_url || 'Unknown'}
+                        </div>
+                    </div>
+                `;
+
+                document.getElementById('clientInfo').innerHTML = html;
+            } catch (error) {
+                console.error('Error loading client info:', error);
+                document.getElementById('clientInfo').innerHTML =
+                    '<div class="error-message">Failed to load client information</div>';
+            }
+        }
+
+        async function loadSystemInfo() {
+            try {
+                const response = await fetch('/api/system');
+                const data = await response.json();
+
+                const cpuClass = data.cpu_usage > 80 ? 'danger' : data.cpu_usage > 60 ? 'warning' : '';
+                const memClass = data.memory_percent > 80 ? 'danger' : data.memory_percent > 60 ? 'warning' : '';
+                const diskClass = data.disk_percent > 80 ? 'danger' : data.disk_percent > 60 ? 'warning' : '';
+
+                const html = `
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <div class="info-label">CPU Usage</div>
+                            <div class="info-value">${data.cpu_usage || 0}%</div>
+                            <div class="progress-bar">
+                                <div class="progress-fill ${cpuClass}" style="width: ${data.cpu_usage || 0}%">
+                                    ${data.cpu_usage || 0}%
+                                </div>
+                            </div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">CPU Temperature</div>
+                            <div class="info-value">${data.cpu_temperature || 0}°C</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Memory Usage</div>
+                            <div class="info-value">${data.memory_used_gb || 0} GB / ${data.memory_total_gb || 0} GB</div>
+                            <div class="progress-bar">
+                                <div class="progress-fill ${memClass}" style="width: ${data.memory_percent || 0}%">
+                                    ${data.memory_percent || 0}%
+                                </div>
+                            </div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Disk Usage</div>
+                            <div class="info-value">${data.disk_used_gb || 0} GB / ${data.disk_total_gb || 0} GB</div>
+                            <div class="progress-bar">
+                                <div class="progress-fill ${diskClass}" style="width: ${data.disk_percent || 0}%">
+                                    ${data.disk_percent || 0}%
+                                </div>
+                            </div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Uptime</div>
+                            <div class="info-value">${data.uptime || 'Unknown'}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Display Resolution</div>
+                            <div class="info-value">${data.display_resolution || 'Unknown'}</div>
+                        </div>
+                    </div>
+                    <div class="info-grid" style="margin-top: 20px;">
+                        <div class="info-item">
+                            <div class="info-label">Device Model</div>
+                            <div class="info-value" style="font-size: 0.9em;">
+                                ${data.model || 'Unknown'}
+                            </div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">OS Version</div>
+                            <div class="info-value" style="font-size: 0.9em;">
+                                ${data.os_version || 'Unknown'}
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                document.getElementById('systemInfo').innerHTML = html;
+            } catch (error) {
+                console.error('Error loading system info:', error);
+                document.getElementById('systemInfo').innerHTML =
+                    '<div class="error-message">Failed to load system information</div>';
+            }
+        }
+
+        async function loadConnectionStatus() {
+            try {
+                const response = await fetch('/api/status');
+                const data = await response.json();
+
+                const html = `
+                    <div class="info-item">
+                        <div class="info-label">WebSocket Status</div>
+                        <div class="info-value">
+                            <span class="status-badge ${data.connected ? 'status-online' : 'status-offline'}">
+                                ${data.websocket_status || 'Unknown'}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Last Heartbeat</div>
+                        <div class="info-value">${data.last_heartbeat ? new Date(data.last_heartbeat).toLocaleString() : 'N/A'}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Assigned Layout</div>
+                        <div class="info-value">
+                            ${data.assigned_layout ?
+                                `<span class="status-badge status-online">${data.assigned_layout}</span>` :
+                                '<span class="status-badge status-warning">No Layout Assigned</span>'}
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Cached Layouts</div>
+                        <div class="info-value">${data.cache_info?.layout_count || 0}</div>
+                    </div>
+                `;
+
+                document.getElementById('connectionStatus').innerHTML = html;
+            } catch (error) {
+                console.error('Error loading connection status:', error);
+                document.getElementById('connectionStatus').innerHTML =
+                    '<div class="error-message">Failed to load connection status</div>';
+            }
+        }
+
+        async function loadLogs() {
+            try {
+                const response = await fetch(`/api/logs?level=${currentLogFilter}&lines=50`);
+                const data = await response.json();
+
+                if (data.logs && data.logs.length > 0) {
+                    const html = data.logs.map(log => `
+                        <div class="log-entry ${log.level}">
+                            <span class="log-timestamp">${log.timestamp}</span>
+                            <span class="log-level ${log.level}">${log.level}</span>
+                            <span class="log-message">${log.message}</span>
+                        </div>
+                    `).join('');
+                    document.getElementById('logContainer').innerHTML = html;
+                } else {
+                    document.getElementById('logContainer').innerHTML =
+                        '<p style="color: #B0B0B0; text-align: center;">No logs available</p>';
+                }
+            } catch (error) {
+                console.error('Error loading logs:', error);
+                document.getElementById('logContainer').innerHTML =
+                    '<div class="error-message">Failed to load logs</div>';
+            }
+        }
+
+        function filterLogs(level) {
+            currentLogFilter = level;
+
+            // Update button states
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+
+            loadLogs();
+        }
+
+        async function restartClient() {
+            if (!confirm('Are you sure you want to restart the client? The display will go blank temporarily.')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/restart', { method: 'POST' });
+                const data = await response.json();
+
+                if (data.success) {
+                    alert('Client restart initiated. The page will reload in 10 seconds.');
+                    setTimeout(() => {
+                        location.reload();
+                    }, 10000);
+                } else {
+                    alert('Failed to restart client: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error restarting client:', error);
+                alert('Failed to restart client: ' + error.message);
+            }
+        }
+
+        async function clearCache() {
+            if (!confirm('Are you sure you want to clear the cache? This will remove all cached layouts.')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/clear_cache', { method: 'POST' });
+                const data = await response.json();
+
+                if (data.success) {
+                    alert('Cache cleared successfully!');
+                    refreshData();
+                } else {
+                    alert('Failed to clear cache: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error clearing cache:', error);
+                alert('Failed to clear cache: ' + error.message);
+            }
+        }
+    </script>
+</body>
+</html>
