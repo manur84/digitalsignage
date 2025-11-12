@@ -286,12 +286,31 @@ COLOR_TEXT_SECONDARY = "#CCCCCC" # Light gray text
 ### Manual Testing
 
 **Test Script:**
+
+The test script cycles through all status screens with 5-second intervals.
+
+**IMPORTANT**: The test script requires dependencies installed in the production virtualenv. Use one of these methods:
+
 ```bash
+# Method 1: Run as executable (recommended)
 cd /var/www/html/digitalsignage/src/DigitalSignage.Client.RaspberryPi
+./test_status_screens.py
+
+# Method 2: Use virtualenv Python explicitly
+/opt/digitalsignage-client/venv/bin/python3 test_status_screens.py
+
+# Method 3: Activate virtualenv first
+source /opt/digitalsignage-client/venv/bin/activate
 python3 test_status_screens.py
+deactivate
 ```
 
-This will cycle through all status screens with 5-second intervals.
+**Troubleshooting Test Script:**
+
+If you get `ModuleNotFoundError: No module named 'qrcode'`:
+- You're using system Python instead of the virtualenv Python
+- Use one of the methods above to run with the correct Python interpreter
+- The script will display helpful error messages if dependencies are missing
 
 ### Testing in Real Client
 

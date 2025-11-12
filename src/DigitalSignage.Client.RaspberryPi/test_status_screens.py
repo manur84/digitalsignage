@@ -1,11 +1,44 @@
-#!/usr/bin/env python3
+#!/opt/digitalsignage-client/venv/bin/python3
 """
 Test script for status screens
 Run this to test all status screen states visually
+
+IMPORTANT: This script requires dependencies installed in the virtualenv.
+Run with one of these methods:
+  1. ./test_status_screens.py (if executable)
+  2. /opt/digitalsignage-client/venv/bin/python3 test_status_screens.py
+  3. source /opt/digitalsignage-client/venv/bin/activate && python3 test_status_screens.py
 """
 
 import sys
+import os
 import asyncio
+
+# Check if we're running in the correct environment
+def check_environment():
+    """Check if running with correct Python interpreter"""
+    try:
+        import qrcode
+    except ImportError:
+        print("\n" + "=" * 70)
+        print("ERROR: Required dependencies not found")
+        print("=" * 70)
+        print("\nThe 'qrcode' module is not installed in your current Python environment.")
+        print("\nThis script requires dependencies from the production virtualenv.")
+        print("\nPlease run this script using one of these methods:\n")
+        print("  1. Make it executable and run directly:")
+        print("     chmod +x test_status_screens.py")
+        print("     ./test_status_screens.py\n")
+        print("  2. Use the virtualenv Python explicitly:")
+        print("     /opt/digitalsignage-client/venv/bin/python3 test_status_screens.py\n")
+        print("  3. Activate the virtualenv first:")
+        print("     source /opt/digitalsignage-client/venv/bin/activate")
+        print("     python3 test_status_screens.py\n")
+        print("=" * 70)
+        sys.exit(1)
+
+# Check environment before importing other modules
+check_environment()
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtCore import QTimer
 from display_renderer import DisplayRenderer
