@@ -41,6 +41,8 @@ try:
     from datetime import datetime
     from typing import Optional, Dict, Any
     from pathlib import Path
+    import threading
+    import time
     logger.info("  Standard library imports OK")
 except ImportError as e:
     logger.error(f"  FAILED - Standard library import error: {e}")
@@ -48,24 +50,21 @@ except ImportError as e:
     sys.exit(1)
 
 try:
-    logger.info("Testing socketio import...")
-    import socketio
-
-    # Get socketio version (python-socketio doesn't always expose __version__)
+    logger.info("Testing websocket-client import...")
+    import websocket
     try:
-        socketio_version = socketio.__version__
+        websocket_version = websocket.__version__
     except AttributeError:
-        # Fallback: try pkg_resources
         try:
             import pkg_resources
-            socketio_version = pkg_resources.get_distribution('python-socketio').version
+            websocket_version = pkg_resources.get_distribution('websocket-client').version
         except:
-            socketio_version = "unknown"
+            websocket_version = "unknown"
 
-    logger.info(f"  socketio version: {socketio_version}")
+    logger.info(f"  websocket-client version: {websocket_version}")
 except ImportError as e:
-    logger.error(f"  FAILED - socketio import error: {e}")
-    logger.error("  Install with: pip install python-socketio[client]")
+    logger.error(f"  FAILED - websocket-client import error: {e}")
+    logger.error("  Install with: pip install websocket-client>=1.6.0")
     logger.error(traceback.format_exc())
     sys.exit(1)
 
@@ -113,16 +112,8 @@ class DigitalSignageClient:
 
     def __init__(self, config: Config):
         self.config = config
-
-        # Configure SSL verification
-        ssl_verify = self.config.verify_ssl if self.config.use_ssl else False
-
-        self.sio = socketio.AsyncClient(
-            reconnection=True,
-            reconnection_delay=5,
-            reconnection_delay_max=60,
-            ssl_verify=ssl_verify
-        )
+        self.ws = None
+        self.ws_app = None
         self.device_manager = DeviceManager()
         self.cache_manager = CacheManager()
         self.watchdog = WatchdogMonitor(enable=True)
@@ -131,13 +122,16 @@ class DigitalSignageClient:
         self.connected = False
         self.offline_mode = False
         self.remote_log_handler = None
+        self.heartbeat_thread = None
+        self.stop_heartbeat = False
+        self.ws_thread = None
+        self.reconnect_requested = False
+        self.pending_messages = []
+        self.message_lock = threading.Lock()
 
         # Setup remote logging if enabled
         if self.config.remote_logging_enabled:
             self._setup_remote_logging()
-
-        # Register event handlers
-        self.setup_event_handlers()
 
     def _setup_remote_logging(self):
         """Setup remote logging to send logs to server"""
@@ -168,39 +162,175 @@ class DigitalSignageClient:
     def send_message(self, message: Dict[str, Any]):
         """Send a message to the server (used by remote log handler)"""
         try:
-            if self.connected:
-                asyncio.create_task(self.sio.emit('message', message))
+            if self.connected and self.ws_app:
+                message_json = json.dumps(message)
+                self.ws_app.send(message_json)
+            else:
+                # Queue message for later if not connected
+                with self.message_lock:
+                    self.pending_messages.append(message)
         except Exception as e:
             # Don't log errors here to avoid recursion
             pass
 
-    def setup_event_handlers(self):
-        """Setup WebSocket event handlers"""
+    def _flush_pending_messages(self):
+        """Send any messages that were queued while disconnected"""
+        with self.message_lock:
+            if self.pending_messages and self.connected and self.ws_app:
+                for message in self.pending_messages:
+                    try:
+                        message_json = json.dumps(message)
+                        self.ws_app.send(message_json)
+                    except Exception as e:
+                        logger.error(f"Failed to send pending message: {e}")
+                self.pending_messages.clear()
 
-        @self.sio.event
-        async def connect():
-            logger.info("Connected to server")
-            self.connected = True
-            self.offline_mode = False
-            self.watchdog.notify_status("Connected to server")
-            await self.register_client()
+    def on_open(self, ws):
+        """WebSocket connection opened"""
+        logger.info("WebSocket connection opened")
+        self.connected = True
+        self.offline_mode = False
+        self.watchdog.notify_status("Connected to server")
 
-        @self.sio.event
-        async def disconnect():
-            logger.warning("Disconnected from server - entering offline mode")
-            self.connected = False
+        # Register client
+        asyncio.run_coroutine_threadsafe(
+            self.register_client(),
+            self.event_loop
+        )
+
+        # Start heartbeat
+        self.start_heartbeat()
+
+        # Flush pending messages
+        self._flush_pending_messages()
+
+    def on_message(self, ws, message):
+        """WebSocket message received"""
+        try:
+            data = json.loads(message)
+            # Schedule message handling in asyncio loop
+            asyncio.run_coroutine_threadsafe(
+                self.handle_message(data),
+                self.event_loop
+            )
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse JSON message: {e}")
+        except Exception as e:
+            logger.error(f"Error processing message: {e}", exc_info=True)
+
+    def on_error(self, ws, error):
+        """WebSocket error occurred"""
+        logger.error(f"WebSocket error: {error}")
+
+    def on_close(self, ws, close_status_code, close_msg):
+        """WebSocket connection closed"""
+        logger.warning(f"WebSocket connection closed (code: {close_status_code}, msg: {close_msg})")
+        self.connected = False
+
+        if not self.reconnect_requested:
+            # Unexpected disconnect - enter offline mode
             self.offline_mode = True
             self.watchdog.notify_status("Disconnected - running in offline mode")
+
             # Load cached layout to continue operation
-            await self.load_cached_layout()
+            asyncio.run_coroutine_threadsafe(
+                self.load_cached_layout(),
+                self.event_loop
+            )
 
-        @self.sio.event
-        async def connect_error(data):
-            logger.error(f"Connection error: {data}")
+    def connect_websocket(self, server_url: str):
+        """Connect to WebSocket server"""
+        try:
+            logger.info(f"Creating WebSocket connection to {server_url}")
 
-        @self.sio.on('message')
-        async def on_message(data):
-            await self.handle_message(data)
+            # Parse URL to extract components
+            # server_url format: http://host:port/path or https://host:port/path
+            # We need: ws://host:port/path or wss://host:port/path
+            ws_url = server_url.replace('http://', 'ws://').replace('https://', 'wss://')
+
+            # Configure SSL options
+            sslopt = None
+            if ws_url.startswith('wss://'):
+                if not self.config.verify_ssl:
+                    import ssl
+                    sslopt = {"cert_reqs": ssl.CERT_NONE}
+                    logger.warning("SSL certificate verification disabled")
+
+            # Create WebSocketApp
+            self.ws_app = websocket.WebSocketApp(
+                ws_url,
+                on_open=self.on_open,
+                on_message=self.on_message,
+                on_error=self.on_error,
+                on_close=self.on_close
+            )
+
+            # Run WebSocket in a thread
+            self.ws_thread = threading.Thread(
+                target=lambda: self.ws_app.run_forever(
+                    sslopt=sslopt,
+                    ping_interval=30,
+                    ping_timeout=10
+                ),
+                daemon=True
+            )
+            self.ws_thread.start()
+
+            # Wait for connection to establish (with timeout)
+            connection_timeout = 10
+            start_time = time.time()
+            while not self.connected and (time.time() - start_time) < connection_timeout:
+                time.sleep(0.1)
+
+            if not self.connected:
+                raise ConnectionError("WebSocket connection timeout")
+
+            logger.info("WebSocket connection established")
+
+        except Exception as e:
+            logger.error(f"Failed to connect WebSocket: {e}")
+            raise
+
+    def disconnect_websocket(self):
+        """Disconnect WebSocket"""
+        try:
+            self.reconnect_requested = True
+            self.stop_heartbeat = True
+
+            if self.ws_app:
+                self.ws_app.close()
+
+            if self.ws_thread and self.ws_thread.is_alive():
+                self.ws_thread.join(timeout=5)
+
+            self.connected = False
+            logger.info("WebSocket disconnected")
+        except Exception as e:
+            logger.error(f"Error disconnecting WebSocket: {e}")
+
+    def start_heartbeat(self):
+        """Start heartbeat thread"""
+        self.stop_heartbeat = False
+
+        def heartbeat_loop():
+            while not self.stop_heartbeat:
+                try:
+                    if self.connected:
+                        asyncio.run_coroutine_threadsafe(
+                            self.send_heartbeat(),
+                            self.event_loop
+                        )
+                except Exception as e:
+                    logger.error(f"Heartbeat error: {e}")
+
+                # Sleep in small intervals to allow quick shutdown
+                for _ in range(300):  # 30 seconds = 300 * 0.1s
+                    if self.stop_heartbeat:
+                        break
+                    time.sleep(0.1)
+
+        self.heartbeat_thread = threading.Thread(target=heartbeat_loop, daemon=True)
+        self.heartbeat_thread.start()
 
     async def register_client(self):
         """Register this client with the server"""
@@ -236,7 +366,7 @@ class DigitalSignageClient:
             else:
                 logger.info("Sending registration without token (for existing clients)")
 
-            await self.sio.emit('message', register_message)
+            self.send_message(register_message)
             logger.info("Client registered with server")
         except Exception as e:
             logger.error(f"Failed to register client: {e}", exc_info=True)
@@ -385,7 +515,7 @@ class DigitalSignageClient:
                 "Timestamp": datetime.utcnow().isoformat()
             }
 
-            await self.sio.emit('message', heartbeat_message)
+            self.send_message(heartbeat_message)
         except Exception as e:
             logger.error(f"Failed to send heartbeat: {e}", exc_info=True)
 
@@ -403,7 +533,7 @@ class DigitalSignageClient:
                 "Timestamp": datetime.utcnow().isoformat()
             }
 
-            await self.sio.emit('message', status_message)
+            self.send_message(status_message)
             logger.debug("Status report sent successfully")
         except Exception as e:
             logger.error(f"Failed to send status report: {e}", exc_info=True)
@@ -437,7 +567,7 @@ class DigitalSignageClient:
                 "Timestamp": datetime.utcnow().isoformat()
             }
 
-            await self.sio.emit('message', screenshot_message)
+            self.send_message(screenshot_message)
             logger.info(f"Screenshot sent successfully ({len(screenshot_data)} bytes)")
         except Exception as e:
             logger.error(f"Failed to send screenshot: {e}", exc_info=True)
@@ -493,35 +623,25 @@ class DigitalSignageClient:
                 "Timestamp": datetime.utcnow().isoformat()
             }
 
-            await self.sio.emit('message', response_message)
+            self.send_message(response_message)
 
             if success:
                 logger.info("Configuration updated successfully. Reconnecting to server with new settings...")
                 logger.info(f"New server: {self.config.server_host}:{self.config.server_port}")
                 logger.info(f"SSL: {self.config.use_ssl}, FullScreen: {self.config.fullscreen}")
 
-                # Disconnect and reconnect with new configuration
-                await self.sio.disconnect()
+                # Disconnect current connection
+                self.disconnect_websocket()
 
                 # Wait a moment for disconnect to complete
                 await asyncio.sleep(2)
 
-                # Update SSL verification settings
-                ssl_verify = self.config.verify_ssl if self.config.use_ssl else False
-                self.sio = socketio.AsyncClient(
-                    reconnection=True,
-                    reconnection_delay=5,
-                    reconnection_delay_max=60,
-                    ssl_verify=ssl_verify
-                )
-
-                # Re-register event handlers
-                self.setup_event_handlers()
-
                 # Reconnect to server with new settings
                 server_url = self.config.get_server_url()
                 logger.info(f"Reconnecting to new server at {server_url}")
-                await self.sio.connect(server_url)
+
+                self.reconnect_requested = False
+                self.connect_websocket(server_url)
 
                 logger.info("Successfully reconnected with new configuration")
             else:
@@ -539,7 +659,7 @@ class DigitalSignageClient:
                     "ErrorMessage": str(e),
                     "Timestamp": datetime.utcnow().isoformat()
                 }
-                await self.sio.emit('message', error_response)
+                self.send_message(error_response)
             except Exception as response_error:
                 logger.error(f"Failed to send error response: {response_error}")
 
@@ -658,7 +778,7 @@ class DigitalSignageClient:
                         else:
                             logger.warning("SSL certificate verification disabled - not recommended for production!")
 
-                    await self.sio.connect(server_url)
+                    self.connect_websocket(server_url)
                     connection_successful = True
                     logger.info("✓ Connection successful!")
                     break
@@ -710,21 +830,10 @@ class DigitalSignageClient:
                 server_url
             )
 
-        # Setup heartbeat timer
-        async def heartbeat_loop():
-            while True:
-                try:
-                    if self.connected:
-                        await self.send_heartbeat()
-                except Exception as e:
-                    logger.error(f"Heartbeat error: {e}")
-                await asyncio.sleep(30)
-
-        asyncio.create_task(heartbeat_loop())
-
-        # Keep the connection alive
+        # Keep the asyncio loop running
         try:
-            await self.sio.wait()
+            while True:
+                await asyncio.sleep(1)
         except Exception as e:
             logger.error(f"Client error: {e}", exc_info=True)
 
@@ -732,7 +841,7 @@ class DigitalSignageClient:
         """Stop the client application"""
         logger.info("Stopping Digital Signage Client...")
         self.watchdog.notify_stopping()
-        await self.sio.disconnect()
+        self.disconnect_websocket()
         await self.watchdog.stop()
 
 
@@ -799,7 +908,7 @@ def test_mode():
     print("[TEST 4] Required Modules")
     print("-" * 70)
     modules = [
-        ('socketio', 'python-socketio[client]'),
+        ('websocket', 'websocket-client>=1.6.0'),
         ('PyQt5.QtWidgets', 'python3-pyqt5'),
         ('PyQt5.QtCore', 'python3-pyqt5'),
         ('display_renderer', 'display_renderer.py'),
@@ -893,6 +1002,9 @@ def main():
             loop = qasync.QEventLoop(app)
             asyncio.set_event_loop(loop)
 
+            # Store event loop reference for WebSocket callbacks
+            client.event_loop = loop
+
             with loop:
                 loop.create_task(client.start())
                 logger.info("Starting Qt+asyncio event loop...")
@@ -902,11 +1014,13 @@ def main():
             logger.warning("qasync not available - using fallback integration")
             loop = asyncio.get_event_loop()
 
+            # Store event loop reference for WebSocket callbacks
+            client.event_loop = loop
+
             # Start the asyncio task
             loop.create_task(client.start())
 
             # Run asyncio event loop in a separate thread
-            import threading
             def run_asyncio_loop():
                 asyncio.set_event_loop(loop)
                 loop.run_forever()
