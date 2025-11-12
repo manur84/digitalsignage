@@ -11,6 +11,8 @@ WorkingDirectory=/opt/digitalsignage-client
 Environment="PYTHONUNBUFFERED=1"
 Environment="QT_QPA_PLATFORM=xcb"
 Environment="QT_LOGGING_RULES=*.debug=false"
+Environment="DISPLAY=:0"
+Environment="XAUTHORITY=/home/INSTALL_USER/.Xauthority"
 
 # Pre-start checks (reduced sleep from 10s to 2s)
 ExecStartPre=/bin/sleep 2
