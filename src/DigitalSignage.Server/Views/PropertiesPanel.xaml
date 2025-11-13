@@ -224,6 +224,28 @@
                                     Text="{Binding SelectedElement[FontSize], FallbackValue=24, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"/>
                         </Grid>
 
+                        <TextBlock Text="Font Style:" Margin="0,12,0,4"/>
+                        <StackPanel Orientation="Horizontal">
+                            <CheckBox Content="Bold" Margin="0,0,12,0">
+                                <CheckBox.IsChecked>
+                                    <Binding Path="SelectedElement[FontWeight]" Mode="TwoWay" UpdateSourceTrigger="PropertyChanged">
+                                        <Binding.Converter>
+                                            <local:FontWeightToBoolConverter/>
+                                        </Binding.Converter>
+                                    </Binding>
+                                </CheckBox.IsChecked>
+                            </CheckBox>
+                            <CheckBox Content="Italic">
+                                <CheckBox.IsChecked>
+                                    <Binding Path="SelectedElement[FontStyle]" Mode="TwoWay" UpdateSourceTrigger="PropertyChanged">
+                                        <Binding.Converter>
+                                            <local:FontStyleToBoolConverter/>
+                                        </Binding.Converter>
+                                    </Binding>
+                                </CheckBox.IsChecked>
+                            </CheckBox>
+                        </StackPanel>
+
                         <TextBlock Text="Text Color:" Margin="0,12,0,4"/>
                         <controls:ColorPicker SelectedColor="{Binding SelectedElement[Color], FallbackValue=#000000, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"/>
 

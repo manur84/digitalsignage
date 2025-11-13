@@ -209,6 +209,11 @@ public class DesignerItemControl : ContentControl
             "image" => CreateImageElement(),
             "shape" => CreateShapeElement(),
             "rectangle" => CreateRectangleElement(),
+            "circle" => CreateCircleElement(),
+            "ellipse" => CreateCircleElement(),
+            "datetime" => CreateDateTimeElement(),
+            "table" => CreateTableElement(),
+            "qrcode" => CreateQRCodeElement(),
             "group" => CreateGroupElement(),
             _ => new TextBlock { Text = $"Unsupported: {DisplayElement.Type}" }
         };
@@ -255,6 +260,24 @@ public class DesignerItemControl : ContentControl
                 {
                     textBlock.Foreground = Brushes.Black;
                 }
+            }
+
+            // Apply font weight (Bold)
+            if (DisplayElement.Properties.TryGetValue("FontWeight", out var fontWeight))
+            {
+                var weightStr = fontWeight?.ToString() ?? "Normal";
+                textBlock.FontWeight = weightStr.Equals("Bold", StringComparison.OrdinalIgnoreCase)
+                    ? FontWeights.Bold
+                    : FontWeights.Normal;
+            }
+
+            // Apply font style (Italic)
+            if (DisplayElement.Properties.TryGetValue("FontStyle", out var fontStyle))
+            {
+                var styleStr = fontStyle?.ToString() ?? "Normal";
+                textBlock.FontStyle = styleStr.Equals("Italic", StringComparison.OrdinalIgnoreCase)
+                    ? FontStyles.Italic
+                    : FontStyles.Normal;
             }
 
             // Apply line height
@@ -430,6 +453,290 @@ public class DesignerItemControl : ContentControl
         }
 
         return rectangle;
+    }
+
+    private UIElement CreateCircleElement()
+    {
+        var ellipse = new System.Windows.Shapes.Ellipse
+        {
+            Fill = Brushes.Gold,
+            Stroke = Brushes.Orange,
+            StrokeThickness = 2,
+            // CRITICAL: Make ellipse stretch to fill the control
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Stretch,
+            Stretch = Stretch.Fill
+        };
+
+        if (DisplayElement?.Properties != null)
+        {
+            if (DisplayElement.Properties.TryGetValue("FillColor", out var fillColor))
+            {
+                try
+                {
+                    ellipse.Fill = new SolidColorBrush(
+                        (Color)ColorConverter.ConvertFromString(fillColor?.ToString() ?? "#FFD700"));
+                }
+                catch
+                {
+                    ellipse.Fill = Brushes.Gold;
+                }
+            }
+
+            if (DisplayElement.Properties.TryGetValue("BorderColor", out var borderColor))
+            {
+                try
+                {
+                    ellipse.Stroke = new SolidColorBrush(
+                        (Color)ColorConverter.ConvertFromString(borderColor?.ToString() ?? "#FFA500"));
+                }
+                catch
+                {
+                    ellipse.Stroke = Brushes.Orange;
+                }
+            }
+
+            if (DisplayElement.Properties.TryGetValue("BorderThickness", out var borderThickness))
+            {
+                ellipse.StrokeThickness = Convert.ToDouble(borderThickness);
+            }
+        }
+
+        return ellipse;
+    }
+
+    private UIElement CreateDateTimeElement()
+    {
+        var border = new Border
+        {
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Stretch,
+            Background = Brushes.Transparent
+        };
+
+        var textBlock = new TextBlock
+        {
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Margin = new Thickness(5)
+        };
+
+        if (DisplayElement?.Properties != null)
+        {
+            // Get format string (default: "dddd, dd MMMM yyyy HH:mm:ss")
+            var format = DisplayElement.Properties.TryGetValue("Format", out var formatObj)
+                ? formatObj?.ToString() ?? "dddd, dd MMMM yyyy HH:mm:ss"
+                : "dddd, dd MMMM yyyy HH:mm:ss";
+
+            // Format current date/time
+            try
+            {
+                textBlock.Text = DateTime.Now.ToString(format);
+            }
+            catch
+            {
+                textBlock.Text = DateTime.Now.ToString("G"); // Fallback to general date/time
+            }
+
+            // Apply font properties
+            if (DisplayElement.Properties.TryGetValue("FontSize", out var fontSize))
+                textBlock.FontSize = Convert.ToDouble(fontSize);
+
+            if (DisplayElement.Properties.TryGetValue("FontFamily", out var fontFamily))
+                textBlock.FontFamily = new FontFamily(fontFamily?.ToString() ?? "Arial");
+
+            if (DisplayElement.Properties.TryGetValue("Color", out var color))
+            {
+                try
+                {
+                    textBlock.Foreground = new SolidColorBrush(
+                        (Color)ColorConverter.ConvertFromString(color?.ToString() ?? "#000000"));
+                }
+                catch
+                {
+                    textBlock.Foreground = Brushes.Black;
+                }
+            }
+        }
+        else
+        {
+            textBlock.Text = DateTime.Now.ToString("G");
+        }
+
+        border.Child = textBlock;
+        return border;
+    }
+
+    private UIElement CreateTableElement()
+    {
+        var border = new Border
+        {
+            BorderBrush = Brushes.Gray,
+            BorderThickness = new Thickness(1),
+            Background = Brushes.White,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Stretch
+        };
+
+        var grid = new Grid
+        {
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Stretch
+        };
+
+        // Create simple preview with header and rows
+        grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(30) }); // Header
+        grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(25) }); // Row 1
+        grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(25) }); // Row 2
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Rest
+
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        // Get colors from properties
+        var headerBg = Brushes.CornflowerBlue;
+        var headerFg = Brushes.White;
+        var rowBg = Brushes.White;
+        var altRowBg = Brushes.LightGray;
+
+        if (DisplayElement?.Properties != null)
+        {
+            if (DisplayElement.Properties.TryGetValue("HeaderBackground", out var hBg))
+            {
+                try { headerBg = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hBg?.ToString() ?? "#2196F3")); }
+                catch { }
+            }
+
+            if (DisplayElement.Properties.TryGetValue("HeaderForeground", out var hFg))
+            {
+                try { headerFg = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hFg?.ToString() ?? "#FFFFFF")); }
+                catch { }
+            }
+
+            if (DisplayElement.Properties.TryGetValue("RowBackground", out var rBg))
+            {
+                try { rowBg = new SolidColorBrush((Color)ColorConverter.ConvertFromString(rBg?.ToString() ?? "#FFFFFF")); }
+                catch { }
+            }
+
+            if (DisplayElement.Properties.TryGetValue("AlternateRowBackground", out var arBg))
+            {
+                try { altRowBg = new SolidColorBrush((Color)ColorConverter.ConvertFromString(arBg?.ToString() ?? "#F5F5F5")); }
+                catch { }
+            }
+        }
+
+        // Header row
+        for (int col = 0; col < 3; col++)
+        {
+            var headerCell = new Border
+            {
+                Background = headerBg,
+                BorderBrush = Brushes.Gray,
+                BorderThickness = new Thickness(0, 0, 1, 1),
+                Child = new TextBlock
+                {
+                    Text = $"Column {col + 1}",
+                    Foreground = headerFg,
+                    FontWeight = FontWeights.Bold,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    Margin = new Thickness(4)
+                }
+            };
+            Grid.SetRow(headerCell, 0);
+            Grid.SetColumn(headerCell, col);
+            grid.Children.Add(headerCell);
+        }
+
+        // Data rows
+        for (int row = 1; row <= 2; row++)
+        {
+            for (int col = 0; col < 3; col++)
+            {
+                var dataCell = new Border
+                {
+                    Background = row % 2 == 0 ? altRowBg : rowBg,
+                    BorderBrush = Brushes.Gray,
+                    BorderThickness = new Thickness(0, 0, 1, 1),
+                    Child = new TextBlock
+                    {
+                        Text = $"Data {row},{col + 1}",
+                        VerticalAlignment = VerticalAlignment.Center,
+                        HorizontalAlignment = HorizontalAlignment.Center,
+                        Margin = new Thickness(4)
+                    }
+                };
+                Grid.SetRow(dataCell, row);
+                Grid.SetColumn(dataCell, col);
+                grid.Children.Add(dataCell);
+            }
+        }
+
+        border.Child = grid;
+        return border;
+    }
+
+    private UIElement CreateQRCodeElement()
+    {
+        var border = new Border
+        {
+            BorderBrush = Brushes.Gray,
+            BorderThickness = new Thickness(1),
+            Background = Brushes.White,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Stretch
+        };
+
+        var stackPanel = new StackPanel
+        {
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+
+        // QR Code placeholder (we would need a QR code library for actual rendering)
+        var qrPlaceholder = new Border
+        {
+            Width = 100,
+            Height = 100,
+            Background = Brushes.White,
+            BorderBrush = Brushes.Black,
+            BorderThickness = new Thickness(2),
+            Child = new TextBlock
+            {
+                Text = "QR",
+                FontSize = 24,
+                FontWeight = FontWeights.Bold,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            }
+        };
+
+        stackPanel.Children.Add(qrPlaceholder);
+
+        // Show content below
+        if (DisplayElement?.Properties != null)
+        {
+            var content = DisplayElement.Properties.TryGetValue("Content", out var contentObj)
+                ? contentObj?.ToString()
+                : DisplayElement.Properties.TryGetValue("Data", out var dataObj)
+                    ? dataObj?.ToString()
+                    : "No data";
+
+            stackPanel.Children.Add(new TextBlock
+            {
+                Text = content,
+                FontSize = 10,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 8, 0, 0),
+                TextWrapping = TextWrapping.Wrap,
+                MaxWidth = 150
+            });
+        }
+
+        border.Child = stackPanel;
+        return border;
     }
 
     private UIElement CreateGroupElement()
