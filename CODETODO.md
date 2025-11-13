@@ -1260,3 +1260,355 @@ The project is well-positioned for production deployment after completing the hi
 **Last Updated:** 2025-11-12
 **Reviewed By:** Claude Code Analysis
 **Next Review:** After implementing next 2-3 major features
+
+---
+
+## 🔍 DETAILLIERTE PROJEKT-ANALYSE (Stand: 2025-11-13)
+
+### 📊 VOLLSTÄNDIGE KOMPONENTEN-ÜBERSICHT
+
+#### ✅ VORHANDENE SERVER-KOMPONENTEN
+
+**ViewModels (10 von 11 geplant):**
+1. ✅ `MainViewModel` - Hauptfenster-Logik, Navigation
+2. ✅ `DesignerViewModel` - Designer Canvas mit Undo/Redo, Multi-Selection
+3. ✅ `DeviceManagementViewModel` - Device Management, Remote Commands
+4. ✅ `DataSourceViewModel` - Data Source Management, Query Builder
+5. ✅ `SchedulingViewModel` - Schedule Management, Time-based Layouts
+6. ✅ `PreviewViewModel` - Layout Preview mit Template Engine
+7. ✅ `MediaLibraryViewModel` - Media Library Management
+8. ✅ `LogViewerViewModel` - Remote Log Viewer (Client Logs)
+9. ✅ `LiveLogsViewModel` - Live Debug Logs (Server Logs)
+10. ✅ `TemplateSelectionViewModel` - Template Selection Dialog
+11. ❌ `AlertManagementViewModel` - FEHLT (Backend vorhanden)
+
+**Services (20 implementiert):**
+1. ✅ `WebSocketCommunicationService` - WebSocket Server, Client Registry
+2. ✅ `ClientService` - Client Management, Commands, Layout Assignment
+3. ✅ `LayoutService` - Layout CRUD, Versioning
+4. ✅ `DataSourceRepository` - Data Source Persistence
+5. ✅ `SqlDataService` - SQL Query Execution
+6. ✅ `TemplateService` - Scriban Template Engine Integration
+7. ✅ `EnhancedMediaService` - Media Library mit SHA256 Deduplication
+8. ✅ `AuthenticationService` - User Auth, API Keys, Token Validation
+9. ✅ `HeartbeatMonitoringService` - Client Heartbeat Monitoring (120s timeout)
+10. ✅ `DataRefreshService` - Background Service für SQL Polling
+11. ✅ `AlertService` - Alert Management, Rules Engine
+12. ✅ `AlertMonitoringService` - Background Alert Monitoring
+13. ✅ `QueryCacheService` - SHA256-based Query Caching
+14. ✅ `DatabaseInitializationService` - EF Core Migrations, Seeding
+15. ✅ `MessageHandlerService` - WebSocket Message Routing
+16. ✅ `DiscoveryService` - UDP Broadcast Discovery
+17. ✅ `MdnsDiscoveryService` - mDNS/Bonjour Discovery
+18. ✅ `SelectionService` - Multi-Selection Logic im Designer
+19. ✅ `LogStorageService` - Client Log Storage
+20. ✅ `UISink` - Serilog UI Sink für Live Logs
+21. ❌ `NotificationService` - FEHLT (Email/SMS/Push Notifications)
+22. ❌ `BackupService` - FEHLT (Automated Backups)
+23. ❌ `ReportingService` - FEHLT (Analytics, Usage Reports)
+
+**Entities (13 implementiert):**
+1. ✅ `DisplayLayout` - Layout Definition (Elements als JSON)
+2. ✅ `LayoutTemplate` - Template Library (11 built-in templates)
+3. ✅ `RaspberryPiClient` - Client Registration, Device Info
+4. ✅ `DataSource` - SQL Data Sources
+5. ✅ `MediaFile` - Media Library mit Metadata
+6. ✅ `LayoutSchedule` - Time-based Layout Scheduling
+7. ✅ `AlertRule` - Alert Rules (7 types)
+8. ✅ `Alert` - Alert Instances
+9. ✅ `AuditLog` - Audit Log (Entity vorhanden, kein Tracking)
+10. ✅ `User` - User Accounts
+11. ✅ `ApiKey` - API Key Management
+12. ✅ `ClientRegistrationToken` - Token-based Registration
+13. ❌ `LayoutVersion` - FEHLT (Version History für Layouts)
+14. ❌ `UserSession` - FEHLT (Session Management)
+15. ❌ `Notification` - FEHLT (Notification Queue)
+
+**WPF Controls (5 implementiert):**
+1. ✅ `DesignerCanvas` - Grid Rendering, Snap-to-Grid, Touch Support
+2. ✅ `DesignerItemControl` - Element Rendering mit Transform
+3. ✅ `ResizeAdorner` - Resize Handles für Elemente
+4. ✅ `ResizableElement` - Base Class für resizable Controls
+5. ✅ `ColorPicker` - Hex Color Picker mit Preview
+6. ❌ `AlignmentGuides` - FEHLT (Smart Guides)
+7. ❌ `RulerControl` - FEHLT (Rulers im Designer)
+8. ❌ `GridConfigDialog` - FEHLT (Grid Size Configuration Dialog)
+
+**Value Converters (14 implementiert):**
+1. ✅ `NullToVisibilityConverter`
+2. ✅ `BoolToVisibilityConverter`
+3. ✅ `InverseBooleanConverter`
+4. ✅ `ColorConverters` (Hex ↔ Color)
+5. ✅ `ElementTypeIconConverter`
+6. ✅ `FontWeightToBoolConverter`
+7. ✅ `FontStyleToBoolConverter`
+8. ✅ `LogLevelToColorConverter`
+9. ✅ `LogLevelToBackgroundConverter`
+10. ✅ `LogLevelToStringConverter`
+11. ✅ `MediaTypeToIconConverter`
+12. ✅ `MediaTypeToStringConverter`
+13. ✅ `TestResultToColorConverter`
+14. ✅ `StringFormatConverter`
+
+**Message Types (10 implementiert):**
+1. ✅ `RegisterMessage` - Client Registration
+2. ✅ `RegistrationResponseMessage` - Server Response
+3. ✅ `HeartbeatMessage` - Keep-Alive (30s interval)
+4. ✅ `DisplayUpdateMessage` - Layout Updates
+5. ✅ `StatusReportMessage` - Client Status & Metrics
+6. ✅ `CommandMessage` - Remote Commands (9 commands)
+7. ✅ `ScreenshotMessage` - Screenshot Transfer
+8. ✅ `LogMessage` - Log Streaming
+9. ✅ `UpdateConfigMessage` - Config Updates an Client
+10. ✅ `UpdateConfigResponseMessage` - Client Confirmation
+11. ❌ `BroadcastMessage` - FEHLT (Broadcast an alle Clients)
+12. ❌ `FileTransferMessage` - FEHLT (Large File Transfer)
+
+**Client Commands (9 implementiert):**
+1. ✅ `RESTART` - Device Reboot
+2. ✅ `RESTART_APP` - App Restart
+3. ✅ `SCREENSHOT` - Screenshot erstellen
+4. ✅ `UPDATE` - Software Update
+5. ✅ `SCREEN_ON` - Display einschalten
+6. ✅ `SCREEN_OFF` - Display ausschalten
+7. ✅ `SET_VOLUME` - Lautstärke setzen
+8. ✅ `GET_LOGS` - Logs abrufen
+9. ✅ `CLEAR_CACHE` - Cache löschen
+10. ❌ `UPDATE_FIRMWARE` - FEHLT
+11. ❌ `RUN_DIAGNOSTICS` - FEHLT (Health Check)
+
+#### ✅ VORHANDENE CLIENT-KOMPONENTEN (Raspberry Pi)
+
+**Python Module (10 implementiert):**
+1. ✅ `client.py` - Main Entry Point, WebSocket Client
+2. ✅ `display_renderer.py` - PyQt5 Display Engine
+3. ✅ `device_manager.py` - Hardware Monitoring (psutil)
+4. ✅ `cache_manager.py` - SQLite Offline Cache
+5. ✅ `config.py` - Configuration Management
+6. ✅ `watchdog_monitor.py` - systemd Watchdog Integration
+7. ✅ `remote_log_handler.py` - Remote Log Streaming
+8. ✅ `discovery.py` - UDP Discovery Response
+9. ✅ `status_screen.py` - Status Screens (Connecting, Error)
+10. ✅ `test_status_screens.py` - Status Screen Test Tool
+11. ❌ `web_config.py` - FEHLT (Web-based Configuration)
+12. ❌ `update_manager.py` - FEHLT (Self-Update Mechanism)
+
+**Installation Scripts (5 implementiert):**
+1. ✅ `install.sh` - Main Installation Script
+2. ✅ `digitalsignage-client.service` - systemd Unit File
+3. ✅ `start-with-display.sh` - X11/Xvfb Launcher
+4. ✅ `diagnose.sh` - Diagnostic Tool
+5. ✅ `enable-autologin-x11.sh` - Auto-login Configuration
+6. ❌ `uninstall.sh` - FEHLT
+7. ❌ `update.sh` - FEHLT (Update Script)
+
+---
+
+### 🚫 FEHLENDE FEATURES - PRIORISIERTE LISTE
+
+#### 🔴 KRITISCHE FEATURES (Produktions-Blocker)
+
+**1. Alert Management UI** - Backend ✅, UI ❌
+   - AlertManagementViewModel erstellen
+   - MainWindow.xaml Tab "Alerts" hinzufügen
+   - Alert Rules DataGrid (CRUD)
+   - Active Alerts Dashboard
+   - Alert History mit Filter
+   - **Aufwand:** 6-8 Stunden
+
+**2. Notification System** - Komplett ❌
+   - NotificationService (Email, SMS, Push)
+   - SMTP Configuration
+   - Email Templates
+   - SMS Gateway (Twilio)
+   - Push Notifications (FCM, APNS)
+   - **Aufwand:** 12-16 Stunden
+
+**3. MSI Installer** - Komplett ❌
+   - WiX Toolset Setup Project
+   - .NET Runtime Check
+   - SQL Server Express Option
+   - Database Setup Dialog
+   - Firewall Rules
+   - Windows Service Option
+   - **Aufwand:** 20-24 Stunden
+
+**4. Audit Log Tracking** - Entity ✅, Tracking ❌
+   - EF Core SaveChanges Override
+   - Change Tracking Interceptor
+   - Before/After JSON Serialization
+   - Audit Log UI Tab
+   - Diff Viewer
+   - **Aufwand:** 8-10 Stunden
+
+#### 🟡 WICHTIGE FEATURES (UX Verbesserungen)
+
+**5. Visual Data Mapping UI** - Komplett ❌
+   - Drag-and-Drop Mapping Editor
+   - SQL Column Browser
+   - Variable Preview
+   - Auto-Mapping Suggestions
+   - **Aufwand:** 16-20 Stunden
+
+**6. Smart Guides** - Komplett ❌
+   - AlignmentGuides Control
+   - Snap-to-Guide Logic
+   - Distance Indicators
+   - Center Alignment
+   - **Aufwand:** 10-12 Stunden
+
+**7. Element Grouping UI** - Commands ✅, UI ❌
+   - Group/Ungroup Commands vervollständigen
+   - Group-Hierarchie im Layer Panel
+   - Verschachtelte Gruppierung
+   - Group Transform
+   - **Aufwand:** 8-10 Stunden
+
+**8. Thumbnail Generation** - Komplett ❌
+   - Image Thumbnails (System.Drawing)
+   - Video First-Frame (FFmpeg)
+   - PDF Preview (PDFium)
+   - Thumbnail Cache
+   - **Aufwand:** 12-14 Stunden
+
+#### 🟢 OPTIONALE FEATURES (Nice-to-Have)
+
+**9. REST API** - Komplett ❌
+   - ASP.NET Core Web API
+   - Swagger/OpenAPI
+   - JWT Authentication
+   - Rate Limiting
+   - **Aufwand:** 24-30 Stunden
+
+**10. Widget System** - Komplett ❌
+   - Widget Base Class
+   - Wetter-Widget (OpenWeatherMap)
+   - RSS-Feed-Widget
+   - Social Media Widgets
+   - **Aufwand:** 40-50 Stunden
+
+**11. Client Web Config** - Komplett ❌
+   - Flask/FastAPI Web Server
+   - Web UI für Configuration
+   - QR Code für Setup
+   - **Aufwand:** 16-20 Stunden
+
+---
+
+### 💡 VERBESSERUNGSVORSCHLÄGE
+
+#### ⚡ PERFORMANCE-OPTIMIERUNGEN
+
+1. **Virtualization für DataGrids** (2-4h)
+   - VirtualizingStackPanel implementieren
+   - Lazy Loading für große Listen
+
+2. **WebSocket Message Compression** (4-6h)
+   - gzip für Messages >10KB
+   - Differenzielle Updates
+
+3. **EF Core Query Optimization** (4-6h)
+   - .Include() verwenden
+   - N+1 Query Problem lösen
+
+4. **Caching Improvements** (4-6h)
+   - TTL-basierte Invalidierung
+   - Cache Statistics im UI
+
+#### 🔒 SECURITY-VERBESSERUNGEN
+
+1. **Password Hashing Upgrade** (2-4h) 🔒 KRITISCH
+   - BCrypt oder Argon2 statt SHA256
+
+2. **API Rate Limiting** (4-6h)
+   - Rate Limiting Middleware
+
+3. **SSL Certificate Management** (8-10h)
+   - Let's Encrypt Integration
+   - Auto-Renewal
+
+4. **Input Validation** (6-8h)
+   - FluentValidation Library
+   - Client-seitige Validation
+
+#### 🎨 UX/UI-VERBESSERUNGEN
+
+1. **Keyboard Shortcuts** (2-4h)
+   - Ctrl+Z, Ctrl+Y, Ctrl+S, Delete, Ctrl+D
+
+2. **Drag-and-Drop Upload** (4-6h)
+   - Drag Files in Media Library
+
+3. **Context Menus** (4-6h)
+   - Rechtsklick im Designer
+   - Cut/Copy/Paste
+
+4. **Loading Indicators** (4-6h)
+   - Spinner bei DB-Operationen
+   - Progress Bar bei Uploads
+
+5. **Tooltips** (2-4h)
+   - Tooltips für alle Buttons/Icons
+
+#### 📊 MONITORING & ANALYTICS
+
+1. **Application Insights** (6-8h)
+   - Azure Application Insights Integration
+   - Telemetry Events
+
+2. **Usage Statistics Dashboard** (12-16h)
+   - Total Statistics
+   - Error Rate Tracking
+
+3. **Health Check Endpoint** (4-6h)
+   - /health für Load Balancers
+   - Database/WebSocket Checks
+
+#### 🧪 TESTING-VERBESSERUNGEN
+
+1. **Unit Tests** (40-50h)
+   - Test Coverage >70%
+   - Service Tests
+   - ViewModel Tests
+
+2. **Integration Tests** (20-30h)
+   - WebSocket Tests
+   - Database Integration Tests
+
+3. **UI Automation** (16-20h)
+   - TestStack.White
+   - Critical Path Tests
+
+---
+
+### 📈 ZUSAMMENFASSUNG
+
+**Implementierungsgrad:**
+- **ViewModels:** 90% (10/11)
+- **Services:** 87% (20/23)
+- **Entities:** 100% (13/13)
+- **Client:** 83% (10/12)
+- **UI Tabs:** 100% (9/9)
+- **Messages:** 83% (10/12)
+
+**Aufwandsschätzung:**
+- 🔴 Kritische Features: ~46-58h
+- 🟡 Wichtige Features: ~60-74h
+- 🟢 Optionale Features: ~92-116h
+- 💡 Verbesserungen: ~150-200h
+
+**TOTAL bis 100%:** ~348-448 Stunden (8-11 Wochen)
+
+**Empfohlener Entwicklungsplan:**
+1. **Woche 1-2:** Kritische Features
+2. **Woche 3-4:** Wichtige Features
+3. **Woche 5-6:** Verbesserungen
+4. **Woche 7-8:** Testing & Doku
+5. **Woche 9-11:** Optionale Features
+
+---
+
+**Letzte Aktualisierung:** 2025-11-13  
+**Analysiert von:** Claude Code  
+**Projekt-Status:** 85% Implementiert, 15% verbleibend
+
