@@ -54,19 +54,33 @@ public partial class DisplayElement : ObservableObject
         EnsureProperty("IsVisible", true);
         EnsureProperty("IsLocked", false);
 
+        // Shadow properties (for all element types)
+        EnsureProperty("EnableShadow", false);
+        EnsureProperty("ShadowBlur", 5.0);
+        EnsureProperty("ShadowColor", "#000000");
+        EnsureProperty("ShadowOffsetX", 2.0);
+        EnsureProperty("ShadowOffsetY", 2.0);
+
+        // Border radius (for shapes and text)
+        EnsureProperty("BorderRadius", 0.0);
+
         // Initialize type-specific properties based on element type
         switch (Type.ToLower())
         {
             case "text":
                 EnsureProperty("Content", string.Empty);
                 EnsureProperty("FontFamily", "Arial");
-                EnsureProperty("FontSize", 24.0);
+                EnsureProperty("FontSize", 24.0); // MUST be Double for WPF binding
                 EnsureProperty("FontWeight", "Normal");
                 EnsureProperty("FontStyle", "Normal");
                 EnsureProperty("Color", "#000000");
                 EnsureProperty("TextAlign", "Left");
                 EnsureProperty("VerticalAlign", "Top");
                 EnsureProperty("WordWrap", true);
+                // Add shape properties for text background
+                EnsureProperty("FillColor", "#FFFFFF");
+                EnsureProperty("BorderColor", "#000000");
+                EnsureProperty("BorderThickness", 0.0); // Default no border for text
                 break;
 
             case "image":

@@ -211,7 +211,7 @@ public partial class DesignerViewModel : ObservableObject
             {
                 ["Content"] = "Sample Text",
                 ["FontFamily"] = "Arial",
-                ["FontSize"] = 24,
+                ["FontSize"] = 24.0, // MUST be Double for WPF binding
                 ["Color"] = "#000000",
                 ["FontWeight"] = "Normal"
             }

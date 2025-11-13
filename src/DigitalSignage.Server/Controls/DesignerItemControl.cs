@@ -54,11 +54,40 @@ public class DesignerItemControl : ContentControl
         MouseMove += OnMouseMove;
         MouseLeftButtonUp += OnMouseLeftButtonUp;
 
+        // CRITICAL: Set alignment and minimum size to ensure control is visible
+        HorizontalAlignment = HorizontalAlignment.Left;
+        VerticalAlignment = VerticalAlignment.Top;
+        HorizontalContentAlignment = HorizontalAlignment.Stretch;
+        VerticalContentAlignment = VerticalAlignment.Stretch;
+        MinWidth = 10;
+        MinHeight = 10;
+
+        // Make control transparent by default so content is visible
+        Background = Brushes.Transparent;
+
         System.Diagnostics.Debug.WriteLine("DesignerItemControl: Constructor called");
         Loaded += (s, e) =>
         {
             System.Diagnostics.Debug.WriteLine($"DesignerItemControl: Loaded event fired for element '{DisplayElement?.Name ?? "null"}'");
         };
+
+        SizeChanged += (s, e) =>
+        {
+            System.Diagnostics.Debug.WriteLine(
+                $"DesignerItemControl.SizeChanged: Element='{DisplayElement?.Name}', " +
+                $"NewSize={e.NewSize.Width}x{e.NewSize.Height}, " +
+                $"ActualWidth={ActualWidth}, ActualHeight={ActualHeight}");
+        };
+    }
+
+    public override void OnApplyTemplate()
+    {
+        base.OnApplyTemplate();
+        System.Diagnostics.Debug.WriteLine(
+            $"DesignerItemControl.OnApplyTemplate: " +
+            $"Element='{DisplayElement?.Name}', " +
+            $"Width={Width}, Height={Height}, " +
+            $"ActualWidth={ActualWidth}, ActualHeight={ActualHeight}");
     }
 
     private static void OnDisplayElementChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -144,17 +173,25 @@ public class DesignerItemControl : ContentControl
             $"size {DisplayElement.Size.Width}x{DisplayElement.Size.Height} " +
             $"ZIndex={DisplayElement.ZIndex}");
 
-        Canvas.SetLeft(this, DisplayElement.Position.X);
-        Canvas.SetTop(this, DisplayElement.Position.Y);
+        // CRITICAL: Set Width and Height BEFORE creating content
         Width = DisplayElement.Size.Width;
         Height = DisplayElement.Size.Height;
+
+        // Set Canvas position
+        Canvas.SetLeft(this, DisplayElement.Position.X);
+        Canvas.SetTop(this, DisplayElement.Position.Y);
         Panel.SetZIndex(this, DisplayElement.ZIndex);
 
         // Render content based on element type
         Content = CreateContentForElement();
 
+        // Force immediate layout update
+        UpdateLayout();
+
         System.Diagnostics.Debug.WriteLine($"DesignerItemControl: Element '{DisplayElement.Name}' updated successfully. " +
-            $"ActualWidth={ActualWidth}, ActualHeight={ActualHeight}, IsVisible={IsVisible}");
+            $"Width={Width}, Height={Height}, " +
+            $"ActualWidth={ActualWidth}, ActualHeight={ActualHeight}, " +
+            $"IsVisible={IsVisible}, Content={Content?.GetType().Name}");
     }
 
     private UIElement CreateContentForElement()
@@ -173,11 +210,20 @@ public class DesignerItemControl : ContentControl
 
     private UIElement CreateTextElement()
     {
+        // Wrap TextBlock in a Border for proper sizing and background support
+        var border = new Border
+        {
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Stretch,
+            Background = Brushes.Transparent
+        };
+
         var textBlock = new TextBlock
         {
             TextWrapping = TextWrapping.Wrap,
             VerticalAlignment = VerticalAlignment.Center,
-            HorizontalAlignment = HorizontalAlignment.Left
+            HorizontalAlignment = HorizontalAlignment.Left,
+            Margin = new Thickness(5) // Add some padding
         };
 
         if (DisplayElement?.Properties != null)
@@ -203,9 +249,48 @@ public class DesignerItemControl : ContentControl
                     textBlock.Foreground = Brushes.Black;
                 }
             }
+
+            // Apply border properties if present
+            if (DisplayElement.Properties.TryGetValue("FillColor", out var fillColor))
+            {
+                try
+                {
+                    border.Background = new SolidColorBrush(
+                        (Color)ColorConverter.ConvertFromString(fillColor?.ToString() ?? "#FFFFFF"));
+                }
+                catch
+                {
+                    border.Background = Brushes.White;
+                }
+            }
+
+            if (DisplayElement.Properties.TryGetValue("BorderColor", out var borderColor) &&
+                DisplayElement.Properties.TryGetValue("BorderThickness", out var borderThickness))
+            {
+                var thickness = Convert.ToDouble(borderThickness);
+                if (thickness > 0)
+                {
+                    try
+                    {
+                        border.BorderBrush = new SolidColorBrush(
+                            (Color)ColorConverter.ConvertFromString(borderColor?.ToString() ?? "#000000"));
+                        border.BorderThickness = new Thickness(thickness);
+                    }
+                    catch
+                    {
+                        border.BorderBrush = Brushes.Black;
+                    }
+                }
+            }
+
+            if (DisplayElement.Properties.TryGetValue("BorderRadius", out var borderRadius))
+            {
+                border.CornerRadius = new CornerRadius(Convert.ToDouble(borderRadius));
+            }
         }
 
-        return textBlock;
+        border.Child = textBlock;
+        return border;
     }
 
     private UIElement CreateImageElement()
@@ -253,7 +338,11 @@ public class DesignerItemControl : ContentControl
         {
             Fill = Brushes.LightBlue,
             Stroke = Brushes.DarkBlue,
-            StrokeThickness = 2
+            StrokeThickness = 2,
+            // CRITICAL: Make rectangle stretch to fill the control
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Stretch,
+            Stretch = Stretch.Fill
         };
 
         if (DisplayElement?.Properties != null)
@@ -282,6 +371,17 @@ public class DesignerItemControl : ContentControl
                 {
                     rectangle.Stroke = Brushes.DarkBlue;
                 }
+            }
+
+            if (DisplayElement.Properties.TryGetValue("BorderThickness", out var borderThickness))
+            {
+                rectangle.StrokeThickness = Convert.ToDouble(borderThickness);
+            }
+
+            if (DisplayElement.Properties.TryGetValue("CornerRadius", out var cornerRadius))
+            {
+                rectangle.RadiusX = Convert.ToDouble(cornerRadius);
+                rectangle.RadiusY = Convert.ToDouble(cornerRadius);
             }
         }
 
