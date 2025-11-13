@@ -221,16 +221,20 @@ public class MessageHandlerService : BackgroundService
     {
         try
         {
+            _logger.LogInformation("=== HandleScreenshotMessageAsync START ===");
+
             var screenshotMessage = DeserializeMessage<ScreenshotMessage>(message);
             if (screenshotMessage != null)
             {
-                _logger.LogInformation("Screenshot received from client {ClientId}, size: {Size} bytes",
-                    screenshotMessage.ClientId,
-                    screenshotMessage.ImageData?.Length ?? 0);
+                _logger.LogInformation("Screenshot message deserialized successfully");
+                _logger.LogInformation("ClientId: {ClientId}", screenshotMessage.ClientId);
+                _logger.LogInformation("ImageData length: {Length} characters", screenshotMessage.ImageData?.Length ?? 0);
+                _logger.LogInformation("Format: {Format}", screenshotMessage.Format);
 
                 // Get client name for better display
                 var client = await _clientService.GetClientByIdAsync(screenshotMessage.ClientId);
                 var clientName = client?.Name ?? screenshotMessage.ClientId;
+                _logger.LogInformation("Client name resolved: {ClientName}", clientName);
 
                 // Raise event to notify UI
                 if (!string.IsNullOrWhiteSpace(screenshotMessage.ImageData))
@@ -243,18 +247,25 @@ public class MessageHandlerService : BackgroundService
                         Format = screenshotMessage.Format
                     };
 
+                    _logger.LogInformation("Invoking ScreenshotReceived event...");
                     ScreenshotReceived?.Invoke(this, eventArgs);
-                    _logger.LogInformation("Screenshot event raised for client {ClientName}", clientName);
+                    _logger.LogInformation("Screenshot event raised successfully for client {ClientName}", clientName);
                 }
                 else
                 {
                     _logger.LogWarning("Screenshot from client {ClientId} has no image data", screenshotMessage.ClientId);
                 }
             }
+            else
+            {
+                _logger.LogError("Failed to deserialize screenshot message - result was null");
+            }
+
+            _logger.LogInformation("=== HandleScreenshotMessageAsync END ===");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error handling SCREENSHOT message from client {ClientId}", clientId);
+            _logger.LogError(ex, "=== HandleScreenshotMessageAsync FAILED === Error handling SCREENSHOT message from client {ClientId}", clientId);
         }
     }
 
