@@ -308,13 +308,14 @@ public class DesignerItemControl : ContentControl
 
             if (DisplayElement != null)
             {
-                // Snap to grid if parent is DesignerCanvas
+                // Snap to grid if DesignerCanvas exists in visual tree
                 var newX = DisplayElement.Position.X + delta.X;
                 var newY = DisplayElement.Position.Y + delta.Y;
 
-                if (Parent is DesignerCanvas canvas)
+                var designerCanvas = FindDesignerCanvas(this);
+                if (designerCanvas != null)
                 {
-                    var snappedPoint = canvas.SnapPoint(new Point(newX, newY));
+                    var snappedPoint = designerCanvas.SnapPoint(new Point(newX, newY));
                     newX = snappedPoint.X;
                     newY = snappedPoint.Y;
                 }
@@ -329,6 +330,21 @@ public class DesignerItemControl : ContentControl
             _dragStartPosition = currentPosition;
             e.Handled = true;
         }
+    }
+
+    /// <summary>
+    /// Finds the DesignerCanvas in the visual tree
+    /// </summary>
+    private DesignerCanvas? FindDesignerCanvas(DependencyObject element)
+    {
+        var parent = VisualTreeHelper.GetParent(element);
+        while (parent != null)
+        {
+            if (parent is DesignerCanvas canvas)
+                return canvas;
+            parent = VisualTreeHelper.GetParent(parent);
+        }
+        return null;
     }
 
     private void OnMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
