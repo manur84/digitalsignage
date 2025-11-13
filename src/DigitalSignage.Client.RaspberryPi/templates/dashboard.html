@@ -500,9 +500,23 @@
             </div>
         </div>
 
+        <!-- Settings -->
+        <div class="card">
+            <h2><span class="icon">⚙️</span> Settings</h2>
+            <div class="info-grid" id="settingsContainer">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Loading settings...</p>
+                </div>
+            </div>
+            <div class="actions">
+                <button class="btn btn-success" onclick="saveSettings()">💾 Save Settings</button>
+            </div>
+        </div>
+
         <!-- Actions -->
         <div class="card">
-            <h2><span class="icon">⚙️</span> Actions</h2>
+            <h2><span class="icon">🔧</span> Actions</h2>
             <div class="actions">
                 <button class="btn btn-primary" onclick="refreshData()">🔄 Refresh Data</button>
                 <button class="btn btn-danger" onclick="restartClient()">🔄 Restart Client</button>
@@ -582,6 +596,7 @@
             loadClientInfo();
             loadSystemInfo();
             loadConnectionStatus();
+            loadSettings();
             loadLogs();
             updateLastUpdated();
         }
@@ -831,6 +846,121 @@
             } catch (error) {
                 console.error('Error clearing cache:', error);
                 alert('Failed to clear cache: ' + error.message);
+            }
+        }
+
+        async function loadSettings() {
+            try {
+                const response = await fetch('/api/settings');
+                const data = await response.json();
+
+                const html = `
+                    <div class="info-item">
+                        <div class="info-label">Disconnect Behavior</div>
+                        <div class="info-value">
+                            <label class="switch">
+                                <input type="checkbox" id="showCachedLayout" ${data.show_cached_layout_on_disconnect ? 'checked' : ''}>
+                                <span class="slider"></span>
+                            </label>
+                            <span style="margin-left: 10px; font-size: 0.9em;">
+                                Show cached layout when disconnected
+                            </span>
+                        </div>
+                        <div style="margin-top: 10px; font-size: 0.8em; color: #B0B0B0;">
+                            When enabled: Shows last cached layout during disconnection<br>
+                            When disabled: Shows reconnection status screen
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Auto-Discovery</div>
+                        <div class="info-value">
+                            <label class="switch">
+                                <input type="checkbox" id="autoDiscover" ${data.auto_discover ? 'checked' : ''}>
+                                <span class="slider"></span>
+                            </label>
+                            <span style="margin-left: 10px; font-size: 0.9em;">
+                                Automatically discover server
+                            </span>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Fullscreen Mode</div>
+                        <div class="info-value">
+                            <label class="switch">
+                                <input type="checkbox" id="fullscreen" ${data.fullscreen ? 'checked' : ''}>
+                                <span class="slider"></span>
+                            </label>
+                            <span style="margin-left: 10px; font-size: 0.9em;">
+                                Display in fullscreen
+                            </span>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Remote Logging</div>
+                        <div class="info-value">
+                            <label class="switch">
+                                <input type="checkbox" id="remoteLogging" ${data.remote_logging_enabled ? 'checked' : ''}>
+                                <span class="slider"></span>
+                            </label>
+                            <span style="margin-left: 10px; font-size: 0.9em;">
+                                Send logs to server
+                            </span>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Log Level</div>
+                        <div class="info-value">
+                            <select id="logLevel" style="padding: 8px; border-radius: 6px; background: #333; color: #fff; border: 1px solid #4A90E2;">
+                                <option value="DEBUG" ${data.log_level === 'DEBUG' ? 'selected' : ''}>Debug</option>
+                                <option value="INFO" ${data.log_level === 'INFO' ? 'selected' : ''}>Info</option>
+                                <option value="WARNING" ${data.log_level === 'WARNING' ? 'selected' : ''}>Warning</option>
+                                <option value="ERROR" ${data.log_level === 'ERROR' ? 'selected' : ''}>Error</option>
+                            </select>
+                        </div>
+                    </div>
+                `;
+
+                document.getElementById('settingsContainer').innerHTML = html;
+            } catch (error) {
+                console.error('Error loading settings:', error);
+                document.getElementById('settingsContainer').innerHTML =
+                    '<div class="error-message">Failed to load settings</div>';
+            }
+        }
+
+        async function saveSettings() {
+            try {
+                const settings = {
+                    show_cached_layout_on_disconnect: document.getElementById('showCachedLayout').checked,
+                    auto_discover: document.getElementById('autoDiscover').checked,
+                    fullscreen: document.getElementById('fullscreen').checked,
+                    remote_logging_enabled: document.getElementById('remoteLogging').checked,
+                    log_level: document.getElementById('logLevel').value
+                };
+
+                const response = await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(settings)
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    alert('Settings saved successfully!\n\nUpdated: ' + data.updated_fields.join(', '));
+
+                    // Ask if user wants to restart for changes to take effect
+                    if (confirm('Some settings require a restart to take effect. Restart now?')) {
+                        restartClient();
+                    }
+                } else {
+                    alert('Failed to save settings: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error saving settings:', error);
+                alert('Failed to save settings: ' + error.message);
             }
         }
     </script>

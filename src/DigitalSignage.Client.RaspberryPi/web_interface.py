@@ -125,9 +125,100 @@ class WebInterface:
                 logger.error(f"Error clearing cache: {e}", exc_info=True)
                 return jsonify({'success': False, 'error': str(e)}), 500
 
+        @self.app.route('/api/settings', methods=['GET'])
+        def api_get_settings():
+            """Get client settings"""
+            try:
+                if not hasattr(self.client, 'config'):
+                    return jsonify({'error': 'Client not initialized'}), 503
+
+                return jsonify({
+                    'show_cached_layout_on_disconnect': self.client.config.show_cached_layout_on_disconnect,
+                    'auto_discover': self.client.config.auto_discover,
+                    'fullscreen': self.client.config.fullscreen,
+                    'remote_logging_enabled': self.client.config.remote_logging_enabled,
+                    'log_level': self.client.config.log_level,
+                    'timestamp': datetime.utcnow().isoformat()
+                })
+            except Exception as e:
+                logger.error(f"Error getting settings: {e}", exc_info=True)
+                return jsonify({'error': str(e)}), 500
+
+        @self.app.route('/api/settings', methods=['POST'])
+        def api_update_settings():
+            """Update client settings"""
+            try:
+                if not hasattr(self.client, 'config'):
+                    return jsonify({'success': False, 'error': 'Client not initialized'}), 503
+
+                data = request.get_json()
+                if not data:
+                    return jsonify({'success': False, 'error': 'No data provided'}), 400
+
+                # Update settings
+                updated_fields = []
+
+                if 'show_cached_layout_on_disconnect' in data:
+                    self.client.config.show_cached_layout_on_disconnect = bool(data['show_cached_layout_on_disconnect'])
+                    updated_fields.append('show_cached_layout_on_disconnect')
+                    logger.info(f"Updated show_cached_layout_on_disconnect to {self.client.config.show_cached_layout_on_disconnect}")
+
+                if 'auto_discover' in data:
+                    self.client.config.auto_discover = bool(data['auto_discover'])
+                    updated_fields.append('auto_discover')
+                    logger.info(f"Updated auto_discover to {self.client.config.auto_discover}")
+
+                if 'fullscreen' in data:
+                    self.client.config.fullscreen = bool(data['fullscreen'])
+                    updated_fields.append('fullscreen')
+                    logger.info(f"Updated fullscreen to {self.client.config.fullscreen}")
+
+                if 'remote_logging_enabled' in data:
+                    self.client.config.remote_logging_enabled = bool(data['remote_logging_enabled'])
+                    updated_fields.append('remote_logging_enabled')
+                    logger.info(f"Updated remote_logging_enabled to {self.client.config.remote_logging_enabled}")
+
+                if 'log_level' in data:
+                    self.client.config.log_level = str(data['log_level'])
+                    updated_fields.append('log_level')
+                    logger.info(f"Updated log_level to {self.client.config.log_level}")
+
+                # Save configuration to file
+                self.client.config.save()
+                logger.info(f"Settings updated and saved: {', '.join(updated_fields)}")
+
+                return jsonify({
+                    'success': True,
+                    'message': f'Settings updated: {", ".join(updated_fields)}',
+                    'updated_fields': updated_fields,
+                    'timestamp': datetime.utcnow().isoformat()
+                })
+            except Exception as e:
+                logger.error(f"Error updating settings: {e}", exc_info=True)
+                return jsonify({'success': False, 'error': str(e)}), 500
+
     def _get_status_data(self) -> Dict[str, Any]:
         """Get current client status data"""
         try:
+            # Safety check: Ensure client is initialized
+            if not hasattr(self.client, 'config') or not hasattr(self.client, 'device_manager'):
+                logger.warning("Client not fully initialized yet")
+                return {
+                    'client_id': 'Initializing...',
+                    'ip_address': 'Unknown',
+                    'mac_address': 'Unknown',
+                    'hostname': 'Unknown',
+                    'connected': False,
+                    'offline_mode': True,
+                    'server_url': 'Unknown',
+                    'last_heartbeat': None,
+                    'websocket_status': 'Initializing',
+                    'assigned_layout': None,
+                    'layout_id': None,
+                    'cache_info': {'layout_count': 0, 'current_layout_id': None},
+                    'timestamp': datetime.utcnow().isoformat()
+                }
+
             # Get device info synchronously (since we're in Flask context)
             import asyncio
 
@@ -143,20 +234,33 @@ class WebInterface:
                     'model': self.client.device_manager.get_rpi_model(),
                     'os_version': self.client.device_manager.get_os_version(),
                 }
+            except Exception as e:
+                logger.error(f"Failed to get device info: {e}")
+                device_info = {
+                    'ip_address': 'Unknown',
+                    'mac_address': 'Unknown',
+                    'hostname': 'Unknown',
+                    'model': 'Unknown',
+                    'os_version': 'Unknown',
+                }
 
-            # Get cache info
-            cache_info = self.client.cache_manager.get_cache_info()
+            # Get cache info safely
+            try:
+                cache_info = self.client.cache_manager.get_cache_info()
+            except Exception as e:
+                logger.error(f"Failed to get cache info: {e}")
+                cache_info = {'layout_count': 0, 'current_layout_id': None}
 
             return {
                 'client_id': self.client.config.client_id,
                 'ip_address': device_info.get('ip_address', 'Unknown'),
                 'mac_address': device_info.get('mac_address', 'Unknown'),
                 'hostname': device_info.get('hostname', 'Unknown'),
-                'connected': self.client.connected,
-                'offline_mode': self.client.offline_mode,
+                'connected': getattr(self.client, 'connected', False),
+                'offline_mode': getattr(self.client, 'offline_mode', True),
                 'server_url': self.client.config.get_server_url(),
-                'last_heartbeat': datetime.utcnow().isoformat() if self.client.connected else None,
-                'websocket_status': 'Connected' if self.client.connected else 'Disconnected',
+                'last_heartbeat': datetime.utcnow().isoformat() if getattr(self.client, 'connected', False) else None,
+                'websocket_status': 'Connected' if getattr(self.client, 'connected', False) else 'Disconnected',
                 'assigned_layout': self.client.current_layout.get('Name') if self.client.current_layout else None,
                 'layout_id': self.client.current_layout.get('Id') if self.client.current_layout else None,
                 'cache_info': cache_info,
@@ -165,7 +269,7 @@ class WebInterface:
         except Exception as e:
             logger.error(f"Error getting status data: {e}", exc_info=True)
             return {
-                'client_id': self.client.config.client_id,
+                'client_id': getattr(self.client, 'config', type('obj', (object,), {'client_id': 'Unknown'})()).client_id,
                 'error': str(e),
                 'timestamp': datetime.utcnow().isoformat()
             }
@@ -193,16 +297,35 @@ class WebInterface:
             uptime = datetime.now() - boot_time
             uptime_str = str(uptime).split('.')[0]  # Remove microseconds
 
-            # CPU temperature
-            cpu_temp = self.client.device_manager.get_cpu_temperature()
+            # CPU temperature (safe access)
+            try:
+                cpu_temp = self.client.device_manager.get_cpu_temperature() if hasattr(self.client, 'device_manager') else 0
+            except Exception:
+                cpu_temp = 0
 
-            # Display resolution
-            screen_width = self.client.device_manager.get_screen_width()
-            screen_height = self.client.device_manager.get_screen_height()
+            # Display resolution (safe access)
+            try:
+                if hasattr(self.client, 'device_manager'):
+                    screen_width = self.client.device_manager.get_screen_width()
+                    screen_height = self.client.device_manager.get_screen_height()
+                else:
+                    screen_width = 1920
+                    screen_height = 1080
+            except Exception:
+                screen_width = 1920
+                screen_height = 1080
 
-            # OS version
-            model = self.client.device_manager.get_rpi_model()
-            os_version = self.client.device_manager.get_os_version()
+            # OS version (safe access)
+            try:
+                if hasattr(self.client, 'device_manager'):
+                    model = self.client.device_manager.get_rpi_model()
+                    os_version = self.client.device_manager.get_os_version()
+                else:
+                    model = 'Unknown'
+                    os_version = 'Unknown'
+            except Exception:
+                model = 'Unknown'
+                os_version = 'Unknown'
 
             return {
                 'cpu_usage': round(cpu_percent, 1),
