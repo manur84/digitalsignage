@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
+using DigitalSignage.Server.ViewModels;
 
 namespace DigitalSignage.Server.Controls;
 
@@ -73,6 +74,9 @@ public class DesignerCanvas : Canvas
         MouseMove += OnMouseMove;
         MouseLeftButtonUp += OnMouseLeftButtonUp;
 
+        // Keyboard events for multi-selection and commands
+        KeyDown += OnKeyDown;
+
         // Enable touch support
         IsManipulationEnabled = true;
         ManipulationStarting += OnManipulationStarting;
@@ -124,15 +128,55 @@ public class DesignerCanvas : Canvas
 
     private void OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        // CRITICAL FIX: Only start selection rectangle if clicking on the CANVAS itself, NOT on child elements
-        // This allows element event handlers in MainWindow.xaml.cs to work properly
-        if (e.Source == this && Keyboard.Modifiers == ModifierKeys.None)
+        // Focus the canvas for keyboard events
+        Focus();
+
+        // Check if clicking on a DesignerItemControl for element selection
+        var clickedElement = FindVisualParent<DesignerItemControl>(e.OriginalSource as DependencyObject);
+
+        if (clickedElement != null && clickedElement.DisplayElement != null)
         {
-            _selectionStartPoint = e.GetPosition(this);
-            CaptureMouse();
-            e.Handled = true; // Mark as handled only when we capture it
+            // Clicked on an element - handle selection with modifier keys
+            var viewModel = DataContext as DesignerViewModel;
+            if (viewModel != null)
+            {
+                bool isCtrlPressed = Keyboard.IsKeyDown(Key.LeftCtrl) || Keyboard.IsKeyDown(Key.RightCtrl);
+                bool isShiftPressed = Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift);
+
+                // Create parameter tuple for SelectElementCommand
+                var parameter = (clickedElement.DisplayElement, isCtrlPressed, isShiftPressed);
+                viewModel.SelectElementCommand.Execute(parameter);
+            }
+
+            // Don't start selection rectangle when clicking on an element
+            return;
         }
-        // If clicking on a child element, do NOT capture - let the event bubble up
+
+        // Clicked on empty canvas - start selection rectangle
+        if (e.Source == this || clickedElement == null)
+        {
+            var viewModel = DataContext as DesignerViewModel;
+            if (viewModel != null)
+            {
+                // Clear selection if not holding Ctrl
+                if (!Keyboard.IsKeyDown(Key.LeftCtrl) && !Keyboard.IsKeyDown(Key.RightCtrl))
+                {
+                    viewModel.SelectionService.ClearSelection();
+                }
+
+                // Start selection rectangle
+                _selectionStartPoint = e.GetPosition(this);
+                var parameter = (_selectionStartPoint.Value.X, _selectionStartPoint.Value.Y);
+                viewModel.StartSelectionRectangleCommand.Execute(parameter);
+            }
+            else
+            {
+                _selectionStartPoint = e.GetPosition(this);
+            }
+
+            CaptureMouse();
+            e.Handled = true;
+        }
     }
 
     private void OnMouseMove(object sender, MouseEventArgs e)
@@ -140,6 +184,16 @@ public class DesignerCanvas : Canvas
         if (_selectionStartPoint.HasValue && e.LeftButton == MouseButtonState.Pressed)
         {
             var currentPoint = e.GetPosition(this);
+
+            // Update ViewModel's selection rectangle
+            var viewModel = DataContext as DesignerViewModel;
+            if (viewModel != null)
+            {
+                var parameter = (currentPoint.X, currentPoint.Y);
+                viewModel.UpdateSelectionRectangleCommand.Execute(parameter);
+            }
+
+            // Update visual selection rectangle
             UpdateSelectionRectangle(_selectionStartPoint.Value, currentPoint);
         }
     }
@@ -148,6 +202,13 @@ public class DesignerCanvas : Canvas
     {
         if (_selectionStartPoint.HasValue)
         {
+            // End selection rectangle in ViewModel
+            var viewModel = DataContext as DesignerViewModel;
+            if (viewModel != null)
+            {
+                viewModel.EndSelectionRectangleCommand.Execute(null);
+            }
+
             _selectionStartPoint = null;
             RemoveSelectionRectangle();
             ReleaseMouseCapture();
@@ -344,5 +405,63 @@ public class DesignerCanvas : Canvas
     {
         var args = new RoutedEventArgs(PanChangedEvent, this);
         RaiseEvent(args);
+    }
+
+    /// <summary>
+    /// Handles keyboard shortcuts for multi-selection and commands
+    /// </summary>
+    private void OnKeyDown(object sender, KeyEventArgs e)
+    {
+        var viewModel = DataContext as DesignerViewModel;
+        if (viewModel == null) return;
+
+        bool ctrlPressed = Keyboard.IsKeyDown(Key.LeftCtrl) || Keyboard.IsKeyDown(Key.RightCtrl);
+
+        // Ctrl+A: Select All
+        if (ctrlPressed && e.Key == Key.A)
+        {
+            viewModel.SelectAllCommand.Execute(null);
+            e.Handled = true;
+        }
+        // Delete: Delete selected elements
+        else if (e.Key == Key.Delete)
+        {
+            if (viewModel.DeleteSelectedCommand.CanExecute(null))
+            {
+                viewModel.DeleteSelectedCommand.Execute(null);
+            }
+            e.Handled = true;
+        }
+        // Ctrl+D: Duplicate selected elements
+        else if (ctrlPressed && e.Key == Key.D)
+        {
+            if (viewModel.DuplicateSelectedCommand.CanExecute(null))
+            {
+                viewModel.DuplicateSelectedCommand.Execute(null);
+            }
+            e.Handled = true;
+        }
+        // Escape: Clear selection
+        else if (e.Key == Key.Escape)
+        {
+            viewModel.SelectionService.ClearSelection();
+            e.Handled = true;
+        }
+    }
+
+    /// <summary>
+    /// Finds a parent of a specific type in the visual tree
+    /// </summary>
+    private T? FindVisualParent<T>(DependencyObject? child) where T : DependencyObject
+    {
+        while (child != null)
+        {
+            if (child is T parent)
+                return parent;
+
+            child = VisualTreeHelper.GetParent(child);
+        }
+
+        return null;
     }
 }

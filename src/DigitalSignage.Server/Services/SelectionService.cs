@@ -68,8 +68,15 @@ public class SelectionService : INotifyPropertyChanged
     /// </summary>
     public void SelectSingle(DisplayElement element)
     {
+        // Clear IsSelected on all previously selected elements
+        foreach (var prevElement in _selectedElements)
+        {
+            prevElement.IsSelected = false;
+        }
+
         _selectedElements.Clear();
         _selectedElements.Add(element);
+        element.IsSelected = true;
         PrimarySelection = element;
     }
 
@@ -81,6 +88,7 @@ public class SelectionService : INotifyPropertyChanged
         if (!_selectedElements.Contains(element))
         {
             _selectedElements.Add(element);
+            element.IsSelected = true;
             PrimarySelection = element;
         }
     }
@@ -90,6 +98,7 @@ public class SelectionService : INotifyPropertyChanged
     /// </summary>
     public void RemoveFromSelection(DisplayElement element)
     {
+        element.IsSelected = false;
         _selectedElements.Remove(element);
 
         if (_selectedElements.Count > 0)
@@ -122,11 +131,18 @@ public class SelectionService : INotifyPropertyChanged
     /// </summary>
     public void SelectMultiple(IEnumerable<DisplayElement> elements)
     {
+        // Clear IsSelected on all previously selected elements
+        foreach (var prevElement in _selectedElements)
+        {
+            prevElement.IsSelected = false;
+        }
+
         _selectedElements.Clear();
 
         foreach (var element in elements)
         {
             _selectedElements.Add(element);
+            element.IsSelected = true;
         }
 
         if (_selectedElements.Count > 0)
@@ -152,11 +168,18 @@ public class SelectionService : INotifyPropertyChanged
         var startIndex = Math.Min(fromIndex, toIndex);
         var endIndex = Math.Max(fromIndex, toIndex);
 
+        // Clear IsSelected on all previously selected elements
+        foreach (var prevElement in _selectedElements)
+        {
+            prevElement.IsSelected = false;
+        }
+
         _selectedElements.Clear();
 
         for (int i = startIndex; i <= endIndex; i++)
         {
             _selectedElements.Add(elementList[i]);
+            elementList[i].IsSelected = true;
         }
 
         PrimarySelection = toElement;
@@ -167,6 +190,12 @@ public class SelectionService : INotifyPropertyChanged
     /// </summary>
     public void SelectInRectangle(double x, double y, double width, double height, IEnumerable<DisplayElement> allElements)
     {
+        // Clear IsSelected on all previously selected elements
+        foreach (var prevElement in _selectedElements)
+        {
+            prevElement.IsSelected = false;
+        }
+
         _selectedElements.Clear();
 
         foreach (var element in allElements)
@@ -174,6 +203,7 @@ public class SelectionService : INotifyPropertyChanged
             if (IsElementInRectangle(element, x, y, width, height))
             {
                 _selectedElements.Add(element);
+                element.IsSelected = true;
             }
         }
 
@@ -188,6 +218,12 @@ public class SelectionService : INotifyPropertyChanged
     /// </summary>
     public void ClearSelection()
     {
+        // Clear IsSelected on all previously selected elements
+        foreach (var element in _selectedElements)
+        {
+            element.IsSelected = false;
+        }
+
         _selectedElements.Clear();
         PrimarySelection = null;
     }
