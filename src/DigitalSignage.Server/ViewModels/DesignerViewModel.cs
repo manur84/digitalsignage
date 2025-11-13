@@ -871,3 +871,213 @@ public partial class DesignerViewModel : ObservableObject
         _logger.LogDebug("Cleared selection");
     }
 }
+
+    #region Alignment Commands
+
+    private readonly AlignmentService _alignmentService = new();
+
+    /// <summary>
+    /// Aligns selected elements to the left
+    /// </summary>
+    [RelayCommand]
+    private void AlignLeft()
+    {
+        if (!SelectionService.HasSelection) return;
+        
+        _alignmentService.AlignLeft(SelectionService.SelectedElements);
+        _logger.LogInformation("Aligned {Count} elements to left", SelectionService.SelectedElements.Count);
+    }
+
+    /// <summary>
+    /// Aligns selected elements to the right
+    /// </summary>
+    [RelayCommand]
+    private void AlignRight()
+    {
+        if (!SelectionService.HasSelection) return;
+        
+        _alignmentService.AlignRight(SelectionService.SelectedElements);
+        _logger.LogInformation("Aligned {Count} elements to right", SelectionService.SelectedElements.Count);
+    }
+
+    /// <summary>
+    /// Aligns selected elements to the top
+    /// </summary>
+    [RelayCommand]
+    private void AlignTop()
+    {
+        if (!SelectionService.HasSelection) return;
+        
+        _alignmentService.AlignTop(SelectionService.SelectedElements);
+        _logger.LogInformation("Aligned {Count} elements to top", SelectionService.SelectedElements.Count);
+    }
+
+    /// <summary>
+    /// Aligns selected elements to the bottom
+    /// </summary>
+    [RelayCommand]
+    private void AlignBottom()
+    {
+        if (!SelectionService.HasSelection) return;
+        
+        _alignmentService.AlignBottom(SelectionService.SelectedElements);
+        _logger.LogInformation("Aligned {Count} elements to bottom", SelectionService.SelectedElements.Count);
+    }
+
+    /// <summary>
+    /// Centers selected elements horizontally
+    /// </summary>
+    [RelayCommand]
+    private void CenterHorizontal()
+    {
+        if (!SelectionService.HasSelection) return;
+        
+        _alignmentService.CenterHorizontal(SelectionService.SelectedElements);
+        _logger.LogInformation("Centered {Count} elements horizontally", SelectionService.SelectedElements.Count);
+    }
+
+    /// <summary>
+    /// Centers selected elements vertically
+    /// </summary>
+    [RelayCommand]
+    private void CenterVertical()
+    {
+        if (!SelectionService.HasSelection) return;
+        
+        _alignmentService.CenterVertical(SelectionService.SelectedElements);
+        _logger.LogInformation("Centered {Count} elements vertically", SelectionService.SelectedElements.Count);
+    }
+
+    /// <summary>
+    /// Centers selected element on canvas
+    /// </summary>
+    [RelayCommand]
+    private void CenterOnCanvas()
+    {
+        if (SelectedElement == null || CurrentLayout == null) return;
+        
+        _alignmentService.CenterOnCanvas(SelectedElement, CurrentLayout.Resolution.Width, CurrentLayout.Resolution.Height);
+        _logger.LogInformation("Centered element on canvas");
+    }
+
+    /// <summary>
+    /// Distributes selected elements horizontally
+    /// </summary>
+    [RelayCommand]
+    private void DistributeHorizontal()
+    {
+        if (SelectionService.SelectedElements.Count < 3) return;
+        
+        _alignmentService.DistributeHorizontal(SelectionService.SelectedElements);
+        _logger.LogInformation("Distributed {Count} elements horizontally", SelectionService.SelectedElements.Count);
+    }
+
+    /// <summary>
+    /// Distributes selected elements vertically
+    /// </summary>
+    [RelayCommand]
+    private void DistributeVertical()
+    {
+        if (SelectionService.SelectedElements.Count < 3) return;
+        
+        _alignmentService.DistributeVertical(SelectionService.SelectedElements);
+        _logger.LogInformation("Distributed {Count} elements vertically", SelectionService.SelectedElements.Count);
+    }
+
+    #endregion
+
+    #region Copy/Paste Commands
+
+    private DisplayElement? _clipboardElement;
+    private List<DisplayElement>? _clipboardElements;
+
+    /// <summary>
+    /// Copies selected element(s) to clipboard
+    /// </summary>
+    [RelayCommand]
+    private void Copy()
+    {
+        if (!SelectionService.HasSelection) return;
+
+        _clipboardElements = SelectionService.SelectedElements.Select(e => new DisplayElement
+        {
+            Type = e.Type,
+            Name = e.Name,
+            Position = new Position { X = e.Position.X, Y = e.Position.Y },
+            Size = new Size { Width = e.Size.Width, Height = e.Size.Height },
+            ZIndex = e.ZIndex,
+            Properties = new Dictionary<string, object>(e.Properties),
+            Rotation = e.Rotation,
+            Opacity = e.Opacity,
+            Visible = e.Visible,
+            DataBinding = e.DataBinding
+        }).ToList();
+
+        _logger.LogInformation("Copied {Count} element(s) to clipboard", _clipboardElements.Count);
+    }
+
+    /// <summary>
+    /// Cuts selected element(s) to clipboard
+    /// </summary>
+    [RelayCommand]
+    private void Cut()
+    {
+        if (!SelectionService.HasSelection) return;
+
+        Copy();
+        DeleteSelected();
+        _logger.LogInformation("Cut {Count} element(s)", _clipboardElements?.Count ?? 0);
+    }
+
+    /// <summary>
+    /// Pastes element(s) from clipboard
+    /// </summary>
+    [RelayCommand]
+    private void Paste()
+    {
+        if (_clipboardElements == null || _clipboardElements.Count == 0) return;
+
+        var newElements = new List<DisplayElement>();
+        
+        foreach (var clipboardElement in _clipboardElements)
+        {
+            var newElement = new DisplayElement
+            {
+                Id = Guid.NewGuid().ToString(),
+                Type = clipboardElement.Type,
+                Name = $"{clipboardElement.Name} (Copy)",
+                Position = new Position
+                {
+                    X = clipboardElement.Position.X + 20,
+                    Y = clipboardElement.Position.Y + 20
+                },
+                Size = new Size
+                {
+                    Width = clipboardElement.Size.Width,
+                    Height = clipboardElement.Size.Height
+                },
+                ZIndex = Elements.Count + newElements.Count,
+                Properties = new Dictionary<string, object>(clipboardElement.Properties),
+                Rotation = clipboardElement.Rotation,
+                Opacity = clipboardElement.Opacity,
+                Visible = clipboardElement.Visible,
+                DataBinding = clipboardElement.DataBinding
+            };
+
+            newElement.InitializeDefaultProperties();
+            newElements.Add(newElement);
+
+            var command = new AddElementCommand(Elements, newElement);
+            CommandHistory.ExecuteCommand(command);
+        }
+
+        SelectionService.SelectMultiple(newElements);
+        UpdateLayers();
+
+        _logger.LogInformation("Pasted {Count} element(s)", newElements.Count);
+    }
+
+    private bool CanPaste() => _clipboardElements != null && _clipboardElements.Count > 0;
+
+    #endregion
+}
