@@ -140,8 +140,32 @@ public partial class MainWindow : Window
     {
         if (sender is FrameworkElement element && element.Tag is DisplayElement displayElement)
         {
-            // Select the element using the command
-            ViewModel?.Designer?.SelectElementCommand?.Execute(displayElement);
+            // Check for modifier keys
+            bool isCtrlPressed = Keyboard.Modifiers.HasFlag(ModifierKeys.Control);
+            bool isShiftPressed = Keyboard.Modifiers.HasFlag(ModifierKeys.Shift);
+
+            // MULTI-SELECTION SUPPORT: Pass modifier keys to SelectElementCommand
+            // - Ctrl+Click: Toggle selection (add/remove from selection)
+            // - Shift+Click: Range selection (select all elements between last and current)
+            // - Click: Select single element (clear previous selection)
+            if (isCtrlPressed || isShiftPressed)
+            {
+                // Multi-selection mode: use SelectionService directly
+                if (isCtrlPressed)
+                {
+                    ViewModel?.Designer?.SelectionService?.ToggleSelection(displayElement);
+                }
+                else if (isShiftPressed && ViewModel?.Designer?.SelectionService?.PrimarySelection != null)
+                {
+                    // Shift+Click: Range selection (if implemented in SelectionService)
+                    ViewModel?.Designer?.SelectionService?.SelectSingle(displayElement);
+                }
+            }
+            else
+            {
+                // Single selection mode: clear previous selection
+                ViewModel?.Designer?.SelectElementCommand?.Execute(displayElement);
+            }
 
             // Start drag operation
             _dragStartPosition = e.GetPosition(DesignerCanvas);
@@ -155,6 +179,7 @@ public partial class MainWindow : Window
 
     /// <summary>
     /// Handles mouse move for dragging elements
+    /// SUPPORTS MULTI-ELEMENT DRAGGING: Moves all selected elements together
     /// </summary>
     private void Element_MouseMove(object sender, MouseEventArgs e)
     {
@@ -163,25 +188,43 @@ public partial class MainWindow : Window
             var currentPosition = e.GetPosition(DesignerCanvas);
             var delta = currentPosition - _dragStartPosition;
 
-            // Calculate new position
+            // MULTI-ELEMENT DRAG SUPPORT: Get all selected elements
+            var selectedElements = ViewModel?.Designer?.SelectionService?.SelectedElements;
+            var elementsToMove = selectedElements != null && selectedElements.Count > 0
+                ? selectedElements.ToList()
+                : new List<DisplayElement> { _draggingElement };
+
+            // Calculate new position for primary element (for snapping)
             var newX = _draggingElement.Position.X + delta.X;
             var newY = _draggingElement.Position.Y + delta.Y;
 
-            // Snap to grid if Ctrl key is pressed
-            if (Keyboard.Modifiers == ModifierKeys.Control && ViewModel?.Designer?.SnapToGrid == true)
+            // Snap to grid if enabled (NOT when Ctrl is pressed, as Ctrl is for multi-select)
+            if (ViewModel?.Designer?.SnapToGrid == true)
             {
                 var gridSize = ViewModel.Designer.GridSize;
-                newX = Math.Round(newX / gridSize) * gridSize;
-                newY = Math.Round(newY / gridSize) * gridSize;
+                var snappedX = Math.Round(newX / gridSize) * gridSize;
+                var snappedY = Math.Round(newY / gridSize) * gridSize;
+
+                // Adjust delta based on snapping
+                delta = new Vector(snappedX - _draggingElement.Position.X, snappedY - _draggingElement.Position.Y);
             }
 
-            // Ensure element stays within canvas bounds
-            newX = Math.Max(0, Math.Min(newX, ViewModel?.Designer?.CurrentLayout?.Resolution?.Width ?? 1920 - _draggingElement.Size.Width));
-            newY = Math.Max(0, Math.Min(newY, ViewModel?.Designer?.CurrentLayout?.Resolution?.Height ?? 1080 - _draggingElement.Size.Height));
+            // Move all selected elements by the same delta
+            foreach (var element in elementsToMove)
+            {
+                var elementNewX = element.Position.X + delta.X;
+                var elementNewY = element.Position.Y + delta.Y;
 
-            // Update position
-            _draggingElement.Position.X = newX;
-            _draggingElement.Position.Y = newY;
+                // Ensure element stays within canvas bounds
+                var canvasWidth = ViewModel?.Designer?.CurrentLayout?.Resolution?.Width ?? 1920;
+                var canvasHeight = ViewModel?.Designer?.CurrentLayout?.Resolution?.Height ?? 1080;
+                elementNewX = Math.Max(0, Math.Min(elementNewX, canvasWidth - element.Size.Width));
+                elementNewY = Math.Max(0, Math.Min(elementNewY, canvasHeight - element.Size.Height));
+
+                // Update position
+                element.Position.X = elementNewX;
+                element.Position.Y = elementNewY;
+            }
 
             _dragStartPosition = currentPosition;
             e.Handled = true;
