@@ -54,6 +54,46 @@ public partial class DisplayElement : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Indexer for accessing properties with automatic change notification
+    /// This enables WPF bindings like {Binding Item[PropertyName]} to work correctly
+    /// </summary>
+    public object? this[string key]
+    {
+        get
+        {
+            if (_properties != null && _properties.TryGetValue(key, out var value))
+            {
+                return value;
+            }
+            return null;
+        }
+        set
+        {
+            if (_properties == null)
+                _properties = new Dictionary<string, object>();
+
+            bool changed = !_properties.ContainsKey(key) || !Equals(_properties[key], value);
+
+            if (value != null)
+            {
+                _properties[key] = value;
+            }
+            else if (_properties.ContainsKey(key))
+            {
+                _properties.Remove(key);
+            }
+
+            if (changed)
+            {
+                // Notify WPF about the change using Item[] indexer syntax
+                OnPropertyChanged($"Item[{key}]");
+                // Also notify using Properties[key] syntax for backward compatibility
+                OnPropertyChanged($"Properties[{key}]");
+            }
+        }
+    }
+
     [ObservableProperty]
     private Animation? _animation;
 
@@ -203,11 +243,14 @@ public partial class DisplayElement : ObservableObject
 
         if (changed)
         {
-            // Notify that the Properties dictionary has changed
-            OnPropertyChanged(nameof(Properties));
+            // Notify WPF about the change using Item[] indexer syntax (the correct WPF way)
+            OnPropertyChanged($"Item[{key}]");
 
-            // Also notify about the specific property indexer for binding updates
+            // Also notify using Properties[key] syntax for backward compatibility
             OnPropertyChanged($"Properties[{key}]");
+
+            // Notify that the Properties dictionary has changed (for collection-based bindings)
+            OnPropertyChanged(nameof(Properties));
         }
     }
 
