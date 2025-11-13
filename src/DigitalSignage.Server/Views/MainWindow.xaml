@@ -1067,17 +1067,18 @@
                                                 VerticalScrollBarVisibility="Auto"/>
 
                                         <TextBlock Text="Font Family:" Margin="0,12,0,4"/>
-                                        <ComboBox SelectedItem="{Binding Designer.SelectedElement.[FontFamily], FallbackValue=Arial}">
-                                            <ComboBoxItem>Arial</ComboBoxItem>
-                                            <ComboBoxItem>Calibri</ComboBoxItem>
-                                            <ComboBoxItem>Times New Roman</ComboBoxItem>
-                                            <ComboBoxItem>Verdana</ComboBoxItem>
-                                            <ComboBoxItem>Georgia</ComboBoxItem>
-                                            <ComboBoxItem>Courier New</ComboBoxItem>
-                                            <ComboBoxItem>Comic Sans MS</ComboBoxItem>
-                                            <ComboBoxItem>Impact</ComboBoxItem>
-                                            <ComboBoxItem>Tahoma</ComboBoxItem>
-                                            <ComboBoxItem>Trebuchet MS</ComboBoxItem>
+                                        <ComboBox SelectedValue="{Binding Designer.SelectedElement.[FontFamily], FallbackValue=Arial, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                  SelectedValuePath="Content">
+                                            <ComboBoxItem Content="Arial"/>
+                                            <ComboBoxItem Content="Calibri"/>
+                                            <ComboBoxItem Content="Times New Roman"/>
+                                            <ComboBoxItem Content="Verdana"/>
+                                            <ComboBoxItem Content="Georgia"/>
+                                            <ComboBoxItem Content="Courier New"/>
+                                            <ComboBoxItem Content="Comic Sans MS"/>
+                                            <ComboBoxItem Content="Impact"/>
+                                            <ComboBoxItem Content="Tahoma"/>
+                                            <ComboBoxItem Content="Trebuchet MS"/>
                                         </ComboBox>
 
                                         <TextBlock Text="Font Size:" Margin="0,12,0,4"/>
@@ -1118,7 +1119,7 @@
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
                                             <TextBox Grid.Column="0"
-                                                    Text="{Binding Designer.SelectedElement.[Color], FallbackValue=#000000, UpdateSourceTrigger=PropertyChanged}"
+                                                    Text="{Binding Designer.SelectedElement.[Color], FallbackValue=#000000, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                     Margin="0,0,8,0"/>
                                             <Border Grid.Column="1"
                                                    Width="40"
@@ -1145,7 +1146,7 @@
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
                                             <TextBox Grid.Column="0"
-                                                    Text="{Binding Designer.SelectedElement.[FillColor], FallbackValue=#ADD8E6, UpdateSourceTrigger=PropertyChanged}"
+                                                    Text="{Binding Designer.SelectedElement.[FillColor], FallbackValue=#ADD8E6, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                     Margin="0,0,8,0"/>
                                             <Border Grid.Column="1"
                                                    Width="40"
@@ -1165,7 +1166,7 @@
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
                                             <TextBox Grid.Column="0"
-                                                    Text="{Binding Designer.SelectedElement.[BorderColor], FallbackValue=#00008B, UpdateSourceTrigger=PropertyChanged}"
+                                                    Text="{Binding Designer.SelectedElement.[BorderColor], FallbackValue=#00008B, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                     Margin="0,0,8,0"/>
                                             <Border Grid.Column="1"
                                                    Width="40"
@@ -1179,7 +1180,7 @@
                                         </Grid>
 
                                         <TextBlock Text="Border Thickness:" Margin="0,12,0,4"/>
-                                        <TextBox Text="{Binding Designer.SelectedElement.[BorderThickness], FallbackValue=2, UpdateSourceTrigger=PropertyChanged}"/>
+                                        <TextBox Text="{Binding Designer.SelectedElement.[BorderThickness], FallbackValue=2, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                                     </StackPanel>
 
                                     <Separator Margin="0,16"/>
