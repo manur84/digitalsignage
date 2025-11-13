@@ -7,6 +7,28 @@ namespace DigitalSignage.Core.Helpers;
 /// </summary>
 public static class LayoutTemplates
 {
+    /// <summary>
+    /// Helper method to create a DisplayElement and initialize default properties
+    /// </summary>
+    private static DisplayElement CreateElement(string type, string name, Position position, Size size, int zIndex, Dictionary<string, object> properties, string? dataBinding = null)
+    {
+        var element = new DisplayElement
+        {
+            Type = type,
+            Name = name,
+            Position = position,
+            Size = size,
+            ZIndex = zIndex,
+            DataBinding = dataBinding,
+            Properties = properties
+        };
+
+        // Initialize default properties to prevent KeyNotFoundException
+        element.InitializeDefaultProperties();
+
+        return element;
+    }
+
     public static DisplayLayout CreateBlankLayout(string name = "Blank Layout")
     {
         return new DisplayLayout
@@ -23,15 +45,13 @@ public static class LayoutTemplates
         layout.BackgroundColor = "#F0F4F8";
 
         // Room name header
-        layout.Elements.Add(new DisplayElement
-        {
-            Type = "text",
-            Name = "Room Name",
-            Position = new Position { X = 50, Y = 50 },
-            Size = new Size { Width = 1820, Height = 100 },
-            ZIndex = 1,
-            DataBinding = "{{room.name}}",
-            Properties = new Dictionary<string, object>
+        layout.Elements.Add(CreateElement(
+            type: "text",
+            name: "Room Name",
+            position: new Position { X = 50, Y = 50 },
+            size: new Size { Width = 1820, Height = 100 },
+            zIndex: 1,
+            properties: new Dictionary<string, object>
             {
                 ["Content"] = "{{room.name}}",
                 ["FontFamily"] = "Segoe UI",
@@ -39,36 +59,34 @@ public static class LayoutTemplates
                 ["FontWeight"] = "bold",
                 ["Color"] = "#1E3A8A",
                 ["TextAlign"] = "center"
-            }
-        });
+            },
+            dataBinding: "{{room.name}}"
+        ));
 
         // Status banner
-        layout.Elements.Add(new DisplayElement
-        {
-            Type = "shape",
-            Name = "Status Background",
-            Position = new Position { X = 50, Y = 200 },
-            Size = new Size { Width = 1820, Height = 150 },
-            ZIndex = 0,
-            Properties = new Dictionary<string, object>
+        layout.Elements.Add(CreateElement(
+            type: "shape",
+            name: "Status Background",
+            position: new Position { X = 50, Y = 200 },
+            size: new Size { Width = 1820, Height = 150 },
+            zIndex: 0,
+            properties: new Dictionary<string, object>
             {
                 ["ShapeType"] = "rectangle",
                 ["FillColor"] = "#10B981",
                 ["StrokeWidth"] = 0,
                 ["CornerRadius"] = 8
             }
-        });
+        ));
 
         // Status text
-        layout.Elements.Add(new DisplayElement
-        {
-            Type = "text",
-            Name = "Status",
-            Position = new Position { X = 50, Y = 200 },
-            Size = new Size { Width = 1820, Height = 150 },
-            ZIndex = 1,
-            DataBinding = "{{room.status}}",
-            Properties = new Dictionary<string, object>
+        layout.Elements.Add(CreateElement(
+            type: "text",
+            name: "Status",
+            position: new Position { X = 50, Y = 200 },
+            size: new Size { Width = 1820, Height = 150 },
+            zIndex: 1,
+            properties: new Dictionary<string, object>
             {
                 ["Content"] = "{{room.status}}",
                 ["FontFamily"] = "Segoe UI",
@@ -77,18 +95,18 @@ public static class LayoutTemplates
                 ["Color"] = "#FFFFFF",
                 ["TextAlign"] = "center",
                 ["VerticalAlign"] = "middle"
-            }
-        });
+            },
+            dataBinding: "{{room.status}}"
+        ));
 
         // Current time
-        layout.Elements.Add(new DisplayElement
-        {
-            Type = "text",
-            Name = "Current Time",
-            Position = new Position { X = 50, Y = 950 },
-            Size = new Size { Width = 1820, Height = 80 },
-            ZIndex = 1,
-            Properties = new Dictionary<string, object>
+        layout.Elements.Add(CreateElement(
+            type: "text",
+            name: "Current Time",
+            position: new Position { X = 50, Y = 950 },
+            size: new Size { Width = 1820, Height = 80 },
+            zIndex: 1,
+            properties: new Dictionary<string, object>
             {
                 ["Content"] = "{{current.time|HH:mm}}",
                 ["FontFamily"] = "Segoe UI",
@@ -96,7 +114,7 @@ public static class LayoutTemplates
                 ["Color"] = "#64748B",
                 ["TextAlign"] = "center"
             }
-        });
+        ));
 
         return layout;
     }
@@ -107,14 +125,13 @@ public static class LayoutTemplates
         layout.BackgroundColor = "#1E3A8A";
 
         // Welcome text
-        layout.Elements.Add(new DisplayElement
-        {
-            Type = "text",
-            Name = "Welcome",
-            Position = new Position { X = 100, Y = 300 },
-            Size = new Size { Width = 1720, Height = 150 },
-            ZIndex = 1,
-            Properties = new Dictionary<string, object>
+        layout.Elements.Add(CreateElement(
+            type: "text",
+            name: "Welcome",
+            position: new Position { X = 100, Y = 300 },
+            size: new Size { Width = 1720, Height = 150 },
+            zIndex: 1,
+            properties: new Dictionary<string, object>
             {
                 ["Content"] = "Welcome",
                 ["FontFamily"] = "Segoe UI",
@@ -123,44 +140,42 @@ public static class LayoutTemplates
                 ["Color"] = "#FFFFFF",
                 ["TextAlign"] = "center"
             }
-        });
+        ));
 
         // Company/Location name
-        layout.Elements.Add(new DisplayElement
-        {
-            Type = "text",
-            Name = "Location",
-            Position = new Position { X = 100, Y = 500 },
-            Size = new Size { Width = 1720, Height = 100 },
-            ZIndex = 1,
-            DataBinding = "{{company.name}}",
-            Properties = new Dictionary<string, object>
+        layout.Elements.Add(CreateElement(
+            type: "text",
+            name: "Location",
+            position: new Position { X = 100, Y = 500 },
+            size: new Size { Width = 1720, Height = 100 },
+            zIndex: 1,
+            properties: new Dictionary<string, object>
             {
                 ["Content"] = "{{company.name}}",
                 ["FontFamily"] = "Segoe UI",
                 ["FontSize"] = 48,
                 ["Color"] = "#FFFFFF",
                 ["TextAlign"] = "center"
-            }
-        });
+            },
+            dataBinding: "{{company.name}}"
+        ));
 
         // QR Code
-        layout.Elements.Add(new DisplayElement
-        {
-            Type = "qrcode",
-            Name = "QR Code",
-            Position = new Position { X = 760, Y = 650 },
-            Size = new Size { Width = 400, Height = 400 },
-            ZIndex = 1,
-            DataBinding = "{{qr.url}}",
-            Properties = new Dictionary<string, object>
+        layout.Elements.Add(CreateElement(
+            type: "qrcode",
+            name: "QR Code",
+            position: new Position { X = 760, Y = 650 },
+            size: new Size { Width = 400, Height = 400 },
+            zIndex: 1,
+            properties: new Dictionary<string, object>
             {
                 ["Data"] = "{{qr.url}}",
                 ["ForegroundColor"] = "#000000",
                 ["BackgroundColor"] = "#FFFFFF",
                 ["ErrorCorrection"] = "M"
-            }
-        });
+            },
+            dataBinding: "{{qr.url}}"
+        ));
 
         return layout;
     }
@@ -171,29 +186,27 @@ public static class LayoutTemplates
         layout.BackgroundColor = "#FFFFFF";
 
         // Header
-        layout.Elements.Add(new DisplayElement
-        {
-            Type = "shape",
-            Name = "Header Background",
-            Position = new Position { X = 0, Y = 0 },
-            Size = new Size { Width = 1920, Height = 120 },
-            ZIndex = 0,
-            Properties = new Dictionary<string, object>
+        layout.Elements.Add(CreateElement(
+            type: "shape",
+            name: "Header Background",
+            position: new Position { X = 0, Y = 0 },
+            size: new Size { Width = 1920, Height = 120 },
+            zIndex: 0,
+            properties: new Dictionary<string, object>
             {
                 ["ShapeType"] = "rectangle",
                 ["FillColor"] = "#2563EB",
                 ["StrokeWidth"] = 0
             }
-        });
+        ));
 
-        layout.Elements.Add(new DisplayElement
-        {
-            Type = "text",
-            Name = "Header Text",
-            Position = new Position { X = 50, Y = 0 },
-            Size = new Size { Width = 1820, Height = 120 },
-            ZIndex = 1,
-            Properties = new Dictionary<string, object>
+        layout.Elements.Add(CreateElement(
+            type: "text",
+            name: "Header Text",
+            position: new Position { X = 50, Y = 0 },
+            size: new Size { Width = 1820, Height = 120 },
+            zIndex: 1,
+            properties: new Dictionary<string, object>
             {
                 ["Content"] = "Information Board",
                 ["FontFamily"] = "Segoe UI",
@@ -203,18 +216,16 @@ public static class LayoutTemplates
                 ["TextAlign"] = "left",
                 ["VerticalAlign"] = "middle"
             }
-        });
+        ));
 
         // Main content area
-        layout.Elements.Add(new DisplayElement
-        {
-            Type = "text",
-            Name = "Content",
-            Position = new Position { X = 100, Y = 200 },
-            Size = new Size { Width = 1720, Height = 700 },
-            ZIndex = 1,
-            DataBinding = "{{content.text}}",
-            Properties = new Dictionary<string, object>
+        layout.Elements.Add(CreateElement(
+            type: "text",
+            name: "Content",
+            position: new Position { X = 100, Y = 200 },
+            size: new Size { Width = 1720, Height = 700 },
+            zIndex: 1,
+            properties: new Dictionary<string, object>
             {
                 ["Content"] = "{{content.text}}",
                 ["FontFamily"] = "Segoe UI",
@@ -222,18 +233,18 @@ public static class LayoutTemplates
                 ["Color"] = "#1F2937",
                 ["TextAlign"] = "left",
                 ["WordWrap"] = true
-            }
-        });
+            },
+            dataBinding: "{{content.text}}"
+        ));
 
         // Footer with date/time
-        layout.Elements.Add(new DisplayElement
-        {
-            Type = "text",
-            Name = "DateTime",
-            Position = new Position { X = 100, Y = 960 },
-            Size = new Size { Width = 1720, Height = 80 },
-            ZIndex = 1,
-            Properties = new Dictionary<string, object>
+        layout.Elements.Add(CreateElement(
+            type: "text",
+            name: "DateTime",
+            position: new Position { X = 100, Y = 960 },
+            size: new Size { Width = 1720, Height = 80 },
+            zIndex: 1,
+            properties: new Dictionary<string, object>
             {
                 ["Content"] = "{{current.datetime|dd.MM.yyyy HH:mm}}",
                 ["FontFamily"] = "Segoe UI",
@@ -241,7 +252,7 @@ public static class LayoutTemplates
                 ["Color"] = "#6B7280",
                 ["TextAlign"] = "right"
             }
-        });
+        ));
 
         return layout;
     }
@@ -252,14 +263,13 @@ public static class LayoutTemplates
         layout.BackgroundColor = "#F9FAFB";
 
         // Title
-        layout.Elements.Add(new DisplayElement
-        {
-            Type = "text",
-            Name = "Title",
-            Position = new Position { X = 50, Y = 40 },
-            Size = new Size { Width = 1820, Height = 100 },
-            ZIndex = 1,
-            Properties = new Dictionary<string, object>
+        layout.Elements.Add(CreateElement(
+            type: "text",
+            name: "Title",
+            position: new Position { X = 50, Y = 40 },
+            size: new Size { Width = 1820, Height = 100 },
+            zIndex: 1,
+            properties: new Dictionary<string, object>
             {
                 ["Content"] = "Building Directory",
                 ["FontFamily"] = "Segoe UI",
@@ -268,18 +278,16 @@ public static class LayoutTemplates
                 ["Color"] = "#111827",
                 ["TextAlign"] = "center"
             }
-        });
+        ));
 
         // Directory table
-        layout.Elements.Add(new DisplayElement
-        {
-            Type = "table",
-            Name = "Directory Table",
-            Position = new Position { X = 100, Y = 180 },
-            Size = new Size { Width = 1720, Height = 820 },
-            ZIndex = 1,
-            DataBinding = "{{directory.entries}}",
-            Properties = new Dictionary<string, object>
+        layout.Elements.Add(CreateElement(
+            type: "table",
+            name: "Directory Table",
+            position: new Position { X = 100, Y = 180 },
+            size: new Size { Width = 1720, Height = 820 },
+            zIndex: 1,
+            properties: new Dictionary<string, object>
             {
                 ["Columns"] = new[] { "Floor", "Department", "Room" },
                 ["HeaderBackground"] = "#2563EB",
@@ -287,8 +295,9 @@ public static class LayoutTemplates
                 ["AlternateRowBackground"] = "#F3F4F6",
                 ["BorderColor"] = "#D1D5DB",
                 ["BorderWidth"] = 1
-            }
-        });
+            },
+            dataBinding: "{{directory.entries}}"
+        ));
 
         return layout;
     }

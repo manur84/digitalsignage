@@ -173,6 +173,9 @@ public partial class PreviewViewModel : ObservableObject
             Properties = new Dictionary<string, object>(element.Properties)
         };
 
+        // Initialize default properties to prevent KeyNotFoundException
+        processedElement.InitializeDefaultProperties();
+
         // Process content with Scriban template engine for Text elements
         if (element.Type == "Text" && element.Properties.TryGetValue("Content", out var contentObj))
         {
