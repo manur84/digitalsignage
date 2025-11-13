@@ -283,6 +283,62 @@ public class ClientService : IClientService
                 _logger.LogWarning(ex, "Failed to send registration response to client {ClientId}", client.Id);
             }
 
+            // If client has an assigned layout, send it immediately after registration
+            if (client.AssignedLayoutId.HasValue)
+            {
+                _logger.LogInformation("Client {ClientId} has assigned layout {LayoutId}, sending DISPLAY_UPDATE",
+                    client.Id, client.AssignedLayoutId.Value);
+
+                try
+                {
+                    var layout = await _layoutService.GetLayoutByIdAsync(client.AssignedLayoutId.Value, cancellationToken);
+                    if (layout != null)
+                    {
+                        // Fetch data for data-driven elements
+                        Dictionary<string, object>? layoutData = null;
+                        if (layout.Elements?.Any(e => e.Type == Core.Models.ElementType.DataDriven) == true)
+                        {
+                            layoutData = new Dictionary<string, object>();
+                            foreach (var element in layout.Elements.Where(e => e.Type == Core.Models.ElementType.DataDriven))
+                            {
+                                if (element.DataSourceId.HasValue)
+                                {
+                                    var data = await _dataService.ExecuteDataSourceAsync(element.DataSourceId.Value, cancellationToken);
+                                    if (data != null)
+                                    {
+                                        layoutData[element.Id.ToString()] = data;
+                                    }
+                                }
+                            }
+                        }
+
+                        // Send DISPLAY_UPDATE message
+                        var displayUpdate = new DisplayUpdateMessage
+                        {
+                            Layout = layout,
+                            Data = layoutData
+                        };
+
+                        await _communicationService.SendMessageAsync(client.Id, displayUpdate, cancellationToken);
+                        _logger.LogInformation("Successfully sent assigned layout {LayoutId} to reconnected client {ClientId}",
+                            layout.Id, client.Id);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Client {ClientId} has assigned layout {LayoutId} but layout not found in database",
+                            client.Id, client.AssignedLayoutId.Value);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to send assigned layout to client {ClientId} after registration", client.Id);
+                }
+            }
+            else
+            {
+                _logger.LogInformation("Client {ClientId} has no assigned layout", client.Id);
+            }
+
             // Raise ClientConnected event
             ClientConnected?.Invoke(this, client.Id);
             _logger.LogDebug("Raised ClientConnected event for {ClientId}", client.Id);

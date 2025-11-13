@@ -5,6 +5,7 @@ Display renderer using PyQt5 for rendering layouts
 import logging
 from typing import Dict, Any, Optional
 from io import BytesIO
+import locale
 
 from PyQt5.QtWidgets import QWidget, QLabel
 from PyQt5.QtCore import Qt, QRect, QTimer
@@ -16,6 +17,18 @@ from datetime import datetime
 from status_screen import StatusScreenManager
 
 logger = logging.getLogger(__name__)
+
+# Set German locale for datetime formatting
+try:
+    locale.setlocale(locale.LC_TIME, 'de_DE.UTF-8')
+    logger.info("Locale set to de_DE.UTF-8 for datetime formatting")
+except locale.Error:
+    try:
+        # Fallback to German locale on Windows
+        locale.setlocale(locale.LC_TIME, 'German_Germany.1252')
+        logger.info("Locale set to German_Germany.1252 for datetime formatting")
+    except locale.Error:
+        logger.warning("Failed to set German locale, using system default")
 
 
 class DisplayRenderer(QWidget):
@@ -173,6 +186,8 @@ class DisplayRenderer(QWidget):
                 return self.create_qrcode_element(x, y, width, height, properties, data)
             elif element_type == 'datetime':
                 return self.create_datetime_element(x, y, width, height, properties)
+            elif element_type == 'table':
+                return self.create_table_element(x, y, width, height, properties, data)
             else:
                 logger.warning(f"Unknown element type: {element_type}")
                 return None
@@ -543,6 +558,150 @@ class DisplayRenderer(QWidget):
 
         except Exception as e:
             logger.error(f"Failed to create DateTime element: {e}")
+            return None
+
+    def create_table_element(
+        self,
+        x: int, y: int,
+        width: int, height: int,
+        properties: Dict[str, Any],
+        data: Optional[Dict[str, Any]]
+    ) -> Optional[QWidget]:
+        """
+        Create a Table element with rows and columns.
+        Properties expected:
+        - Columns: List of column headers (list of strings)
+        - Rows: List of row data (list of lists)
+        - HeaderBackground: Header background color (default: #0078D4)
+        - HeaderForeground: Header text color (default: #FFFFFF)
+        - RowBackground: Row background color (default: #FFFFFF)
+        - AlternateRowBackground: Alternate row background color (default: #F0F0F0)
+        - FontFamily: Font family (default: Arial)
+        - FontSize: Font size (default: 12)
+        - BorderColor: Border color (default: #CCCCCC)
+        """
+        try:
+            from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView
+            from PyQt5.QtGui import QBrush, QColor
+            from PyQt5.QtCore import Qt
+
+            table = QTableWidget(self)
+            table.setGeometry(x, y, width, height)
+
+            # Get columns and rows from properties
+            columns = properties.get('Columns', [])
+            rows = properties.get('Rows', [])
+
+            # Validate data types
+            if not isinstance(columns, list):
+                logger.warning(f"Table Columns is not a list: {type(columns)}, using empty list")
+                columns = []
+
+            if not isinstance(rows, list):
+                logger.warning(f"Table Rows is not a list: {type(rows)}, using empty list")
+                rows = []
+
+            # Set table dimensions
+            num_columns = len(columns) if columns else 0
+            num_rows = len(rows) if rows else 0
+
+            if num_columns == 0 or num_rows == 0:
+                logger.warning("Table has no columns or rows, creating placeholder")
+                num_columns = 3
+                num_rows = 3
+                columns = ["Column 1", "Column 2", "Column 3"]
+                rows = [
+                    ["Row 1, Col 1", "Row 1, Col 2", "Row 1, Col 3"],
+                    ["Row 2, Col 1", "Row 2, Col 2", "Row 2, Col 3"],
+                    ["Row 3, Col 1", "Row 3, Col 2", "Row 3, Col 3"]
+                ]
+
+            table.setRowCount(num_rows)
+            table.setColumnCount(num_columns)
+
+            # Set column headers
+            table.setHorizontalHeaderLabels([str(col) for col in columns])
+
+            # Get style properties
+            header_bg = properties.get('HeaderBackground', '#0078D4')
+            header_fg = properties.get('HeaderForeground', '#FFFFFF')
+            row_bg = properties.get('RowBackground', '#FFFFFF')
+            alt_row_bg = properties.get('AlternateRowBackground', '#F0F0F0')
+            border_color = properties.get('BorderColor', '#CCCCCC')
+            font_family = properties.get('FontFamily', 'Arial')
+            font_size = properties.get('FontSize', 12)
+
+            # Set font
+            try:
+                if not isinstance(font_size, (int, float)):
+                    font_size = 12
+                font = QFont(font_family, int(font_size))
+                table.setFont(font)
+            except Exception as e:
+                logger.warning(f"Failed to set table font: {e}")
+
+            # Set table style
+            table_style = f"""
+                QTableWidget {{
+                    background-color: {row_bg};
+                    gridline-color: {border_color};
+                    border: 1px solid {border_color};
+                }}
+                QTableWidget::item {{
+                    padding: 5px;
+                }}
+                QHeaderView::section {{
+                    background-color: {header_bg};
+                    color: {header_fg};
+                    padding: 5px;
+                    border: 1px solid {border_color};
+                    font-weight: bold;
+                }}
+            """
+            table.setStyleSheet(table_style)
+
+            # Enable alternating row colors
+            table.setAlternatingRowColors(True)
+
+            # Populate table with data
+            for row_idx, row_data in enumerate(rows):
+                if not isinstance(row_data, list):
+                    logger.warning(f"Row {row_idx} is not a list, skipping")
+                    continue
+
+                for col_idx, cell_data in enumerate(row_data):
+                    if col_idx >= num_columns:
+                        break
+
+                    # Create table item
+                    item = QTableWidgetItem(str(cell_data))
+                    item.setFlags(item.flags() & ~Qt.ItemIsEditable)  # Make read-only
+
+                    # Set alternate row background
+                    if row_idx % 2 == 1:
+                        item.setBackground(QBrush(QColor(alt_row_bg)))
+                    else:
+                        item.setBackground(QBrush(QColor(row_bg)))
+
+                    table.setItem(row_idx, col_idx, item)
+
+            # Resize columns to content
+            table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+            table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+
+            # Hide vertical header (row numbers)
+            table.verticalHeader().setVisible(False)
+
+            # Disable scrollbars if table fits
+            table.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+            table.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+
+            logger.debug(f"Table element created with {num_rows} rows and {num_columns} columns")
+
+            return table
+
+        except Exception as e:
+            logger.error(f"Failed to create Table element: {e}")
             return None
 
     def convert_csharp_format_to_python(self, csharp_format: str) -> str:

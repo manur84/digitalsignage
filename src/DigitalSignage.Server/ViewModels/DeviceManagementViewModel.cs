@@ -102,11 +102,20 @@ public partial class DeviceManagementViewModel : ObservableObject
         {
             var layouts = await _layoutService.GetAllLayoutsAsync();
             AvailableLayouts.Clear();
+
+            // Add "No Layout" option as first item
+            AvailableLayouts.Add(new DisplayLayout
+            {
+                Id = 0,
+                Name = "- Nicht zugewiesen -",
+                Description = "Kein Layout zugewiesen"
+            });
+
             foreach (var layout in layouts)
             {
                 AvailableLayouts.Add(layout);
             }
-            _logger.LogInformation("Loaded {Count} layouts", AvailableLayouts.Count);
+            _logger.LogInformation("Loaded {Count} layouts (plus 'No Layout' option)", layouts.Count);
         }
         catch (Exception ex)
         {

@@ -28,6 +28,7 @@ class Config:
     remote_logging_level: str = "INFO"  # Minimum level for remote logs
     remote_logging_batch_size: int = 50  # Batch size for log messages
     remote_logging_batch_interval: float = 5.0  # Batch interval in seconds
+    show_cached_layout_on_disconnect: bool = True  # Show cached layout when disconnected (True) or show reconnect status (False)
 
     def get_server_url(self) -> str:
         """Get the full server URL based on SSL configuration including endpoint path"""
@@ -70,7 +71,8 @@ class Config:
                     'remote_logging_enabled': True,
                     'remote_logging_level': 'INFO',
                     'remote_logging_batch_size': 50,
-                    'remote_logging_batch_interval': 5.0
+                    'remote_logging_batch_interval': 5.0,
+                    'show_cached_layout_on_disconnect': True
                 }
 
                 # Merge defaults with loaded data (loaded data takes precedence)

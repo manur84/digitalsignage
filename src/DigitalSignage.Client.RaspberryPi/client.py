@@ -258,18 +258,25 @@ class DigitalSignageClient:
             self.offline_mode = True
             self.watchdog.notify_status("Disconnected - attempting reconnection")
 
-            # Load cached layout to continue operation (if available)
-            future = asyncio.run_coroutine_threadsafe(
-                self.load_cached_layout(),
-                self.event_loop
-            )
-            # Add a callback to handle any exceptions in the coroutine
-            def handle_future_exception(fut):
-                try:
-                    fut.result()
-                except Exception as e:
-                    logger.error(f"Error loading cached layout: {e}", exc_info=True)
-            future.add_done_callback(handle_future_exception)
+            # Check config to determine disconnect behavior
+            if self.config.show_cached_layout_on_disconnect:
+                # Show cached layout continuously (no status screen switching)
+                logger.info("Disconnect behavior: Showing cached layout (no status screen)")
+                future = asyncio.run_coroutine_threadsafe(
+                    self.load_cached_layout(),
+                    self.event_loop
+                )
+                # Add a callback to handle any exceptions in the coroutine
+                def handle_future_exception(fut):
+                    try:
+                        fut.result()
+                    except Exception as e:
+                        logger.error(f"Error loading cached layout: {e}", exc_info=True)
+                future.add_done_callback(handle_future_exception)
+            else:
+                # Show reconnect status screen (no cached layout)
+                logger.info("Disconnect behavior: Showing reconnect status screen")
+                # Status screen will be shown in start_reconnection()
 
             # Start automatic reconnection if not already in progress
             if not self.reconnection_in_progress:
@@ -726,13 +733,15 @@ class DigitalSignageClient:
         logger.info("AUTOMATIC RECONNECTION STARTED")
         logger.info("=" * 70)
 
-        # Show disconnected status if no layout is currently displayed
-        if self.display_renderer and (not self.current_layout or self.display_renderer.status_screen_manager.is_showing_status):
-            server_url = self.config.get_server_url()
-            self.display_renderer.status_screen_manager.show_server_disconnected(
-                server_url,
-                self.config.client_id
-            )
+        # Show disconnected status only if configured to NOT show cached layout
+        # or if no cached layout is available
+        if not self.config.show_cached_layout_on_disconnect:
+            if self.display_renderer and (not self.current_layout or self.display_renderer.status_screen_manager.is_showing_status):
+                server_url = self.config.get_server_url()
+                self.display_renderer.status_screen_manager.show_server_disconnected(
+                    server_url,
+                    self.config.client_id
+                )
 
         try:
             while not self.stop_reconnection and not self.connected:
@@ -778,8 +787,8 @@ class DigitalSignageClient:
                 server_url = self.config.get_server_url()
                 logger.info(f"Attempting connection to: {server_url}")
 
-                # Show connecting status
-                if self.display_renderer:
+                # Show connecting status only if not showing cached layout
+                if self.display_renderer and not self.config.show_cached_layout_on_disconnect:
                     self.display_renderer.status_screen_manager.show_connecting(
                         server_url,
                         attempt,
@@ -808,12 +817,12 @@ class DigitalSignageClient:
                 if not self.connected and not self.stop_reconnection:
                     logger.info(f"Waiting {retry_delay} seconds before next attempt...")
 
-                    # Show reconnecting screen with countdown
+                    # Show reconnecting screen with countdown only if not showing cached layout
                     for remaining in range(retry_delay, 0, -1):
                         if self.stop_reconnection or self.connected:
                             break
 
-                        if self.display_renderer and remaining % 5 == 0:  # Update every 5 seconds
+                        if self.display_renderer and not self.config.show_cached_layout_on_disconnect and remaining % 5 == 0:  # Update every 5 seconds
                             self.display_renderer.status_screen_manager.show_reconnecting(
                                 server_url,
                                 attempt,
