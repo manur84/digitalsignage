@@ -24,25 +24,13 @@ public class ChangePropertyCommand : IUndoableCommand
 
     public void Execute()
     {
-        if (_newValue != null)
-        {
-            _element.Properties[_propertyName] = _newValue;
-        }
-        else
-        {
-            _element.Properties.Remove(_propertyName);
-        }
+        // Use indexer to trigger PropertyChanged notifications
+        _element[_propertyName] = _newValue;
     }
 
     public void Undo()
     {
-        if (_oldValue != null)
-        {
-            _element.Properties[_propertyName] = _oldValue;
-        }
-        else
-        {
-            _element.Properties.Remove(_propertyName);
-        }
+        // Use indexer to trigger PropertyChanged notifications
+        _element[_propertyName] = _oldValue;
     }
 }

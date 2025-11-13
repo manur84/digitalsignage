@@ -177,20 +177,20 @@ public partial class PreviewViewModel : ObservableObject
         processedElement.InitializeDefaultProperties();
 
         // Process content with Scriban template engine for Text elements
-        if (element.Type == "Text" && element.Properties.TryGetValue("Content", out var contentObj))
+        if (element.Type == "Text")
         {
-            var content = contentObj?.ToString() ?? string.Empty;
+            var content = element["Content"]?.ToString() ?? string.Empty;
             if (!string.IsNullOrWhiteSpace(content))
             {
                 try
                 {
                     var processedContent = await _templateService.ProcessTemplateAsync(content, data);
-                    processedElement.Properties["Content"] = processedContent;
+                    processedElement["Content"] = processedContent;
                 }
                 catch (Exception ex)
                 {
                     _logger.LogWarning(ex, "Failed to render template for element {ElementName}", element.Name);
-                    processedElement.Properties["Content"] = content; // Fallback to original content
+                    processedElement["Content"] = content; // Fallback to original content
                 }
             }
         }

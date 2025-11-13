@@ -105,7 +105,7 @@
                                             <Style TargetType="TextBlock">
                                                 <Setter Property="Text" Value="👁"/>
                                                 <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding Properties[IsVisible], FallbackValue=True}" Value="False">
+                                                    <DataTrigger Binding="{Binding [IsVisible], FallbackValue=True}" Value="False">
                                                         <Setter Property="Text" Value="🚫"/>
                                                         <Setter Property="Opacity" Value="0.5"/>
                                                     </DataTrigger>

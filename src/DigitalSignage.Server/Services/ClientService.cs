@@ -521,14 +521,14 @@ public class ClientService : IClientService
             {
                 foreach (var element in layout.Elements)
                 {
-                    if (element.Type == "text" && element.Properties.ContainsKey("Content"))
+                    if (element.Type == "text")
                     {
                         try
                         {
-                            var content = element.Properties["Content"]?.ToString();
+                            var content = element["Content"]?.ToString();
                             if (!string.IsNullOrWhiteSpace(content))
                             {
-                                element.Properties["Content"] = await _templateService.ProcessTemplateAsync(
+                                element["Content"] = await _templateService.ProcessTemplateAsync(
                                     content,
                                     templateData,
                                     cancellationToken);

@@ -607,18 +607,12 @@ public partial class DesignerViewModel : ObservableObject
     {
         if (element == null) return;
 
-        // Toggle visibility property
-        if (element.Properties.ContainsKey("IsVisible"))
-        {
-            element.Properties["IsVisible"] = !(bool)element.Properties["IsVisible"];
-        }
-        else
-        {
-            element.Properties["IsVisible"] = false;
-        }
+        // Toggle visibility property using indexer for PropertyChanged notification
+        bool currentVisibility = element["IsVisible"] as bool? ?? true;
+        element["IsVisible"] = !currentVisibility;
 
         _logger.LogDebug("Toggled visibility for {ElementName}: {IsVisible}",
-            element.Name, element.Properties["IsVisible"]);
+            element.Name, element["IsVisible"]);
 
         OnPropertyChanged(nameof(Layers));
     }
@@ -628,18 +622,12 @@ public partial class DesignerViewModel : ObservableObject
     {
         if (element == null) return;
 
-        // Toggle lock property
-        if (element.Properties.ContainsKey("IsLocked"))
-        {
-            element.Properties["IsLocked"] = !(bool)element.Properties["IsLocked"];
-        }
-        else
-        {
-            element.Properties["IsLocked"] = true;
-        }
+        // Toggle lock property using indexer for PropertyChanged notification
+        bool currentLock = element["IsLocked"] as bool? ?? false;
+        element["IsLocked"] = !currentLock;
 
         _logger.LogDebug("Toggled lock for {ElementName}: {IsLocked}",
-            element.Name, element.Properties["IsLocked"]);
+            element.Name, element["IsLocked"]);
 
         OnPropertyChanged(nameof(Layers));
     }
@@ -722,11 +710,7 @@ public partial class DesignerViewModel : ObservableObject
     /// </summary>
     public static bool IsElementVisible(DisplayElement element)
     {
-        if (element.Properties.ContainsKey("IsVisible"))
-        {
-            return (bool)element.Properties["IsVisible"];
-        }
-        return true; // Default to visible
+        return element["IsVisible"] as bool? ?? true;
     }
 
     /// <summary>
@@ -734,11 +718,7 @@ public partial class DesignerViewModel : ObservableObject
     /// </summary>
     public static bool IsElementLocked(DisplayElement element)
     {
-        if (element.Properties.ContainsKey("IsLocked"))
-        {
-            return (bool)element.Properties["IsLocked"];
-        }
-        return false; // Default to unlocked
+        return element["IsLocked"] as bool? ?? false;
     }
 
     // Multi-selection commands
@@ -1311,16 +1291,9 @@ public partial class DesignerViewModel : ObservableObject
     {
         foreach (var element in SelectionService.SelectedElements)
         {
-            // Toggle ScaleX property (add if doesn't exist)
-            if (!element.Properties.ContainsKey("ScaleX"))
-            {
-                element.Properties["ScaleX"] = -1.0;
-            }
-            else
-            {
-                double scaleX = Convert.ToDouble(element.Properties["ScaleX"]);
-                element.Properties["ScaleX"] = -scaleX;
-            }
+            // Toggle ScaleX property using indexer for PropertyChanged notification
+            double currentScaleX = element["ScaleX"] as double? ?? 1.0;
+            element["ScaleX"] = -currentScaleX;
         }
         _logger.LogInformation("Flipped {Count} element(s) horizontally", SelectionService.SelectedElements.Count);
     }
@@ -1333,16 +1306,9 @@ public partial class DesignerViewModel : ObservableObject
     {
         foreach (var element in SelectionService.SelectedElements)
         {
-            // Toggle ScaleY property (add if doesn't exist)
-            if (!element.Properties.ContainsKey("ScaleY"))
-            {
-                element.Properties["ScaleY"] = -1.0;
-            }
-            else
-            {
-                double scaleY = Convert.ToDouble(element.Properties["ScaleY"]);
-                element.Properties["ScaleY"] = -scaleY;
-            }
+            // Toggle ScaleY property using indexer for PropertyChanged notification
+            double currentScaleY = element["ScaleY"] as double? ?? 1.0;
+            element["ScaleY"] = -currentScaleY;
         }
         _logger.LogInformation("Flipped {Count} element(s) vertically", SelectionService.SelectedElements.Count);
     }
