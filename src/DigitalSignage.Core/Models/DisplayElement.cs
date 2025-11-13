@@ -37,8 +37,22 @@ public partial class DisplayElement : ObservableObject
     [ObservableProperty]
     private string? _dataBinding; // {{variable.name}} syntax
 
-    [ObservableProperty]
     private Dictionary<string, object> _properties = new();
+
+    /// <summary>
+    /// Gets or sets the properties dictionary with change notification
+    /// </summary>
+    public Dictionary<string, object> Properties
+    {
+        get => _properties;
+        set
+        {
+            if (SetProperty(ref _properties, value))
+            {
+                OnPropertyChanged(nameof(Properties));
+            }
+        }
+    }
 
     [ObservableProperty]
     private Animation? _animation;
@@ -162,6 +176,47 @@ public partial class DisplayElement : ObservableObject
         {
             Properties[key] = defaultValue;
         }
+    }
+
+    /// <summary>
+    /// Updates a property value and triggers change notification
+    /// </summary>
+    public void SetProperty(string key, object value)
+    {
+        if (Properties == null)
+            Properties = new Dictionary<string, object>();
+
+        bool changed = !Properties.ContainsKey(key) || !Equals(Properties[key], value);
+
+        Properties[key] = value;
+
+        if (changed)
+        {
+            // Notify that the Properties dictionary has changed
+            OnPropertyChanged(nameof(Properties));
+
+            // Also notify about the specific property indexer for binding updates
+            OnPropertyChanged($"Properties[{key}]");
+        }
+    }
+
+    /// <summary>
+    /// Gets a property value with type safety
+    /// </summary>
+    public T GetProperty<T>(string key, T defaultValue = default!)
+    {
+        if (Properties != null && Properties.TryGetValue(key, out var value))
+        {
+            try
+            {
+                return (T)Convert.ChangeType(value, typeof(T));
+            }
+            catch
+            {
+                return defaultValue;
+            }
+        }
+        return defaultValue;
     }
 }
 
