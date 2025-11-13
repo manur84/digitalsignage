@@ -15,6 +15,7 @@ using DigitalSignage.Core.Interfaces;
 using DigitalSignage.Data;
 using DigitalSignage.Data.Services;
 using Serilog;
+using static DigitalSignage.Server.Services.MessageHandlerService;
 
 namespace DigitalSignage.Server;
 
@@ -120,6 +121,7 @@ public partial class App : Application
                 services.AddTransient<SchedulingViewModel>();
                 services.AddTransient<MediaLibraryViewModel>();
                 services.AddTransient<LogViewerViewModel>();
+                services.AddTransient<ScreenshotViewModel>();
 
                 // Register LiveLogsViewModel as singleton with shared log collection
                 services.AddSingleton<LiveLogsViewModel>(sp =>
@@ -261,6 +263,10 @@ For detailed diagnostics, run:
             mainWindow.Show();
             mainWindow.Activate();
             Log.Information("Main window displayed successfully");
+
+            // Subscribe to screenshot events
+            MessageHandlerService.ScreenshotReceived += OnScreenshotReceived;
+            Log.Information("Screenshot event handler registered");
         }
         catch (Exception ex)
         {
@@ -312,6 +318,9 @@ Common Solutions:
 
     protected override async void OnExit(ExitEventArgs e)
     {
+        // Unsubscribe from screenshot events
+        MessageHandlerService.ScreenshotReceived -= OnScreenshotReceived;
+
         if (_host != null)
         {
             try
@@ -327,6 +336,40 @@ Common Solutions:
 
         Log.CloseAndFlush();
         base.OnExit(e);
+    }
+
+    /// <summary>
+    /// Handle screenshot received event and show screenshot window
+    /// </summary>
+    private void OnScreenshotReceived(object? sender, ScreenshotReceivedEventArgs e)
+    {
+        try
+        {
+            Log.Information("Screenshot received from client {ClientName}, showing window...", e.ClientName);
+
+            // Get a new instance of ScreenshotViewModel from DI
+            var viewModel = _host?.Services.GetRequiredService<ScreenshotViewModel>();
+
+            if (viewModel != null)
+            {
+                // Show screenshot window on UI thread
+                Views.ScreenshotWindow.ShowScreenshot(e.ClientName, e.ImageData, viewModel);
+                Log.Information("Screenshot window opened for client {ClientName}", e.ClientName);
+            }
+            else
+            {
+                Log.Error("Failed to get ScreenshotViewModel from DI container");
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error showing screenshot window for client {ClientName}", e.ClientName);
+            MessageBox.Show(
+                $"Failed to show screenshot from {e.ClientName}:\n\n{ex.Message}",
+                "Screenshot Error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
     }
 
     public static T GetService<T>() where T : class

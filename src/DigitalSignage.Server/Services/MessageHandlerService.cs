@@ -8,6 +8,17 @@ using Newtonsoft.Json.Linq;
 namespace DigitalSignage.Server.Services;
 
 /// <summary>
+/// Event arguments for screenshot received event
+/// </summary>
+public class ScreenshotReceivedEventArgs : EventArgs
+{
+    public string ClientId { get; set; } = string.Empty;
+    public string ClientName { get; set; } = string.Empty;
+    public string ImageData { get; set; } = string.Empty;
+    public string Format { get; set; } = "png";
+}
+
+/// <summary>
 /// Background service that handles incoming WebSocket messages
 /// </summary>
 public class MessageHandlerService : BackgroundService
@@ -16,6 +27,11 @@ public class MessageHandlerService : BackgroundService
     private readonly IClientService _clientService;
     private readonly LogStorageService _logStorageService;
     private readonly ILogger<MessageHandlerService> _logger;
+
+    /// <summary>
+    /// Event raised when a screenshot is received from a client
+    /// </summary>
+    public static event EventHandler<ScreenshotReceivedEventArgs>? ScreenshotReceived;
 
     public MessageHandlerService(
         ICommunicationService communicationService,
@@ -212,7 +228,28 @@ public class MessageHandlerService : BackgroundService
                     screenshotMessage.ClientId,
                     screenshotMessage.ImageData?.Length ?? 0);
 
-                // TODO: Store screenshot or notify UI
+                // Get client name for better display
+                var client = await _clientService.GetClientByIdAsync(screenshotMessage.ClientId);
+                var clientName = client?.Name ?? screenshotMessage.ClientId;
+
+                // Raise event to notify UI
+                if (!string.IsNullOrWhiteSpace(screenshotMessage.ImageData))
+                {
+                    var eventArgs = new ScreenshotReceivedEventArgs
+                    {
+                        ClientId = screenshotMessage.ClientId,
+                        ClientName = clientName,
+                        ImageData = screenshotMessage.ImageData,
+                        Format = screenshotMessage.Format
+                    };
+
+                    ScreenshotReceived?.Invoke(this, eventArgs);
+                    _logger.LogInformation("Screenshot event raised for client {ClientName}", clientName);
+                }
+                else
+                {
+                    _logger.LogWarning("Screenshot from client {ClientId} has no image data", screenshotMessage.ClientId);
+                }
             }
         }
         catch (Exception ex)
