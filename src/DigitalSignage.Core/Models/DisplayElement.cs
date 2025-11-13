@@ -62,11 +62,13 @@ public partial class DisplayElement : ObservableObject
     {
         get
         {
-            if (_properties != null && _properties.TryGetValue(key, out var value))
+            if (_properties != null && _properties.TryGetValue(key, out var value) && value != null)
             {
                 return value;
             }
-            return null;
+
+            // Return type-appropriate defaults instead of null to prevent WPF binding errors
+            return GetDefaultForKey(key);
         }
         set
         {
@@ -92,6 +94,70 @@ public partial class DisplayElement : ObservableObject
                 OnPropertyChanged($"Properties[{key}]");
             }
         }
+    }
+
+    /// <summary>
+    /// Returns default values for common properties to prevent WPF binding errors when properties are null
+    /// </summary>
+    private object? GetDefaultForKey(string key)
+    {
+        // Return sensible defaults based on common property names
+        return key switch
+        {
+            // Numeric properties (Double) - CRITICAL for WPF bindings
+            "FontSize" => 24.0,
+            "Width" or "Height" => 100.0,
+            "X" or "Y" => 0.0,
+            "ZIndex" => 0,
+            "Opacity" => 1.0,
+            "Rotation" => 0.0,
+            "BorderThickness" => 2.0,
+            "CornerRadius" => 0.0,
+            "BorderRadius" => 0.0,
+            "ShadowBlur" => 5.0,
+            "ShadowOffsetX" or "ShadowOffsetY" => 0.0,
+            "LineHeight" => 1.2,
+            "LetterSpacing" => 0.0,
+            "BorderWidth" => 1.0,
+            "UpdateInterval" => 1000,
+
+            // String properties
+            "FontFamily" => "Arial",
+            "FontWeight" => "Normal",
+            "FontStyle" => "Normal",
+            "Color" => "#000000",
+            "FillColor" => "#FFFFFF",
+            "BorderColor" => "#000000",
+            "BackgroundColor" => "#FFFFFF",
+            "ShadowColor" => "#000000",
+            "Content" => "",
+            "Source" => "",
+            "Format" => "",
+            "TextAlign" => "Left",
+            "VerticalAlign" => "Top",
+            "Stretch" => "Uniform",
+            "ErrorCorrection" or "ErrorCorrectionLevel" => "M",
+            "ForegroundColor" => "#000000",
+            "Data" => "",
+            "DataSource" => "",
+            "HeaderBackground" => "#2196F3",
+            "HeaderForeground" => "#FFFFFF",
+            "RowBackground" => "#FFFFFF",
+            "AlternateRowBackground" => "#F5F5F5",
+            "AltText" => "",
+
+            // Boolean properties
+            "IsVisible" => true,
+            "IsLocked" => false,
+            "EnableShadow" => false,
+            "TextDecoration_Underline" => false,
+            "TextDecoration_Strikethrough" => false,
+            "WordWrap" => true,
+            "ShowBorder" => true,
+
+            // Default fallback
+            _ => null
+        };
     }
 
     [ObservableProperty]
@@ -127,7 +193,7 @@ public partial class DisplayElement : ObservableObject
         EnsureProperty("IsVisible", true);
         EnsureProperty("IsLocked", false);
 
-        // Shadow properties
+        // Shadow properties (common to all element types)
         EnsureProperty("EnableShadow", false);
         EnsureProperty("ShadowBlur", 5.0);
         EnsureProperty("ShadowColor", "#000000");
@@ -137,10 +203,9 @@ public partial class DisplayElement : ObservableObject
         // Border/Shape properties (add to ALL types for consistency)
         EnsureProperty("BorderRadius", 0.0);       // Used in Properties panel and DesignerItemControl
         EnsureProperty("CornerRadius", 0.0);       // Used in XAML for Rectangle elements
-        EnsureProperty("Source", "");              // Used in XAML for Image elements
-        EnsureProperty("FillColor", "#FFFFFF");
         EnsureProperty("BorderColor", "#000000");
         EnsureProperty("BorderThickness", 0.0);
+        EnsureProperty("FillColor", "#FFFFFF");
 
         // ============================================
         // TYPE-SPECIFIC PROPERTIES
@@ -150,20 +215,20 @@ public partial class DisplayElement : ObservableObject
         switch (elementType)
         {
             case "text":
-                // TEXT PROPERTIES - CRITICAL!
+                // TEXT PROPERTIES - CRITICAL for WPF bindings!
                 EnsureProperty("Content", "Sample Text");
                 EnsureProperty("FontFamily", "Arial");
-                EnsureProperty("FontSize", 24.0);  // MUST be Double!
+                EnsureProperty("FontSize", 24.0);  // MUST be Double for WPF binding!
                 EnsureProperty("FontWeight", "Normal");
                 EnsureProperty("FontStyle", "Normal");
                 EnsureProperty("Color", "#000000");
                 EnsureProperty("TextAlign", "Left");
                 EnsureProperty("VerticalAlign", "Top");
                 EnsureProperty("WordWrap", true);
-                EnsureProperty("FillColor", "Transparent");  // Background
-                EnsureProperty("BorderThickness", 0.0);  // No border by default
+                EnsureProperty("FillColor", "Transparent");  // Background (override default)
+                EnsureProperty("BorderThickness", 0.0);      // No border by default (override)
 
-                // Advanced text properties
+                // Advanced text properties (bound in PropertiesPanel.xaml)
                 EnsureProperty("LineHeight", 1.2);
                 EnsureProperty("LetterSpacing", 0.0);
                 EnsureProperty("TextDecoration_Underline", false);
@@ -178,31 +243,35 @@ public partial class DisplayElement : ObservableObject
 
             case "rectangle":
             case "shape":
-                EnsureProperty("FillColor", "#ADD8E6");  // Light blue
+                EnsureProperty("FillColor", "#ADD8E6");  // Light blue (override default)
                 EnsureProperty("BorderColor", "#0000FF");  // Blue
                 EnsureProperty("BorderThickness", 2.0);
                 EnsureProperty("CornerRadius", 0.0);
                 break;
 
             case "circle":
-                EnsureProperty("FillColor", "#FFD700");  // Gold
+            case "ellipse":
+                EnsureProperty("FillColor", "#FFD700");  // Gold (override default)
                 EnsureProperty("BorderColor", "#FFA500");  // Orange
                 EnsureProperty("BorderThickness", 2.0);
                 break;
 
             case "qrcode":
-                EnsureProperty("Data", "https://example.com");
+                EnsureProperty("Content", "https://example.com");  // Map to Content for consistency
+                EnsureProperty("Data", "https://example.com");     // Legacy property name
                 EnsureProperty("ErrorCorrection", "M");
+                EnsureProperty("ErrorCorrectionLevel", "M");       // Alternative property name
                 EnsureProperty("ForegroundColor", "#000000");
                 EnsureProperty("BackgroundColor", "#FFFFFF");
                 break;
 
             case "table":
-                EnsureProperty("HeaderBackground", "#4CAF50");
+                EnsureProperty("DataSource", "");
+                EnsureProperty("HeaderBackground", "#2196F3");     // Match GetDefaultForKey
                 EnsureProperty("HeaderForeground", "#FFFFFF");
                 EnsureProperty("RowBackground", "#FFFFFF");
                 EnsureProperty("AlternateRowBackground", "#F5F5F5");
-                EnsureProperty("BorderColor", "#DDDDDD");
+                EnsureProperty("BorderColor", "#CCCCCC");          // Match GetDefaultForKey
                 EnsureProperty("BorderWidth", 1.0);
                 EnsureProperty("FontSize", 14.0);
                 EnsureProperty("ShowBorder", true);
@@ -214,6 +283,10 @@ public partial class DisplayElement : ObservableObject
                 EnsureProperty("FontSize", 24.0);
                 EnsureProperty("Color", "#000000");
                 EnsureProperty("UpdateInterval", 1000);  // Update every second
+                break;
+
+            case "group":
+                // Groups don't need content-specific properties
                 break;
         }
     }
