@@ -564,18 +564,38 @@
                                     </ItemsControl.ItemContainerStyle>
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <!-- ULTRA SIMPLE: Hardcoded colors, guaranteed visible -->
-                                            <Border Background="#FF87CEEB"
-                                                    BorderBrush="#FF0000FF"
+                                            <!-- INTERACTIVE: Selection, hover, drag & drop -->
+                                            <Border x:Name="ElementBorder"
+                                                    Background="#FF87CEEB"
                                                     BorderThickness="3"
                                                     CornerRadius="5"
                                                     Width="{Binding Size.Width}"
                                                     Height="{Binding Size.Height}"
                                                     MinWidth="50"
-                                                    MinHeight="50">
+                                                    MinHeight="50"
+                                                    Cursor="Hand"
+                                                    MouseLeftButtonDown="Element_MouseLeftButtonDown"
+                                                    MouseMove="Element_MouseMove"
+                                                    MouseLeftButtonUp="Element_MouseLeftButtonUp"
+                                                    MouseEnter="Element_MouseEnter"
+                                                    MouseLeave="Element_MouseLeave">
+
+                                                <!-- Border Brush changes based on selection state -->
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="BorderBrush" Value="#FF0000FF"/>
+                                                        <Style.Triggers>
+                                                            <!-- Selected: Orange border -->
+                                                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                                <Setter Property="BorderBrush" Value="#FFFF8C00"/>
+                                                                <Setter Property="BorderThickness" Value="4"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
 
                                                 <Grid>
-                                                    <!-- Always visible element name -->
+                                                    <!-- Element Name (Center) -->
                                                     <TextBlock Text="{Binding Name}"
                                                                FontSize="16"
                                                                FontWeight="Bold"
@@ -583,58 +603,65 @@
                                                                HorizontalAlignment="Center"
                                                                VerticalAlignment="Center"
                                                                Background="#80000000"
-                                                               Padding="10,5"/>
+                                                               Padding="10"/>
 
-                                                    <!-- Type indicator (top-left) -->
+                                                    <!-- Type Label (Top-Left) -->
                                                     <TextBlock Text="{Binding Type}"
                                                                FontSize="10"
-                                                               FontWeight="Bold"
                                                                Foreground="Yellow"
+                                                               Background="#80FF0000"
                                                                HorizontalAlignment="Left"
                                                                VerticalAlignment="Top"
-                                                               Margin="5"
-                                                               Background="#80FF0000"
-                                                               Padding="3,1"/>
+                                                               Margin="2"
+                                                               Padding="3"/>
 
-                                                    <!-- Size indicator (top-right) -->
+                                                    <!-- Size Label (Top-Right) -->
                                                     <StackPanel Orientation="Horizontal"
                                                                 HorizontalAlignment="Right"
                                                                 VerticalAlignment="Top"
-                                                                Margin="5"
-                                                                Background="#80008000">
+                                                                Background="#80008000"
+                                                                Margin="2">
                                                         <TextBlock Text="{Binding Size.Width, StringFormat='{}{0:F0}'}"
-                                                                   FontSize="9"
+                                                                   FontSize="10"
                                                                    Foreground="White"
                                                                    Padding="2"/>
                                                         <TextBlock Text="×"
-                                                                   FontSize="9"
-                                                                   Foreground="White"
-                                                                   Padding="0"/>
+                                                                   FontSize="10"
+                                                                   Foreground="White"/>
                                                         <TextBlock Text="{Binding Size.Height, StringFormat='{}{0:F0}'}"
-                                                                   FontSize="9"
+                                                                   FontSize="10"
                                                                    Foreground="White"
                                                                    Padding="2"/>
                                                     </StackPanel>
 
-                                                    <!-- Position indicator (bottom-left) -->
+                                                    <!-- Position Label (Bottom-Left) -->
                                                     <StackPanel Orientation="Horizontal"
                                                                 HorizontalAlignment="Left"
                                                                 VerticalAlignment="Bottom"
-                                                                Margin="5"
-                                                                Background="#80800080">
+                                                                Background="#80800080"
+                                                                Margin="2">
                                                         <TextBlock Text="{Binding Position.X, StringFormat='{}{0:F0}'}"
-                                                                   FontSize="9"
+                                                                   FontSize="10"
                                                                    Foreground="White"
                                                                    Padding="2"/>
                                                         <TextBlock Text=","
-                                                                   FontSize="9"
-                                                                   Foreground="White"
-                                                                   Padding="0"/>
+                                                                   FontSize="10"
+                                                                   Foreground="White"/>
                                                         <TextBlock Text="{Binding Position.Y, StringFormat='{}{0:F0}'}"
-                                                                   FontSize="9"
+                                                                   FontSize="10"
                                                                    Foreground="White"
                                                                    Padding="2"/>
                                                     </StackPanel>
+
+                                                    <!-- Selection Indicator (Corner Icon) -->
+                                                    <TextBlock Text="✓"
+                                                               FontSize="20"
+                                                               Foreground="#FFFF8C00"
+                                                               FontWeight="Bold"
+                                                               HorizontalAlignment="Right"
+                                                               VerticalAlignment="Bottom"
+                                                               Margin="5"
+                                                               Visibility="{Binding IsSelected, Converter={StaticResource BoolToVisibilityConverter}}"/>
                                                 </Grid>
                                             </Border>
                                         </DataTemplate>

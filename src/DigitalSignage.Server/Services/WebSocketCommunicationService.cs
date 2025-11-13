@@ -310,49 +310,94 @@ public class WebSocketCommunicationService : ICommunicationService
                 _logger.LogDebug("Received complete message from client {ClientId} ({ByteCount} bytes)",
                     clientId, messageStream.Length);
 
-                // Deserialize to JObject first to read the Type field
-                var jObject = Newtonsoft.Json.Linq.JObject.Parse(json);
-                var messageType = jObject["Type"]?.ToString() ?? string.Empty;
-
-                // Deserialize to concrete type based on Type field
-                Message? message = messageType switch
+                try
                 {
-                    "REGISTER" => JsonConvert.DeserializeObject<RegisterMessage>(json),
-                    "HEARTBEAT" => JsonConvert.DeserializeObject<HeartbeatMessage>(json),
-                    "STATUS_REPORT" => JsonConvert.DeserializeObject<StatusReportMessage>(json),
-                    "LOG" => JsonConvert.DeserializeObject<LogMessage>(json),
-                    "SCREENSHOT" => JsonConvert.DeserializeObject<ScreenshotMessage>(json),
-                    "UPDATE_CONFIG_RESPONSE" => JsonConvert.DeserializeObject<UpdateConfigResponseMessage>(json),
-                    _ => null
-                };
+                    // Deserialize to JObject first to read the Type field
+                    var jObject = Newtonsoft.Json.Linq.JObject.Parse(json);
+                    var messageType = jObject["Type"]?.ToString() ?? string.Empty;
 
-                if (message != null)
-                {
-                    // For REGISTER messages, use the ClientId from the message for the event
-                    var eventClientId = clientId;
-                    if (message is RegisterMessage registerMsg && !string.IsNullOrWhiteSpace(registerMsg.ClientId))
+                    // Deserialize to concrete type based on Type field
+                    Message? message = messageType switch
                     {
-                        eventClientId = registerMsg.ClientId;
+                        "REGISTER" => JsonConvert.DeserializeObject<RegisterMessage>(json),
+                        "HEARTBEAT" => JsonConvert.DeserializeObject<HeartbeatMessage>(json),
+                        "STATUS_REPORT" => JsonConvert.DeserializeObject<StatusReportMessage>(json),
+                        "LOG" => JsonConvert.DeserializeObject<LogMessage>(json),
+                        "SCREENSHOT" => JsonConvert.DeserializeObject<ScreenshotMessage>(json),
+                        "UPDATE_CONFIG_RESPONSE" => JsonConvert.DeserializeObject<UpdateConfigResponseMessage>(json),
+                        _ => null
+                    };
 
-                        // Update the WebSocket client mapping if the client ID is different
-                        if (eventClientId != clientId)
+                    if (message != null)
+                    {
+                        // For REGISTER messages, use the ClientId from the message for the event
+                        var eventClientId = clientId;
+                        if (message is RegisterMessage registerMsg && !string.IsNullOrWhiteSpace(registerMsg.ClientId))
                         {
-                            _logger.LogInformation("Client registering with ID {RegisteredId} (WebSocket connection ID: {ConnectionId})",
-                                eventClientId, clientId);
-                            UpdateClientId(clientId, eventClientId);
-                            clientId = eventClientId; // Use the registered ID for the rest of the connection
+                            eventClientId = registerMsg.ClientId;
+
+                            // Update the WebSocket client mapping if the client ID is different
+                            if (eventClientId != clientId)
+                            {
+                                _logger.LogInformation("Client registering with ID {RegisteredId} (WebSocket connection ID: {ConnectionId})",
+                                    eventClientId, clientId);
+                                UpdateClientId(clientId, eventClientId);
+                                clientId = eventClientId; // Use the registered ID for the rest of the connection
+                            }
                         }
+
+                        MessageReceived?.Invoke(this, new MessageReceivedEventArgs
+                        {
+                            ClientId = eventClientId,
+                            Message = message
+                        });
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Unknown message type '{MessageType}' from client {ClientId}", messageType, clientId);
+                    }
+                }
+                catch (Newtonsoft.Json.JsonSerializationException ex)
+                {
+                    _logger.LogError(ex, "JSON deserialization failed for client {ClientId}. Message preview: {Message}",
+                        clientId, json.Substring(0, Math.Min(500, json.Length)));
+
+                    // Send error response to client
+                    try
+                    {
+                        var errorResponse = new
+                        {
+                            Type = "ERROR",
+                            Message = "Server failed to deserialize message",
+                            Details = ex.Message
+                        };
+
+                        var errorJson = JsonConvert.SerializeObject(errorResponse);
+                        var errorBytes = Encoding.UTF8.GetBytes(errorJson);
+                        await socket.SendAsync(new ArraySegment<byte>(errorBytes), WebSocketMessageType.Text, true, cancellationToken);
+                    }
+                    catch (Exception sendEx)
+                    {
+                        _logger.LogError(sendEx, "Failed to send error response to client {ClientId}", clientId);
                     }
 
-                    MessageReceived?.Invoke(this, new MessageReceivedEventArgs
-                    {
-                        ClientId = eventClientId,
-                        Message = message
-                    });
+                    // DON'T disconnect - continue processing
+                    continue;
                 }
-                else
+                catch (Newtonsoft.Json.JsonReaderException ex)
                 {
-                    _logger.LogWarning("Unknown message type '{MessageType}' from client {ClientId}", messageType, clientId);
+                    _logger.LogError(ex, "JSON parsing failed for client {ClientId}. Invalid JSON: {Message}",
+                        clientId, json.Substring(0, Math.Min(200, json.Length)));
+
+                    // Continue processing instead of throwing
+                    continue;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Unexpected error processing message from client {ClientId}", clientId);
+
+                    // Continue processing instead of throwing
+                    continue;
                 }
             }
         }

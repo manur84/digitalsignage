@@ -43,6 +43,9 @@ public partial class DisplayElement : ObservableObject
     [ObservableProperty]
     private Animation? _animation;
 
+    [ObservableProperty]
+    private bool _isSelected;
+
     /// <summary>
     /// Initializes default properties for all element types
     /// This prevents KeyNotFoundException when binding in XAML
