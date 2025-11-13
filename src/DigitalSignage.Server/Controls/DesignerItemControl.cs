@@ -53,6 +53,12 @@ public class DesignerItemControl : ContentControl
         MouseLeftButtonDown += OnMouseLeftButtonDown;
         MouseMove += OnMouseMove;
         MouseLeftButtonUp += OnMouseLeftButtonUp;
+
+        System.Diagnostics.Debug.WriteLine("DesignerItemControl: Constructor called");
+        Loaded += (s, e) =>
+        {
+            System.Diagnostics.Debug.WriteLine($"DesignerItemControl: Loaded event fired for element '{DisplayElement?.Name ?? "null"}'");
+        };
     }
 
     private static void OnDisplayElementChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -127,7 +133,16 @@ public class DesignerItemControl : ContentControl
 
     private void UpdateFromElement()
     {
-        if (DisplayElement == null) return;
+        if (DisplayElement == null)
+        {
+            System.Diagnostics.Debug.WriteLine("DesignerItemControl: UpdateFromElement called but DisplayElement is null");
+            return;
+        }
+
+        System.Diagnostics.Debug.WriteLine($"DesignerItemControl: Updating element '{DisplayElement.Name}' " +
+            $"at ({DisplayElement.Position.X}, {DisplayElement.Position.Y}) " +
+            $"size {DisplayElement.Size.Width}x{DisplayElement.Size.Height} " +
+            $"ZIndex={DisplayElement.ZIndex}");
 
         Canvas.SetLeft(this, DisplayElement.Position.X);
         Canvas.SetTop(this, DisplayElement.Position.Y);
@@ -137,6 +152,9 @@ public class DesignerItemControl : ContentControl
 
         // Render content based on element type
         Content = CreateContentForElement();
+
+        System.Diagnostics.Debug.WriteLine($"DesignerItemControl: Element '{DisplayElement.Name}' updated successfully. " +
+            $"ActualWidth={ActualWidth}, ActualHeight={ActualHeight}, IsVisible={IsVisible}");
     }
 
     private UIElement CreateContentForElement()

@@ -220,11 +220,26 @@ public partial class DesignerViewModel : ObservableObject
         // Initialize all default properties to prevent KeyNotFoundException
         textElement.InitializeDefaultProperties();
 
+        _logger.LogInformation("=== Adding Text Element ===");
+        _logger.LogInformation("Element ID: {Id}", textElement.Id);
+        _logger.LogInformation("Position: ({X}, {Y})", textElement.Position.X, textElement.Position.Y);
+        _logger.LogInformation("Size: {Width}x{Height}", textElement.Size.Width, textElement.Size.Height);
+        _logger.LogInformation("ZIndex: {ZIndex}", textElement.ZIndex);
+
         var command = new AddElementCommand(Elements, textElement);
         CommandHistory.ExecuteCommand(command);
+
+        _logger.LogInformation("Element added to collection. Total elements: {Count}", Elements.Count);
+        _logger.LogInformation("Elements in collection:");
+        foreach (var elem in Elements)
+        {
+            _logger.LogInformation("  - {Name} at ({X},{Y}) size {W}x{H}",
+                elem.Name, elem.Position.X, elem.Position.Y, elem.Size.Width, elem.Size.Height);
+        }
+
         SelectedElement = textElement;
         UpdateLayers();
-        _logger.LogDebug("Added text element: {ElementName}", textElement.Name);
+        _logger.LogInformation("=== Text Element Added Successfully ===");
     }
 
     [RelayCommand]
@@ -248,11 +263,19 @@ public partial class DesignerViewModel : ObservableObject
         // Initialize all default properties to prevent KeyNotFoundException
         imageElement.InitializeDefaultProperties();
 
+        _logger.LogInformation("=== Adding Image Element ===");
+        _logger.LogInformation("Element ID: {Id}", imageElement.Id);
+        _logger.LogInformation("Position: ({X}, {Y})", imageElement.Position.X, imageElement.Position.Y);
+        _logger.LogInformation("Size: {Width}x{Height}", imageElement.Size.Width, imageElement.Size.Height);
+
         var command = new AddElementCommand(Elements, imageElement);
         CommandHistory.ExecuteCommand(command);
+
+        _logger.LogInformation("Element added. Total elements: {Count}", Elements.Count);
+
         SelectedElement = imageElement;
         UpdateLayers();
-        _logger.LogDebug("Added image element: {ElementName}", imageElement.Name);
+        _logger.LogInformation("=== Image Element Added Successfully ===");
     }
 
     [RelayCommand]
@@ -277,11 +300,19 @@ public partial class DesignerViewModel : ObservableObject
         // Initialize all default properties to prevent KeyNotFoundException
         rectangleElement.InitializeDefaultProperties();
 
+        _logger.LogInformation("=== Adding Rectangle Element ===");
+        _logger.LogInformation("Element ID: {Id}", rectangleElement.Id);
+        _logger.LogInformation("Position: ({X}, {Y})", rectangleElement.Position.X, rectangleElement.Position.Y);
+        _logger.LogInformation("Size: {Width}x{Height}", rectangleElement.Size.Width, rectangleElement.Size.Height);
+
         var command = new AddElementCommand(Elements, rectangleElement);
         CommandHistory.ExecuteCommand(command);
+
+        _logger.LogInformation("Element added. Total elements: {Count}", Elements.Count);
+
         SelectedElement = rectangleElement;
         UpdateLayers();
-        _logger.LogDebug("Added rectangle element: {ElementName}", rectangleElement.Name);
+        _logger.LogInformation("=== Rectangle Element Added Successfully ===");
     }
 
     [RelayCommand]
