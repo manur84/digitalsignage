@@ -7,7 +7,7 @@ from typing import Dict, Any, Optional
 from io import BytesIO
 import locale
 
-from PyQt5.QtWidgets import QWidget, QLabel
+from PyQt5.QtWidgets import QWidget, QLabel, QGraphicsDropShadowEffect
 from PyQt5.QtCore import Qt, QRect, QTimer
 from PyQt5.QtGui import QPixmap, QFont, QColor, QPainter, QImage
 import qrcode
@@ -281,6 +281,9 @@ class DisplayRenderer(QWidget):
             except Exception as e:
                 logger.warning(f"Failed to set word wrap: {e}")
 
+            # Apply common styling (border, shadow, opacity, rotation, background)
+            self.apply_common_styling(label, properties)
+
             return label
 
         except Exception as e:
@@ -336,6 +339,9 @@ class DisplayRenderer(QWidget):
             except Exception as e:
                 logger.error(f"Failed to load or scale image {source}: {e}")
 
+            # Apply common styling (border, shadow, opacity, rotation, background)
+            self.apply_common_styling(label, properties)
+
             return label
 
         except Exception as e:
@@ -374,6 +380,10 @@ class DisplayRenderer(QWidget):
                 """)
             except Exception as e:
                 logger.warning(f"Failed to set shape style: {e}")
+
+            # Apply common styling (shadow, opacity, rotation - border already handled above)
+            # Note: We don't call apply_common_styling for border here since shapes have their own border handling
+            self.apply_common_styling(widget, properties)
 
             return widget
 
@@ -439,7 +449,16 @@ class DisplayRenderer(QWidget):
 
                     pixmap = pixmap.scaled(width, height, Qt.KeepAspectRatio, Qt.SmoothTransformation)
                     label.setPixmap(pixmap)
-                    label.setAlignment(Qt.AlignCenter)
+
+                    # QR-Code Alignment support
+                    alignment = properties.get('Alignment', 'Center')
+                    if alignment == 'Left':
+                        label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+                    elif alignment == 'Right':
+                        label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+                    else:  # Center
+                        label.setAlignment(Qt.AlignCenter)
+
                     logger.debug(f"QR code created successfully with data: {qr_data[:50]}...")
 
                 finally:
@@ -447,6 +466,9 @@ class DisplayRenderer(QWidget):
 
             except Exception as e:
                 logger.error(f"Failed to generate QR code: {e}")
+
+            # Apply common styling (border, shadow, opacity, rotation, background)
+            self.apply_common_styling(label, properties)
 
             return label
 
@@ -516,14 +538,19 @@ class DisplayRenderer(QWidget):
             except Exception as e:
                 logger.warning(f"Failed to set DateTime color: {e}")
 
-            # Set alignment
+            # Set alignment (support both TextAlign and TextAlignment for compatibility)
             try:
-                text_align = properties.get('TextAlign', 'center')
-                alignment = Qt.AlignCenter
-                if text_align == 'left':
+                text_align = properties.get('TextAlignment') or properties.get('TextAlign', 'center')
+                alignment = Qt.AlignCenter | Qt.AlignVCenter
+
+                if text_align.lower() == 'left':
                     alignment = Qt.AlignLeft | Qt.AlignVCenter
-                elif text_align == 'right':
+                elif text_align.lower() == 'right':
                     alignment = Qt.AlignRight | Qt.AlignVCenter
+                elif text_align.lower() == 'justify':
+                    alignment = Qt.AlignJustify | Qt.AlignVCenter
+                else:  # center
+                    alignment = Qt.AlignCenter | Qt.AlignVCenter
 
                 label.setAlignment(alignment)
             except Exception as e:
@@ -551,6 +578,9 @@ class DisplayRenderer(QWidget):
             if not hasattr(self, '_datetime_timers'):
                 self._datetime_timers = []
             self._datetime_timers.append(timer)
+
+            # Apply common styling (border, shadow, opacity, rotation, background)
+            self.apply_common_styling(label, properties)
 
             logger.debug(f"DateTime element created with format '{format_string}' and update interval {update_interval}ms")
 
@@ -696,6 +726,9 @@ class DisplayRenderer(QWidget):
             table.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
             table.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
 
+            # Apply common styling (border, shadow, opacity, rotation, background)
+            self.apply_common_styling(table, properties)
+
             logger.debug(f"Table element created with {num_rows} rows and {num_columns} columns")
 
             return table
@@ -703,6 +736,100 @@ class DisplayRenderer(QWidget):
         except Exception as e:
             logger.error(f"Failed to create Table element: {e}")
             return None
+
+    def apply_common_styling(self, widget: QWidget, properties: Dict[str, Any]):
+        """
+        Apply common styling properties to any widget.
+        Supports: Opacity, Rotation, Border, Shadow, BackgroundColor
+        """
+        try:
+            style_parts = []
+
+            # Background Color
+            background_color = properties.get('BackgroundColor')
+            if background_color:
+                style_parts.append(f"background-color: {background_color};")
+
+            # Border
+            border_color = properties.get('BorderColor')
+            border_thickness = properties.get('BorderThickness', 0)
+            if border_color and border_thickness:
+                try:
+                    border_thickness = int(border_thickness)
+                    if border_thickness > 0:
+                        style_parts.append(f"border: {border_thickness}px solid {border_color};")
+                except (ValueError, TypeError):
+                    logger.warning(f"Invalid BorderThickness: {border_thickness}")
+
+            # Apply stylesheet if we have style parts
+            if style_parts:
+                existing_style = widget.styleSheet()
+                new_style = existing_style + " " + " ".join(style_parts) if existing_style else " ".join(style_parts)
+                widget.setStyleSheet(new_style)
+
+            # Opacity
+            opacity = properties.get('Opacity')
+            if opacity is not None:
+                try:
+                    opacity_val = float(opacity)
+                    if 0.0 <= opacity_val <= 1.0:
+                        widget.setWindowOpacity(opacity_val)
+                    else:
+                        logger.warning(f"Opacity value out of range (0-1): {opacity_val}")
+                except (ValueError, TypeError):
+                    logger.warning(f"Invalid Opacity value: {opacity}")
+
+            # Rotation
+            rotation = properties.get('Rotation')
+            if rotation:
+                try:
+                    rotation_degrees = float(rotation)
+                    # QWidget doesn't support rotation directly, need QGraphicsView
+                    # For now, log warning - full implementation would require QGraphicsView
+                    if rotation_degrees != 0:
+                        logger.warning(f"Rotation ({rotation_degrees}°) requested but not yet fully supported in PyQt5 widgets")
+                        # TODO: Implement rotation using QGraphicsView/QGraphicsProxyWidget
+                except (ValueError, TypeError):
+                    logger.warning(f"Invalid Rotation value: {rotation}")
+
+            # Shadow Effect
+            shadow_enabled = properties.get('ShadowEnabled', False)
+            if shadow_enabled:
+                try:
+                    shadow = QGraphicsDropShadowEffect()
+
+                    # Shadow Color
+                    shadow_color = properties.get('ShadowColor', '#000000')
+                    shadow.setColor(QColor(shadow_color))
+
+                    # Shadow Blur Radius
+                    shadow_blur = properties.get('ShadowBlur', 10)
+                    try:
+                        shadow_blur = float(shadow_blur)
+                        shadow.setBlurRadius(shadow_blur)
+                    except (ValueError, TypeError):
+                        logger.warning(f"Invalid ShadowBlur: {shadow_blur}")
+                        shadow.setBlurRadius(10)
+
+                    # Shadow Offset
+                    shadow_offset_x = properties.get('ShadowOffsetX', 5)
+                    shadow_offset_y = properties.get('ShadowOffsetY', 5)
+                    try:
+                        offset_x = float(shadow_offset_x)
+                        offset_y = float(shadow_offset_y)
+                        shadow.setOffset(offset_x, offset_y)
+                    except (ValueError, TypeError):
+                        logger.warning(f"Invalid Shadow offset: X={shadow_offset_x}, Y={shadow_offset_y}")
+                        shadow.setOffset(5, 5)
+
+                    widget.setGraphicsEffect(shadow)
+                    logger.debug(f"Applied shadow effect: color={shadow_color}, blur={shadow_blur}, offset=({shadow_offset_x}, {shadow_offset_y})")
+
+                except Exception as e:
+                    logger.error(f"Failed to apply shadow effect: {e}")
+
+        except Exception as e:
+            logger.error(f"Failed to apply common styling: {e}")
 
     def convert_csharp_format_to_python(self, csharp_format: str) -> str:
         """
