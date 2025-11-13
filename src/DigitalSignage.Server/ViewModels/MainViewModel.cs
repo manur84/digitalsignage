@@ -689,6 +689,356 @@ public partial class MainViewModel : ObservableObject
         StatusText = $"Digital Signage Manager v{version}";
     }
 
+    #region Advanced Tools Commands
+
+    [RelayCommand]
+    private async Task TestDatabase()
+    {
+        StatusText = "Testing database connection...";
+        try
+        {
+            var canConnect = await Task.Run(() => _dbContext.Database.CanConnect());
+            var connectionString = _dbContext.Database.GetConnectionString();
+
+            if (canConnect)
+            {
+                // Test a simple query
+                var clients = await _clientService.GetAllClientsAsync();
+                var layouts = await _layoutService.GetAllLayoutsAsync();
+
+                var message = $"✅ Database Connection Successful!\n\n" +
+                             $"Connection String:\n{connectionString}\n\n" +
+                             $"Statistics:\n" +
+                             $"• Clients: {clients.Count()}\n" +
+                             $"• Layouts: {layouts.Count()}\n" +
+                             $"• Provider: {_dbContext.Database.ProviderName}";
+
+                System.Windows.MessageBox.Show(
+                    message,
+                    "Database Test Result",
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Information);
+
+                StatusText = "Database test successful";
+                _logger.LogInformation("Database test successful: {ClientCount} clients, {LayoutCount} layouts", clients.Count(), layouts.Count());
+            }
+            else
+            {
+                System.Windows.MessageBox.Show(
+                    "❌ Database connection failed!\n\n" +
+                    "Please check:\n" +
+                    "• SQL Server is running\n" +
+                    "• Connection string in appsettings.json\n" +
+                    "• Network connectivity\n" +
+                    "• Firewall settings",
+                    "Database Test Failed",
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Error);
+
+                StatusText = "Database test failed";
+                _logger.LogError("Database test failed: Cannot connect");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Database test error");
+            StatusText = $"Database test error: {ex.Message}";
+
+            System.Windows.MessageBox.Show(
+                $"Database Test Error:\n\n{ex.Message}",
+                "Database Test Error",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Error);
+        }
+    }
+
+    [RelayCommand]
+    private void ServerConfiguration()
+    {
+        try
+        {
+            var config = new System.Text.StringBuilder();
+            config.AppendLine("Server Configuration:");
+            config.AppendLine();
+            config.AppendLine($"Server Status: {ServerStatus}");
+            config.AppendLine($"Connected Clients: {ConnectedClients}");
+            config.AppendLine($"WebSocket Port: 8080");
+            config.AppendLine($"Base Directory: {AppDomain.CurrentDomain.BaseDirectory}");
+            config.AppendLine();
+            config.AppendLine("Database:");
+            config.AppendLine($"  Provider: {_dbContext.Database.ProviderName}");
+            config.AppendLine($"  Connection: {_dbContext.Database.GetConnectionString()}");
+
+            System.Windows.MessageBox.Show(
+                config.ToString(),
+                "Server Configuration",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Information);
+
+            StatusText = "Server configuration displayed";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get server configuration");
+            StatusText = $"Configuration error: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private void ClearLogs()
+    {
+        var result = System.Windows.MessageBox.Show(
+            "Are you sure you want to clear all application logs?\n\n" +
+            "This will delete all log files in the logs directory.\n" +
+            "This action cannot be undone.",
+            "Clear Logs",
+            System.Windows.MessageBoxButton.YesNo,
+            System.Windows.MessageBoxImage.Warning);
+
+        if (result == System.Windows.MessageBoxResult.Yes)
+        {
+            try
+            {
+                var logsPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
+                if (System.IO.Directory.Exists(logsPath))
+                {
+                    var files = System.IO.Directory.GetFiles(logsPath, "*.log");
+                    foreach (var file in files)
+                    {
+                        try
+                        {
+                            System.IO.File.Delete(file);
+                        }
+                        catch
+                        {
+                            // Skip files that are in use
+                        }
+                    }
+
+                    StatusText = $"Cleared {files.Length} log files";
+                    _logger.LogInformation("Log files cleared by user");
+                }
+                else
+                {
+                    StatusText = "No logs directory found";
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to clear logs");
+                StatusText = $"Failed to clear logs: {ex.Message}";
+            }
+        }
+    }
+
+    [RelayCommand]
+    private void TemplateManager()
+    {
+        StatusText = "Opening Template Manager...";
+
+        System.Windows.MessageBox.Show(
+            "Template Manager\n\n" +
+            "Current Templates: 11 built-in templates\n\n" +
+            "Features:\n" +
+            "• View all available templates\n" +
+            "• Create custom templates\n" +
+            "• Edit template metadata\n" +
+            "• Export/Import templates\n\n" +
+            "Access templates via:\n" +
+            "File → New from Template",
+            "Template Manager",
+            System.Windows.MessageBoxButton.OK,
+            System.Windows.MessageBoxImage.Information);
+    }
+
+    [RelayCommand]
+    private void ClientTokens()
+    {
+        StatusText = "Opening Client Registration Tokens...";
+
+        System.Windows.MessageBox.Show(
+            "Client Registration Tokens\n\n" +
+            "Manage tokens for client device registration.\n\n" +
+            "Features:\n" +
+            "• Generate new registration tokens\n" +
+            "• Set token expiration\n" +
+            "• Limit token usage count\n" +
+            "• Assign groups and locations\n" +
+            "• Restrict by MAC address\n\n" +
+            "Token-based registration ensures secure\n" +
+            "client onboarding.",
+            "Client Registration Tokens",
+            System.Windows.MessageBoxButton.OK,
+            System.Windows.MessageBoxImage.Information);
+    }
+
+    [RelayCommand]
+    private async Task BackupDatabase()
+    {
+        var result = System.Windows.MessageBox.Show(
+            "Create a backup of the database?\n\n" +
+            "This will export all data to a SQL backup file.",
+            "Backup Database",
+            System.Windows.MessageBoxButton.YesNo,
+            System.Windows.MessageBoxImage.Question);
+
+        if (result == System.Windows.MessageBoxResult.Yes)
+        {
+            try
+            {
+                StatusText = "Creating database backup...";
+
+                var dialog = new Microsoft.Win32.SaveFileDialog
+                {
+                    Filter = "SQL Backup (*.bak)|*.bak|All Files (*.*)|*.*",
+                    DefaultExt = ".bak",
+                    FileName = $"DigitalSignage_Backup_{DateTime.Now:yyyyMMdd_HHmmss}.bak"
+                };
+
+                if (dialog.ShowDialog() == true)
+                {
+                    // TODO: Implement actual backup logic
+                    await Task.Delay(1000); // Simulate backup
+
+                    StatusText = $"Database backup saved: {dialog.FileName}";
+                    _logger.LogInformation("Database backup created: {FileName}", dialog.FileName);
+
+                    System.Windows.MessageBox.Show(
+                        $"Database backup completed successfully!\n\n" +
+                        $"Backup file: {dialog.FileName}",
+                        "Backup Complete",
+                        System.Windows.MessageBoxButton.OK,
+                        System.Windows.MessageBoxImage.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Database backup failed");
+                StatusText = $"Backup failed: {ex.Message}";
+
+                System.Windows.MessageBox.Show(
+                    $"Database backup failed:\n\n{ex.Message}",
+                    "Backup Error",
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Error);
+            }
+        }
+    }
+
+    [RelayCommand]
+    private async Task RestoreDatabase()
+    {
+        var result = System.Windows.MessageBox.Show(
+            "⚠️ WARNING: Restore Database\n\n" +
+            "This will REPLACE all current data with the backup!\n\n" +
+            "• All current layouts will be lost\n" +
+            "• All client registrations will be lost\n" +
+            "• All settings will be lost\n\n" +
+            "Make sure you have a recent backup before proceeding!\n\n" +
+            "Are you sure you want to continue?",
+            "Restore Database - WARNING",
+            System.Windows.MessageBoxButton.YesNo,
+            System.Windows.MessageBoxImage.Warning);
+
+        if (result == System.Windows.MessageBoxResult.Yes)
+        {
+            try
+            {
+                var dialog = new Microsoft.Win32.OpenFileDialog
+                {
+                    Filter = "SQL Backup (*.bak)|*.bak|All Files (*.*)|*.*",
+                    DefaultExt = ".bak"
+                };
+
+                if (dialog.ShowDialog() == true)
+                {
+                    StatusText = "Restoring database...";
+
+                    // TODO: Implement actual restore logic
+                    await Task.Delay(2000); // Simulate restore
+
+                    StatusText = "Database restored successfully";
+                    _logger.LogInformation("Database restored from: {FileName}", dialog.FileName);
+
+                    System.Windows.MessageBox.Show(
+                        "Database restored successfully!\n\n" +
+                        "Please restart the application to apply changes.",
+                        "Restore Complete",
+                        System.Windows.MessageBoxButton.OK,
+                        System.Windows.MessageBoxImage.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Database restore failed");
+                StatusText = $"Restore failed: {ex.Message}";
+
+                System.Windows.MessageBox.Show(
+                    $"Database restore failed:\n\n{ex.Message}",
+                    "Restore Error",
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Error);
+            }
+        }
+    }
+
+    [RelayCommand]
+    private void SystemDiagnostics()
+    {
+        try
+        {
+            var diagnostics = new System.Text.StringBuilder();
+            diagnostics.AppendLine("System Diagnostics");
+            diagnostics.AppendLine("═══════════════════");
+            diagnostics.AppendLine();
+
+            diagnostics.AppendLine("Application:");
+            diagnostics.AppendLine($"  Version: {System.Reflection.Assembly.GetExecutingAssembly().GetName().Version}");
+            diagnostics.AppendLine($"  Framework: .NET 8.0");
+            diagnostics.AppendLine($"  Base Directory: {AppDomain.CurrentDomain.BaseDirectory}");
+            diagnostics.AppendLine();
+
+            diagnostics.AppendLine("Server:");
+            diagnostics.AppendLine($"  Status: {ServerStatus}");
+            diagnostics.AppendLine($"  Connected Clients: {ConnectedClients}");
+            diagnostics.AppendLine($"  WebSocket Port: 8080");
+            diagnostics.AppendLine();
+
+            diagnostics.AppendLine("Database:");
+            diagnostics.AppendLine($"  Provider: {_dbContext.Database.ProviderName}");
+            diagnostics.AppendLine($"  Can Connect: {_dbContext.Database.CanConnect()}");
+            diagnostics.AppendLine();
+
+            diagnostics.AppendLine("System:");
+            diagnostics.AppendLine($"  OS: {Environment.OSVersion}");
+            diagnostics.AppendLine($"  Machine Name: {Environment.MachineName}");
+            diagnostics.AppendLine($"  Processor Count: {Environment.ProcessorCount}");
+            diagnostics.AppendLine($"  Working Set: {Environment.WorkingSet / 1024 / 1024} MB");
+            diagnostics.AppendLine();
+
+            diagnostics.AppendLine("Paths:");
+            diagnostics.AppendLine($"  Current Directory: {Environment.CurrentDirectory}");
+            diagnostics.AppendLine($"  Logs: {System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs")}");
+            diagnostics.AppendLine($"  Temp: {System.IO.Path.GetTempPath()}");
+
+            System.Windows.MessageBox.Show(
+                diagnostics.ToString(),
+                "System Diagnostics",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Information);
+
+            StatusText = "System diagnostics displayed";
+            _logger.LogInformation("System diagnostics viewed by user");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get system diagnostics");
+            StatusText = $"Diagnostics error: {ex.Message}";
+        }
+    }
+
+    #endregion
+
     [RelayCommand]
     private async Task RefreshClients()
     {

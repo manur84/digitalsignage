@@ -107,9 +107,22 @@
                 <MenuItem Header="Snap to Grid" IsCheckable="True" IsChecked="{Binding Designer.SnapToGrid}"/>
             </MenuItem>
             <MenuItem Header="_Tools">
-                <MenuItem Header="_Database Connection" Command="{Binding DatabaseConnectionCommand}"/>
-                <MenuItem Header="_Settings" Command="{Binding SettingsCommand}"/>
-                <MenuItem Header="_Logs" Command="{Binding LogsCommand}"/>
+                <MenuItem Header="_Database Connection" Command="{Binding DatabaseConnectionCommand}" Icon="🗄"/>
+                <MenuItem Header="Test Database" Command="{Binding TestDatabaseCommand}" Icon="✓"/>
+                <Separator/>
+                <MenuItem Header="_Settings" Command="{Binding SettingsCommand}" Icon="⚙"/>
+                <MenuItem Header="Server _Configuration" Command="{Binding ServerConfigurationCommand}" Icon="🖥"/>
+                <Separator/>
+                <MenuItem Header="_Logs" Command="{Binding LogsCommand}" Icon="📋"/>
+                <MenuItem Header="Clear Logs" Command="{Binding ClearLogsCommand}" Icon="🗑"/>
+                <Separator/>
+                <MenuItem Header="Template _Manager" Command="{Binding TemplateManagerCommand}" Icon="📄"/>
+                <MenuItem Header="Client _Registration Tokens" Command="{Binding ClientTokensCommand}" Icon="🔑"/>
+                <Separator/>
+                <MenuItem Header="_Backup Database" Command="{Binding BackupDatabaseCommand}" Icon="💾"/>
+                <MenuItem Header="_Restore Database" Command="{Binding RestoreDatabaseCommand}" Icon="📂"/>
+                <Separator/>
+                <MenuItem Header="System _Diagnostics" Command="{Binding SystemDiagnosticsCommand}" Icon="🔧"/>
             </MenuItem>
             <MenuItem Header="_Help">
                 <MenuItem Header="_Documentation" Command="{Binding DocumentationCommand}"/>
