@@ -124,12 +124,15 @@ public class DesignerCanvas : Canvas
 
     private void OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        // Start selection rectangle
-        if (Keyboard.Modifiers == ModifierKeys.None)
+        // CRITICAL FIX: Only start selection rectangle if clicking on the CANVAS itself, NOT on child elements
+        // This allows element event handlers in MainWindow.xaml.cs to work properly
+        if (e.Source == this && Keyboard.Modifiers == ModifierKeys.None)
         {
             _selectionStartPoint = e.GetPosition(this);
             CaptureMouse();
+            e.Handled = true; // Mark as handled only when we capture it
         }
+        // If clicking on a child element, do NOT capture - let the event bubble up
     }
 
     private void OnMouseMove(object sender, MouseEventArgs e)

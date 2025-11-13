@@ -1,9 +1,11 @@
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using DigitalSignage.Core.Models;
 using DigitalSignage.Server.Behaviors;
 using DigitalSignage.Server.ViewModels;
+using Microsoft.Extensions.Logging;
 
 namespace DigitalSignage.Server.Views;
 
@@ -13,18 +15,22 @@ namespace DigitalSignage.Server.Views;
 /// </summary>
 public partial class MainWindow : Window
 {
+    private readonly ILogger<MainWindow>? _logger;
     private ElementSelectionBehavior? _selectionBehavior;
     private Point _dragStartPosition;
     private bool _isDragging;
     private DisplayElement? _draggingElement;
 
-    public MainWindow(MainViewModel viewModel)
+    public MainWindow(MainViewModel viewModel, ILogger<MainWindow>? logger = null)
     {
         InitializeComponent();
         DataContext = viewModel;
+        _logger = logger;
 
         // Initialize element selection behavior
         _selectionBehavior = new ElementSelectionBehavior(this, viewModel.Designer);
+
+        _logger?.LogInformation("MainWindow initialized with element selection behavior");
     }
 
     public MainViewModel ViewModel => (MainViewModel)DataContext;
@@ -138,11 +144,20 @@ public partial class MainWindow : Window
     /// </summary>
     private void Element_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
+        Debug.WriteLine($"[DEBUG] Element_MouseLeftButtonDown fired! Sender: {sender?.GetType().Name}");
+        _logger?.LogDebug("Element_MouseLeftButtonDown - Sender: {SenderType}, Source: {SourceType}",
+            sender?.GetType().Name, e.Source?.GetType().Name);
+
         if (sender is FrameworkElement element && element.Tag is DisplayElement displayElement)
         {
+            _logger?.LogInformation("Element clicked: Type={ElementType}, Position=({X}, {Y})",
+                displayElement.Type, displayElement.Position.X, displayElement.Position.Y);
+
             // Check for modifier keys
             bool isCtrlPressed = Keyboard.Modifiers.HasFlag(ModifierKeys.Control);
             bool isShiftPressed = Keyboard.Modifiers.HasFlag(ModifierKeys.Shift);
+
+            Debug.WriteLine($"[DEBUG] Element: {displayElement.Type}, Ctrl: {isCtrlPressed}, Shift: {isShiftPressed}");
 
             // MULTI-SELECTION SUPPORT: Pass modifier keys to SelectElementCommand
             // - Ctrl+Click: Toggle selection (add/remove from selection)
@@ -154,17 +169,20 @@ public partial class MainWindow : Window
                 if (isCtrlPressed)
                 {
                     ViewModel?.Designer?.SelectionService?.ToggleSelection(displayElement);
+                    _logger?.LogDebug("Toggle selection for element: {ElementType}", displayElement.Type);
                 }
                 else if (isShiftPressed && ViewModel?.Designer?.SelectionService?.PrimarySelection != null)
                 {
                     // Shift+Click: Range selection (if implemented in SelectionService)
                     ViewModel?.Designer?.SelectionService?.SelectSingle(displayElement);
+                    _logger?.LogDebug("Shift+Click selection for element: {ElementType}", displayElement.Type);
                 }
             }
             else
             {
                 // Single selection mode: clear previous selection
                 ViewModel?.Designer?.SelectElementCommand?.Execute(displayElement);
+                _logger?.LogDebug("Single selection for element: {ElementType}", displayElement.Type);
             }
 
             // Start drag operation
@@ -173,7 +191,13 @@ public partial class MainWindow : Window
             _draggingElement = displayElement;
             element.CaptureMouse();
 
+            Debug.WriteLine($"[DEBUG] Drag started at position: {_dragStartPosition}");
+
             e.Handled = true;
+        }
+        else
+        {
+            _logger?.LogWarning("Element_MouseLeftButtonDown called but element or tag is null");
         }
     }
 
@@ -193,6 +217,8 @@ public partial class MainWindow : Window
             var elementsToMove = selectedElements != null && selectedElements.Count > 0
                 ? selectedElements.ToList()
                 : new List<DisplayElement> { _draggingElement };
+
+            Debug.WriteLine($"[DEBUG] Dragging {elementsToMove.Count} elements, Delta: ({delta.X:F2}, {delta.Y:F2})");
 
             // Calculate new position for primary element (for snapping)
             var newX = _draggingElement.Position.X + delta.X;
@@ -238,6 +264,9 @@ public partial class MainWindow : Window
     {
         if (_isDragging)
         {
+            Debug.WriteLine("[DEBUG] Element_MouseLeftButtonUp - Ending drag operation");
+            _logger?.LogDebug("Drag operation completed");
+
             _isDragging = false;
             _draggingElement = null;
 
