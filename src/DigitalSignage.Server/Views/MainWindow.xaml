@@ -19,6 +19,9 @@
         <local:LogLevelToBackgroundConverter x:Key="LogLevelToBackgroundConverter"/>
         <local:LogLevelToStringConverter x:Key="LogLevelToStringConverter"/>
         <local:ElementTypeToVisibilityConverter x:Key="ElementTypeToVisibilityConverter"/>
+        <local:TypeEqualsConverter x:Key="TypeEqualsConverter"/>
+        <local:TypeEqualsAnyConverter x:Key="TypeEqualsAnyConverter"/>
+        <local:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
     </Window.Resources>
 
     <!-- Keyboard Shortcuts -->
@@ -564,10 +567,7 @@
                                     </ItemsControl.ItemContainerStyle>
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <!-- INTERACTIVE: Selection, hover, drag & drop -->
                                             <Border x:Name="ElementBorder"
-                                                    Background="#FF87CEEB"
-                                                    BorderThickness="3"
                                                     CornerRadius="5"
                                                     Width="{Binding Size.Width}"
                                                     Height="{Binding Size.Height}"
@@ -580,80 +580,157 @@
                                                     MouseEnter="Element_MouseEnter"
                                                     MouseLeave="Element_MouseLeave">
 
-                                                <!-- Border Brush changes based on selection state -->
+                                                <!-- Dynamic Border Brush and Background based on Type -->
                                                 <Border.Style>
                                                     <Style TargetType="Border">
+                                                        <!-- Default for all types -->
+                                                        <Setter Property="Background" Value="#FF87CEEB"/>
                                                         <Setter Property="BorderBrush" Value="#FF0000FF"/>
+                                                        <Setter Property="BorderThickness" Value="3"/>
+
                                                         <Style.Triggers>
                                                             <!-- Selected: Orange border -->
                                                             <DataTrigger Binding="{Binding IsSelected}" Value="True">
                                                                 <Setter Property="BorderBrush" Value="#FFFF8C00"/>
                                                                 <Setter Property="BorderThickness" Value="4"/>
                                                             </DataTrigger>
+
+                                                            <!-- Text Element: White background -->
+                                                            <DataTrigger Binding="{Binding Type}" Value="text">
+                                                                <Setter Property="Background" Value="White"/>
+                                                                <Setter Property="BorderBrush" Value="#FF666666"/>
+                                                            </DataTrigger>
+
+                                                            <!-- Rectangle Element: Light Blue -->
+                                                            <DataTrigger Binding="{Binding Type}" Value="rectangle">
+                                                                <Setter Property="Background" Value="#FFADD8E6"/>
+                                                                <Setter Property="BorderBrush" Value="#FF0000FF"/>
+                                                            </DataTrigger>
+
+                                                            <!-- Image Element: Light Gray -->
+                                                            <DataTrigger Binding="{Binding Type}" Value="image">
+                                                                <Setter Property="Background" Value="#FFF0F0F0"/>
+                                                                <Setter Property="BorderBrush" Value="#FF888888"/>
+                                                            </DataTrigger>
+
+                                                            <!-- Circle: Gold -->
+                                                            <DataTrigger Binding="{Binding Type}" Value="circle">
+                                                                <Setter Property="Background" Value="#FFFFD700"/>
+                                                                <Setter Property="BorderBrush" Value="#FFFFA500"/>
+                                                            </DataTrigger>
+
+                                                            <!-- QR Code: Light Yellow -->
+                                                            <DataTrigger Binding="{Binding Type}" Value="qrcode">
+                                                                <Setter Property="Background" Value="#FFFFFFE0"/>
+                                                                <Setter Property="BorderBrush" Value="#FFA0A000"/>
+                                                            </DataTrigger>
+
+                                                            <!-- Table: Light Cyan -->
+                                                            <DataTrigger Binding="{Binding Type}" Value="table">
+                                                                <Setter Property="Background" Value="#FFE0FFFF"/>
+                                                                <Setter Property="BorderBrush" Value="#FF2196F3"/>
+                                                            </DataTrigger>
+
+                                                            <!-- DateTime: Light Pink -->
+                                                            <DataTrigger Binding="{Binding Type}" Value="datetime">
+                                                                <Setter Property="Background" Value="#FFFFE4E1"/>
+                                                                <Setter Property="BorderBrush" Value="#FFFF69B4"/>
+                                                            </DataTrigger>
                                                         </Style.Triggers>
                                                     </Style>
                                                 </Border.Style>
 
                                                 <Grid>
-                                                    <!-- Element Name (Center) -->
-                                                    <TextBlock Text="{Binding Name}"
-                                                               FontSize="16"
-                                                               FontWeight="Bold"
-                                                               Foreground="White"
+                                                    <!-- TEXT ELEMENT CONTENT -->
+                                                    <TextBlock Text="{Binding Properties[Content], FallbackValue='Sample Text'}"
+                                                               FontFamily="{Binding Properties[FontFamily], FallbackValue=Arial}"
+                                                               FontSize="{Binding Properties[FontSize], FallbackValue=24}"
+                                                               Foreground="{Binding Properties[Color], FallbackValue=Black}"
+                                                               TextWrapping="Wrap"
                                                                HorizontalAlignment="Center"
                                                                VerticalAlignment="Center"
-                                                               Background="#80000000"
-                                                               Padding="10"/>
+                                                               Margin="10"
+                                                               Visibility="{Binding Type, Converter={StaticResource TypeEqualsConverter}, ConverterParameter=text}"/>
 
-                                                    <!-- Type Label (Top-Left) -->
-                                                    <TextBlock Text="{Binding Type}"
-                                                               FontSize="10"
-                                                               Foreground="Yellow"
-                                                               Background="#80FF0000"
-                                                               HorizontalAlignment="Left"
-                                                               VerticalAlignment="Top"
-                                                               Margin="2"
-                                                               Padding="3"/>
+                                                    <!-- IMAGE ELEMENT CONTENT -->
+                                                    <Grid Visibility="{Binding Type, Converter={StaticResource TypeEqualsConverter}, ConverterParameter=image}">
+                                                        <TextBlock Text="🖼️ Image"
+                                                                   FontSize="24"
+                                                                   HorizontalAlignment="Center"
+                                                                   VerticalAlignment="Center"
+                                                                   Foreground="#FF888888"/>
+                                                        <TextBlock Text="{Binding Properties[Source], FallbackValue='No image selected'}"
+                                                                   FontSize="10"
+                                                                   HorizontalAlignment="Center"
+                                                                   VerticalAlignment="Bottom"
+                                                                   Margin="5"
+                                                                   Foreground="#FF666666"
+                                                                   TextTrimming="CharacterEllipsis"/>
+                                                    </Grid>
 
-                                                    <!-- Size Label (Top-Right) -->
+                                                    <!-- RECTANGLE/CIRCLE/OTHER TYPES -->
+                                                    <TextBlock FontSize="16"
+                                                               FontWeight="Bold"
+                                                               HorizontalAlignment="Center"
+                                                               VerticalAlignment="Center"
+                                                               Foreground="#80000000">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding Type}" Value="rectangle">
+                                                                        <Setter Property="Text" Value="[Rectangle]"/>
+                                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                                    </DataTrigger>
+                                                                    <DataTrigger Binding="{Binding Type}" Value="circle">
+                                                                        <Setter Property="Text" Value="[Circle]"/>
+                                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                                    </DataTrigger>
+                                                                    <DataTrigger Binding="{Binding Type}" Value="qrcode">
+                                                                        <Setter Property="Text" Value="QR Code"/>
+                                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                                    </DataTrigger>
+                                                                    <DataTrigger Binding="{Binding Type}" Value="table">
+                                                                        <Setter Property="Text" Value="📊 Table"/>
+                                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                                    </DataTrigger>
+                                                                    <DataTrigger Binding="{Binding Type}" Value="datetime">
+                                                                        <Setter Property="Text" Value="🕐 Date/Time"/>
+                                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+
+                                                    <!-- Debug Labels (Name and Size) -->
+                                                    <StackPanel Orientation="Horizontal"
+                                                                HorizontalAlignment="Left"
+                                                                VerticalAlignment="Top"
+                                                                Background="#80000000">
+                                                        <TextBlock Text="{Binding Name}"
+                                                                   FontSize="10"
+                                                                   Foreground="White"
+                                                                   Padding="3"/>
+                                                    </StackPanel>
+
                                                     <StackPanel Orientation="Horizontal"
                                                                 HorizontalAlignment="Right"
                                                                 VerticalAlignment="Top"
                                                                 Background="#80008000"
                                                                 Margin="2">
                                                         <TextBlock Text="{Binding Size.Width, StringFormat='{}{0:F0}'}"
-                                                                   FontSize="10"
+                                                                   FontSize="9"
                                                                    Foreground="White"
                                                                    Padding="2"/>
-                                                        <TextBlock Text="×"
-                                                                   FontSize="10"
-                                                                   Foreground="White"/>
+                                                        <TextBlock Text="×" FontSize="9" Foreground="White"/>
                                                         <TextBlock Text="{Binding Size.Height, StringFormat='{}{0:F0}'}"
-                                                                   FontSize="10"
+                                                                   FontSize="9"
                                                                    Foreground="White"
                                                                    Padding="2"/>
                                                     </StackPanel>
 
-                                                    <!-- Position Label (Bottom-Left) -->
-                                                    <StackPanel Orientation="Horizontal"
-                                                                HorizontalAlignment="Left"
-                                                                VerticalAlignment="Bottom"
-                                                                Background="#80800080"
-                                                                Margin="2">
-                                                        <TextBlock Text="{Binding Position.X, StringFormat='{}{0:F0}'}"
-                                                                   FontSize="10"
-                                                                   Foreground="White"
-                                                                   Padding="2"/>
-                                                        <TextBlock Text=","
-                                                                   FontSize="10"
-                                                                   Foreground="White"/>
-                                                        <TextBlock Text="{Binding Position.Y, StringFormat='{}{0:F0}'}"
-                                                                   FontSize="10"
-                                                                   Foreground="White"
-                                                                   Padding="2"/>
-                                                    </StackPanel>
-
-                                                    <!-- Selection Indicator (Corner Icon) -->
+                                                    <!-- Selection Checkmark -->
                                                     <TextBlock Text="✓"
                                                                FontSize="20"
                                                                Foreground="#FFFF8C00"

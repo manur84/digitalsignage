@@ -205,8 +205,10 @@ class DeviceManager:
         """Restart the system"""
         logger.warning("Restarting system...")
         try:
+            # Use systemctl reboot instead of sudo reboot
+            # This works when the user is in the sudo group and NoNewPrivileges is disabled
             result = subprocess.run(
-                ['sudo', 'reboot'],
+                ['systemctl', 'reboot'],
                 capture_output=True,
                 text=True,
                 timeout=10
@@ -218,22 +220,79 @@ class DeviceManager:
             logger.info("System restart initiated")
         except (FileNotFoundError, PermissionError) as e:
             logger.error(f"Cannot execute reboot command: {e}")
+            logger.warning("Trying alternative: sudo reboot")
+            try:
+                subprocess.run(['sudo', 'reboot'], timeout=10)
+            except Exception as e2:
+                logger.error(f"Alternative reboot method also failed: {e2}")
         except Exception as e:
             logger.error(f"Failed to restart system: {e}")
 
     async def screen_on(self):
         """Turn screen on"""
         try:
-            subprocess.run(['vcgencmd', 'display_power', '1'])
-            logger.info("Screen turned on")
+            logger.info("Turning screen ON...")
+
+            # Method 1: X11 DPMS (works on most systems)
+            try:
+                result = subprocess.run(
+                    ['xset', 'dpms', 'force', 'on'],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                if result.returncode == 0:
+                    logger.info("Screen turned ON via xset")
+                else:
+                    logger.warning(f"xset command failed: {result.stderr}")
+            except Exception as e:
+                logger.warning(f"xset command failed: {e}")
+
+            # Method 2: Raspberry Pi HDMI (fallback)
+            try:
+                subprocess.run(
+                    ['vcgencmd', 'display_power', '1'],
+                    capture_output=True,
+                    timeout=5
+                )
+                logger.info("Raspberry Pi HDMI turned ON")
+            except Exception as e:
+                logger.debug(f"vcgencmd not available: {e}")
+
         except Exception as e:
             logger.error(f"Failed to turn screen on: {e}")
 
     async def screen_off(self):
         """Turn screen off"""
         try:
-            subprocess.run(['vcgencmd', 'display_power', '0'])
-            logger.info("Screen turned off")
+            logger.info("Turning screen OFF...")
+
+            # Method 1: X11 DPMS (works on most systems)
+            try:
+                result = subprocess.run(
+                    ['xset', 'dpms', 'force', 'off'],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                if result.returncode == 0:
+                    logger.info("Screen turned OFF via xset")
+                else:
+                    logger.warning(f"xset command failed: {result.stderr}")
+            except Exception as e:
+                logger.warning(f"xset command failed: {e}")
+
+            # Method 2: Raspberry Pi HDMI (fallback)
+            try:
+                subprocess.run(
+                    ['vcgencmd', 'display_power', '0'],
+                    capture_output=True,
+                    timeout=5
+                )
+                logger.info("Raspberry Pi HDMI turned OFF")
+            except Exception as e:
+                logger.debug(f"vcgencmd not available: {e}")
+
         except Exception as e:
             logger.error(f"Failed to turn screen off: {e}")
 

@@ -180,12 +180,39 @@ public partial class DesignerViewModel : ObservableObject
             // Sync elements to layout
             CurrentLayout.Elements = Elements.ToList();
 
-            await _layoutService.UpdateLayoutAsync(CurrentLayout);
-            _logger.LogInformation("Saved layout: {LayoutName}", CurrentLayout.Name);
+            // Try to get existing layout
+            var existingLayout = await _layoutService.GetLayoutByIdAsync(CurrentLayout.Id);
+
+            if (existingLayout != null)
+            {
+                // Update existing layout
+                await _layoutService.UpdateLayoutAsync(CurrentLayout);
+                _logger.LogInformation("Updated layout: {LayoutName} ({Id})", CurrentLayout.Name, CurrentLayout.Id);
+            }
+            else
+            {
+                // Create new layout
+                await _layoutService.CreateLayoutAsync(CurrentLayout);
+                _logger.LogInformation("Created new layout: {LayoutName} ({Id})", CurrentLayout.Name, CurrentLayout.Id);
+            }
+
+            // Show success message (optional)
+            System.Windows.MessageBox.Show(
+                $"Layout '{CurrentLayout.Name}' saved successfully!",
+                "Success",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Information);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to save layout: {LayoutName}", CurrentLayout?.Name);
+
+            // Show error message
+            System.Windows.MessageBox.Show(
+                $"Failed to save layout: {ex.Message}",
+                "Error",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Error);
         }
     }
 

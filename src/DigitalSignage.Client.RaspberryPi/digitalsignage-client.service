@@ -36,7 +36,7 @@ StandardError=journal
 SyslogIdentifier=digitalsignage-client
 
 # Security
-NoNewPrivileges=true
+# NoNewPrivileges=true  # DISABLED: Prevents systemctl reboot command from working
 PrivateTmp=true
 
 # Restart policy
