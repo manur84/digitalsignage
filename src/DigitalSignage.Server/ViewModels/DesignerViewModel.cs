@@ -517,6 +517,62 @@ public partial class DesignerViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void AutoSizeText()
+    {
+        if (SelectedElement != null && SelectedElement.Type == "text")
+        {
+            // Get text properties
+            var content = SelectedElement.Properties.TryGetValue("Content", out var contentObj)
+                ? contentObj?.ToString() ?? "Text"
+                : "Text";
+
+            var fontSize = SelectedElement.Properties.TryGetValue("FontSize", out var fontSizeObj)
+                ? Convert.ToDouble(fontSizeObj)
+                : 16;
+
+            var fontFamily = SelectedElement.Properties.TryGetValue("FontFamily", out var fontFamilyObj)
+                ? fontFamilyObj?.ToString() ?? "Arial"
+                : "Arial";
+
+            var fontWeight = SelectedElement.Properties.TryGetValue("FontWeight", out var fontWeightObj)
+                ? fontWeightObj?.ToString() ?? "Normal"
+                : "Normal";
+
+            // Calculate required size using FormattedText
+            var formattedText = new System.Windows.Media.FormattedText(
+                content,
+                System.Globalization.CultureInfo.CurrentCulture,
+                System.Windows.FlowDirection.LeftToRight,
+                new System.Windows.Media.Typeface(
+                    new System.Windows.Media.FontFamily(fontFamily),
+                    fontWeight.Equals("Bold", StringComparison.OrdinalIgnoreCase)
+                        ? System.Windows.FontStyles.Normal
+                        : System.Windows.FontStyles.Normal,
+                    fontWeight.Equals("Bold", StringComparison.OrdinalIgnoreCase)
+                        ? System.Windows.FontWeights.Bold
+                        : System.Windows.FontWeights.Normal,
+                    System.Windows.FontStretches.Normal
+                ),
+                fontSize,
+                System.Windows.Media.Brushes.Black,
+                new System.Windows.Media.NumberSubstitution(),
+                System.Windows.Media.TextFormattingMode.Display
+            );
+
+            // Add padding (10px on each side)
+            var newWidth = Math.Ceiling(formattedText.Width) + 20;
+            var newHeight = Math.Ceiling(formattedText.Height) + 20;
+
+            // Update element size
+            SelectedElement.Size.Width = newWidth;
+            SelectedElement.Size.Height = newHeight;
+
+            _logger.LogDebug("Auto-sized text element: {ElementName}, New size: {Width}x{Height}",
+                SelectedElement.Name, newWidth, newHeight);
+        }
+    }
+
+    [RelayCommand]
     private void DuplicateSelectedElement()
     {
         if (SelectedElement != null)
