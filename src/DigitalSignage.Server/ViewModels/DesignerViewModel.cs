@@ -1239,6 +1239,144 @@ public partial class DesignerViewModel : ObservableObject
 
     #endregion
 
+    #region Arrow Key Movement Commands
+
+    /// <summary>
+    /// Moves selected element(s) left by 1px (or 10px with Shift)
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanMoveElement))]
+    private void MoveLeft(bool largeStep = false)
+    {
+        double delta = largeStep ? 10 : 1;
+        foreach (var element in SelectionService.SelectedElements)
+        {
+            element.Position.X = Math.Max(0, element.Position.X - delta);
+        }
+        _logger.LogDebug("Moved {Count} element(s) left by {Delta}px", SelectionService.SelectedElements.Count, delta);
+    }
+
+    /// <summary>
+    /// Moves selected element(s) right by 1px (or 10px with Shift)
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanMoveElement))]
+    private void MoveRight(bool largeStep = false)
+    {
+        double delta = largeStep ? 10 : 1;
+        foreach (var element in SelectionService.SelectedElements)
+        {
+            element.Position.X += delta;
+        }
+        _logger.LogDebug("Moved {Count} element(s) right by {Delta}px", SelectionService.SelectedElements.Count, delta);
+    }
+
+    /// <summary>
+    /// Moves selected element(s) up by 1px (or 10px with Shift)
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanMoveElement))]
+    private void MoveUp(bool largeStep = false)
+    {
+        double delta = largeStep ? 10 : 1;
+        foreach (var element in SelectionService.SelectedElements)
+        {
+            element.Position.Y = Math.Max(0, element.Position.Y - delta);
+        }
+        _logger.LogDebug("Moved {Count} element(s) up by {Delta}px", SelectionService.SelectedElements.Count, delta);
+    }
+
+    /// <summary>
+    /// Moves selected element(s) down by 1px (or 10px with Shift)
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanMoveElement))]
+    private void MoveDown(bool largeStep = false)
+    {
+        double delta = largeStep ? 10 : 1;
+        foreach (var element in SelectionService.SelectedElements)
+        {
+            element.Position.Y += delta;
+        }
+        _logger.LogDebug("Moved {Count} element(s) down by {Delta}px", SelectionService.SelectedElements.Count, delta);
+    }
+
+    private bool CanMoveElement() => SelectionService.HasSelection;
+
+    #endregion
+
+    #region Transform Commands
+
+    /// <summary>
+    /// Flips selected element(s) horizontally
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanTransformElement))]
+    private void FlipHorizontal()
+    {
+        foreach (var element in SelectionService.SelectedElements)
+        {
+            // Toggle ScaleX property (add if doesn't exist)
+            if (!element.Properties.ContainsKey("ScaleX"))
+            {
+                element.Properties["ScaleX"] = -1.0;
+            }
+            else
+            {
+                double scaleX = Convert.ToDouble(element.Properties["ScaleX"]);
+                element.Properties["ScaleX"] = -scaleX;
+            }
+        }
+        _logger.LogInformation("Flipped {Count} element(s) horizontally", SelectionService.SelectedElements.Count);
+    }
+
+    /// <summary>
+    /// Flips selected element(s) vertically
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanTransformElement))]
+    private void FlipVertical()
+    {
+        foreach (var element in SelectionService.SelectedElements)
+        {
+            // Toggle ScaleY property (add if doesn't exist)
+            if (!element.Properties.ContainsKey("ScaleY"))
+            {
+                element.Properties["ScaleY"] = -1.0;
+            }
+            else
+            {
+                double scaleY = Convert.ToDouble(element.Properties["ScaleY"]);
+                element.Properties["ScaleY"] = -scaleY;
+            }
+        }
+        _logger.LogInformation("Flipped {Count} element(s) vertically", SelectionService.SelectedElements.Count);
+    }
+
+    /// <summary>
+    /// Rotates selected element(s) 90 degrees clockwise
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanTransformElement))]
+    private void Rotate90CW()
+    {
+        foreach (var element in SelectionService.SelectedElements)
+        {
+            element.Rotation = (element.Rotation + 90) % 360;
+        }
+        _logger.LogInformation("Rotated {Count} element(s) 90° clockwise", SelectionService.SelectedElements.Count);
+    }
+
+    /// <summary>
+    /// Rotates selected element(s) 90 degrees counter-clockwise
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanTransformElement))]
+    private void Rotate90CCW()
+    {
+        foreach (var element in SelectionService.SelectedElements)
+        {
+            element.Rotation = (element.Rotation - 90 + 360) % 360;
+        }
+        _logger.LogInformation("Rotated {Count} element(s) 90° counter-clockwise", SelectionService.SelectedElements.Count);
+    }
+
+    private bool CanTransformElement() => SelectionService.HasSelection;
+
+    #endregion
+
     #region Grouping Commands
 
     /// <summary>

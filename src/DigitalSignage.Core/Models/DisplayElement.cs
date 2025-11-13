@@ -97,6 +97,12 @@ public partial class DisplayElement : ObservableObject
                 EnsureProperty("WordWrap", true);
                 EnsureProperty("FillColor", "Transparent");  // Background
                 EnsureProperty("BorderThickness", 0.0);  // No border by default
+
+                // Advanced text properties
+                EnsureProperty("LineHeight", 1.2);
+                EnsureProperty("LetterSpacing", 0.0);
+                EnsureProperty("TextDecoration_Underline", false);
+                EnsureProperty("TextDecoration_Strikethrough", false);
                 break;
 
             case "image":

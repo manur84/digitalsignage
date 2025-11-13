@@ -116,6 +116,73 @@
 
                     <Separator Margin="0,16"/>
 
+                    <!-- Advanced Properties -->
+                    <TextBlock Text="Advanced" FontWeight="SemiBold" Margin="0,8,0,8"/>
+
+                    <!-- Border Radius -->
+                    <TextBlock Text="Border Radius:" Margin="0,4,0,2"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Slider Grid.Column="0"
+                                Minimum="0"
+                                Maximum="50"
+                                Value="{Binding SelectedElement.Properties[BorderRadius], FallbackValue=0, UpdateSourceTrigger=PropertyChanged}"
+                                TickFrequency="1"
+                                IsSnapToTickEnabled="True"
+                                Margin="0,0,8,0"/>
+                        <TextBox Grid.Column="1"
+                                Width="60"
+                                Text="{Binding SelectedElement.Properties[BorderRadius], FallbackValue=0, UpdateSourceTrigger=PropertyChanged}"/>
+                    </Grid>
+
+                    <!-- Shadow -->
+                    <TextBlock Text="Shadow:" Margin="0,12,0,4"/>
+                    <CheckBox Content="Enable Shadow"
+                             IsChecked="{Binding SelectedElement.Properties[EnableShadow], FallbackValue=False}"
+                             Margin="0,4,0,8"/>
+
+                    <StackPanel Visibility="{Binding SelectedElement.Properties[EnableShadow], Converter={StaticResource NullToVisibilityConverter}, ConverterParameter=Invert, FallbackValue=Collapsed}">
+                        <TextBlock Text="Shadow Color:" Margin="0,4,0,2"/>
+                        <TextBox Text="{Binding SelectedElement.Properties[ShadowColor], FallbackValue=#000000, UpdateSourceTrigger=PropertyChanged}"/>
+
+                        <TextBlock Text="Shadow Blur:" Margin="0,8,0,2"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Slider Grid.Column="0"
+                                    Minimum="0"
+                                    Maximum="50"
+                                    Value="{Binding SelectedElement.Properties[ShadowBlur], FallbackValue=5, UpdateSourceTrigger=PropertyChanged}"
+                                    TickFrequency="1"
+                                    IsSnapToTickEnabled="True"
+                                    Margin="0,0,8,0"/>
+                            <TextBox Grid.Column="1"
+                                    Width="60"
+                                    Text="{Binding SelectedElement.Properties[ShadowBlur], FallbackValue=5, UpdateSourceTrigger=PropertyChanged}"/>
+                        </Grid>
+
+                        <TextBlock Text="Shadow Offset:" Margin="0,8,0,4"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="X:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                            <TextBox Grid.Column="1" Text="{Binding SelectedElement.Properties[ShadowOffsetX], FallbackValue=2, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,8,0"/>
+                            <TextBlock Grid.Column="2" Text="Y:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                            <TextBox Grid.Column="3" Text="{Binding SelectedElement.Properties[ShadowOffsetY], FallbackValue=2, UpdateSourceTrigger=PropertyChanged}"/>
+                        </Grid>
+                    </StackPanel>
+
+                    <Separator Margin="0,16"/>
+
                     <!-- Text Element Properties -->
                     <StackPanel>
                         <StackPanel.Style>
@@ -158,6 +225,49 @@
 
                         <TextBlock Text="Text Color:" Margin="0,12,0,4"/>
                         <TextBox Text="{Binding SelectedElement.Properties[Color], FallbackValue=#000000, UpdateSourceTrigger=PropertyChanged}"/>
+
+                        <!-- Advanced Text Properties -->
+                        <TextBlock Text="Line Height:" Margin="0,12,0,4"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Slider Grid.Column="0"
+                                   Minimum="0.5"
+                                   Maximum="3"
+                                   Value="{Binding SelectedElement.Properties[LineHeight], FallbackValue=1.2, UpdateSourceTrigger=PropertyChanged}"
+                                   TickFrequency="0.1"
+                                   IsSnapToTickEnabled="False"
+                                   Margin="0,0,8,0"/>
+                            <TextBox Grid.Column="1"
+                                    Width="60"
+                                    Text="{Binding SelectedElement.Properties[LineHeight], FallbackValue=1.2, StringFormat=F2, UpdateSourceTrigger=PropertyChanged}"/>
+                        </Grid>
+
+                        <TextBlock Text="Letter Spacing:" Margin="0,12,0,4"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Slider Grid.Column="0"
+                                   Minimum="-5"
+                                   Maximum="20"
+                                   Value="{Binding SelectedElement.Properties[LetterSpacing], FallbackValue=0, UpdateSourceTrigger=PropertyChanged}"
+                                   TickFrequency="1"
+                                   IsSnapToTickEnabled="True"
+                                   Margin="0,0,8,0"/>
+                            <TextBox Grid.Column="1"
+                                    Width="60"
+                                    Text="{Binding SelectedElement.Properties[LetterSpacing], FallbackValue=0, UpdateSourceTrigger=PropertyChanged}"/>
+                        </Grid>
+
+                        <TextBlock Text="Text Decoration:" Margin="0,12,0,4"/>
+                        <StackPanel Orientation="Horizontal">
+                            <CheckBox Content="Underline" IsChecked="{Binding SelectedElement.Properties[TextDecoration_Underline], FallbackValue=False}" Margin="0,0,12,0"/>
+                            <CheckBox Content="Strikethrough" IsChecked="{Binding SelectedElement.Properties[TextDecoration_Strikethrough], FallbackValue=False}"/>
+                        </StackPanel>
                     </StackPanel>
 
                     <Separator Margin="0,16"/>

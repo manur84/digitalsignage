@@ -52,6 +52,18 @@
         <!-- Grouping -->
         <KeyBinding Command="{Binding Designer.GroupSelectedCommand}" Key="G" Modifiers="Control"/>
         <KeyBinding Command="{Binding Designer.UngroupSelectedCommand}" Key="G" Modifiers="Control+Shift"/>
+
+        <!-- Arrow Key Movement (1px) -->
+        <KeyBinding Command="{Binding Designer.MoveLeftCommand}" CommandParameter="false" Key="Left"/>
+        <KeyBinding Command="{Binding Designer.MoveRightCommand}" CommandParameter="false" Key="Right"/>
+        <KeyBinding Command="{Binding Designer.MoveUpCommand}" CommandParameter="false" Key="Up"/>
+        <KeyBinding Command="{Binding Designer.MoveDownCommand}" CommandParameter="false" Key="Down"/>
+
+        <!-- Arrow Key Movement (10px with Shift) -->
+        <KeyBinding Command="{Binding Designer.MoveLeftCommand}" CommandParameter="true" Key="Left" Modifiers="Shift"/>
+        <KeyBinding Command="{Binding Designer.MoveRightCommand}" CommandParameter="true" Key="Right" Modifiers="Shift"/>
+        <KeyBinding Command="{Binding Designer.MoveUpCommand}" CommandParameter="true" Key="Up" Modifiers="Shift"/>
+        <KeyBinding Command="{Binding Designer.MoveDownCommand}" CommandParameter="true" Key="Down" Modifiers="Shift"/>
     </Window.InputBindings>
 
     <DockPanel>
