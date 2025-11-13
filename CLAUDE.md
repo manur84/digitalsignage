@@ -233,6 +233,12 @@ public object? this[string key]
 - Example: `BorderThickness = 2.0` not `2`
 - WPF throws `InvalidCastException` for Int32 to Double conversion
 
+**Run.Text Binding Mode:**
+- `Run.Text` bindings default to TwoWay in some WPF versions
+- **CRITICAL:** Always use `Mode=OneWay` for readonly properties
+- Example: `<Run Text="{Binding SelectionCount, Mode=OneWay}"/>`
+- Failure to do so causes: `InvalidOperationException: TwoWay binding doesn't work with readonly property`
+
 ### Converter Registration
 
 **App.xaml Resource Registration:**
