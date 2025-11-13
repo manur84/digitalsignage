@@ -20,6 +20,21 @@ public class ClientService : IClientService
     private bool _isInitialized = false;
     private readonly object _initLock = new object();
 
+    /// <summary>
+    /// Event raised when a client connects
+    /// </summary>
+    public event EventHandler<string>? ClientConnected;
+
+    /// <summary>
+    /// Event raised when a client disconnects
+    /// </summary>
+    public event EventHandler<string>? ClientDisconnected;
+
+    /// <summary>
+    /// Event raised when a client status changes
+    /// </summary>
+    public event EventHandler<string>? ClientStatusChanged;
+
     public ClientService(
         ICommunicationService communicationService,
         ILayoutService layoutService,
@@ -268,6 +283,10 @@ public class ClientService : IClientService
                 _logger.LogWarning(ex, "Failed to send registration response to client {ClientId}", client.Id);
             }
 
+            // Raise ClientConnected event
+            ClientConnected?.Invoke(this, client.Id);
+            _logger.LogDebug("Raised ClientConnected event for {ClientId}", client.Id);
+
             return client;
         }
         catch (UnauthorizedAccessException)
@@ -296,6 +315,7 @@ public class ClientService : IClientService
 
         if (_clients.TryGetValue(clientId, out var client))
         {
+            var oldStatus = client.Status;
             client.Status = status;
             client.LastSeen = DateTime.UtcNow;
             if (deviceInfo != null)
@@ -304,6 +324,25 @@ public class ClientService : IClientService
             }
 
             _logger.LogDebug("Updated client {ClientId} status to {Status}", clientId, status);
+
+            // Raise events if status changed
+            if (oldStatus != status)
+            {
+                ClientStatusChanged?.Invoke(this, clientId);
+                _logger.LogDebug("Raised ClientStatusChanged event for {ClientId}: {OldStatus} -> {NewStatus}", clientId, oldStatus, status);
+
+                // Raise specific connect/disconnect events
+                if (status == ClientStatus.Online && oldStatus == ClientStatus.Offline)
+                {
+                    ClientConnected?.Invoke(this, clientId);
+                    _logger.LogDebug("Raised ClientConnected event for {ClientId}", clientId);
+                }
+                else if (status == ClientStatus.Offline && oldStatus == ClientStatus.Online)
+                {
+                    ClientDisconnected?.Invoke(this, clientId);
+                    _logger.LogDebug("Raised ClientDisconnected event for {ClientId}", clientId);
+                }
+            }
 
             // Update in database (async, don't block)
             _ = Task.Run(async () =>

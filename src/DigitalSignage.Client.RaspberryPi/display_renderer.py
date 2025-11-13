@@ -476,31 +476,41 @@ class DisplayRenderer(QWidget):
     async def take_screenshot(self) -> bytes:
         """Take screenshot of the current display"""
         try:
+            import tempfile
+            import os
+
             pixmap = self.grab()
             if pixmap.isNull():
                 logger.error("Failed to grab screenshot: pixmap is null")
                 return b''
 
-            buffer = BytesIO()
+            # Use temporary file instead of BytesIO (PyQt5 doesn't support BytesIO)
+            temp_fd, temp_path = tempfile.mkstemp(suffix='.png')
             try:
-                image = pixmap.toImage()
-                if image.isNull():
-                    logger.error("Failed to convert pixmap to image")
+                os.close(temp_fd)  # Close file descriptor, we only need the path
+
+                # Save pixmap to temporary file
+                if not pixmap.save(temp_path, 'PNG'):
+                    logger.error("Failed to save screenshot to temporary file")
                     return b''
 
-                # Save as PNG to buffer
-                if not image.save(buffer, 'PNG'):
-                    logger.error("Failed to save screenshot to buffer")
-                    return b''
+                # Read the file content
+                with open(temp_path, 'rb') as f:
+                    byte_array = f.read()
 
-                buffer.seek(0)
-                byte_array = buffer.read()
                 logger.debug(f"Screenshot captured: {len(byte_array)} bytes")
                 return byte_array
 
             finally:
-                buffer.close()
+                # Clean up temporary file
+                try:
+                    if os.path.exists(temp_path):
+                        os.unlink(temp_path)
+                except Exception as cleanup_error:
+                    logger.warning(f"Failed to clean up temporary screenshot file: {cleanup_error}")
 
         except Exception as e:
             logger.error(f"Failed to take screenshot: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
             return b''

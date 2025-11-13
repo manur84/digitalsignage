@@ -87,6 +87,10 @@ public class MessageHandlerService : BackgroundService
                 await HandleScreenshotMessageAsync(clientId, message);
                 break;
 
+            case "UPDATE_CONFIG_RESPONSE":
+                await HandleUpdateConfigResponseAsync(clientId, message);
+                break;
+
             default:
                 _logger.LogWarning("Unknown message type {MessageType} from client {ClientId}", message.Type, clientId);
                 break;
@@ -214,6 +218,31 @@ public class MessageHandlerService : BackgroundService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error handling SCREENSHOT message from client {ClientId}", clientId);
+        }
+    }
+
+    private async Task HandleUpdateConfigResponseAsync(string clientId, Message message)
+    {
+        try
+        {
+            var responseMessage = DeserializeMessage<UpdateConfigResponseMessage>(message);
+            if (responseMessage != null)
+            {
+                if (responseMessage.Success)
+                {
+                    _logger.LogInformation("Client {ClientId} successfully updated configuration", clientId);
+                }
+                else
+                {
+                    _logger.LogWarning("Client {ClientId} failed to update configuration: {Error}",
+                        clientId,
+                        responseMessage.ErrorMessage ?? "Unknown error");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error handling UPDATE_CONFIG_RESPONSE message from client {ClientId}", clientId);
         }
     }
 

@@ -15,4 +15,19 @@ public interface IClientService
     Task<bool> AssignLayoutAsync(string clientId, string layoutId, CancellationToken cancellationToken = default);
     Task<bool> RemoveClientAsync(string clientId, CancellationToken cancellationToken = default);
     Task<bool> UpdateClientConfigAsync(string clientId, UpdateConfigMessage config, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Event raised when a client connects
+    /// </summary>
+    event EventHandler<string>? ClientConnected;
+
+    /// <summary>
+    /// Event raised when a client disconnects
+    /// </summary>
+    event EventHandler<string>? ClientDisconnected;
+
+    /// <summary>
+    /// Event raised when a client status changes
+    /// </summary>
+    event EventHandler<string>? ClientStatusChanged;
 }
