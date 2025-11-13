@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using DigitalSignage.Core.Models;
@@ -13,6 +14,7 @@ public class DesignerItemControl : ContentControl
 {
     private Point _dragStartPosition;
     private bool _isDragging;
+    private AlignmentGuidesAdorner? _alignmentAdorner;
 
     public static readonly DependencyProperty DisplayElementProperty =
         DependencyProperty.Register(
@@ -410,6 +412,18 @@ public class DesignerItemControl : ContentControl
             _isDragging = true;
             CaptureMouse();
 
+            // Create alignment adorner on the canvas
+            var designerCanvas = FindDesignerCanvas(this);
+            if (designerCanvas != null)
+            {
+                var adornerLayer = AdornerLayer.GetAdornerLayer(designerCanvas);
+                if (adornerLayer != null)
+                {
+                    _alignmentAdorner = new AlignmentGuidesAdorner(designerCanvas);
+                    adornerLayer.Add(_alignmentAdorner);
+                }
+            }
+
             // Raise selection event
             RaiseEvent(new RoutedEventArgs(SelectedEvent, this));
 
@@ -426,13 +440,30 @@ public class DesignerItemControl : ContentControl
 
             if (DisplayElement != null)
             {
-                // Snap to grid if DesignerCanvas exists in visual tree
+                var designerCanvas = FindDesignerCanvas(this);
                 var newX = DisplayElement.Position.X + delta.X;
                 var newY = DisplayElement.Position.Y + delta.Y;
 
-                var designerCanvas = FindDesignerCanvas(this);
-                if (designerCanvas != null)
+                // Calculate snapped position with alignment guides
+                if (_alignmentAdorner != null && designerCanvas != null)
                 {
+                    // Get bounds of current element
+                    var currentBounds = new Rect(newX, newY, DisplayElement.Size.Width, DisplayElement.Size.Height);
+
+                    // Get bounds of canvas
+                    var canvasBounds = new Rect(0, 0, designerCanvas.ActualWidth, designerCanvas.ActualHeight);
+
+                    // Get bounds of all other elements on the canvas
+                    var otherElementBounds = GetOtherElementBounds(designerCanvas);
+
+                    // Calculate snapped position and update alignment guides
+                    var snappedPoint = _alignmentAdorner.CalculateSnappedPosition(currentBounds, otherElementBounds, canvasBounds);
+                    newX = snappedPoint.X;
+                    newY = snappedPoint.Y;
+                }
+                else if (designerCanvas != null)
+                {
+                    // Fallback to simple grid snapping if adorner not available
                     var snappedPoint = designerCanvas.SnapPoint(new Point(newX, newY));
                     newX = snappedPoint.X;
                     newY = snappedPoint.Y;
@@ -465,12 +496,48 @@ public class DesignerItemControl : ContentControl
         return null;
     }
 
+    /// <summary>
+    /// Gets the bounds of all other DesignerItemControls on the canvas (excluding this one)
+    /// </summary>
+    private IEnumerable<Rect> GetOtherElementBounds(DesignerCanvas canvas)
+    {
+        var bounds = new List<Rect>();
+
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(canvas); i++)
+        {
+            var child = VisualTreeHelper.GetChild(canvas, i);
+            if (child is DesignerItemControl itemControl && itemControl != this && itemControl.DisplayElement != null)
+            {
+                var element = itemControl.DisplayElement;
+                bounds.Add(new Rect(element.Position.X, element.Position.Y, element.Size.Width, element.Size.Height));
+            }
+        }
+
+        return bounds;
+    }
+
     private void OnMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
         if (_isDragging)
         {
             _isDragging = false;
             ReleaseMouseCapture();
+
+            // Remove alignment adorner
+            if (_alignmentAdorner != null)
+            {
+                var designerCanvas = FindDesignerCanvas(this);
+                if (designerCanvas != null)
+                {
+                    var adornerLayer = AdornerLayer.GetAdornerLayer(designerCanvas);
+                    if (adornerLayer != null)
+                    {
+                        adornerLayer.Remove(_alignmentAdorner);
+                    }
+                }
+                _alignmentAdorner = null;
+            }
+
             e.Handled = true;
         }
     }
