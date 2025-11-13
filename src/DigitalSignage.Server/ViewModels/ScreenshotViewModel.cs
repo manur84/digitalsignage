@@ -70,13 +70,17 @@ public partial class ScreenshotViewModel : ObservableObject
             _logger.LogDebug("Decoded {ByteCount} bytes from base64", imageBytes.Length);
 
             // Create BitmapImage from bytes
-            using var ms = new MemoryStream(imageBytes);
+            // IMPORTANT: Don't use 'using' statement here - the stream must remain open until BeginInit/EndInit completes
+            var ms = new MemoryStream(imageBytes);
             var bitmap = new BitmapImage();
             bitmap.BeginInit();
+            bitmap.CacheOption = BitmapCacheOption.OnLoad; // Load image into memory immediately
             bitmap.StreamSource = ms;
-            bitmap.CacheOption = BitmapCacheOption.OnLoad;
             bitmap.EndInit();
             bitmap.Freeze(); // Important for cross-thread access
+
+            // Now we can safely dispose the stream since OnLoad cached the image
+            ms.Dispose();
 
             ScreenshotImage = bitmap;
             StatusMessage = $"Screenshot loaded successfully ({imageBytes.Length / 1024} KB)";

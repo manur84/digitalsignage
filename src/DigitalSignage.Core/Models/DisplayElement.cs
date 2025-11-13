@@ -42,6 +42,82 @@ public partial class DisplayElement : ObservableObject
 
     [ObservableProperty]
     private Animation? _animation;
+
+    /// <summary>
+    /// Initializes default properties for all element types
+    /// This prevents KeyNotFoundException when binding in XAML
+    /// </summary>
+    public void InitializeDefaultProperties()
+    {
+        // Common properties for all elements
+        EnsureProperty("Rotation", 0.0);
+        EnsureProperty("IsVisible", true);
+        EnsureProperty("IsLocked", false);
+
+        // Initialize type-specific properties based on element type
+        switch (Type.ToLower())
+        {
+            case "text":
+                EnsureProperty("Content", string.Empty);
+                EnsureProperty("FontFamily", "Arial");
+                EnsureProperty("FontSize", 24);
+                EnsureProperty("FontWeight", "Normal");
+                EnsureProperty("FontStyle", "Normal");
+                EnsureProperty("Color", "#000000");
+                EnsureProperty("TextAlign", "Left");
+                EnsureProperty("VerticalAlign", "Top");
+                EnsureProperty("WordWrap", true);
+                break;
+
+            case "image":
+                EnsureProperty("Source", string.Empty);
+                EnsureProperty("Stretch", "Uniform");
+                EnsureProperty("AltText", string.Empty);
+                break;
+
+            case "rectangle":
+            case "shape":
+            case "circle":
+                EnsureProperty("FillColor", "#FFFFFF");
+                EnsureProperty("BorderColor", "#000000");
+                EnsureProperty("BorderThickness", 1);
+                EnsureProperty("CornerRadius", 0);
+                break;
+
+            case "qrcode":
+                EnsureProperty("Data", string.Empty);
+                EnsureProperty("ErrorCorrection", "M");
+                EnsureProperty("ForegroundColor", "#000000");
+                EnsureProperty("BackgroundColor", "#FFFFFF");
+                break;
+
+            case "table":
+                EnsureProperty("HeaderBackground", "#EEEEEE");
+                EnsureProperty("RowBackground", "#FFFFFF");
+                EnsureProperty("AlternateRowBackground", "#F9F9F9");
+                EnsureProperty("BorderColor", "#CCCCCC");
+                EnsureProperty("BorderWidth", 1);
+                break;
+
+            case "datetime":
+                EnsureProperty("Format", "yyyy-MM-dd HH:mm:ss");
+                EnsureProperty("FontFamily", "Arial");
+                EnsureProperty("FontSize", 24);
+                EnsureProperty("Color", "#000000");
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Ensures a property exists with a default value if not already set
+    /// </summary>
+    private void EnsureProperty(string key, object defaultValue)
+    {
+        if (!Properties.ContainsKey(key))
+        {
+            Properties[key] = defaultValue;
+        }
+    }
 }
 
 public partial class Position : ObservableObject

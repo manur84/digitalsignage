@@ -153,6 +153,8 @@ public partial class DesignerViewModel : ObservableObject
             {
                 foreach (var element in layout.Elements)
                 {
+                    // Initialize default properties for loaded elements to prevent KeyNotFoundException
+                    element.InitializeDefaultProperties();
                     Elements.Add(element);
                 }
             }
@@ -215,6 +217,9 @@ public partial class DesignerViewModel : ObservableObject
             }
         };
 
+        // Initialize all default properties to prevent KeyNotFoundException
+        textElement.InitializeDefaultProperties();
+
         var command = new AddElementCommand(Elements, textElement);
         CommandHistory.ExecuteCommand(command);
         SelectedElement = textElement;
@@ -239,6 +244,9 @@ public partial class DesignerViewModel : ObservableObject
                 ["Stretch"] = "Uniform"
             }
         };
+
+        // Initialize all default properties to prevent KeyNotFoundException
+        imageElement.InitializeDefaultProperties();
 
         var command = new AddElementCommand(Elements, imageElement);
         CommandHistory.ExecuteCommand(command);
@@ -265,6 +273,9 @@ public partial class DesignerViewModel : ObservableObject
                 ["BorderThickness"] = 2
             }
         };
+
+        // Initialize all default properties to prevent KeyNotFoundException
+        rectangleElement.InitializeDefaultProperties();
 
         var command = new AddElementCommand(Elements, rectangleElement);
         CommandHistory.ExecuteCommand(command);
@@ -334,6 +345,9 @@ public partial class DesignerViewModel : ObservableObject
                 ZIndex = Elements.Count,
                 Properties = new Dictionary<string, object>(SelectedElement.Properties)
             };
+
+            // Ensure all default properties are initialized
+            duplicate.InitializeDefaultProperties();
 
             Elements.Add(duplicate);
             SelectedElement = duplicate;
@@ -705,6 +719,9 @@ public partial class DesignerViewModel : ObservableObject
                 ZIndex = Elements.Count + newElements.Count,
                 Properties = new Dictionary<string, object>(element.Properties)
             };
+
+            // Ensure all default properties are initialized
+            duplicate.InitializeDefaultProperties();
 
             newElements.Add(duplicate);
             Elements.Add(duplicate);
