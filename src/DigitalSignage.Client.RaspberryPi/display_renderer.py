@@ -7,9 +7,10 @@ from typing import Dict, Any, Optional
 from io import BytesIO
 
 from PyQt5.QtWidgets import QWidget, QLabel
-from PyQt5.QtCore import Qt, QRect
+from PyQt5.QtCore import Qt, QRect, QTimer
 from PyQt5.QtGui import QPixmap, QFont, QColor, QPainter, QImage
 import qrcode
+from datetime import datetime
 
 # Import status screen manager
 from status_screen import StatusScreenManager
@@ -67,6 +68,16 @@ class DisplayRenderer(QWidget):
                 except Exception as e:
                     logger.warning(f"Failed to delete element: {e}")
             self.elements.clear()
+
+            # Stop and clear all datetime timers
+            if hasattr(self, '_datetime_timers'):
+                for timer in self._datetime_timers:
+                    try:
+                        timer.stop()
+                        timer.deleteLater()
+                    except Exception as e:
+                        logger.warning(f"Failed to stop datetime timer: {e}")
+                self._datetime_timers.clear()
 
             # Set background
             bg_color = layout.get('BackgroundColor', '#FFFFFF')
@@ -160,6 +171,8 @@ class DisplayRenderer(QWidget):
                 return self.create_shape_element(x, y, width, height, properties)
             elif element_type == 'qrcode':
                 return self.create_qrcode_element(x, y, width, height, properties, data)
+            elif element_type == 'datetime':
+                return self.create_datetime_element(x, y, width, height, properties)
             else:
                 logger.warning(f"Unknown element type: {element_type}")
                 return None
@@ -425,6 +438,168 @@ class DisplayRenderer(QWidget):
         except Exception as e:
             logger.error(f"Failed to create QR code element: {e}")
             return None
+
+    def create_datetime_element(
+        self,
+        x: int, y: int,
+        width: int, height: int,
+        properties: Dict[str, Any]
+    ) -> Optional[QLabel]:
+        """
+        Create a DateTime element with auto-update functionality.
+        The element displays current date/time and updates automatically at specified intervals.
+        """
+        try:
+            label = QLabel(self)
+            label.setGeometry(x, y, width, height)
+
+            # Get format string (C# DateTime format, needs conversion to Python strftime format)
+            format_string = properties.get('Format', '%Y-%m-%d %H:%M:%S')
+            if not isinstance(format_string, str):
+                logger.warning(f"DateTime format is not a string: {type(format_string)}, using default")
+                format_string = '%Y-%m-%d %H:%M:%S'
+
+            # Convert C# DateTime format to Python strftime format if needed
+            format_string = self.convert_csharp_format_to_python(format_string)
+
+            # Get update interval (in milliseconds)
+            update_interval = properties.get('UpdateInterval', 1000)
+            try:
+                update_interval = int(update_interval)
+                if update_interval < 100:  # Minimum 100ms
+                    logger.warning(f"UpdateInterval too small ({update_interval}ms), using 100ms minimum")
+                    update_interval = 100
+                elif update_interval > 3600000:  # Maximum 1 hour
+                    logger.warning(f"UpdateInterval too large ({update_interval}ms), using 1 hour maximum")
+                    update_interval = 3600000
+            except (ValueError, TypeError) as e:
+                logger.warning(f"Invalid UpdateInterval: {e}, using default 1000ms")
+                update_interval = 1000
+
+            # Set font properties
+            try:
+                font_family = properties.get('FontFamily', 'Arial')
+                font_size = properties.get('FontSize', 24)
+
+                if not isinstance(font_size, (int, float)):
+                    logger.warning(f"Invalid font size: {font_size}, using default")
+                    font_size = 24
+
+                font = QFont(font_family, int(font_size))
+                font_weight = properties.get('FontWeight', 'normal')
+                if font_weight == 'bold':
+                    font.setBold(True)
+
+                label.setFont(font)
+            except Exception as e:
+                logger.warning(f"Failed to set DateTime font properties: {e}")
+
+            # Set color
+            try:
+                color = properties.get('Color', '#000000')
+                label.setStyleSheet(f"color: {color};")
+            except Exception as e:
+                logger.warning(f"Failed to set DateTime color: {e}")
+
+            # Set alignment
+            try:
+                text_align = properties.get('TextAlign', 'center')
+                alignment = Qt.AlignCenter
+                if text_align == 'left':
+                    alignment = Qt.AlignLeft | Qt.AlignVCenter
+                elif text_align == 'right':
+                    alignment = Qt.AlignRight | Qt.AlignVCenter
+
+                label.setAlignment(alignment)
+            except Exception as e:
+                logger.warning(f"Failed to set DateTime alignment: {e}")
+
+            # Function to update the datetime display
+            def update_datetime():
+                try:
+                    current_time = datetime.now()
+                    formatted_time = current_time.strftime(format_string)
+                    label.setText(formatted_time)
+                except Exception as e:
+                    logger.error(f"Failed to update datetime display: {e}")
+                    label.setText("ERROR")
+
+            # Initial update
+            update_datetime()
+
+            # Create timer for auto-update
+            timer = QTimer(self)
+            timer.timeout.connect(update_datetime)
+            timer.start(update_interval)
+
+            # Store timer reference to prevent garbage collection
+            if not hasattr(self, '_datetime_timers'):
+                self._datetime_timers = []
+            self._datetime_timers.append(timer)
+
+            logger.debug(f"DateTime element created with format '{format_string}' and update interval {update_interval}ms")
+
+            return label
+
+        except Exception as e:
+            logger.error(f"Failed to create DateTime element: {e}")
+            return None
+
+    def convert_csharp_format_to_python(self, csharp_format: str) -> str:
+        """
+        Convert C# DateTime format strings to Python strftime format.
+        Common conversions:
+        - dddd → %A (full weekday name)
+        - ddd → %a (abbreviated weekday name)
+        - dd → %d (day of month, zero-padded)
+        - d → %-d (day of month, no padding)
+        - MMMM → %B (full month name)
+        - MMM → %b (abbreviated month name)
+        - MM → %m (month, zero-padded)
+        - M → %-m (month, no padding)
+        - yyyy → %Y (4-digit year)
+        - yy → %y (2-digit year)
+        - HH → %H (24-hour, zero-padded)
+        - H → %-H (24-hour, no padding)
+        - hh → %I (12-hour, zero-padded)
+        - h → %-I (12-hour, no padding)
+        - mm → %M (minute, zero-padded)
+        - m → %-M (minute, no padding)
+        - ss → %S (second, zero-padded)
+        - s → %-S (second, no padding)
+        - tt → %p (AM/PM)
+        """
+        if not csharp_format:
+            return '%Y-%m-%d %H:%M:%S'
+
+        # If it's already a Python format (starts with %), return as-is
+        if '%' in csharp_format:
+            return csharp_format
+
+        try:
+            # Replace C# format specifiers with Python equivalents
+            # Order matters! Replace longer patterns first
+            result = csharp_format
+            result = result.replace('dddd', '%A')  # Full weekday name
+            result = result.replace('ddd', '%a')   # Abbreviated weekday name
+            result = result.replace('dd', '%d')    # Day of month (zero-padded)
+            result = result.replace('MMMM', '%B')  # Full month name
+            result = result.replace('MMM', '%b')   # Abbreviated month name
+            result = result.replace('MM', '%m')    # Month (zero-padded)
+            result = result.replace('yyyy', '%Y')  # 4-digit year
+            result = result.replace('yy', '%y')    # 2-digit year
+            result = result.replace('HH', '%H')    # 24-hour (zero-padded)
+            result = result.replace('hh', '%I')    # 12-hour (zero-padded)
+            result = result.replace('mm', '%M')    # Minute (zero-padded)
+            result = result.replace('ss', '%S')    # Second (zero-padded)
+            result = result.replace('tt', '%p')    # AM/PM
+
+            logger.debug(f"Converted C# format '{csharp_format}' to Python format '{result}'")
+            return result
+
+        except Exception as e:
+            logger.error(f"Failed to convert format string '{csharp_format}': {e}, using default")
+            return '%Y-%m-%d %H:%M:%S'
 
     def replace_variables(self, text: str, data: Dict[str, Any]) -> str:
         """Replace {{variable.name}} placeholders with actual data"""
