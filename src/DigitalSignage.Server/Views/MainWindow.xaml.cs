@@ -17,77 +17,101 @@ public partial class MainWindow : Window
 
         // Subscribe to element selection events
         AddHandler(DesignerItemControl.SelectedEvent, new RoutedEventHandler(OnElementSelected));
-
-        // Register keyboard shortcuts
-        RegisterKeyboardShortcuts();
     }
 
-    private void RegisterKeyboardShortcuts()
+    public MainViewModel ViewModel => (MainViewModel)DataContext;
+
+    protected override void OnPreviewKeyDown(KeyEventArgs e)
     {
-        // Text Element - T
-        var addTextGesture = new KeyGesture(Key.T);
-        var addTextBinding = new KeyBinding(((MainViewModel)DataContext).Designer.AddTextElementCommand, addTextGesture);
-        InputBindings.Add(addTextBinding);
+        base.OnPreviewKeyDown(e);
 
-        // Image Element - I
-        var addImageGesture = new KeyGesture(Key.I);
-        var addImageBinding = new KeyBinding(((MainViewModel)DataContext).Designer.AddImageElementCommand, addImageGesture);
-        InputBindings.Add(addImageBinding);
+        // Ignore keyboard shortcuts when typing in text input controls
+        if (e.OriginalSource is System.Windows.Controls.TextBox ||
+            e.OriginalSource is System.Windows.Controls.ComboBox)
+        {
+            return;
+        }
 
-        // Rectangle Element - R
-        var addRectGesture = new KeyGesture(Key.R);
-        var addRectBinding = new KeyBinding(((MainViewModel)DataContext).Designer.AddRectangleElementCommand, addRectGesture);
-        InputBindings.Add(addRectBinding);
+        // Single keys without modifiers
+        if (Keyboard.Modifiers == ModifierKeys.None)
+        {
+            switch (e.Key)
+            {
+                case Key.T:
+                    ViewModel?.Designer?.AddTextElementCommand?.Execute(null);
+                    e.Handled = true;
+                    break;
 
-        // Delete - Delete Key
-        var deleteGesture = new KeyGesture(Key.Delete);
-        var deleteBinding = new KeyBinding(((MainViewModel)DataContext).Designer.DeleteSelectedElementCommand, deleteGesture);
-        InputBindings.Add(deleteBinding);
+                case Key.I:
+                    ViewModel?.Designer?.AddImageElementCommand?.Execute(null);
+                    e.Handled = true;
+                    break;
 
-        // Duplicate - Ctrl+D
-        var duplicateGesture = new KeyGesture(Key.D, ModifierKeys.Control);
-        var duplicateBinding = new KeyBinding(((MainViewModel)DataContext).Designer.DuplicateSelectedElementCommand, duplicateGesture);
-        InputBindings.Add(duplicateBinding);
+                case Key.R:
+                    ViewModel?.Designer?.AddRectangleElementCommand?.Execute(null);
+                    e.Handled = true;
+                    break;
 
-        // Select All - Ctrl+A
-        var selectAllGesture = new KeyGesture(Key.A, ModifierKeys.Control);
-        var selectAllBinding = new KeyBinding(((MainViewModel)DataContext).Designer.SelectAllCommand, selectAllGesture);
-        InputBindings.Add(selectAllBinding);
+                case Key.Delete:
+                    ViewModel?.Designer?.DeleteSelectedElementCommand?.Execute(null);
+                    e.Handled = true;
+                    break;
 
-        // Clear Selection - Escape
-        var clearSelGesture = new KeyGesture(Key.Escape);
-        var clearSelBinding = new KeyBinding(((MainViewModel)DataContext).Designer.ClearSelectionCommand, clearSelGesture);
-        InputBindings.Add(clearSelBinding);
+                case Key.Escape:
+                    ViewModel?.Designer?.ClearSelectionCommand?.Execute(null);
+                    e.Handled = true;
+                    break;
+            }
+        }
+        // Keys with Ctrl modifier
+        else if (Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            switch (e.Key)
+            {
+                case Key.D:
+                    ViewModel?.Designer?.DuplicateSelectedElementCommand?.Execute(null);
+                    e.Handled = true;
+                    break;
 
-        // Undo - Ctrl+Z
-        var undoGesture = new KeyGesture(Key.Z, ModifierKeys.Control);
-        var undoBinding = new KeyBinding(((MainViewModel)DataContext).Designer.UndoCommand, undoGesture);
-        InputBindings.Add(undoBinding);
+                case Key.A:
+                    ViewModel?.Designer?.SelectAllCommand?.Execute(null);
+                    e.Handled = true;
+                    break;
 
-        // Redo - Ctrl+Y
-        var redoGesture = new KeyGesture(Key.Y, ModifierKeys.Control);
-        var redoBinding = new KeyBinding(((MainViewModel)DataContext).Designer.RedoCommand, redoGesture);
-        InputBindings.Add(redoBinding);
+                case Key.Z:
+                    ViewModel?.Designer?.UndoCommand?.Execute(null);
+                    e.Handled = true;
+                    break;
 
-        // Save - Ctrl+S
-        var saveGesture = new KeyGesture(Key.S, ModifierKeys.Control);
-        var saveBinding = new KeyBinding(((MainViewModel)DataContext).Designer.SaveLayoutCommand, saveGesture);
-        InputBindings.Add(saveBinding);
+                case Key.Y:
+                    ViewModel?.Designer?.RedoCommand?.Execute(null);
+                    e.Handled = true;
+                    break;
 
-        // Zoom In - Ctrl+Plus
-        var zoomInGesture = new KeyGesture(Key.OemPlus, ModifierKeys.Control);
-        var zoomInBinding = new KeyBinding(((MainViewModel)DataContext).Designer.ZoomInCommand, zoomInGesture);
-        InputBindings.Add(zoomInBinding);
+                case Key.S:
+                    ViewModel?.Designer?.SaveLayoutCommand?.Execute(null);
+                    e.Handled = true;
+                    break;
 
-        // Zoom Out - Ctrl+Minus
-        var zoomOutGesture = new KeyGesture(Key.OemMinus, ModifierKeys.Control);
-        var zoomOutBinding = new KeyBinding(((MainViewModel)DataContext).Designer.ZoomOutCommand, zoomOutGesture);
-        InputBindings.Add(zoomOutBinding);
+                case Key.OemPlus:
+                case Key.Add:
+                    ViewModel?.Designer?.ZoomInCommand?.Execute(null);
+                    e.Handled = true;
+                    break;
 
-        // Zoom to Fit - Ctrl+0
-        var zoomFitGesture = new KeyGesture(Key.D0, ModifierKeys.Control);
-        var zoomFitBinding = new KeyBinding(((MainViewModel)DataContext).Designer.ZoomToFitCommand, zoomFitGesture);
-        InputBindings.Add(zoomFitBinding);
+                case Key.OemMinus:
+                case Key.Subtract:
+                    ViewModel?.Designer?.ZoomOutCommand?.Execute(null);
+                    e.Handled = true;
+                    break;
+
+                case Key.D0:
+                case Key.NumPad0:
+                    ViewModel?.Designer?.ZoomToFitCommand?.Execute(null);
+                    e.Handled = true;
+                    break;
+            }
+        }
     }
 
     private void Exit_Click(object sender, RoutedEventArgs e)
