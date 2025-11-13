@@ -733,6 +733,12 @@ class DigitalSignageClient:
         logger.info("AUTOMATIC RECONNECTION STARTED")
         logger.info("=" * 70)
 
+        # Log disconnect behavior mode
+        if self.config.show_cached_layout_on_disconnect:
+            logger.info("Reconnect mode: SILENT (no status screens, cached layout displayed)")
+        else:
+            logger.info("Reconnect mode: VISIBLE (status screens shown during reconnection)")
+
         # Show disconnected status only if configured to NOT show cached layout
         # or if no cached layout is available
         if not self.config.show_cached_layout_on_disconnect:
@@ -762,8 +768,8 @@ class DigitalSignageClient:
                         if discovered_url:
                             logger.info(f"✓ Server discovered: {discovered_url}")
 
-                            # Show "Server Found" status
-                            if self.display_renderer:
+                            # Show "Server Found" status only if not showing cached layout
+                            if self.display_renderer and not self.config.show_cached_layout_on_disconnect:
                                 self.display_renderer.status_screen_manager.show_server_found(discovered_url)
 
                             # Update config with discovered server
@@ -878,7 +884,8 @@ class DigitalSignageClient:
             logger.info("=" * 70)
             self.watchdog.notify_status("Searching for servers via Auto-Discovery...")
 
-            # Show discovering server status screen
+            # Show discovering server status screen (only during initial startup, not when reconnecting)
+            # Note: This is called during start(), not during reconnection, so we always show it
             if self.display_renderer:
                 self.display_renderer.status_screen_manager.show_discovering_server("mDNS/Zeroconf + UDP Broadcast")
 
