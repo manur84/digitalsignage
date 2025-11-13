@@ -18,6 +18,7 @@
         <local:LogLevelToColorConverter x:Key="LogLevelToColorConverter"/>
         <local:LogLevelToBackgroundConverter x:Key="LogLevelToBackgroundConverter"/>
         <local:LogLevelToStringConverter x:Key="LogLevelToStringConverter"/>
+        <local:ElementTypeToVisibilityConverter x:Key="ElementTypeToVisibilityConverter"/>
     </Window.Resources>
 
     <DockPanel>
@@ -566,18 +567,7 @@
                                     <Separator Margin="0,16"/>
 
                                     <!-- Rectangle/Shape Properties -->
-                                    <StackPanel>
-                                        <StackPanel.Style>
-                                            <Style TargetType="StackPanel">
-                                                <Setter Property="Visibility" Value="Collapsed"/>
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding Designer.SelectedElement.Type}" Value="rectangle">
-                                                        <Setter Property="Visibility" Value="Visible"/>
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </StackPanel.Style>
-
+                                    <StackPanel Visibility="{Binding Designer.SelectedElement.Type, Converter={StaticResource ElementTypeToVisibilityConverter}, ConverterParameter='rectangle,shape,circle'}">
                                         <TextBlock Text="Rectangle Properties" FontWeight="SemiBold" Margin="0,0,0,8"/>
 
                                         <TextBlock Text="Fill Color:" Margin="0,4,0,2"/>

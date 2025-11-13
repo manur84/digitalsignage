@@ -60,7 +60,7 @@ public partial class DisplayElement : ObservableObject
             case "text":
                 EnsureProperty("Content", string.Empty);
                 EnsureProperty("FontFamily", "Arial");
-                EnsureProperty("FontSize", 24);
+                EnsureProperty("FontSize", 24.0);
                 EnsureProperty("FontWeight", "Normal");
                 EnsureProperty("FontStyle", "Normal");
                 EnsureProperty("Color", "#000000");
@@ -80,8 +80,8 @@ public partial class DisplayElement : ObservableObject
             case "circle":
                 EnsureProperty("FillColor", "#FFFFFF");
                 EnsureProperty("BorderColor", "#000000");
-                EnsureProperty("BorderThickness", 1);
-                EnsureProperty("CornerRadius", 0);
+                EnsureProperty("BorderThickness", 1.0);
+                EnsureProperty("CornerRadius", 0.0);
                 break;
 
             case "qrcode":
@@ -96,13 +96,13 @@ public partial class DisplayElement : ObservableObject
                 EnsureProperty("RowBackground", "#FFFFFF");
                 EnsureProperty("AlternateRowBackground", "#F9F9F9");
                 EnsureProperty("BorderColor", "#CCCCCC");
-                EnsureProperty("BorderWidth", 1);
+                EnsureProperty("BorderWidth", 1.0);
                 break;
 
             case "datetime":
                 EnsureProperty("Format", "yyyy-MM-dd HH:mm:ss");
                 EnsureProperty("FontFamily", "Arial");
-                EnsureProperty("FontSize", 24);
+                EnsureProperty("FontSize", 24.0);
                 EnsureProperty("Color", "#000000");
                 break;
         }
