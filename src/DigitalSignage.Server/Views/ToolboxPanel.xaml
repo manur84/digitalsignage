@@ -31,12 +31,12 @@
                             Padding="8">
                         <TextBlock Text="T" FontSize="20" FontWeight="Bold"/>
                     </Button>
-                    <Button ToolTip="Image"
-                            Command="{Binding AddImageElementCommand}"
+                    <Button ToolTip="Media Library"
+                            Command="{Binding AddMediaLibraryElementCommand}"
                             Style="{StaticResource SecondaryButton}"
                             Margin="0,4"
                             Padding="8">
-                        <TextBlock Text="🖼" FontSize="18"/>
+                        <TextBlock Text="📚" FontSize="18"/>
                     </Button>
                     <Button ToolTip="Rectangle"
                             Command="{Binding AddRectangleElementCommand}"

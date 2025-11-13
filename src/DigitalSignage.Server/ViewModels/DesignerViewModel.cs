@@ -326,6 +326,79 @@ public partial class DesignerViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void AddMediaLibraryElement()
+    {
+        _logger.LogInformation("=== Adding Media Library Element ===");
+
+        try
+        {
+            // Get services from DI container
+            var mediaService = App.GetService<EnhancedMediaService>();
+            var viewModelLogger = App.GetService<Microsoft.Extensions.Logging.ILogger<MediaBrowserViewModel>>();
+            var dialogLogger = App.GetService<Microsoft.Extensions.Logging.ILogger<Views.Dialogs.MediaBrowserDialog>>();
+
+            // Create ViewModel
+            var viewModel = new MediaBrowserViewModel(mediaService, viewModelLogger);
+
+            // Create and show dialog
+            var dialog = new Views.Dialogs.MediaBrowserDialog(viewModel, dialogLogger)
+            {
+                Owner = System.Windows.Application.Current.MainWindow
+            };
+
+            if (dialog.ShowDialog() == true && dialog.SelectedMedia != null)
+            {
+                _logger.LogInformation("Media selected: {FilePath}", dialog.SelectedMedia.FilePath);
+
+                // Create image element with selected media
+                var imageElement = new DisplayElement
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    Type = "image",
+                    Name = $"Media {Elements.Count + 1}",
+                    Position = new Position { X = 100, Y = 100 },
+                    Size = new Size { Width = 300, Height = 200 },
+                    ZIndex = Elements.Count,
+                    Properties = new Dictionary<string, object>
+                    {
+                        ["Source"] = dialog.SelectedMedia.FilePath,
+                        ["Stretch"] = "Uniform"
+                    }
+                };
+
+                // Initialize all default properties to prevent KeyNotFoundException
+                imageElement.InitializeDefaultProperties();
+
+                _logger.LogInformation("Position: ({X}, {Y})", imageElement.Position.X, imageElement.Position.Y);
+                _logger.LogInformation("Size: {Width}x{Height}", imageElement.Size.Width, imageElement.Size.Height);
+                _logger.LogInformation("Source: {Source}", imageElement["Source"]);
+
+                var command = new AddElementCommand(Elements, imageElement);
+                CommandHistory.ExecuteCommand(command);
+
+                _logger.LogInformation("Element added. Total elements: {Count}", Elements.Count);
+
+                SelectedElement = imageElement;
+                UpdateLayers();
+                _logger.LogInformation("=== Media Library Element Added Successfully ===");
+            }
+            else
+            {
+                _logger.LogInformation("Media selection cancelled, no element added");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error adding media library element");
+            System.Windows.MessageBox.Show(
+                $"Fehler beim Hinzufügen des Media-Elements:\n\n{ex.Message}",
+                "Fehler",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Error);
+        }
+    }
+
+    [RelayCommand]
     private void AddRectangleElement()
     {
         var rectangleElement = new DisplayElement
