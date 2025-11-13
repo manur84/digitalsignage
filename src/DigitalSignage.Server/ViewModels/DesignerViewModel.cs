@@ -285,6 +285,122 @@ public partial class DesignerViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void AddCircleElement()
+    {
+        var circleElement = new DisplayElement
+        {
+            Id = Guid.NewGuid().ToString(),
+            Type = "circle",
+            Name = $"Circle {Elements.Count + 1}",
+            Position = new Position { X = 100, Y = 100 },
+            Size = new Size { Width = 150, Height = 150 },
+            ZIndex = Elements.Count,
+            Properties = new Dictionary<string, object>
+            {
+                ["FillColor"] = "#FFD700",
+                ["BorderColor"] = "#FF8C00",
+                ["BorderThickness"] = 2
+            }
+        };
+
+        circleElement.InitializeDefaultProperties();
+        var command = new AddElementCommand(Elements, circleElement);
+        CommandHistory.ExecuteCommand(command);
+        SelectedElement = circleElement;
+        UpdateLayers();
+        _logger.LogDebug("Added circle element: {ElementName}", circleElement.Name);
+    }
+
+    [RelayCommand]
+    private void AddQRCodeElement()
+    {
+        var qrCodeElement = new DisplayElement
+        {
+            Id = Guid.NewGuid().ToString(),
+            Type = "qrcode",
+            Name = $"QR Code {Elements.Count + 1}",
+            Position = new Position { X = 100, Y = 100 },
+            Size = new Size { Width = 200, Height = 200 },
+            ZIndex = Elements.Count,
+            Properties = new Dictionary<string, object>
+            {
+                ["Content"] = "https://example.com",
+                ["ForegroundColor"] = "#000000",
+                ["BackgroundColor"] = "#FFFFFF",
+                ["ErrorCorrectionLevel"] = "M"
+            }
+        };
+
+        qrCodeElement.InitializeDefaultProperties();
+        var command = new AddElementCommand(Elements, qrCodeElement);
+        CommandHistory.ExecuteCommand(command);
+        SelectedElement = qrCodeElement;
+        UpdateLayers();
+        _logger.LogDebug("Added QR code element: {ElementName}", qrCodeElement.Name);
+    }
+
+    [RelayCommand]
+    private void AddTableElement()
+    {
+        var tableElement = new DisplayElement
+        {
+            Id = Guid.NewGuid().ToString(),
+            Type = "table",
+            Name = $"Table {Elements.Count + 1}",
+            Position = new Position { X = 100, Y = 100 },
+            Size = new Size { Width = 600, Height = 400 },
+            ZIndex = Elements.Count,
+            Properties = new Dictionary<string, object>
+            {
+                ["DataSource"] = "",
+                ["HeaderBackground"] = "#2196F3",
+                ["HeaderForeground"] = "#FFFFFF",
+                ["RowBackground"] = "#FFFFFF",
+                ["AlternateRowBackground"] = "#F5F5F5",
+                ["FontSize"] = 14,
+                ["ShowBorder"] = true,
+                ["BorderColor"] = "#CCCCCC"
+            }
+        };
+
+        tableElement.InitializeDefaultProperties();
+        var command = new AddElementCommand(Elements, tableElement);
+        CommandHistory.ExecuteCommand(command);
+        SelectedElement = tableElement;
+        UpdateLayers();
+        _logger.LogDebug("Added table element: {ElementName}", tableElement.Name);
+    }
+
+    [RelayCommand]
+    private void AddDateTimeElement()
+    {
+        var dateTimeElement = new DisplayElement
+        {
+            Id = Guid.NewGuid().ToString(),
+            Type = "datetime",
+            Name = $"Date Time {Elements.Count + 1}",
+            Position = new Position { X = 100, Y = 100 },
+            Size = new Size { Width = 300, Height = 60 },
+            ZIndex = Elements.Count,
+            Properties = new Dictionary<string, object>
+            {
+                ["Format"] = "dddd, dd MMMM yyyy HH:mm:ss",
+                ["FontFamily"] = "Arial",
+                ["FontSize"] = 24,
+                ["Color"] = "#000000",
+                ["UpdateInterval"] = 1000
+            }
+        };
+
+        dateTimeElement.InitializeDefaultProperties();
+        var command = new AddElementCommand(Elements, dateTimeElement);
+        CommandHistory.ExecuteCommand(command);
+        SelectedElement = dateTimeElement;
+        UpdateLayers();
+        _logger.LogDebug("Added datetime element: {ElementName}", dateTimeElement.Name);
+    }
+
+    [RelayCommand]
     private void DeleteSelectedElement()
     {
         if (SelectedElement != null)

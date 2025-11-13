@@ -141,6 +141,34 @@
                                     Padding="8">
                                 <Rectangle Width="24" Height="16" Fill="Transparent" Stroke="White" StrokeThickness="2"/>
                             </Button>
+                            <Button ToolTip="Circle"
+                                    Command="{Binding Designer.AddCircleElementCommand}"
+                                    Style="{StaticResource SecondaryButton}"
+                                    Margin="0,4"
+                                    Padding="8">
+                                <Ellipse Width="24" Height="24" Fill="Transparent" Stroke="White" StrokeThickness="2"/>
+                            </Button>
+                            <Button ToolTip="QR Code"
+                                    Command="{Binding Designer.AddQRCodeElementCommand}"
+                                    Style="{StaticResource SecondaryButton}"
+                                    Margin="0,4"
+                                    Padding="8">
+                                <TextBlock Text="▦" FontSize="20"/>
+                            </Button>
+                            <Button ToolTip="Table"
+                                    Command="{Binding Designer.AddTableElementCommand}"
+                                    Style="{StaticResource SecondaryButton}"
+                                    Margin="0,4"
+                                    Padding="8">
+                                <TextBlock Text="☰" FontSize="20"/>
+                            </Button>
+                            <Button ToolTip="Date/Time"
+                                    Command="{Binding Designer.AddDateTimeElementCommand}"
+                                    Style="{StaticResource SecondaryButton}"
+                                    Margin="0,4"
+                                    Padding="8">
+                                <TextBlock Text="📅" FontSize="16"/>
+                            </Button>
                             <Separator Margin="0,8" Background="#3F3F46"/>
                             <Button ToolTip="Delete Selected (Del)"
                                     Command="{Binding Designer.DeleteSelectedElementCommand}"
@@ -298,6 +326,29 @@
                                                     SnapToGrid="{Binding Designer.SnapToGrid}"
                                                     GridSize="{Binding Designer.GridSize}"
                                                     Margin="20">
+                                <!-- Context Menu for Canvas -->
+                                <controls:DesignerCanvas.ContextMenu>
+                                    <ContextMenu>
+                                        <MenuItem Header="Add Element" Icon="➕">
+                                            <MenuItem Header="Text" Command="{Binding Designer.AddTextElementCommand}" Icon="T" FontWeight="Bold"/>
+                                            <MenuItem Header="Image" Command="{Binding Designer.AddImageElementCommand}" Icon="🖼"/>
+                                            <MenuItem Header="Rectangle" Command="{Binding Designer.AddRectangleElementCommand}" Icon="⬚"/>
+                                            <MenuItem Header="Circle" Command="{Binding Designer.AddCircleElementCommand}" Icon="⭕"/>
+                                            <MenuItem Header="QR Code" Command="{Binding Designer.AddQRCodeElementCommand}" Icon="▦"/>
+                                            <MenuItem Header="Table" Command="{Binding Designer.AddTableElementCommand}" Icon="☰"/>
+                                            <MenuItem Header="Date/Time" Command="{Binding Designer.AddDateTimeElementCommand}" Icon="📅"/>
+                                        </MenuItem>
+                                        <Separator/>
+                                        <MenuItem Header="Select All" Command="{Binding Designer.SelectAllCommand}" InputGestureText="Ctrl+A"/>
+                                        <MenuItem Header="Clear Selection" Command="{Binding Designer.ClearSelectionCommand}" InputGestureText="Esc"/>
+                                        <Separator/>
+                                        <MenuItem Header="Grid Settings">
+                                            <MenuItem Header="Show Grid" IsCheckable="True" IsChecked="{Binding Designer.ShowGrid}"/>
+                                            <MenuItem Header="Snap to Grid" IsCheckable="True" IsChecked="{Binding Designer.SnapToGrid}"/>
+                                        </MenuItem>
+                                    </ContextMenu>
+                                </controls:DesignerCanvas.ContextMenu>
+
                                 <controls:DesignerCanvas.LayoutTransform>
                                     <ScaleTransform ScaleX="{Binding Designer.ZoomLevel}"
                                                    ScaleY="{Binding Designer.ZoomLevel}"/>
