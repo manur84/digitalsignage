@@ -548,7 +548,7 @@
                                                    ScaleY="{Binding Designer.ZoomLevel}"/>
                                 </controls:DesignerCanvas.LayoutTransform>
 
-                                <!-- Render all elements from Designer.Elements -->
+                                <!-- Render all elements from Designer.Elements - SIMPLIFIED APPROACH -->
                                 <ItemsControl ItemsSource="{Binding Designer.Elements}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
@@ -560,15 +560,72 @@
                                             <Setter Property="Canvas.Left" Value="{Binding Position.X}"/>
                                             <Setter Property="Canvas.Top" Value="{Binding Position.Y}"/>
                                             <Setter Property="Canvas.ZIndex" Value="{Binding ZIndex}"/>
-                                            <Setter Property="Width" Value="{Binding Size.Width}"/>
-                                            <Setter Property="Height" Value="{Binding Size.Height}"/>
                                         </Style>
                                     </ItemsControl.ItemContainerStyle>
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <controls:DesignerItemControl DisplayElement="{Binding}"
-                                                                        Width="{Binding Size.Width}"
-                                                                        Height="{Binding Size.Height}"/>
+                                            <!-- SIMPLE BORDER-BASED TEMPLATE WITH FALLBACK VALUES -->
+                                            <Border Background="{Binding Properties[FillColor], FallbackValue=LightGray, TargetNullValue=LightGray}"
+                                                    BorderBrush="{Binding Properties[BorderColor], FallbackValue=Black, TargetNullValue=Black}"
+                                                    BorderThickness="{Binding Properties[BorderThickness], FallbackValue=1, TargetNullValue=1}"
+                                                    CornerRadius="{Binding Properties[BorderRadius], FallbackValue=0, TargetNullValue=0}"
+                                                    Width="{Binding Size.Width}"
+                                                    Height="{Binding Size.Height}"
+                                                    MinWidth="20"
+                                                    MinHeight="20">
+
+                                                <Grid>
+                                                    <!-- Text Element Content -->
+                                                    <TextBlock Text="{Binding Properties[Content], FallbackValue='Text Element', TargetNullValue='Text Element'}"
+                                                               FontFamily="{Binding Properties[FontFamily], FallbackValue=Arial, TargetNullValue=Arial}"
+                                                               FontSize="{Binding Properties[FontSize], FallbackValue=14, TargetNullValue=14}"
+                                                               Foreground="{Binding Properties[Color], FallbackValue=Black, TargetNullValue=Black}"
+                                                               TextWrapping="Wrap"
+                                                               HorizontalAlignment="Center"
+                                                               VerticalAlignment="Center"
+                                                               Margin="5">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding Type}" Value="text">
+                                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+
+                                                    <!-- Image Element Content -->
+                                                    <Image Source="{Binding Properties[Source], FallbackValue={x:Null}}"
+                                                           Stretch="Uniform">
+                                                        <Image.Style>
+                                                            <Style TargetType="Image">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding Type}" Value="image">
+                                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Image.Style>
+                                                    </Image>
+
+                                                    <!-- Rectangle/Circle/Shape Element (just the border is enough) -->
+                                                    <!-- For simple shapes, the Border itself acts as the shape -->
+
+                                                    <!-- Element Name Label (for debugging and visibility) -->
+                                                    <TextBlock Text="{Binding Name}"
+                                                               FontSize="10"
+                                                               Foreground="Red"
+                                                               HorizontalAlignment="Left"
+                                                               VerticalAlignment="Top"
+                                                               Margin="2"
+                                                               Background="White"
+                                                               Opacity="0.8"
+                                                               Padding="2,1"/>
+                                                </Grid>
+                                            </Border>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>

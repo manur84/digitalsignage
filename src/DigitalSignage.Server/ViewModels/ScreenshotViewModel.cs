@@ -50,102 +50,101 @@ public partial class ScreenshotViewModel : ObservableObject
     {
         try
         {
-            IsLoading = true;
-            ClientName = clientName;
-            Timestamp = DateTime.Now;
-            WindowTitle = $"Screenshot - {ClientName} - {Timestamp:yyyy-MM-dd HH:mm:ss}";
-
             _logger.LogInformation("=== LoadScreenshot START ===");
             _logger.LogInformation("Client: {ClientName}", clientName);
             _logger.LogInformation("Base64 data length: {Length} characters", base64ImageData?.Length ?? 0);
 
-            if (string.IsNullOrWhiteSpace(base64ImageData))
+            if (string.IsNullOrEmpty(base64ImageData))
             {
-                StatusMessage = "No image data received";
-                _logger.LogWarning("Empty or null image data received for client {ClientName}", clientName);
+                _logger.LogError("Base64 image data is null or empty!");
+                StatusMessage = "Error: No image data received";
                 return;
             }
 
-            // Log first 100 chars of base64 to verify it's image data
-            var preview = base64ImageData.Length > 100 ? base64ImageData.Substring(0, 100) : base64ImageData;
-            _logger.LogDebug("Base64 preview (first 100 chars): {Preview}...", preview);
+            ClientName = clientName;
+            Timestamp = DateTime.Now;
+            WindowTitle = $"Screenshot - {ClientName} - {Timestamp:HH:mm:ss}";
+            IsLoading = true;
+            StatusMessage = "Decoding image data...";
 
-            // Convert base64 to byte array
-            var imageBytes = Convert.FromBase64String(base64ImageData);
-            _logger.LogInformation("Successfully decoded base64 to {ByteCount} bytes ({KiloBytes} KB)",
+            // Decode base64
+            byte[] imageBytes = Convert.FromBase64String(base64ImageData);
+            _logger.LogInformation("Decoded to {ByteCount} bytes ({KiloBytes} KB)",
                 imageBytes.Length, imageBytes.Length / 1024);
 
-            // Log first few bytes to verify PNG header (89 50 4E 47)
-            if (imageBytes.Length > 4)
+            // Log image header (first 16 bytes)
+            if (imageBytes.Length > 16)
             {
-                var header = string.Join(" ", imageBytes.Take(8).Select(b => b.ToString("X2")));
+                var header = string.Join(" ", imageBytes.Take(16).Select(b => b.ToString("X2")));
                 _logger.LogDebug("Image header bytes: {Header}", header);
+
+                // Check for PNG signature: 89 50 4E 47 0D 0A 1A 0A
+                if (imageBytes[0] == 0x89 && imageBytes[1] == 0x50 &&
+                    imageBytes[2] == 0x4E && imageBytes[3] == 0x47)
+                {
+                    _logger.LogInformation("✓ Valid PNG header detected");
+                }
+                else
+                {
+                    _logger.LogWarning("⚠ Not a PNG image! Header: {Header}", header);
+                }
             }
 
-            // Create BitmapImage from bytes using the UI thread
-            BitmapImage? bitmap = null;
+            // Create BitmapImage on UI thread
             Application.Current.Dispatcher.Invoke(() =>
             {
                 try
                 {
-                    var ms = new MemoryStream(imageBytes);
-                    ms.Position = 0; // Ensure we're at the start
+                    StatusMessage = "Creating bitmap image...";
 
-                    bitmap = new BitmapImage();
+                    // Create a COPY of the byte array to avoid disposal issues
+                    byte[] imageCopy = new byte[imageBytes.Length];
+                    Array.Copy(imageBytes, imageCopy, imageBytes.Length);
+
+                    var ms = new MemoryStream(imageCopy);
+
+                    var bitmap = new BitmapImage();
                     bitmap.BeginInit();
-                    bitmap.CacheOption = BitmapCacheOption.OnLoad; // Load image into memory immediately
-                    bitmap.CreateOptions = BitmapCreateOptions.PreservePixelFormat;
+                    bitmap.CacheOption = BitmapCacheOption.OnLoad;
                     bitmap.StreamSource = ms;
                     bitmap.EndInit();
-                    bitmap.Freeze(); // Important for cross-thread access
 
-                    _logger.LogInformation("BitmapImage created: {Width}x{Height}, Format={Format}",
-                        bitmap.PixelWidth, bitmap.PixelHeight, bitmap.Format);
-
-                    // Now we can safely dispose the stream since OnLoad cached the image
+                    // NOW we can dispose the stream because OnLoad cached it
                     ms.Dispose();
+
+                    // Freeze for cross-thread access
+                    bitmap.Freeze();
+
+                    _logger.LogInformation("BitmapImage created: {Width}x{Height}, Format={Format}, DpiX={DpiX}",
+                        bitmap.PixelWidth, bitmap.PixelHeight, bitmap.Format, bitmap.DpiX);
+
+                    ScreenshotImage = bitmap;
+                    IsLoading = false;
+                    StatusMessage = $"Screenshot loaded: {bitmap.PixelWidth}x{bitmap.PixelHeight} " +
+                                  $"({imageBytes.Length / 1024} KB)";
+
+                    _logger.LogInformation("ScreenshotImage property set successfully");
+                    _logger.LogInformation("=== LoadScreenshot SUCCESS ===");
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Failed to create BitmapImage on UI thread");
-                    throw;
+                    _logger.LogError(ex, "Failed to create BitmapImage");
+                    IsLoading = false;
+                    StatusMessage = $"Error loading image: {ex.Message}";
                 }
             });
-
-            if (bitmap == null)
-            {
-                throw new InvalidOperationException("Failed to create BitmapImage - result was null");
-            }
-
-            // Set the property on UI thread
-            Application.Current.Dispatcher.Invoke(() =>
-            {
-                ScreenshotImage = bitmap;
-                _logger.LogInformation("ScreenshotImage property set, value is null: {IsNull}", ScreenshotImage == null);
-            });
-
-            StatusMessage = $"Screenshot loaded successfully ({imageBytes.Length / 1024} KB, {bitmap.PixelWidth}x{bitmap.PixelHeight})";
-            _logger.LogInformation("=== LoadScreenshot SUCCESS ===");
         }
         catch (FormatException ex)
         {
-            StatusMessage = "Invalid image data format";
-            _logger.LogError(ex, "Failed to decode base64 image data for client {ClientName}", clientName);
-            MessageBox.Show($"Failed to load screenshot: Invalid image data format\n\n{ex.Message}",
-                "Screenshot Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            _logger.LogError(ex, "Invalid base64 string format");
+            IsLoading = false;
+            StatusMessage = "Error: Invalid image data format";
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Error loading screenshot: {ex.Message}";
-            _logger.LogError(ex, "=== LoadScreenshot FAILED === Error for client {ClientName}", clientName);
-            _logger.LogError(ex, "Stack trace: {StackTrace}", ex.StackTrace);
-            MessageBox.Show($"Failed to load screenshot:\n\n{ex.Message}",
-                "Screenshot Error", MessageBoxButton.OK, MessageBoxImage.Error);
-        }
-        finally
-        {
+            _logger.LogError(ex, "Failed to load screenshot");
             IsLoading = false;
-            _logger.LogInformation("=== LoadScreenshot END (IsLoading={IsLoading}) ===", IsLoading);
+            StatusMessage = $"Error: {ex.Message}";
         }
     }
 

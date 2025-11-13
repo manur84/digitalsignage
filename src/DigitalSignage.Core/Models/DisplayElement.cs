@@ -49,75 +49,95 @@ public partial class DisplayElement : ObservableObject
     /// </summary>
     public void InitializeDefaultProperties()
     {
-        // Common properties for all elements
+        if (Properties == null)
+            Properties = new Dictionary<string, object>();
+
+        // ============================================
+        // COMMON PROPERTIES (ALL ELEMENT TYPES)
+        // ============================================
         EnsureProperty("Rotation", 0.0);
         EnsureProperty("IsVisible", true);
         EnsureProperty("IsLocked", false);
 
-        // Shadow properties (for all element types)
+        // Shadow properties
         EnsureProperty("EnableShadow", false);
         EnsureProperty("ShadowBlur", 5.0);
         EnsureProperty("ShadowColor", "#000000");
         EnsureProperty("ShadowOffsetX", 2.0);
         EnsureProperty("ShadowOffsetY", 2.0);
 
-        // Border radius (for shapes and text)
+        // Border/Shape properties (add to ALL types for consistency)
         EnsureProperty("BorderRadius", 0.0);
+        EnsureProperty("FillColor", "#FFFFFF");
+        EnsureProperty("BorderColor", "#000000");
+        EnsureProperty("BorderThickness", 0.0);
 
-        // Initialize type-specific properties based on element type
-        switch (Type.ToLower())
+        // ============================================
+        // TYPE-SPECIFIC PROPERTIES
+        // ============================================
+        string elementType = Type?.ToLower() ?? "text";
+
+        switch (elementType)
         {
             case "text":
-                EnsureProperty("Content", string.Empty);
+                // TEXT PROPERTIES - CRITICAL!
+                EnsureProperty("Content", "Sample Text");
                 EnsureProperty("FontFamily", "Arial");
-                EnsureProperty("FontSize", 24.0); // MUST be Double for WPF binding
+                EnsureProperty("FontSize", 24.0);  // MUST be Double!
                 EnsureProperty("FontWeight", "Normal");
                 EnsureProperty("FontStyle", "Normal");
                 EnsureProperty("Color", "#000000");
                 EnsureProperty("TextAlign", "Left");
                 EnsureProperty("VerticalAlign", "Top");
                 EnsureProperty("WordWrap", true);
-                // Add shape properties for text background
-                EnsureProperty("FillColor", "#FFFFFF");
-                EnsureProperty("BorderColor", "#000000");
-                EnsureProperty("BorderThickness", 0.0); // Default no border for text
+                EnsureProperty("FillColor", "Transparent");  // Background
+                EnsureProperty("BorderThickness", 0.0);  // No border by default
                 break;
 
             case "image":
-                EnsureProperty("Source", string.Empty);
+                EnsureProperty("Source", "");
                 EnsureProperty("Stretch", "Uniform");
-                EnsureProperty("AltText", string.Empty);
+                EnsureProperty("AltText", "Image");
                 break;
 
             case "rectangle":
             case "shape":
-            case "circle":
-                EnsureProperty("FillColor", "#FFFFFF");
-                EnsureProperty("BorderColor", "#000000");
-                EnsureProperty("BorderThickness", 1.0);
+                EnsureProperty("FillColor", "#ADD8E6");  // Light blue
+                EnsureProperty("BorderColor", "#0000FF");  // Blue
+                EnsureProperty("BorderThickness", 2.0);
                 EnsureProperty("CornerRadius", 0.0);
                 break;
 
+            case "circle":
+                EnsureProperty("FillColor", "#FFD700");  // Gold
+                EnsureProperty("BorderColor", "#FFA500");  // Orange
+                EnsureProperty("BorderThickness", 2.0);
+                break;
+
             case "qrcode":
-                EnsureProperty("Data", string.Empty);
+                EnsureProperty("Data", "https://example.com");
                 EnsureProperty("ErrorCorrection", "M");
                 EnsureProperty("ForegroundColor", "#000000");
                 EnsureProperty("BackgroundColor", "#FFFFFF");
                 break;
 
             case "table":
-                EnsureProperty("HeaderBackground", "#EEEEEE");
+                EnsureProperty("HeaderBackground", "#4CAF50");
+                EnsureProperty("HeaderForeground", "#FFFFFF");
                 EnsureProperty("RowBackground", "#FFFFFF");
-                EnsureProperty("AlternateRowBackground", "#F9F9F9");
-                EnsureProperty("BorderColor", "#CCCCCC");
+                EnsureProperty("AlternateRowBackground", "#F5F5F5");
+                EnsureProperty("BorderColor", "#DDDDDD");
                 EnsureProperty("BorderWidth", 1.0);
+                EnsureProperty("FontSize", 14.0);
+                EnsureProperty("ShowBorder", true);
                 break;
 
             case "datetime":
-                EnsureProperty("Format", "yyyy-MM-dd HH:mm:ss");
+                EnsureProperty("Format", "dddd, dd MMMM yyyy HH:mm:ss");
                 EnsureProperty("FontFamily", "Arial");
                 EnsureProperty("FontSize", 24.0);
                 EnsureProperty("Color", "#000000");
+                EnsureProperty("UpdateInterval", 1000);  // Update every second
                 break;
         }
     }
