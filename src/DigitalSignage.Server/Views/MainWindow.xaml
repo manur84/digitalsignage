@@ -21,6 +21,36 @@
         <local:ElementTypeToVisibilityConverter x:Key="ElementTypeToVisibilityConverter"/>
     </Window.Resources>
 
+    <!-- Keyboard Shortcuts -->
+    <Window.InputBindings>
+        <!-- File Operations -->
+        <KeyBinding Command="{Binding SaveCommand}" Key="S" Modifiers="Control"/>
+
+        <!-- Undo/Redo -->
+        <KeyBinding Command="{Binding Designer.UndoCommand}" Key="Z" Modifiers="Control"/>
+        <KeyBinding Command="{Binding Designer.RedoCommand}" Key="Y" Modifiers="Control"/>
+
+        <!-- Selection -->
+        <KeyBinding Command="{Binding Designer.SelectAllCommand}" Key="A" Modifiers="Control"/>
+        <KeyBinding Command="{Binding Designer.ClearSelectionCommand}" Key="Escape"/>
+
+        <!-- Edit Operations -->
+        <KeyBinding Command="{Binding Designer.CopyCommand}" Key="C" Modifiers="Control"/>
+        <KeyBinding Command="{Binding Designer.CutCommand}" Key="X" Modifiers="Control"/>
+        <KeyBinding Command="{Binding Designer.PasteCommand}" Key="V" Modifiers="Control"/>
+        <KeyBinding Command="{Binding Designer.DuplicateSelectedCommand}" Key="D" Modifiers="Control"/>
+        <KeyBinding Command="{Binding Designer.DeleteSelectedElementCommand}" Key="Delete"/>
+
+        <!-- View Operations -->
+        <KeyBinding Command="{Binding Designer.ZoomInCommand}" Key="OemPlus" Modifiers="Control"/>
+        <KeyBinding Command="{Binding Designer.ZoomOutCommand}" Key="OemMinus" Modifiers="Control"/>
+        <KeyBinding Command="{Binding Designer.ZoomToFitCommand}" Key="D0" Modifiers="Control"/>
+
+        <!-- Grouping -->
+        <KeyBinding Command="{Binding Designer.GroupSelectedCommand}" Key="G" Modifiers="Control"/>
+        <KeyBinding Command="{Binding Designer.UngroupSelectedCommand}" Key="G" Modifiers="Control+Shift"/>
+    </Window.InputBindings>
+
     <DockPanel>
         <!-- Menu Bar -->
         <Menu DockPanel.Dock="Top" Padding="4">
@@ -37,13 +67,35 @@
                 <MenuItem Header="E_xit" Click="Exit_Click"/>
             </MenuItem>
             <MenuItem Header="_Edit">
-                <MenuItem Header="_Undo" Command="{Binding UndoCommand}"/>
-                <MenuItem Header="_Redo" Command="{Binding RedoCommand}"/>
+                <MenuItem Header="_Undo" Command="{Binding Designer.UndoCommand}" InputGestureText="Ctrl+Z"/>
+                <MenuItem Header="_Redo" Command="{Binding Designer.RedoCommand}" InputGestureText="Ctrl+Y"/>
                 <Separator/>
-                <MenuItem Header="Cu_t" Command="{Binding CutCommand}"/>
-                <MenuItem Header="_Copy" Command="{Binding CopyCommand}"/>
-                <MenuItem Header="_Paste" Command="{Binding PasteCommand}"/>
-                <MenuItem Header="_Delete" Command="{Binding DeleteCommand}"/>
+                <MenuItem Header="Cu_t" Command="{Binding Designer.CutCommand}" InputGestureText="Ctrl+X"/>
+                <MenuItem Header="_Copy" Command="{Binding Designer.CopyCommand}" InputGestureText="Ctrl+C"/>
+                <MenuItem Header="_Paste" Command="{Binding Designer.PasteCommand}" InputGestureText="Ctrl+V"/>
+                <MenuItem Header="_Duplicate" Command="{Binding Designer.DuplicateSelectedCommand}" InputGestureText="Ctrl+D"/>
+                <MenuItem Header="_Delete" Command="{Binding Designer.DeleteSelectedElementCommand}" InputGestureText="Del"/>
+                <Separator/>
+                <MenuItem Header="Select _All" Command="{Binding Designer.SelectAllCommand}" InputGestureText="Ctrl+A"/>
+                <Separator/>
+                <MenuItem Header="_Group" Command="{Binding Designer.GroupSelectedCommand}" InputGestureText="Ctrl+G"/>
+                <MenuItem Header="_Ungroup" Command="{Binding Designer.UngroupSelectedCommand}" InputGestureText="Ctrl+Shift+G"/>
+            </MenuItem>
+            <MenuItem Header="_Arrange">
+                <MenuItem Header="Bring to _Front" Command="{Binding Designer.BringToFrontCommand}"/>
+                <MenuItem Header="Bring _Forward" Command="{Binding Designer.BringForwardCommand}"/>
+                <MenuItem Header="Send _Backward" Command="{Binding Designer.SendBackwardCommand}"/>
+                <MenuItem Header="Send to _Back" Command="{Binding Designer.SendToBackCommand}"/>
+                <Separator/>
+                <MenuItem Header="Align _Left" Command="{Binding Designer.AlignLeftCommand}"/>
+                <MenuItem Header="Align _Right" Command="{Binding Designer.AlignRightCommand}"/>
+                <MenuItem Header="Align _Top" Command="{Binding Designer.AlignTopCommand}"/>
+                <MenuItem Header="Align _Bottom" Command="{Binding Designer.AlignBottomCommand}"/>
+                <MenuItem Header="Center _Horizontal" Command="{Binding Designer.CenterHorizontalCommand}"/>
+                <MenuItem Header="Center _Vertical" Command="{Binding Designer.CenterVerticalCommand}"/>
+                <Separator/>
+                <MenuItem Header="Distribute _Horizontally" Command="{Binding Designer.DistributeHorizontalCommand}"/>
+                <MenuItem Header="Distribute _Vertically" Command="{Binding Designer.DistributeVerticalCommand}"/>
             </MenuItem>
             <MenuItem Header="_View">
                 <MenuItem Header="Zoom _In" Command="{Binding Designer.ZoomInCommand}"/>
@@ -109,83 +161,183 @@
                         <ColumnDefinition Width="300"/> <!-- Properties -->
                     </Grid.ColumnDefinitions>
 
-                    <!-- Tool Palette -->
-                    <Border Grid.Column="0" Background="#2D2D30" BorderBrush="#3F3F46" BorderThickness="0,0,1,0">
-                        <StackPanel Margin="8">
-                            <Button ToolTip="Select"
-                                    Command="{Binding Designer.SelectToolCommand}"
-                                    CommandParameter="select"
-                                    Style="{StaticResource SecondaryButton}"
-                                    Margin="0,4"
-                                    Padding="8">
-                                <TextBlock Text="⬚" FontSize="20"/>
-                            </Button>
-                            <Button ToolTip="Text"
-                                    Command="{Binding Designer.AddTextElementCommand}"
-                                    Style="{StaticResource SecondaryButton}"
-                                    Margin="0,4"
-                                    Padding="8">
-                                <TextBlock Text="T" FontSize="20" FontWeight="Bold"/>
-                            </Button>
-                            <Button ToolTip="Image"
-                                    Command="{Binding Designer.AddImageElementCommand}"
-                                    Style="{StaticResource SecondaryButton}"
-                                    Margin="0,4"
-                                    Padding="8">
-                                <TextBlock Text="🖼" FontSize="18"/>
-                            </Button>
-                            <Button ToolTip="Rectangle"
-                                    Command="{Binding Designer.AddRectangleElementCommand}"
-                                    Style="{StaticResource SecondaryButton}"
-                                    Margin="0,4"
-                                    Padding="8">
-                                <Rectangle Width="24" Height="16" Fill="Transparent" Stroke="White" StrokeThickness="2"/>
-                            </Button>
-                            <Button ToolTip="Circle"
-                                    Command="{Binding Designer.AddCircleElementCommand}"
-                                    Style="{StaticResource SecondaryButton}"
-                                    Margin="0,4"
-                                    Padding="8">
-                                <Ellipse Width="24" Height="24" Fill="Transparent" Stroke="White" StrokeThickness="2"/>
-                            </Button>
-                            <Button ToolTip="QR Code"
-                                    Command="{Binding Designer.AddQRCodeElementCommand}"
-                                    Style="{StaticResource SecondaryButton}"
-                                    Margin="0,4"
-                                    Padding="8">
-                                <TextBlock Text="▦" FontSize="20"/>
-                            </Button>
-                            <Button ToolTip="Table"
-                                    Command="{Binding Designer.AddTableElementCommand}"
-                                    Style="{StaticResource SecondaryButton}"
-                                    Margin="0,4"
-                                    Padding="8">
-                                <TextBlock Text="☰" FontSize="20"/>
-                            </Button>
-                            <Button ToolTip="Date/Time"
-                                    Command="{Binding Designer.AddDateTimeElementCommand}"
-                                    Style="{StaticResource SecondaryButton}"
-                                    Margin="0,4"
-                                    Padding="8">
-                                <TextBlock Text="📅" FontSize="16"/>
-                            </Button>
-                            <Separator Margin="0,8" Background="#3F3F46"/>
-                            <Button ToolTip="Delete Selected (Del)"
-                                    Command="{Binding Designer.DeleteSelectedElementCommand}"
-                                    Style="{StaticResource SecondaryButton}"
-                                    Margin="0,4"
-                                    Padding="8">
-                                <TextBlock Text="🗑" FontSize="18"/>
-                            </Button>
-                            <Button ToolTip="Duplicate (Ctrl+D)"
-                                    Command="{Binding Designer.DuplicateSelectedElementCommand}"
-                                    Style="{StaticResource SecondaryButton}"
-                                    Margin="0,4"
-                                    Padding="8">
-                                <TextBlock Text="📋" FontSize="18"/>
-                            </Button>
-                        </StackPanel>
-                    </Border>
+                    <!-- Tool Palette Column - Split into Tools and Alignment -->
+                    <Grid Grid.Column="0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*"/>     <!-- Tool Palette -->
+                            <RowDefinition Height="Auto"/>  <!-- Alignment Toolbar -->
+                        </Grid.RowDefinitions>
+
+                        <!-- Tool Palette -->
+                        <Border Grid.Row="0" Background="#2D2D30" BorderBrush="#3F3F46" BorderThickness="0,0,1,0">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <StackPanel Margin="8">
+                                    <Button ToolTip="Select"
+                                            Command="{Binding Designer.SelectToolCommand}"
+                                            CommandParameter="select"
+                                            Style="{StaticResource SecondaryButton}"
+                                            Margin="0,4"
+                                            Padding="8">
+                                        <TextBlock Text="⬚" FontSize="20"/>
+                                    </Button>
+                                    <Button ToolTip="Text"
+                                            Command="{Binding Designer.AddTextElementCommand}"
+                                            Style="{StaticResource SecondaryButton}"
+                                            Margin="0,4"
+                                            Padding="8">
+                                        <TextBlock Text="T" FontSize="20" FontWeight="Bold"/>
+                                    </Button>
+                                    <Button ToolTip="Image"
+                                            Command="{Binding Designer.AddImageElementCommand}"
+                                            Style="{StaticResource SecondaryButton}"
+                                            Margin="0,4"
+                                            Padding="8">
+                                        <TextBlock Text="🖼" FontSize="18"/>
+                                    </Button>
+                                    <Button ToolTip="Rectangle"
+                                            Command="{Binding Designer.AddRectangleElementCommand}"
+                                            Style="{StaticResource SecondaryButton}"
+                                            Margin="0,4"
+                                            Padding="8">
+                                        <Rectangle Width="24" Height="16" Fill="Transparent" Stroke="White" StrokeThickness="2"/>
+                                    </Button>
+                                    <Button ToolTip="Circle"
+                                            Command="{Binding Designer.AddCircleElementCommand}"
+                                            Style="{StaticResource SecondaryButton}"
+                                            Margin="0,4"
+                                            Padding="8">
+                                        <Ellipse Width="24" Height="24" Fill="Transparent" Stroke="White" StrokeThickness="2"/>
+                                    </Button>
+                                    <Button ToolTip="QR Code"
+                                            Command="{Binding Designer.AddQRCodeElementCommand}"
+                                            Style="{StaticResource SecondaryButton}"
+                                            Margin="0,4"
+                                            Padding="8">
+                                        <TextBlock Text="▦" FontSize="20"/>
+                                    </Button>
+                                    <Button ToolTip="Table"
+                                            Command="{Binding Designer.AddTableElementCommand}"
+                                            Style="{StaticResource SecondaryButton}"
+                                            Margin="0,4"
+                                            Padding="8">
+                                        <TextBlock Text="☰" FontSize="20"/>
+                                    </Button>
+                                    <Button ToolTip="Date/Time"
+                                            Command="{Binding Designer.AddDateTimeElementCommand}"
+                                            Style="{StaticResource SecondaryButton}"
+                                            Margin="0,4"
+                                            Padding="8">
+                                        <TextBlock Text="📅" FontSize="16"/>
+                                    </Button>
+                                    <Separator Margin="0,8" Background="#3F3F46"/>
+                                    <Button ToolTip="Delete Selected (Del)"
+                                            Command="{Binding Designer.DeleteSelectedElementCommand}"
+                                            Style="{StaticResource SecondaryButton}"
+                                            Margin="0,4"
+                                            Padding="8">
+                                        <TextBlock Text="🗑" FontSize="18"/>
+                                    </Button>
+                                    <Button ToolTip="Duplicate (Ctrl+D)"
+                                            Command="{Binding Designer.DuplicateSelectedElementCommand}"
+                                            Style="{StaticResource SecondaryButton}"
+                                            Margin="0,4"
+                                            Padding="8">
+                                        <TextBlock Text="📋" FontSize="18"/>
+                                    </Button>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Border>
+
+                        <!-- Alignment Toolbar -->
+                        <Border Grid.Row="1" Background="#2D2D30" BorderBrush="#3F3F46" BorderThickness="0,1,1,0">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="300">
+                                <StackPanel Margin="4">
+                                    <TextBlock Text="ALIGN" FontSize="9" Foreground="#999" Margin="4,8,4,4" FontWeight="SemiBold"/>
+
+                                    <!-- Horizontal Alignment -->
+                                    <Button ToolTip="Align Left"
+                                            Command="{Binding Designer.AlignLeftCommand}"
+                                            Style="{StaticResource SecondaryButton}"
+                                            Margin="0,2"
+                                            Padding="6">
+                                        <TextBlock Text="⫷" FontSize="18"/>
+                                    </Button>
+                                    <Button ToolTip="Center Horizontal"
+                                            Command="{Binding Designer.CenterHorizontalCommand}"
+                                            Style="{StaticResource SecondaryButton}"
+                                            Margin="0,2"
+                                            Padding="6">
+                                        <TextBlock Text="⫴" FontSize="18"/>
+                                    </Button>
+                                    <Button ToolTip="Align Right"
+                                            Command="{Binding Designer.AlignRightCommand}"
+                                            Style="{StaticResource SecondaryButton}"
+                                            Margin="0,2"
+                                            Padding="6">
+                                        <TextBlock Text="⫸" FontSize="18"/>
+                                    </Button>
+
+                                    <Separator Margin="0,4" Background="#3F3F46"/>
+
+                                    <!-- Vertical Alignment -->
+                                    <Button ToolTip="Align Top"
+                                            Command="{Binding Designer.AlignTopCommand}"
+                                            Style="{StaticResource SecondaryButton}"
+                                            Margin="0,2"
+                                            Padding="6">
+                                        <TextBlock Text="⫶" FontSize="18"/>
+                                    </Button>
+                                    <Button ToolTip="Center Vertical"
+                                            Command="{Binding Designer.CenterVerticalCommand}"
+                                            Style="{StaticResource SecondaryButton}"
+                                            Margin="0,2"
+                                            Padding="6">
+                                        <TextBlock Text="⫿" FontSize="18"/>
+                                    </Button>
+                                    <Button ToolTip="Align Bottom"
+                                            Command="{Binding Designer.AlignBottomCommand}"
+                                            Style="{StaticResource SecondaryButton}"
+                                            Margin="0,2"
+                                            Padding="6">
+                                        <TextBlock Text="⫷" FontSize="18" RenderTransformOrigin="0.5,0.5">
+                                            <TextBlock.RenderTransform>
+                                                <RotateTransform Angle="180"/>
+                                            </TextBlock.RenderTransform>
+                                        </TextBlock>
+                                    </Button>
+
+                                    <Separator Margin="0,4" Background="#3F3F46"/>
+
+                                    <!-- Distribution -->
+                                    <Button ToolTip="Distribute Horizontally (3+ elements)"
+                                            Command="{Binding Designer.DistributeHorizontalCommand}"
+                                            Style="{StaticResource SecondaryButton}"
+                                            Margin="0,2"
+                                            Padding="6">
+                                        <TextBlock Text="⬌" FontSize="16"/>
+                                    </Button>
+                                    <Button ToolTip="Distribute Vertically (3+ elements)"
+                                            Command="{Binding Designer.DistributeVerticalCommand}"
+                                            Style="{StaticResource SecondaryButton}"
+                                            Margin="0,2"
+                                            Padding="6">
+                                        <TextBlock Text="⬍" FontSize="16"/>
+                                    </Button>
+
+                                    <Separator Margin="0,4" Background="#3F3F46"/>
+
+                                    <!-- Center on Canvas -->
+                                    <Button ToolTip="Center on Canvas"
+                                            Command="{Binding Designer.CenterOnCanvasCommand}"
+                                            Style="{StaticResource SecondaryButton}"
+                                            Margin="0,2"
+                                            Padding="6">
+                                        <TextBlock Text="◈" FontSize="18"/>
+                                    </Button>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Border>
+                    </Grid>
 
                     <!-- Layers Panel -->
                     <Border Grid.Column="1" Background="White" BorderBrush="#3F3F46" BorderThickness="0,0,1,0">
@@ -339,8 +491,37 @@
                                             <MenuItem Header="Date/Time" Command="{Binding Designer.AddDateTimeElementCommand}" Icon="📅"/>
                                         </MenuItem>
                                         <Separator/>
+                                        <MenuItem Header="Cut" Command="{Binding Designer.CutCommand}" InputGestureText="Ctrl+X" Icon="✂"/>
+                                        <MenuItem Header="Copy" Command="{Binding Designer.CopyCommand}" InputGestureText="Ctrl+C" Icon="📄"/>
+                                        <MenuItem Header="Paste" Command="{Binding Designer.PasteCommand}" InputGestureText="Ctrl+V" Icon="📋"/>
+                                        <MenuItem Header="Duplicate" Command="{Binding Designer.DuplicateSelectedCommand}" InputGestureText="Ctrl+D" Icon="📋"/>
+                                        <MenuItem Header="Delete" Command="{Binding Designer.DeleteSelectedElementCommand}" InputGestureText="Del" Icon="🗑"/>
+                                        <Separator/>
                                         <MenuItem Header="Select All" Command="{Binding Designer.SelectAllCommand}" InputGestureText="Ctrl+A"/>
                                         <MenuItem Header="Clear Selection" Command="{Binding Designer.ClearSelectionCommand}" InputGestureText="Esc"/>
+                                        <Separator/>
+                                        <MenuItem Header="Align">
+                                            <MenuItem Header="Align Left" Command="{Binding Designer.AlignLeftCommand}" Icon="⫷"/>
+                                            <MenuItem Header="Center Horizontal" Command="{Binding Designer.CenterHorizontalCommand}" Icon="⫴"/>
+                                            <MenuItem Header="Align Right" Command="{Binding Designer.AlignRightCommand}" Icon="⫸"/>
+                                            <Separator/>
+                                            <MenuItem Header="Align Top" Command="{Binding Designer.AlignTopCommand}" Icon="⫶"/>
+                                            <MenuItem Header="Center Vertical" Command="{Binding Designer.CenterVerticalCommand}" Icon="⫿"/>
+                                            <MenuItem Header="Align Bottom" Command="{Binding Designer.AlignBottomCommand}" Icon="⫷"/>
+                                            <Separator/>
+                                            <MenuItem Header="Distribute Horizontally" Command="{Binding Designer.DistributeHorizontalCommand}" Icon="⬌"/>
+                                            <MenuItem Header="Distribute Vertically" Command="{Binding Designer.DistributeVerticalCommand}" Icon="⬍"/>
+                                            <Separator/>
+                                            <MenuItem Header="Center on Canvas" Command="{Binding Designer.CenterOnCanvasCommand}" Icon="◈"/>
+                                        </MenuItem>
+                                        <MenuItem Header="Arrange">
+                                            <MenuItem Header="Bring to Front" Command="{Binding Designer.BringToFrontCommand}" Icon="⬆"/>
+                                            <MenuItem Header="Bring Forward" Command="{Binding Designer.BringForwardCommand}" Icon="⬆"/>
+                                            <MenuItem Header="Send Backward" Command="{Binding Designer.SendBackwardCommand}" Icon="⬇"/>
+                                            <MenuItem Header="Send to Back" Command="{Binding Designer.SendToBackCommand}" Icon="⬇"/>
+                                        </MenuItem>
+                                        <MenuItem Header="Group" Command="{Binding Designer.GroupSelectedCommand}" InputGestureText="Ctrl+G" Icon="▦"/>
+                                        <MenuItem Header="Ungroup" Command="{Binding Designer.UngroupSelectedCommand}" InputGestureText="Ctrl+Shift+G" Icon="▢"/>
                                         <Separator/>
                                         <MenuItem Header="Grid Settings">
                                             <MenuItem Header="Show Grid" IsCheckable="True" IsChecked="{Binding Designer.ShowGrid}"/>
@@ -377,46 +558,106 @@
                             </controls:DesignerCanvas>
                         </ScrollViewer>
 
-                        <!-- Zoom Controls Toolbar -->
+                        <!-- Status Bar / Zoom Controls -->
                         <Border Grid.Row="1" Background="#2D2D30" BorderBrush="#3F3F46" BorderThickness="0,1,0,0" Padding="12,8">
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                <Button Command="{Binding Designer.ZoomOutCommand}"
-                                        Content="-"
-                                        Width="32"
-                                        Height="28"
-                                        Style="{StaticResource SecondaryButton}"
-                                        Margin="0,0,8,0"
-                                        ToolTip="Zoom Out (Ctrl+-)"/>
-                                <Slider Value="{Binding Designer.ZoomLevel}"
-                                        Minimum="0.25"
-                                        Maximum="4.0"
-                                        Width="150"
-                                        VerticalAlignment="Center"
-                                        TickFrequency="0.25"
-                                        IsSnapToTickEnabled="False"
-                                        Margin="0,0,8,0"
-                                        ToolTip="Zoom Level"/>
-                                <TextBlock Text="{Binding Designer.ZoomLevel, StringFormat={}{0:P0}}"
-                                          Width="50"
-                                          VerticalAlignment="Center"
-                                          HorizontalAlignment="Center"
-                                          Foreground="White"
-                                          FontWeight="SemiBold"
-                                          Margin="0,0,8,0"/>
-                                <Button Command="{Binding Designer.ZoomInCommand}"
-                                        Content="+"
-                                        Width="32"
-                                        Height="28"
-                                        Style="{StaticResource SecondaryButton}"
-                                        Margin="0,0,8,0"
-                                        ToolTip="Zoom In (Ctrl++)"/>
-                                <Button Command="{Binding Designer.ZoomToFitCommand}"
-                                        Content="Fit"
-                                        Width="50"
-                                        Height="28"
-                                        Style="{StaticResource SecondaryButton}"
-                                        ToolTip="Zoom to Fit (Ctrl+0)"/>
-                            </StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Left Side: Info -->
+                                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <!-- Canvas Size -->
+                                    <TextBlock Foreground="#AAAAAA" FontSize="11" VerticalAlignment="Center">
+                                        <Run Text="Canvas:"/>
+                                        <Run Text="{Binding Designer.CurrentLayout.Resolution.Width, Mode=OneWay}" Foreground="White"/>
+                                        <Run Text="×"/>
+                                        <Run Text="{Binding Designer.CurrentLayout.Resolution.Height, Mode=OneWay}" Foreground="White"/>
+                                        <Run Text="px"/>
+                                    </TextBlock>
+
+                                    <Separator Margin="12,0" Background="#3F3F46" Width="1"/>
+
+                                    <!-- Element Count -->
+                                    <TextBlock Foreground="#AAAAAA" FontSize="11" VerticalAlignment="Center">
+                                        <Run Text="Elements:"/>
+                                        <Run Text="{Binding Designer.Elements.Count, Mode=OneWay}" Foreground="White"/>
+                                    </TextBlock>
+
+                                    <Separator Margin="12,0" Background="#3F3F46" Width="1"/>
+
+                                    <!-- Selection Info -->
+                                    <TextBlock Foreground="#AAAAAA" FontSize="11" VerticalAlignment="Center">
+                                        <Run Text="Selected:"/>
+                                        <Run Text="{Binding Designer.SelectionService.SelectedElements.Count, Mode=OneWay, FallbackValue=0}" Foreground="White"/>
+                                    </TextBlock>
+
+                                    <!-- Selected Element Position (when single selection) -->
+                                    <TextBlock Foreground="#AAAAAA" FontSize="11" VerticalAlignment="Center" Margin="12,0,0,0" Visibility="{Binding Designer.SelectedElement, Converter={StaticResource NullToVisibilityConverter}, ConverterParameter=Invert}">
+                                        <Run Text="| Pos:"/>
+                                        <Run Text="{Binding Designer.SelectedElement.Position.X, StringFormat='{}{0:F0}', Mode=OneWay, FallbackValue=0}" Foreground="White"/>
+                                        <Run Text=","/>
+                                        <Run Text="{Binding Designer.SelectedElement.Position.Y, StringFormat='{}{0:F0}', Mode=OneWay, FallbackValue=0}" Foreground="White"/>
+                                        <Run Text="| Size:"/>
+                                        <Run Text="{Binding Designer.SelectedElement.Size.Width, StringFormat='{}{0:F0}', Mode=OneWay, FallbackValue=0}" Foreground="White"/>
+                                        <Run Text="×"/>
+                                        <Run Text="{Binding Designer.SelectedElement.Size.Height, StringFormat='{}{0:F0}', Mode=OneWay, FallbackValue=0}" Foreground="White"/>
+                                    </TextBlock>
+
+                                    <Separator Margin="12,0" Background="#3F3F46" Width="1"/>
+
+                                    <!-- Grid Info -->
+                                    <TextBlock Foreground="#AAAAAA" FontSize="11" VerticalAlignment="Center">
+                                        <Run Text="Grid:"/>
+                                        <Run Text="{Binding Designer.GridSize, Mode=OneWay}" Foreground="White"/>
+                                        <Run Text="px ·"/>
+                                        <Run Text="{Binding Designer.ShowGrid, Mode=OneWay, FallbackValue=False}" Foreground="White"/>
+                                        <Run Text="· Snap:"/>
+                                        <Run Text="{Binding Designer.SnapToGrid, Mode=OneWay, FallbackValue=False}" Foreground="White"/>
+                                    </TextBlock>
+                                </StackPanel>
+
+                                <!-- Right Side: Zoom Controls -->
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                                    <Button Command="{Binding Designer.ZoomOutCommand}"
+                                            Content="-"
+                                            Width="32"
+                                            Height="28"
+                                            Style="{StaticResource SecondaryButton}"
+                                            Margin="0,0,8,0"
+                                            ToolTip="Zoom Out (Ctrl+-)"/>
+                                    <Slider Value="{Binding Designer.ZoomLevel}"
+                                            Minimum="0.25"
+                                            Maximum="4.0"
+                                            Width="150"
+                                            VerticalAlignment="Center"
+                                            TickFrequency="0.25"
+                                            IsSnapToTickEnabled="False"
+                                            Margin="0,0,8,0"
+                                            ToolTip="Zoom Level"/>
+                                    <TextBlock Text="{Binding Designer.ZoomLevel, StringFormat={}{0:P0}}"
+                                              Width="50"
+                                              VerticalAlignment="Center"
+                                              HorizontalAlignment="Center"
+                                              Foreground="White"
+                                              FontWeight="SemiBold"
+                                              Margin="0,0,8,0"/>
+                                    <Button Command="{Binding Designer.ZoomInCommand}"
+                                            Content="+"
+                                            Width="32"
+                                            Height="28"
+                                            Style="{StaticResource SecondaryButton}"
+                                            Margin="0,0,8,0"
+                                            ToolTip="Zoom In (Ctrl++)"/>
+                                    <Button Command="{Binding Designer.ZoomToFitCommand}"
+                                            Content="Fit"
+                                            Width="50"
+                                            Height="28"
+                                            Style="{StaticResource SecondaryButton}"
+                                            ToolTip="Zoom to Fit (Ctrl+0)"/>
+                                </StackPanel>
+                            </Grid>
                         </Border>
                     </Grid>
 
@@ -524,6 +765,99 @@
                                                 Width="60"
                                                 Text="{Binding Designer.SelectedElement.Properties[Rotation], FallbackValue=0, UpdateSourceTrigger=PropertyChanged}"/>
                                     </Grid>
+
+                                    <TextBlock Text="Opacity:" Margin="0,12,0,4"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Slider Grid.Column="0"
+                                                Minimum="0"
+                                                Maximum="1"
+                                                Value="{Binding Designer.SelectedElement.Opacity, FallbackValue=1, UpdateSourceTrigger=PropertyChanged}"
+                                                TickFrequency="0.1"
+                                                IsSnapToTickEnabled="False"
+                                                Margin="0,0,8,0"/>
+                                        <TextBox Grid.Column="1"
+                                                Width="60"
+                                                Text="{Binding Designer.SelectedElement.Opacity, FallbackValue=1, StringFormat=F2, UpdateSourceTrigger=PropertyChanged}"/>
+                                    </Grid>
+
+                                    <TextBlock Text="Visibility:" Margin="0,12,0,4"/>
+                                    <CheckBox Content="Visible" IsChecked="{Binding Designer.SelectedElement.Visible, FallbackValue=True}" Margin="0,4,0,0"/>
+
+                                    <Separator Margin="0,16"/>
+
+                                    <!-- Advanced Properties -->
+                                    <TextBlock Text="Advanced" FontWeight="SemiBold" Margin="0,8,0,8"/>
+
+                                    <TextBlock Text="Border Radius:" Margin="0,4,0,2"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Slider Grid.Column="0"
+                                                Minimum="0"
+                                                Maximum="100"
+                                                Value="{Binding Designer.SelectedElement.Properties[BorderRadius], FallbackValue=0, UpdateSourceTrigger=PropertyChanged}"
+                                                TickFrequency="5"
+                                                IsSnapToTickEnabled="False"
+                                                Margin="0,0,8,0"/>
+                                        <TextBox Grid.Column="1"
+                                                Width="60"
+                                                Text="{Binding Designer.SelectedElement.Properties[BorderRadius], FallbackValue=0, UpdateSourceTrigger=PropertyChanged}"/>
+                                    </Grid>
+
+                                    <TextBlock Text="Shadow:" Margin="0,12,0,4"/>
+                                    <CheckBox Content="Enable Shadow" IsChecked="{Binding Designer.SelectedElement.Properties[EnableShadow], FallbackValue=False}" Margin="0,4,0,8"/>
+
+                                    <StackPanel Visibility="{Binding Designer.SelectedElement.Properties[EnableShadow], Converter={StaticResource BooleanToVisibilityConverter}, FallbackValue=Collapsed}">
+                                        <TextBlock Text="Shadow Blur:" Margin="0,4,0,2" FontSize="11"/>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Slider Grid.Column="0"
+                                                    Minimum="0"
+                                                    Maximum="50"
+                                                    Value="{Binding Designer.SelectedElement.Properties[ShadowBlur], FallbackValue=10, UpdateSourceTrigger=PropertyChanged}"
+                                                    TickFrequency="5"
+                                                    IsSnapToTickEnabled="False"
+                                                    Margin="0,0,8,0"/>
+                                            <TextBox Grid.Column="1"
+                                                    Width="60"
+                                                    Text="{Binding Designer.SelectedElement.Properties[ShadowBlur], FallbackValue=10, UpdateSourceTrigger=PropertyChanged}"/>
+                                        </Grid>
+
+                                        <TextBlock Text="Shadow Color:" Margin="0,8,0,2" FontSize="11"/>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBox Grid.Column="0"
+                                                    Text="{Binding Designer.SelectedElement.Properties[ShadowColor], FallbackValue=#80000000, UpdateSourceTrigger=PropertyChanged}"
+                                                    Margin="0,0,8,0"/>
+                                            <Border Grid.Column="1"
+                                                   Width="40"
+                                                   Height="30"
+                                                   BorderBrush="#CCCCCC"
+                                                   BorderThickness="1">
+                                                <Border.Background>
+                                                    <SolidColorBrush Color="{Binding Designer.SelectedElement.Properties[ShadowColor], Converter={StaticResource HexToColorConverter}, FallbackValue=#80000000}"/>
+                                                </Border.Background>
+                                            </Border>
+                                        </Grid>
+
+                                        <TextBlock Text="Shadow Offset X:" Margin="0,8,0,2" FontSize="11"/>
+                                        <TextBox Text="{Binding Designer.SelectedElement.Properties[ShadowOffsetX], FallbackValue=5, UpdateSourceTrigger=PropertyChanged}"/>
+
+                                        <TextBlock Text="Shadow Offset Y:" Margin="0,4,0,2" FontSize="11"/>
+                                        <TextBox Text="{Binding Designer.SelectedElement.Properties[ShadowOffsetY], FallbackValue=5, UpdateSourceTrigger=PropertyChanged}"/>
+                                    </StackPanel>
 
                                     <Separator Margin="0,16"/>
 
