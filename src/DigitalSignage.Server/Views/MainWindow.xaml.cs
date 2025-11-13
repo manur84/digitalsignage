@@ -163,7 +163,7 @@ public partial class MainWindow : Window
 
     private void Element_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        if (sender is Border border && border.DataContext is DisplayElement element)
+        if (sender is FrameworkElement element && element.DataContext is DisplayElement displayElement)
         {
             // Deselect all other elements
             foreach (var el in ViewModel.Designer.Elements)
@@ -172,17 +172,17 @@ public partial class MainWindow : Window
             }
 
             // Select this element
-            element.IsSelected = true;
-            ViewModel.Designer.SelectedElement = element;
+            displayElement.IsSelected = true;
+            ViewModel.Designer.SelectedElement = displayElement;
 
             // Start dragging
             _isDragging = true;
-            _dragStartPoint = e.GetPosition((UIElement)border.Parent);
-            _draggedElement = element;
+            _dragStartPoint = e.GetPosition((UIElement)element.Parent);
+            _draggedElement = displayElement;
 
-            border.CaptureMouse();
+            element.CaptureMouse();
 
-            System.Diagnostics.Debug.WriteLine($"Element selected and drag started: {element.Name}");
+            System.Diagnostics.Debug.WriteLine($"Element selected and drag started: {displayElement.Name}");
 
             e.Handled = true;
         }
@@ -190,9 +190,9 @@ public partial class MainWindow : Window
 
     private void Element_MouseMove(object sender, MouseEventArgs e)
     {
-        if (_isDragging && _draggedElement != null && sender is Border border)
+        if (_isDragging && _draggedElement != null && sender is FrameworkElement element)
         {
-            Point currentPosition = e.GetPosition((UIElement)border.Parent);
+            Point currentPosition = e.GetPosition((UIElement)element.Parent);
 
             double deltaX = currentPosition.X - _dragStartPoint.X;
             double deltaY = currentPosition.Y - _dragStartPoint.Y;
@@ -216,11 +216,11 @@ public partial class MainWindow : Window
 
     private void Element_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
-        if (_isDragging && sender is Border border)
+        if (_isDragging && sender is FrameworkElement element)
         {
             _isDragging = false;
             _draggedElement = null;
-            border.ReleaseMouseCapture();
+            element.ReleaseMouseCapture();
 
             System.Diagnostics.Debug.WriteLine("Drag ended");
 
@@ -230,20 +230,20 @@ public partial class MainWindow : Window
 
     private void Element_MouseEnter(object sender, MouseEventArgs e)
     {
-        if (sender is Border border)
+        if (sender is FrameworkElement element)
         {
             // Visual feedback on hover
-            border.Opacity = 0.9;
+            element.Opacity = 0.9;
             Mouse.OverrideCursor = Cursors.Hand;
         }
     }
 
     private void Element_MouseLeave(object sender, MouseEventArgs e)
     {
-        if (sender is Border border)
+        if (sender is FrameworkElement element)
         {
             // Restore opacity
-            border.Opacity = 1.0;
+            element.Opacity = 1.0;
             Mouse.OverrideCursor = null;
         }
     }
