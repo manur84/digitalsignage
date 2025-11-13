@@ -56,6 +56,9 @@ public partial class DesignerViewModel : ObservableObject
     [ObservableProperty]
     private bool _hasUnsavedChanges = false;
 
+    [ObservableProperty]
+    private string _statusMessage = "Ready";
+
     public ObservableCollection<DisplayElement> Elements { get; } = new();
     public ObservableCollection<DisplayElement> Layers { get; } = new();
     public CommandHistory CommandHistory { get; } = new(maxHistorySize: 50);
@@ -600,6 +603,12 @@ public partial class DesignerViewModel : ObservableObject
         {
             SelectedElement = value;
         }
+    }
+
+    partial void OnHasUnsavedChangesChanged(bool value)
+    {
+        _logger.LogInformation("HasUnsavedChanges changed to: {Value}", value);
+        StatusMessage = value ? "Modified - Unsaved changes" : "Ready";
     }
 
     [RelayCommand]

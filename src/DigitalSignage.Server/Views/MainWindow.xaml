@@ -5,6 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:controls="clr-namespace:DigitalSignage.Server.Controls"
         xmlns:local="clr-namespace:DigitalSignage.Server.Converters"
+        xmlns:designer="clr-namespace:DigitalSignage.Server.Views.Designer"
         mc:Ignorable="d"
         Title="Digital Signage Manager"
         Height="800"
@@ -22,6 +23,8 @@
         <local:TypeEqualsConverter x:Key="TypeEqualsConverter"/>
         <local:TypeEqualsAnyConverter x:Key="TypeEqualsAnyConverter"/>
         <local:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+        <local:BoolToVisibilityStringConverter x:Key="BoolToVisibilityStringConverter"/>
+        <local:BoolToOnOffStringConverter x:Key="BoolToOnOffStringConverter"/>
     </Window.Resources>
 
     <!-- Keyboard Shortcuts -->
@@ -492,12 +495,15 @@
 
                     <!-- Canvas Area -->
                     <Grid Grid.Column="2" Background="#1E1E1E">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="*"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
+                        <DockPanel>
+                            <!-- Designer Toolbar -->
+                            <designer:DesignerToolbar DockPanel.Dock="Top" DataContext="{Binding Designer}"/>
 
-                        <ScrollViewer Grid.Row="0" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                            <!-- Designer Status Bar -->
+                            <designer:DesignerStatusBar DockPanel.Dock="Bottom" DataContext="{Binding Designer}"/>
+
+                            <!-- Canvas -->
+                            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
                             <controls:DesignerCanvas x:Name="DesignerCanvas"
                                                     Background="White"
                                                     Width="{Binding Designer.CurrentLayout.Resolution.Width}"
@@ -740,108 +746,7 @@
                                 </ItemsControl>
                             </controls:DesignerCanvas>
                         </ScrollViewer>
-
-                        <!-- Status Bar / Zoom Controls -->
-                        <Border Grid.Row="1" Background="#2D2D30" BorderBrush="#3F3F46" BorderThickness="0,1,0,0" Padding="12,8">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-
-                                <!-- Left Side: Info -->
-                                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                                    <!-- Canvas Size -->
-                                    <TextBlock Foreground="#AAAAAA" FontSize="11" VerticalAlignment="Center">
-                                        <Run Text="Canvas:"/>
-                                        <Run Text="{Binding Designer.CurrentLayout.Resolution.Width, Mode=OneWay}" Foreground="White"/>
-                                        <Run Text="×"/>
-                                        <Run Text="{Binding Designer.CurrentLayout.Resolution.Height, Mode=OneWay}" Foreground="White"/>
-                                        <Run Text="px"/>
-                                    </TextBlock>
-
-                                    <Separator Margin="12,0" Background="#3F3F46" Width="1"/>
-
-                                    <!-- Element Count -->
-                                    <TextBlock Foreground="#AAAAAA" FontSize="11" VerticalAlignment="Center">
-                                        <Run Text="Elements:"/>
-                                        <Run Text="{Binding Designer.Elements.Count, Mode=OneWay}" Foreground="White"/>
-                                    </TextBlock>
-
-                                    <Separator Margin="12,0" Background="#3F3F46" Width="1"/>
-
-                                    <!-- Selection Info -->
-                                    <TextBlock Foreground="#AAAAAA" FontSize="11" VerticalAlignment="Center">
-                                        <Run Text="Selected:"/>
-                                        <Run Text="{Binding Designer.SelectionService.SelectedElements.Count, Mode=OneWay, FallbackValue=0}" Foreground="White"/>
-                                    </TextBlock>
-
-                                    <!-- Selected Element Position (when single selection) -->
-                                    <TextBlock Foreground="#AAAAAA" FontSize="11" VerticalAlignment="Center" Margin="12,0,0,0" Visibility="{Binding Designer.SelectedElement, Converter={StaticResource NullToVisibilityConverter}, ConverterParameter=Invert}">
-                                        <Run Text="| Pos:"/>
-                                        <Run Text="{Binding Designer.SelectedElement.Position.X, StringFormat='{}{0:F0}', Mode=OneWay, FallbackValue=0}" Foreground="White"/>
-                                        <Run Text=","/>
-                                        <Run Text="{Binding Designer.SelectedElement.Position.Y, StringFormat='{}{0:F0}', Mode=OneWay, FallbackValue=0}" Foreground="White"/>
-                                        <Run Text="| Size:"/>
-                                        <Run Text="{Binding Designer.SelectedElement.Size.Width, StringFormat='{}{0:F0}', Mode=OneWay, FallbackValue=0}" Foreground="White"/>
-                                        <Run Text="×"/>
-                                        <Run Text="{Binding Designer.SelectedElement.Size.Height, StringFormat='{}{0:F0}', Mode=OneWay, FallbackValue=0}" Foreground="White"/>
-                                    </TextBlock>
-
-                                    <Separator Margin="12,0" Background="#3F3F46" Width="1"/>
-
-                                    <!-- Grid Info -->
-                                    <TextBlock Foreground="#AAAAAA" FontSize="11" VerticalAlignment="Center">
-                                        <Run Text="Grid:"/>
-                                        <Run Text="{Binding Designer.GridSize, Mode=OneWay}" Foreground="White"/>
-                                        <Run Text="px ·"/>
-                                        <Run Text="{Binding Designer.ShowGrid, Mode=OneWay, FallbackValue=False}" Foreground="White"/>
-                                        <Run Text="· Snap:"/>
-                                        <Run Text="{Binding Designer.SnapToGrid, Mode=OneWay, FallbackValue=False}" Foreground="White"/>
-                                    </TextBlock>
-                                </StackPanel>
-
-                                <!-- Right Side: Zoom Controls -->
-                                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
-                                    <Button Command="{Binding Designer.ZoomOutCommand}"
-                                            Content="-"
-                                            Width="32"
-                                            Height="28"
-                                            Style="{StaticResource SecondaryButton}"
-                                            Margin="0,0,8,0"
-                                            ToolTip="Zoom Out (Ctrl+-)"/>
-                                    <Slider Value="{Binding Designer.ZoomLevel}"
-                                            Minimum="0.25"
-                                            Maximum="4.0"
-                                            Width="150"
-                                            VerticalAlignment="Center"
-                                            TickFrequency="0.25"
-                                            IsSnapToTickEnabled="False"
-                                            Margin="0,0,8,0"
-                                            ToolTip="Zoom Level"/>
-                                    <TextBlock Text="{Binding Designer.ZoomLevel, StringFormat={}{0:P0}}"
-                                              Width="50"
-                                              VerticalAlignment="Center"
-                                              HorizontalAlignment="Center"
-                                              Foreground="White"
-                                              FontWeight="SemiBold"
-                                              Margin="0,0,8,0"/>
-                                    <Button Command="{Binding Designer.ZoomInCommand}"
-                                            Content="+"
-                                            Width="32"
-                                            Height="28"
-                                            Style="{StaticResource SecondaryButton}"
-                                            Margin="0,0,8,0"
-                                            ToolTip="Zoom In (Ctrl++)"/>
-                                    <Button Command="{Binding Designer.ZoomToFitCommand}"
-                                            Content="Fit"
-                                            Width="50"
-                                            Height="28"
-                                            Style="{StaticResource SecondaryButton}"
-                                            ToolTip="Zoom to Fit (Ctrl+0)"/>
-                                </StackPanel>
-                            </Grid>
-                        </Border>
+                        </DockPanel>
                     </Grid>
 
                     <!-- Properties Panel -->
