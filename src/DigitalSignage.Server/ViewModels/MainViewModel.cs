@@ -416,23 +416,71 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private async Task SaveAs()
     {
-        // TODO: Implement save as dialog
-        StatusText = "Save as...";
+        if (CurrentLayout == null)
+        {
+            StatusText = "No layout to save";
+            return;
+        }
+
+        try
+        {
+            var dialog = new Microsoft.Win32.SaveFileDialog
+            {
+                Filter = "JSON Layout (*.json)|*.json",
+                DefaultExt = ".json",
+                FileName = $"{CurrentLayout.Name}.json"
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                CurrentLayout.Elements = Designer.Elements.ToList();
+                CurrentLayout.Modified = DateTime.UtcNow;
+
+                var json = await _layoutService.ExportLayoutAsync(CurrentLayout.Id);
+                await System.IO.File.WriteAllTextAsync(dialog.FileName, json);
+
+                StatusText = $"Layout saved to: {dialog.FileName}";
+                _logger.LogInformation("Layout saved as: {FileName}", dialog.FileName);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to save layout as file");
+            StatusText = $"Failed to save: {ex.Message}";
+        }
     }
 
     [RelayCommand]
     private async Task Export()
     {
-        if (CurrentLayout == null) return;
+        if (CurrentLayout == null)
+        {
+            StatusText = "No layout to export";
+            return;
+        }
 
         try
         {
-            var json = await _layoutService.ExportLayoutAsync(CurrentLayout.Id);
-            // TODO: Save to file
-            StatusText = "Layout exported";
+            var dialog = new Microsoft.Win32.SaveFileDialog
+            {
+                Filter = "JSON Layout (*.json)|*.json",
+                DefaultExt = ".json",
+                FileName = $"{CurrentLayout.Name}_export.json"
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                CurrentLayout.Elements = Designer.Elements.ToList();
+                var json = await _layoutService.ExportLayoutAsync(CurrentLayout.Id);
+                await System.IO.File.WriteAllTextAsync(dialog.FileName, json);
+
+                StatusText = $"Layout exported to: {dialog.FileName}";
+                _logger.LogInformation("Layout exported: {FileName}", dialog.FileName);
+            }
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Failed to export layout");
             StatusText = $"Failed to export: {ex.Message}";
         }
     }
@@ -440,8 +488,38 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private async Task Import()
     {
-        // TODO: Implement import dialog
-        StatusText = "Importing layout...";
+        try
+        {
+            var dialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Filter = "JSON Layout (*.json)|*.json",
+                DefaultExt = ".json"
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                StatusText = "Importing layout...";
+                var json = await System.IO.File.ReadAllTextAsync(dialog.FileName);
+                var layout = await _layoutService.ImportLayoutAsync(json);
+
+                // Load into designer
+                await Designer.LoadLayoutAsync(layout);
+                CurrentLayout = layout;
+
+                StatusText = $"Layout imported: {layout.Name}";
+                _logger.LogInformation("Layout imported from: {FileName}", dialog.FileName);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to import layout");
+            StatusText = $"Failed to import: {ex.Message}";
+            System.Windows.MessageBox.Show(
+                $"Failed to import layout:\n{ex.Message}",
+                "Import Error",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Error);
+        }
     }
 
     [RelayCommand]
@@ -503,31 +581,112 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void DatabaseConnection()
     {
-        StatusText = "Opening database connection...";
+        try
+        {
+            var connectionString = _dbContext.Database.GetConnectionString();
+            var message = $"Current Database Connection:\n\n{connectionString}\n\n" +
+                         $"Server: {_dbContext.Database.CanConnect()}\n" +
+                         $"Provider: {_dbContext.Database.ProviderName}";
+
+            System.Windows.MessageBox.Show(
+                message,
+                "Database Connection",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Information);
+
+            StatusText = "Database connection info displayed";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get database connection info");
+            StatusText = $"Database connection error: {ex.Message}";
+        }
     }
 
     [RelayCommand]
     private void Settings()
     {
-        StatusText = "Opening settings...";
+        // TODO: Open settings dialog when implemented
+        System.Windows.MessageBox.Show(
+            "Settings dialog coming soon!\n\n" +
+            "Future features:\n" +
+            "• Server configuration\n" +
+            "• Database settings\n" +
+            "• Default layout options\n" +
+            "• UI preferences",
+            "Settings",
+            System.Windows.MessageBoxButton.OK,
+            System.Windows.MessageBoxImage.Information);
+
+        StatusText = "Settings feature coming soon";
     }
 
     [RelayCommand]
     private void Logs()
     {
-        StatusText = "Opening logs...";
+        // Switch to Logs tab - assuming TabControl can be accessed
+        StatusText = "Check the 'Logs' tab for application logs";
+        _logger.LogInformation("User requested logs view");
     }
 
     [RelayCommand]
     private void Documentation()
     {
-        StatusText = "Opening documentation...";
+        try
+        {
+            var docsPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "docs");
+
+            // Try to open docs folder or README
+            if (System.IO.Directory.Exists(docsPath))
+            {
+                System.Diagnostics.Process.Start("explorer.exe", docsPath);
+                StatusText = "Opened documentation folder";
+            }
+            else
+            {
+                // Open GitHub docs
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "https://github.com/manur84/digitalsignage/tree/main/docs",
+                    UseShellExecute = true
+                });
+                StatusText = "Opened online documentation";
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to open documentation");
+            System.Windows.MessageBox.Show(
+                "Documentation available at:\n\n" +
+                "Local: ./docs folder\n" +
+                "Online: https://github.com/manur84/digitalsignage/tree/main/docs",
+                "Documentation",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Information);
+            StatusText = "Documentation location shown";
+        }
     }
 
     [RelayCommand]
     private void About()
     {
-        StatusText = "Digital Signage Manager v1.0";
+        var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
+        var message = $"Digital Signage Manager\n\n" +
+                     $"Version: {version}\n" +
+                     $"Framework: .NET 8.0\n" +
+                     $"UI: WPF with MVVM\n\n" +
+                     $"Server Status: {ServerStatus}\n" +
+                     $"Connected Clients: {ConnectedClients}\n\n" +
+                     $"© 2024 Digital Signage Project\n" +
+                     $"Built with Claude Code";
+
+        System.Windows.MessageBox.Show(
+            message,
+            "About Digital Signage Manager",
+            System.Windows.MessageBoxButton.OK,
+            System.Windows.MessageBoxImage.Information);
+
+        StatusText = $"Digital Signage Manager v{version}";
     }
 
     [RelayCommand]
