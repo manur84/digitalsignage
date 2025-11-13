@@ -206,6 +206,7 @@ public class DesignerItemControl : ContentControl
             "image" => CreateImageElement(),
             "shape" => CreateShapeElement(),
             "rectangle" => CreateRectangleElement(),
+            "group" => CreateGroupElement(),
             _ => new TextBlock { Text = $"Unsupported: {DisplayElement.Type}" }
         };
     }
@@ -388,6 +389,67 @@ public class DesignerItemControl : ContentControl
         }
 
         return rectangle;
+    }
+
+    private UIElement CreateGroupElement()
+    {
+        // Create a canvas to hold child elements
+        var groupCanvas = new Canvas
+        {
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Stretch,
+            Background = Brushes.Transparent
+        };
+
+        // Add a visual indicator that this is a group
+        var groupBorder = new Border
+        {
+            BorderBrush = new SolidColorBrush(Color.FromArgb(80, 100, 100, 255)),
+            BorderThickness = new Thickness(2),
+            CornerRadius = new CornerRadius(4),
+            Background = new SolidColorBrush(Color.FromArgb(20, 100, 100, 255)),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Stretch
+        };
+
+        // Add group label
+        var groupLabel = new TextBlock
+        {
+            Text = $"Group ({DisplayElement?.Children?.Count ?? 0} items)",
+            FontSize = 10,
+            Foreground = new SolidColorBrush(Color.FromRgb(100, 100, 255)),
+            Margin = new Thickness(4, 2, 4, 2),
+            Background = new SolidColorBrush(Color.FromArgb(200, 255, 255, 255)),
+            Padding = new Thickness(4, 2, 4, 2)
+        };
+
+        groupCanvas.Children.Add(groupBorder);
+        groupCanvas.Children.Add(groupLabel);
+
+        // Render child elements (if needed for preview)
+        if (DisplayElement?.Children != null)
+        {
+            foreach (var child in DisplayElement.Children)
+            {
+                // Create a simple visual representation of child elements
+                var childPreview = new Border
+                {
+                    Width = child.Size.Width,
+                    Height = child.Size.Height,
+                    BorderBrush = Brushes.DarkGray,
+                    BorderThickness = new Thickness(1),
+                    Background = new SolidColorBrush(Color.FromArgb(40, 128, 128, 128)),
+                    CornerRadius = new CornerRadius(2)
+                };
+
+                Canvas.SetLeft(childPreview, child.Position.X);
+                Canvas.SetTop(childPreview, child.Position.Y);
+
+                groupCanvas.Children.Add(childPreview);
+            }
+        }
+
+        return groupCanvas;
     }
 
     private void UpdateSelectionVisual()

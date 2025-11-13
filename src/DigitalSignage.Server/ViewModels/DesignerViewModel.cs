@@ -1391,9 +1391,68 @@ public partial class DesignerViewModel : ObservableObject
             return;
         }
 
-        // TODO: Implement grouping logic
-        // For now, just log the action
-        _logger.LogInformation("Grouping {Count} elements (not yet implemented)", SelectionService.SelectedElements.Count);
+        try
+        {
+            var selectedElements = SelectionService.SelectedElements.ToList();
+
+            // Calculate bounding box for the group
+            double minX = selectedElements.Min(e => e.Position.X);
+            double minY = selectedElements.Min(e => e.Position.Y);
+            double maxX = selectedElements.Max(e => e.Position.X + e.Size.Width);
+            double maxY = selectedElements.Max(e => e.Position.Y + e.Size.Height);
+
+            // Create a group element
+            var groupElement = new DisplayElement
+            {
+                Id = Guid.NewGuid().ToString(),
+                Type = "group",
+                Name = $"Group {DateTime.Now:HHmmss}",
+                Position = new Position { X = minX, Y = minY },
+                Size = new Size { Width = maxX - minX, Height = maxY - minY },
+                ZIndex = selectedElements.Min(e => e.ZIndex),
+                Children = new List<DisplayElement>()
+            };
+
+            // Add all selected elements as children
+            foreach (var element in selectedElements)
+            {
+                // Store relative position within group
+                element.ParentId = groupElement.Id;
+
+                // Adjust child position to be relative to group
+                double relativeX = element.Position.X - minX;
+                double relativeY = element.Position.Y - minY;
+                element.Position.X = relativeX;
+                element.Position.Y = relativeY;
+
+                groupElement.Children.Add(element);
+
+                // Remove from layout elements
+                if (CurrentLayout != null)
+                {
+                    CurrentLayout.Elements.Remove(element);
+                }
+            }
+
+            // Initialize properties for the group
+            groupElement.InitializeDefaultProperties();
+
+            // Add group to layout
+            if (CurrentLayout != null)
+            {
+                CurrentLayout.Elements.Add(groupElement);
+            }
+
+            // Select the group
+            SelectionService.ClearSelection();
+            SelectionService.SelectSingle(groupElement);
+
+            _logger.LogInformation("Grouped {Count} elements into {GroupName}", selectedElements.Count, groupElement.Name);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error grouping elements");
+        }
     }
 
     /// <summary>
@@ -1408,9 +1467,56 @@ public partial class DesignerViewModel : ObservableObject
             return;
         }
 
-        // TODO: Implement ungrouping logic
-        // For now, just log the action
-        _logger.LogInformation("Ungrouping elements (not yet implemented)");
+        try
+        {
+            var selectedElement = SelectionService.SelectedElements.FirstOrDefault();
+
+            if (selectedElement == null || !selectedElement.IsGroup)
+            {
+                _logger.LogWarning("Cannot ungroup: Selected element is not a group");
+                return;
+            }
+
+            // Get group position for absolute positioning
+            double groupX = selectedElement.Position.X;
+            double groupY = selectedElement.Position.Y;
+
+            var children = selectedElement.Children.ToList();
+
+            // Ungroup all children
+            foreach (var child in children)
+            {
+                // Convert relative position back to absolute
+                child.Position.X += groupX;
+                child.Position.Y += groupY;
+                child.ParentId = null;
+
+                // Add back to layout
+                if (CurrentLayout != null)
+                {
+                    CurrentLayout.Elements.Add(child);
+                }
+            }
+
+            // Remove the group element
+            if (CurrentLayout != null)
+            {
+                CurrentLayout.Elements.Remove(selectedElement);
+            }
+
+            // Select the ungrouped children
+            SelectionService.ClearSelection();
+            foreach (var child in children)
+            {
+                SelectionService.AddToSelection(child);
+            }
+
+            _logger.LogInformation("Ungrouped {Count} elements from {GroupName}", children.Count, selectedElement.Name);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error ungrouping elements");
+        }
     }
 
     #endregion

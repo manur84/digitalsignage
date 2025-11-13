@@ -60,6 +60,17 @@ public partial class DisplayElement : ObservableObject
     [ObservableProperty]
     private bool _isSelected;
 
+    [ObservableProperty]
+    private string? _parentId; // ID of parent group (null if not in a group)
+
+    [ObservableProperty]
+    private List<DisplayElement> _children = new(); // Child elements (if this is a group)
+
+    /// <summary>
+    /// Gets whether this element is a group (contains children)
+    /// </summary>
+    public bool IsGroup => Children != null && Children.Count > 0;
+
     /// <summary>
     /// Initializes default properties for all element types
     /// This prevents KeyNotFoundException when binding in XAML
