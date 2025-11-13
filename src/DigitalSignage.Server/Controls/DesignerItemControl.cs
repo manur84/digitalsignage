@@ -184,6 +184,9 @@ public class DesignerItemControl : ContentControl
         Canvas.SetTop(this, DisplayElement.Position.Y);
         Panel.SetZIndex(this, DisplayElement.ZIndex);
 
+        // Apply visual effects (rotation, shadow, opacity)
+        ApplyVisualEffects();
+
         // Render content based on element type
         Content = CreateContentForElement();
 
@@ -250,6 +253,43 @@ public class DesignerItemControl : ContentControl
                 catch
                 {
                     textBlock.Foreground = Brushes.Black;
+                }
+            }
+
+            // Apply line height
+            if (DisplayElement.Properties.TryGetValue("LineHeight", out var lineHeight))
+            {
+                var lineHeightValue = Convert.ToDouble(lineHeight);
+                if (lineHeightValue > 0)
+                {
+                    textBlock.LineHeight = textBlock.FontSize * lineHeightValue;
+                }
+            }
+
+            // Apply letter spacing (WPF uses Typography.LetterSpacing in em units)
+            if (DisplayElement.Properties.TryGetValue("LetterSpacing", out var letterSpacing))
+            {
+                var letterSpacingValue = Convert.ToDouble(letterSpacing);
+                // Convert pixels to em units (em = pixels / fontSize * 1000)
+                if (textBlock.FontSize > 0)
+                {
+                    textBlock.FontStretch = System.Windows.FontStretches.Normal;
+                    // Note: WPF doesn't have direct letter-spacing, but we can use a workaround with FormattedText
+                    // For now, we'll document this limitation
+                }
+            }
+
+            // Apply text decorations
+            if (DisplayElement.Properties.TryGetValue("TextDecoration", out var textDecoration))
+            {
+                var decoration = textDecoration?.ToString()?.ToLower();
+                if (decoration == "underline" || (DisplayElement["Underline"] as bool? == true))
+                {
+                    textBlock.TextDecorations = TextDecorations.Underline;
+                }
+                else if (decoration == "strikethrough" || (DisplayElement["Strikethrough"] as bool? == true))
+                {
+                    textBlock.TextDecorations = TextDecorations.Strikethrough;
                 }
             }
 
@@ -463,6 +503,88 @@ public class DesignerItemControl : ContentControl
         {
             BorderBrush = Brushes.Transparent;
             BorderThickness = new Thickness(0);
+        }
+    }
+
+    /// <summary>
+    /// Applies visual effects like rotation, shadow, and opacity to the element
+    /// </summary>
+    private void ApplyVisualEffects()
+    {
+        if (DisplayElement == null) return;
+
+        // Apply rotation
+        var rotation = DisplayElement.Rotation;
+        if (rotation != 0)
+        {
+            this.RenderTransform = new RotateTransform(rotation);
+            this.RenderTransformOrigin = new Point(0.5, 0.5);
+        }
+        else
+        {
+            this.RenderTransform = null;
+        }
+
+        // Apply opacity
+        this.Opacity = DisplayElement.Opacity;
+
+        // Apply shadow if enabled
+        if (DisplayElement["EnableShadow"] as bool? == true)
+        {
+            try
+            {
+                var shadowColor = ColorFromHex(DisplayElement["ShadowColor"] as string ?? "#000000");
+                var shadowBlur = DisplayElement["ShadowBlur"] as double? ?? 5.0;
+                var shadowOffsetX = DisplayElement["ShadowOffsetX"] as double? ?? 2.0;
+                var shadowOffsetY = DisplayElement["ShadowOffsetY"] as double? ?? 2.0;
+
+                var effect = new System.Windows.Media.Effects.DropShadowEffect
+                {
+                    Color = shadowColor,
+                    BlurRadius = shadowBlur,
+                    ShadowDepth = Math.Sqrt(shadowOffsetX * shadowOffsetX + shadowOffsetY * shadowOffsetY),
+                    Direction = Math.Atan2(shadowOffsetY, shadowOffsetX) * (180.0 / Math.PI),
+                    Opacity = 0.7
+                };
+                this.Effect = effect;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to apply shadow effect: {ex.Message}");
+                this.Effect = null;
+            }
+        }
+        else
+        {
+            this.Effect = null;
+        }
+
+        // Apply scale transformations (for flip effects)
+        var scaleX = DisplayElement["ScaleX"] as double? ?? 1.0;
+        var scaleY = DisplayElement["ScaleY"] as double? ?? 1.0;
+
+        if (scaleX != 1.0 || scaleY != 1.0 || rotation != 0)
+        {
+            var transformGroup = new TransformGroup();
+            transformGroup.Children.Add(new ScaleTransform(scaleX, scaleY));
+            transformGroup.Children.Add(new RotateTransform(rotation));
+            this.RenderTransform = transformGroup;
+            this.RenderTransformOrigin = new Point(0.5, 0.5);
+        }
+    }
+
+    /// <summary>
+    /// Converts a hex color string to a Color object
+    /// </summary>
+    private Color ColorFromHex(string hex)
+    {
+        try
+        {
+            return (Color)ColorConverter.ConvertFromString(hex);
+        }
+        catch
+        {
+            return Colors.Black;
         }
     }
 

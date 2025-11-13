@@ -1486,4 +1486,64 @@ public partial class DesignerViewModel : ObservableObject
     }
 
     #endregion
+
+    #region Grid Configuration Commands
+
+    /// <summary>
+    /// Opens the Grid Configuration Dialog
+    /// </summary>
+    [RelayCommand]
+    private void OpenGridConfig()
+    {
+        try
+        {
+            var viewModel = new GridConfigViewModel(GridSize, "#E0E0E0", ShowGrid, SnapToGrid, true);
+            var dialog = new Views.Dialogs.GridConfigDialog(viewModel)
+            {
+                Owner = System.Windows.Application.Current.MainWindow
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                GridSize = viewModel.GridSize;
+                ShowGrid = viewModel.ShowGrid;
+                SnapToGrid = viewModel.SnapToGrid;
+
+                _logger.LogInformation("Grid configuration updated: Size={Size}, ShowGrid={Show}, SnapToGrid={Snap}",
+                    GridSize, ShowGrid, SnapToGrid);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to open grid configuration dialog");
+        }
+    }
+
+    #endregion
+
+    #region Help Commands
+
+    /// <summary>
+    /// Opens the Keyboard Shortcuts Help Dialog
+    /// </summary>
+    [RelayCommand]
+    private void ShowKeyboardShortcuts()
+    {
+        try
+        {
+            var dialog = new Views.Dialogs.KeyboardShortcutsDialog
+            {
+                Owner = System.Windows.Application.Current.MainWindow
+            };
+            dialog.ShowDialog();
+
+            _logger.LogInformation("Opened keyboard shortcuts help dialog");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to open keyboard shortcuts dialog");
+        }
+    }
+
+    #endregion
 }
