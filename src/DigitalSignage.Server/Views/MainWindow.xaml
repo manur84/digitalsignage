@@ -567,180 +567,163 @@
                                     </ItemsControl.ItemContainerStyle>
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <Border x:Name="ElementBorder"
-                                                    CornerRadius="5"
-                                                    Width="{Binding Size.Width}"
-                                                    Height="{Binding Size.Height}"
-                                                    MinWidth="50"
-                                                    MinHeight="50"
-                                                    Cursor="Hand"
-                                                    MouseLeftButtonDown="Element_MouseLeftButtonDown"
-                                                    MouseMove="Element_MouseMove"
-                                                    MouseLeftButtonUp="Element_MouseLeftButtonUp"
-                                                    MouseEnter="Element_MouseEnter"
-                                                    MouseLeave="Element_MouseLeave">
+                                            <!-- PROFESSIONAL CANVAS ELEMENT - Renders exactly as it appears on display -->
+                                            <Grid x:Name="ElementContainer"
+                                                  Width="{Binding Size.Width}"
+                                                  Height="{Binding Size.Height}"
+                                                  Background="Transparent"
+                                                  Cursor="Hand"
+                                                  MouseLeftButtonDown="Element_MouseLeftButtonDown"
+                                                  MouseMove="Element_MouseMove"
+                                                  MouseLeftButtonUp="Element_MouseLeftButtonUp"
+                                                  MouseEnter="Element_MouseEnter"
+                                                  MouseLeave="Element_MouseLeave">
 
-                                                <!-- Dynamic Border Brush and Background based on Type -->
-                                                <Border.Style>
-                                                    <Style TargetType="Border">
-                                                        <!-- Default for all types -->
-                                                        <Setter Property="Background" Value="#FF87CEEB"/>
-                                                        <Setter Property="BorderBrush" Value="#FF0000FF"/>
-                                                        <Setter Property="BorderThickness" Value="3"/>
+                                                <!-- ACTUAL ELEMENT RENDERING (what shows on display) -->
+                                                <Grid x:Name="ElementContent">
 
-                                                        <Style.Triggers>
-                                                            <!-- Selected: Orange border -->
-                                                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                                                                <Setter Property="BorderBrush" Value="#FFFF8C00"/>
-                                                                <Setter Property="BorderThickness" Value="4"/>
-                                                            </DataTrigger>
+                                                    <!-- TEXT ELEMENT -->
+                                                    <Border Background="Transparent"
+                                                            Visibility="{Binding Type, Converter={StaticResource TypeEqualsConverter}, ConverterParameter=text}">
+                                                        <TextBlock Text="{Binding Properties[Content], FallbackValue='Sample Text'}"
+                                                                   FontFamily="{Binding Properties[FontFamily], FallbackValue=Arial}"
+                                                                   FontSize="{Binding Properties[FontSize], FallbackValue=24}"
+                                                                   Foreground="{Binding Properties[Color], FallbackValue=Black}"
+                                                                   TextWrapping="Wrap"
+                                                                   HorizontalAlignment="Left"
+                                                                   VerticalAlignment="Top"
+                                                                   Padding="5"/>
+                                                    </Border>
 
-                                                            <!-- Text Element: White background -->
-                                                            <DataTrigger Binding="{Binding Type}" Value="text">
-                                                                <Setter Property="Background" Value="White"/>
-                                                                <Setter Property="BorderBrush" Value="#FF666666"/>
-                                                            </DataTrigger>
+                                                    <!-- RECTANGLE ELEMENT -->
+                                                    <Rectangle Fill="{Binding Properties[FillColor], FallbackValue=#FFADD8E6}"
+                                                               Stroke="{Binding Properties[BorderColor], FallbackValue=#FF0000FF}"
+                                                               StrokeThickness="{Binding Properties[BorderThickness], FallbackValue=2}"
+                                                               RadiusX="{Binding Properties[CornerRadius], FallbackValue=0}"
+                                                               RadiusY="{Binding Properties[CornerRadius], FallbackValue=0}"
+                                                               Visibility="{Binding Type, Converter={StaticResource TypeEqualsConverter}, ConverterParameter=rectangle}"/>
 
-                                                            <!-- Rectangle Element: Light Blue -->
-                                                            <DataTrigger Binding="{Binding Type}" Value="rectangle">
-                                                                <Setter Property="Background" Value="#FFADD8E6"/>
-                                                                <Setter Property="BorderBrush" Value="#FF0000FF"/>
-                                                            </DataTrigger>
+                                                    <!-- CIRCLE ELEMENT -->
+                                                    <Ellipse Fill="{Binding Properties[FillColor], FallbackValue=#FFFFD700}"
+                                                             Stroke="{Binding Properties[BorderColor], FallbackValue=#FFFFA500}"
+                                                             StrokeThickness="{Binding Properties[BorderThickness], FallbackValue=2}"
+                                                             Visibility="{Binding Type, Converter={StaticResource TypeEqualsConverter}, ConverterParameter=circle}"/>
 
-                                                            <!-- Image Element: Light Gray -->
-                                                            <DataTrigger Binding="{Binding Type}" Value="image">
-                                                                <Setter Property="Background" Value="#FFF0F0F0"/>
-                                                                <Setter Property="BorderBrush" Value="#FF888888"/>
-                                                            </DataTrigger>
-
-                                                            <!-- Circle: Gold -->
-                                                            <DataTrigger Binding="{Binding Type}" Value="circle">
-                                                                <Setter Property="Background" Value="#FFFFD700"/>
-                                                                <Setter Property="BorderBrush" Value="#FFFFA500"/>
-                                                            </DataTrigger>
-
-                                                            <!-- QR Code: Light Yellow -->
-                                                            <DataTrigger Binding="{Binding Type}" Value="qrcode">
-                                                                <Setter Property="Background" Value="#FFFFFFE0"/>
-                                                                <Setter Property="BorderBrush" Value="#FFA0A000"/>
-                                                            </DataTrigger>
-
-                                                            <!-- Table: Light Cyan -->
-                                                            <DataTrigger Binding="{Binding Type}" Value="table">
-                                                                <Setter Property="Background" Value="#FFE0FFFF"/>
-                                                                <Setter Property="BorderBrush" Value="#FF2196F3"/>
-                                                            </DataTrigger>
-
-                                                            <!-- DateTime: Light Pink -->
-                                                            <DataTrigger Binding="{Binding Type}" Value="datetime">
-                                                                <Setter Property="Background" Value="#FFFFE4E1"/>
-                                                                <Setter Property="BorderBrush" Value="#FFFF69B4"/>
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </Border.Style>
-
-                                                <Grid>
-                                                    <!-- TEXT ELEMENT CONTENT -->
-                                                    <TextBlock Text="{Binding Properties[Content], FallbackValue='Sample Text'}"
-                                                               FontFamily="{Binding Properties[FontFamily], FallbackValue=Arial}"
-                                                               FontSize="{Binding Properties[FontSize], FallbackValue=24}"
-                                                               Foreground="{Binding Properties[Color], FallbackValue=Black}"
-                                                               TextWrapping="Wrap"
-                                                               HorizontalAlignment="Center"
-                                                               VerticalAlignment="Center"
-                                                               Margin="10"
-                                                               Visibility="{Binding Type, Converter={StaticResource TypeEqualsConverter}, ConverterParameter=text}"/>
-
-                                                    <!-- IMAGE ELEMENT CONTENT -->
+                                                    <!-- IMAGE ELEMENT -->
                                                     <Grid Visibility="{Binding Type, Converter={StaticResource TypeEqualsConverter}, ConverterParameter=image}">
-                                                        <TextBlock Text="🖼️ Image"
-                                                                   FontSize="24"
+                                                        <!-- Placeholder background -->
+                                                        <Rectangle Fill="#FFF5F5F5" Stroke="#FFCCCCCC" StrokeThickness="1" StrokeDashArray="4 2"/>
+                                                        <!-- Icon -->
+                                                        <TextBlock Text="🖼️" FontSize="48"
                                                                    HorizontalAlignment="Center"
                                                                    VerticalAlignment="Center"
-                                                                   Foreground="#FF888888"/>
-                                                        <TextBlock Text="{Binding Properties[Source], FallbackValue='No image selected'}"
-                                                                   FontSize="10"
+                                                                   Foreground="#FFCCCCCC"
+                                                                   Opacity="0.5"/>
+                                                        <!-- Filename at bottom -->
+                                                        <TextBlock Text="{Binding Properties[Source], FallbackValue='No image'}"
+                                                                   FontSize="9"
                                                                    HorizontalAlignment="Center"
                                                                    VerticalAlignment="Bottom"
                                                                    Margin="5"
-                                                                   Foreground="#FF666666"
+                                                                   Foreground="#FF999999"
                                                                    TextTrimming="CharacterEllipsis"/>
                                                     </Grid>
 
-                                                    <!-- RECTANGLE/CIRCLE/OTHER TYPES -->
-                                                    <TextBlock FontSize="16"
-                                                               FontWeight="Bold"
-                                                               HorizontalAlignment="Center"
-                                                               VerticalAlignment="Center"
-                                                               Foreground="#80000000">
-                                                        <TextBlock.Style>
-                                                            <Style TargetType="TextBlock">
-                                                                <Setter Property="Visibility" Value="Collapsed"/>
-                                                                <Style.Triggers>
-                                                                    <DataTrigger Binding="{Binding Type}" Value="rectangle">
-                                                                        <Setter Property="Text" Value="[Rectangle]"/>
-                                                                        <Setter Property="Visibility" Value="Visible"/>
-                                                                    </DataTrigger>
-                                                                    <DataTrigger Binding="{Binding Type}" Value="circle">
-                                                                        <Setter Property="Text" Value="[Circle]"/>
-                                                                        <Setter Property="Visibility" Value="Visible"/>
-                                                                    </DataTrigger>
-                                                                    <DataTrigger Binding="{Binding Type}" Value="qrcode">
-                                                                        <Setter Property="Text" Value="QR Code"/>
-                                                                        <Setter Property="Visibility" Value="Visible"/>
-                                                                    </DataTrigger>
-                                                                    <DataTrigger Binding="{Binding Type}" Value="table">
-                                                                        <Setter Property="Text" Value="📊 Table"/>
-                                                                        <Setter Property="Visibility" Value="Visible"/>
-                                                                    </DataTrigger>
-                                                                    <DataTrigger Binding="{Binding Type}" Value="datetime">
-                                                                        <Setter Property="Text" Value="🕐 Date/Time"/>
-                                                                        <Setter Property="Visibility" Value="Visible"/>
-                                                                    </DataTrigger>
-                                                                </Style.Triggers>
-                                                            </Style>
-                                                        </TextBlock.Style>
-                                                    </TextBlock>
+                                                    <!-- QR CODE ELEMENT -->
+                                                    <Grid Visibility="{Binding Type, Converter={StaticResource TypeEqualsConverter}, ConverterParameter=qrcode}">
+                                                        <Rectangle Fill="White" Stroke="#FF333333" StrokeThickness="1"/>
+                                                        <TextBlock Text="QR" FontSize="32" FontWeight="Bold"
+                                                                   HorizontalAlignment="Center"
+                                                                   VerticalAlignment="Center"
+                                                                   Foreground="#FF333333"/>
+                                                    </Grid>
 
-                                                    <!-- Debug Labels (Name and Size) -->
-                                                    <StackPanel Orientation="Horizontal"
-                                                                HorizontalAlignment="Left"
-                                                                VerticalAlignment="Top"
-                                                                Background="#80000000">
-                                                        <TextBlock Text="{Binding Name}"
-                                                                   FontSize="10"
-                                                                   Foreground="White"
-                                                                   Padding="3"/>
-                                                    </StackPanel>
+                                                    <!-- TABLE ELEMENT -->
+                                                    <Grid Visibility="{Binding Type, Converter={StaticResource TypeEqualsConverter}, ConverterParameter=table}">
+                                                        <Rectangle Fill="#FFFAFAFA" Stroke="#FF2196F3" StrokeThickness="1"/>
+                                                        <TextBlock Text="📊" FontSize="32"
+                                                                   HorizontalAlignment="Center"
+                                                                   VerticalAlignment="Center"
+                                                                   Foreground="#FF2196F3"/>
+                                                    </Grid>
 
-                                                    <StackPanel Orientation="Horizontal"
-                                                                HorizontalAlignment="Right"
-                                                                VerticalAlignment="Top"
-                                                                Background="#80008000"
-                                                                Margin="2">
-                                                        <TextBlock Text="{Binding Size.Width, StringFormat='{}{0:F0}'}"
-                                                                   FontSize="9"
-                                                                   Foreground="White"
-                                                                   Padding="2"/>
-                                                        <TextBlock Text="×" FontSize="9" Foreground="White"/>
-                                                        <TextBlock Text="{Binding Size.Height, StringFormat='{}{0:F0}'}"
-                                                                   FontSize="9"
-                                                                   Foreground="White"
-                                                                   Padding="2"/>
-                                                    </StackPanel>
+                                                    <!-- DATETIME ELEMENT -->
+                                                    <Grid Visibility="{Binding Type, Converter={StaticResource TypeEqualsConverter}, ConverterParameter=datetime}">
+                                                        <Rectangle Fill="Transparent"/>
+                                                        <TextBlock FontSize="20" FontWeight="SemiBold"
+                                                                   HorizontalAlignment="Center"
+                                                                   VerticalAlignment="Center"
+                                                                   Foreground="{Binding Properties[Color], FallbackValue=Black}">
+                                                            <Run Text="13.11.2025"/>
+                                                            <LineBreak/>
+                                                            <Run Text="14:30" FontSize="16"/>
+                                                        </TextBlock>
+                                                    </Grid>
 
-                                                    <!-- Selection Checkmark -->
-                                                    <TextBlock Text="✓"
-                                                               FontSize="20"
-                                                               Foreground="#FFFF8C00"
-                                                               FontWeight="Bold"
-                                                               HorizontalAlignment="Right"
-                                                               VerticalAlignment="Bottom"
-                                                               Margin="5"
-                                                               Visibility="{Binding IsSelected, Converter={StaticResource BoolToVisibilityConverter}}"/>
                                                 </Grid>
-                                            </Border>
+
+                                                <!-- SELECTION OVERLAY (only visible when selected) -->
+                                                <Grid x:Name="SelectionOverlay" Visibility="Collapsed" IsHitTestVisible="False">
+
+                                                    <!-- Selection Border (thin blue dashed line like Photoshop) -->
+                                                    <Rectangle Stroke="#FF007ACC"
+                                                               StrokeThickness="1.5"
+                                                               StrokeDashArray="4 2"
+                                                               Fill="Transparent"/>
+
+                                                    <!-- Resize Handles (8 small squares) -->
+                                                    <!-- Top-Left -->
+                                                    <Rectangle Width="6" Height="6" Fill="White" Stroke="#FF007ACC" StrokeThickness="1"
+                                                               HorizontalAlignment="Left" VerticalAlignment="Top" Margin="-3,-3,0,0"/>
+
+                                                    <!-- Top-Center -->
+                                                    <Rectangle Width="6" Height="6" Fill="White" Stroke="#FF007ACC" StrokeThickness="1"
+                                                               HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,-3,0,0"/>
+
+                                                    <!-- Top-Right -->
+                                                    <Rectangle Width="6" Height="6" Fill="White" Stroke="#FF007ACC" StrokeThickness="1"
+                                                               HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-3,-3,0"/>
+
+                                                    <!-- Middle-Left -->
+                                                    <Rectangle Width="6" Height="6" Fill="White" Stroke="#FF007ACC" StrokeThickness="1"
+                                                               HorizontalAlignment="Left" VerticalAlignment="Center" Margin="-3,0,0,0"/>
+
+                                                    <!-- Middle-Right -->
+                                                    <Rectangle Width="6" Height="6" Fill="White" Stroke="#FF007ACC" StrokeThickness="1"
+                                                               HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,-3,0"/>
+
+                                                    <!-- Bottom-Left -->
+                                                    <Rectangle Width="6" Height="6" Fill="White" Stroke="#FF007ACC" StrokeThickness="1"
+                                                               HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="-3,0,0,-3"/>
+
+                                                    <!-- Bottom-Center -->
+                                                    <Rectangle Width="6" Height="6" Fill="White" Stroke="#FF007ACC" StrokeThickness="1"
+                                                               HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,-3"/>
+
+                                                    <!-- Bottom-Right -->
+                                                    <Rectangle Width="6" Height="6" Fill="White" Stroke="#FF007ACC" StrokeThickness="1"
+                                                               HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-3,-3"/>
+
+                                                </Grid>
+
+                                                <!-- Trigger to show/hide selection overlay -->
+                                                <Grid.Style>
+                                                    <Style TargetType="Grid">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                                <Setter Property="Panel.ZIndex" Value="999"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Grid.Style>
+
+                                            </Grid>
+
+                                            <DataTemplate.Triggers>
+                                                <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                    <Setter TargetName="SelectionOverlay" Property="Visibility" Value="Visible"/>
+                                                </DataTrigger>
+                                            </DataTemplate.Triggers>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
