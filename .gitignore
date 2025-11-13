@@ -85,6 +85,3 @@ Desktop.ini
 *.bak
 *.tmp
 *~
-
-# Documentation (AI-specific)
-CLAUDE.md
