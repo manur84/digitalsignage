@@ -548,7 +548,7 @@
                                                    ScaleY="{Binding Designer.ZoomLevel}"/>
                                 </controls:DesignerCanvas.LayoutTransform>
 
-                                <!-- Render all elements from Designer.Elements - SIMPLIFIED APPROACH -->
+                                <!-- Render all elements from Designer.Elements - ULTRA SIMPLE GUARANTEED VISIBLE TEMPLATE -->
                                 <ItemsControl ItemsSource="{Binding Designer.Elements}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
@@ -564,66 +564,77 @@
                                     </ItemsControl.ItemContainerStyle>
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <!-- SIMPLE BORDER-BASED TEMPLATE WITH FALLBACK VALUES -->
-                                            <Border Background="{Binding Properties[FillColor], FallbackValue=LightGray, TargetNullValue=LightGray}"
-                                                    BorderBrush="{Binding Properties[BorderColor], FallbackValue=Black, TargetNullValue=Black}"
-                                                    BorderThickness="{Binding Properties[BorderThickness], FallbackValue=1, TargetNullValue=1}"
-                                                    CornerRadius="{Binding Properties[BorderRadius], FallbackValue=0, TargetNullValue=0}"
+                                            <!-- ULTRA SIMPLE: Hardcoded colors, guaranteed visible -->
+                                            <Border Background="#FF87CEEB"
+                                                    BorderBrush="#FF0000FF"
+                                                    BorderThickness="3"
+                                                    CornerRadius="5"
                                                     Width="{Binding Size.Width}"
                                                     Height="{Binding Size.Height}"
-                                                    MinWidth="20"
-                                                    MinHeight="20">
+                                                    MinWidth="50"
+                                                    MinHeight="50">
 
                                                 <Grid>
-                                                    <!-- Text Element Content -->
-                                                    <TextBlock Text="{Binding Properties[Content], FallbackValue='Text Element', TargetNullValue='Text Element'}"
-                                                               FontFamily="{Binding Properties[FontFamily], FallbackValue=Arial, TargetNullValue=Arial}"
-                                                               FontSize="{Binding Properties[FontSize], FallbackValue=14, TargetNullValue=14}"
-                                                               Foreground="{Binding Properties[Color], FallbackValue=Black, TargetNullValue=Black}"
-                                                               TextWrapping="Wrap"
+                                                    <!-- Always visible element name -->
+                                                    <TextBlock Text="{Binding Name}"
+                                                               FontSize="16"
+                                                               FontWeight="Bold"
+                                                               Foreground="White"
                                                                HorizontalAlignment="Center"
                                                                VerticalAlignment="Center"
-                                                               Margin="5">
-                                                        <TextBlock.Style>
-                                                            <Style TargetType="TextBlock">
-                                                                <Setter Property="Visibility" Value="Collapsed"/>
-                                                                <Style.Triggers>
-                                                                    <DataTrigger Binding="{Binding Type}" Value="text">
-                                                                        <Setter Property="Visibility" Value="Visible"/>
-                                                                    </DataTrigger>
-                                                                </Style.Triggers>
-                                                            </Style>
-                                                        </TextBlock.Style>
-                                                    </TextBlock>
+                                                               Background="#80000000"
+                                                               Padding="10,5"/>
 
-                                                    <!-- Image Element Content -->
-                                                    <Image Source="{Binding Properties[Source], FallbackValue={x:Null}}"
-                                                           Stretch="Uniform">
-                                                        <Image.Style>
-                                                            <Style TargetType="Image">
-                                                                <Setter Property="Visibility" Value="Collapsed"/>
-                                                                <Style.Triggers>
-                                                                    <DataTrigger Binding="{Binding Type}" Value="image">
-                                                                        <Setter Property="Visibility" Value="Visible"/>
-                                                                    </DataTrigger>
-                                                                </Style.Triggers>
-                                                            </Style>
-                                                        </Image.Style>
-                                                    </Image>
-
-                                                    <!-- Rectangle/Circle/Shape Element (just the border is enough) -->
-                                                    <!-- For simple shapes, the Border itself acts as the shape -->
-
-                                                    <!-- Element Name Label (for debugging and visibility) -->
-                                                    <TextBlock Text="{Binding Name}"
+                                                    <!-- Type indicator (top-left) -->
+                                                    <TextBlock Text="{Binding Type}"
                                                                FontSize="10"
-                                                               Foreground="Red"
+                                                               FontWeight="Bold"
+                                                               Foreground="Yellow"
                                                                HorizontalAlignment="Left"
                                                                VerticalAlignment="Top"
-                                                               Margin="2"
-                                                               Background="White"
-                                                               Opacity="0.8"
-                                                               Padding="2,1"/>
+                                                               Margin="5"
+                                                               Background="#80FF0000"
+                                                               Padding="3,1"/>
+
+                                                    <!-- Size indicator (top-right) -->
+                                                    <StackPanel Orientation="Horizontal"
+                                                                HorizontalAlignment="Right"
+                                                                VerticalAlignment="Top"
+                                                                Margin="5"
+                                                                Background="#80008000">
+                                                        <TextBlock Text="{Binding Size.Width, StringFormat='{}{0:F0}'}"
+                                                                   FontSize="9"
+                                                                   Foreground="White"
+                                                                   Padding="2"/>
+                                                        <TextBlock Text="×"
+                                                                   FontSize="9"
+                                                                   Foreground="White"
+                                                                   Padding="0"/>
+                                                        <TextBlock Text="{Binding Size.Height, StringFormat='{}{0:F0}'}"
+                                                                   FontSize="9"
+                                                                   Foreground="White"
+                                                                   Padding="2"/>
+                                                    </StackPanel>
+
+                                                    <!-- Position indicator (bottom-left) -->
+                                                    <StackPanel Orientation="Horizontal"
+                                                                HorizontalAlignment="Left"
+                                                                VerticalAlignment="Bottom"
+                                                                Margin="5"
+                                                                Background="#80800080">
+                                                        <TextBlock Text="{Binding Position.X, StringFormat='{}{0:F0}'}"
+                                                                   FontSize="9"
+                                                                   Foreground="White"
+                                                                   Padding="2"/>
+                                                        <TextBlock Text=","
+                                                                   FontSize="9"
+                                                                   Foreground="White"
+                                                                   Padding="0"/>
+                                                        <TextBlock Text="{Binding Position.Y, StringFormat='{}{0:F0}'}"
+                                                                   FontSize="9"
+                                                                   Foreground="White"
+                                                                   Padding="2"/>
+                                                    </StackPanel>
                                                 </Grid>
                                             </Border>
                                         </DataTemplate>

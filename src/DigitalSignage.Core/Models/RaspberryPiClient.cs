@@ -25,7 +25,10 @@ public enum ClientStatus
     Online,
     Offline,
     Error,
-    Updating
+    Updating,
+    Connecting,
+    OfflineRecovery,
+    Disconnected
 }
 
 /// <summary>
