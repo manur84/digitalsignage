@@ -4,6 +4,7 @@ using DigitalSignage.Core.Interfaces;
 using DigitalSignage.Core.Models;
 using DigitalSignage.Data;
 using DigitalSignage.Server.Views;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System.Collections.ObjectModel;
 using System.Text.Json;

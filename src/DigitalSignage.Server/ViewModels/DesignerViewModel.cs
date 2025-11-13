@@ -870,7 +870,6 @@ public partial class DesignerViewModel : ObservableObject
         SelectionService.ClearSelection();
         _logger.LogDebug("Cleared selection");
     }
-}
 
     #region Alignment Commands
 
