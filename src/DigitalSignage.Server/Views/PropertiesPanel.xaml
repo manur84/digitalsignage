@@ -288,6 +288,60 @@
 
                     <Separator Margin="0,16"/>
 
+                    <!-- QR Code Properties -->
+                    <StackPanel>
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding SelectedElement.Type}" Value="qrcode">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
+
+                        <TextBlock Text="QR Code Properties" FontWeight="SemiBold" Margin="0,0,0,8"/>
+
+                        <TextBlock Text="Content/Data:" Margin="0,4,0,2"/>
+                        <TextBox Text="{Binding SelectedElement[Content], UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
+                                Height="60"
+                                TextWrapping="Wrap"
+                                AcceptsReturn="True"
+                                VerticalScrollBarVisibility="Auto"
+                                ToolTip="The data to encode in the QR code (URL, text, etc.)"/>
+
+                        <TextBlock Text="Foreground Color:" Margin="0,12,0,4"/>
+                        <TextBox Text="{Binding SelectedElement[ForegroundColor], FallbackValue=#000000, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
+                                ToolTip="QR code pattern color (default: black)"/>
+
+                        <TextBlock Text="Background Color:" Margin="0,12,0,4"/>
+                        <TextBox Text="{Binding SelectedElement[BackgroundColor], FallbackValue=#FFFFFF, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
+                                ToolTip="QR code background color (default: white)"/>
+
+                        <TextBlock Text="Error Correction Level:" Margin="0,12,0,4"/>
+                        <ComboBox SelectedValue="{Binding SelectedElement[ErrorCorrectionLevel], FallbackValue=M, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
+                                 ToolTip="Error correction capability (L=7%, M=15%, Q=25%, H=30%)">
+                            <ComboBoxItem Content="L - Low (7%)" Tag="L"/>
+                            <ComboBoxItem Content="M - Medium (15%)" Tag="M" IsSelected="True"/>
+                            <ComboBoxItem Content="Q - Quartile (25%)" Tag="Q"/>
+                            <ComboBoxItem Content="H - High (30%)" Tag="H"/>
+                        </ComboBox>
+
+                        <TextBlock Text="Preview:" Margin="0,12,0,4" FontWeight="SemiBold"/>
+                        <Border BorderBrush="#CCCCCC" BorderThickness="1" Padding="8" Background="White" Margin="0,4,0,0">
+                            <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="#666666">
+                                <Run Text="QR code will be generated"/>
+                                <LineBreak/>
+                                <Run Text="based on the Content/Data"/>
+                                <LineBreak/>
+                                <Run Text="and displayed on the client."/>
+                            </TextBlock>
+                        </Border>
+                    </StackPanel>
+
+                    <Separator Margin="0,16"/>
+
                     <TextBlock Text="Actions:" FontWeight="SemiBold" Margin="0,8,0,8"/>
                     <Button Content="Duplicate Element" Command="{Binding DuplicateSelectedElementCommand}" Margin="0,0,0,4"/>
                     <Button Content="Delete Element" Command="{Binding DeleteSelectedElementCommand}" Style="{StaticResource SecondaryButton}"/>
