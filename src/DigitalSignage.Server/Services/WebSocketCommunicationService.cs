@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Collections.Concurrent;
+using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Net.WebSockets;
@@ -270,22 +271,44 @@ public class WebSocketCommunicationService : ICommunicationService
         WebSocket socket,
         CancellationToken cancellationToken)
     {
-        var buffer = new byte[8192];
+        var buffer = new byte[8192]; // 8KB buffer per read
 
         try
         {
             while (socket.State == WebSocketState.Open && !cancellationToken.IsCancellationRequested)
             {
-                var result = await socket.ReceiveAsync(
-                    new ArraySegment<byte>(buffer),
-                    cancellationToken);
+                // Use MemoryStream to accumulate data across multiple frames
+                using var messageStream = new MemoryStream();
+                WebSocketReceiveResult result;
 
+                // Keep reading frames until we get the complete message (EndOfMessage = true)
+                do
+                {
+                    result = await socket.ReceiveAsync(
+                        new ArraySegment<byte>(buffer),
+                        cancellationToken);
+
+                    if (result.MessageType == WebSocketMessageType.Close)
+                    {
+                        break;
+                    }
+
+                    // Append this frame's data to the message stream
+                    messageStream.Write(buffer, 0, result.Count);
+
+                } while (!result.EndOfMessage);
+
+                // If client closed connection, break out of the loop
                 if (result.MessageType == WebSocketMessageType.Close)
                 {
                     break;
                 }
 
-                var json = Encoding.UTF8.GetString(buffer, 0, result.Count);
+                // Convert the complete message to string
+                var json = Encoding.UTF8.GetString(messageStream.ToArray());
+
+                _logger.LogDebug("Received complete message from client {ClientId} ({ByteCount} bytes)",
+                    clientId, messageStream.Length);
 
                 // Deserialize to JObject first to read the Type field
                 var jObject = Newtonsoft.Json.Linq.JObject.Parse(json);
