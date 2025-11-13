@@ -53,6 +53,9 @@ public partial class DesignerViewModel : ObservableObject
     [ObservableProperty]
     private double _selectionRectangleHeight;
 
+    [ObservableProperty]
+    private bool _hasUnsavedChanges = false;
+
     public ObservableCollection<DisplayElement> Elements { get; } = new();
     public ObservableCollection<DisplayElement> Layers { get; } = new();
     public CommandHistory CommandHistory { get; } = new(maxHistorySize: 50);
@@ -68,6 +71,7 @@ public partial class DesignerViewModel : ObservableObject
         {
             UndoCommand.NotifyCanExecuteChanged();
             RedoCommand.NotifyCanExecuteChanged();
+            HasUnsavedChanges = true; // Mark as having unsaved changes on any command
         };
 
         // Subscribe to selection changes
@@ -77,6 +81,13 @@ public partial class DesignerViewModel : ObservableObject
             SelectedElement = SelectionService.PrimarySelection;
             DeleteSelectedCommand.NotifyCanExecuteChanged();
             DuplicateSelectedCommand.NotifyCanExecuteChanged();
+        };
+
+        // Subscribe to Elements collection changes
+        Elements.CollectionChanged += (s, e) =>
+        {
+            HasUnsavedChanges = true;
+            UpdateLayers();
         };
 
         // Create default layout
@@ -98,6 +109,7 @@ public partial class DesignerViewModel : ObservableObject
         Elements.Clear();
         Layers.Clear();
         SelectedElement = null;
+        HasUnsavedChanges = false; // New layout starts with no unsaved changes
         _logger.LogInformation("Created new layout: {LayoutName}", CurrentLayout.Name);
     }
 
@@ -112,6 +124,7 @@ public partial class DesignerViewModel : ObservableObject
             Elements.Clear();
             Layers.Clear();
             SelectedElement = null;
+            HasUnsavedChanges = false; // New layout starts with no unsaved changes
             _logger.LogInformation("Created new layout: {LayoutName} ({Width}x{Height})",
                 layout.Name, layout.Resolution.Width, layout.Resolution.Height);
         }
@@ -161,6 +174,7 @@ public partial class DesignerViewModel : ObservableObject
 
             UpdateLayers();
             SelectedElement = null;
+            HasUnsavedChanges = false; // Just loaded, no unsaved changes
             _logger.LogInformation("Loaded layout: {LayoutName} with {ElementCount} elements",
                 layout.Name, layout.Elements?.Count ?? 0);
         }
@@ -195,6 +209,9 @@ public partial class DesignerViewModel : ObservableObject
                 await _layoutService.CreateLayoutAsync(CurrentLayout);
                 _logger.LogInformation("Created new layout: {LayoutName} ({Id})", CurrentLayout.Name, CurrentLayout.Id);
             }
+
+            // Mark as saved
+            HasUnsavedChanges = false;
 
             // Show success message (optional)
             System.Windows.MessageBox.Show(

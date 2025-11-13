@@ -100,6 +100,15 @@ public partial class MainViewModel : ObservableObject
             }
         };
 
+        // Subscribe to Designer.HasUnsavedChanges to update Save command
+        Designer.PropertyChanged += (s, e) =>
+        {
+            if (e.PropertyName == nameof(Designer.HasUnsavedChanges))
+            {
+                SaveCommand.NotifyCanExecuteChanged();
+            }
+        };
+
         // Start the communication service
         _ = StartServerAsync();
     }
@@ -394,6 +403,9 @@ public partial class MainViewModel : ObservableObject
                 StatusText = $"Layout saved successfully: {CurrentLayout.Name}";
                 _logger.LogInformation("Updated layout: {LayoutId}", CurrentLayout.Id);
             }
+
+            // Reset unsaved changes flag
+            Designer.HasUnsavedChanges = false;
         }
         catch (Exception ex)
         {
@@ -407,7 +419,7 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private bool CanSave() => CurrentLayout != null;
+    private bool CanSave() => CurrentLayout != null && Designer.HasUnsavedChanges;
 
     partial void OnCurrentLayoutChanged(DisplayLayout? value)
     {

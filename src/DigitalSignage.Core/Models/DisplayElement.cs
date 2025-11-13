@@ -70,7 +70,9 @@ public partial class DisplayElement : ObservableObject
         EnsureProperty("ShadowOffsetY", 2.0);
 
         // Border/Shape properties (add to ALL types for consistency)
-        EnsureProperty("BorderRadius", 0.0);
+        EnsureProperty("BorderRadius", 0.0);       // Used in Properties panel and DesignerItemControl
+        EnsureProperty("CornerRadius", 0.0);       // Used in XAML for Rectangle elements
+        EnsureProperty("Source", "");              // Used in XAML for Image elements
         EnsureProperty("FillColor", "#FFFFFF");
         EnsureProperty("BorderColor", "#000000");
         EnsureProperty("BorderThickness", 0.0);
