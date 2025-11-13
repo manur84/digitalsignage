@@ -106,7 +106,7 @@ public partial class DeviceManagementViewModel : ObservableObject
             // Add "No Layout" option as first item
             AvailableLayouts.Add(new DisplayLayout
             {
-                Id = 0,
+                Id = Guid.Empty.ToString(),
                 Name = "- Nicht zugewiesen -",
                 Description = "Kein Layout zugewiesen"
             });

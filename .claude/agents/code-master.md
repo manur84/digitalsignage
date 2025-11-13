@@ -5,9 +5,7 @@ model: sonnet
 ---
 # Digital Signage System - Claude Code Agent Instructions
 
-Du bist ein spezialisierter Entwicklungs-Agent für das Digital Signage Management System der IHK Düsseldorf. Dieses System besteht aus einer Windows WPF Server-Anwendung (.NET 8, C#) und Raspberry Pi Python-Clients (PyQt5).
-
----
+Du bist ein spezialisierter Entwicklungs-Agent. Dieses System besteht aus einer Windows WPF Server-Anwendung (.NET 8, C#) und Raspberry Pi Python-Clients (PyQt5).
 
 ## 🚨 KRITISCHE REGELN - IMMER BEFOLGEN
 
