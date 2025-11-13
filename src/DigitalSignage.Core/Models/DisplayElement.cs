@@ -88,10 +88,16 @@ public partial class DisplayElement : ObservableObject
 
             if (changed)
             {
-                // Notify WPF about the change using Item[] indexer syntax
+                // CRITICAL FIX: WPF requires "Item[]" with empty brackets for indexer bindings
+                // This tells WPF that ANY indexed property may have changed
+                OnPropertyChanged("Item[]");
+
+                // Also notify with specific key for programmatic listeners
                 OnPropertyChanged($"Item[{key}]");
-                // Also notify using Properties[key] syntax for backward compatibility
                 OnPropertyChanged($"Properties[{key}]");
+
+                // Notify that the Properties dictionary has changed
+                OnPropertyChanged(nameof(Properties));
             }
         }
     }
@@ -316,10 +322,11 @@ public partial class DisplayElement : ObservableObject
 
         if (changed)
         {
-            // Notify WPF about the change using Item[] indexer syntax (the correct WPF way)
-            OnPropertyChanged($"Item[{key}]");
+            // CRITICAL FIX: WPF requires "Item[]" with empty brackets for indexer bindings
+            OnPropertyChanged("Item[]");
 
-            // Also notify using Properties[key] syntax for backward compatibility
+            // Also notify with specific key for programmatic listeners
+            OnPropertyChanged($"Item[{key}]");
             OnPropertyChanged($"Properties[{key}]");
 
             // Notify that the Properties dictionary has changed (for collection-based bindings)
