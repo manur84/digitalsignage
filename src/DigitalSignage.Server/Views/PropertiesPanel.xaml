@@ -4,6 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:local="clr-namespace:DigitalSignage.Server.Converters"
+             xmlns:controls="clr-namespace:DigitalSignage.Server.Controls"
              mc:Ignorable="d"
              d:DesignHeight="800" d:DesignWidth="300">
 
@@ -25,7 +26,7 @@
                 </StackPanel>
 
                 <TextBlock Text="Background:" Margin="0,12,0,4"/>
-                <TextBox Text="{Binding CurrentLayout.BackgroundColor, UpdateSourceTrigger=PropertyChanged}"/>
+                <controls:ColorPicker SelectedColor="{Binding CurrentLayout.BackgroundColor, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
 
                 <Separator Margin="0,16"/>
 
@@ -146,7 +147,7 @@
 
                     <StackPanel Visibility="{Binding SelectedElement[EnableShadow], Converter={StaticResource NullToVisibilityConverter}, ConverterParameter=Invert, FallbackValue=Collapsed}">
                         <TextBlock Text="Shadow Color:" Margin="0,4,0,2"/>
-                        <TextBox Text="{Binding SelectedElement[ShadowColor], FallbackValue=#000000, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"/>
+                        <controls:ColorPicker SelectedColor="{Binding SelectedElement[ShadowColor], FallbackValue=#000000, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"/>
 
                         <TextBlock Text="Shadow Blur:" Margin="0,8,0,2"/>
                         <Grid>
@@ -224,7 +225,7 @@
                         </Grid>
 
                         <TextBlock Text="Text Color:" Margin="0,12,0,4"/>
-                        <TextBox Text="{Binding SelectedElement[Color], FallbackValue=#000000, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"/>
+                        <controls:ColorPicker SelectedColor="{Binding SelectedElement[Color], FallbackValue=#000000, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"/>
 
                         <!-- Advanced Text Properties -->
                         <TextBlock Text="Line Height:" Margin="0,12,0,4"/>
@@ -277,10 +278,10 @@
                         <TextBlock Text="Shape Properties" FontWeight="SemiBold" Margin="0,0,0,8"/>
 
                         <TextBlock Text="Fill Color:" Margin="0,4,0,2"/>
-                        <TextBox Text="{Binding SelectedElement[FillColor], FallbackValue=#ADD8E6, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"/>
+                        <controls:ColorPicker SelectedColor="{Binding SelectedElement[FillColor], FallbackValue=#ADD8E6, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"/>
 
                         <TextBlock Text="Border Color:" Margin="0,12,0,4"/>
-                        <TextBox Text="{Binding SelectedElement[BorderColor], FallbackValue=#00008B, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"/>
+                        <controls:ColorPicker SelectedColor="{Binding SelectedElement[BorderColor], FallbackValue=#00008B, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"/>
 
                         <TextBlock Text="Border Thickness:" Margin="0,12,0,4"/>
                         <TextBox Text="{Binding SelectedElement[BorderThickness], FallbackValue=2, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"/>
@@ -409,11 +410,11 @@
                                 ToolTip="The data to encode in the QR code (URL, text, etc.)"/>
 
                         <TextBlock Text="Foreground Color:" Margin="0,12,0,4"/>
-                        <TextBox Text="{Binding SelectedElement[ForegroundColor], FallbackValue=#000000, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
+                        <controls:ColorPicker SelectedColor="{Binding SelectedElement[ForegroundColor], FallbackValue=#000000, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
                                 ToolTip="QR code pattern color (default: black)"/>
 
                         <TextBlock Text="Background Color:" Margin="0,12,0,4"/>
-                        <TextBox Text="{Binding SelectedElement[BackgroundColor], FallbackValue=#FFFFFF, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
+                        <controls:ColorPicker SelectedColor="{Binding SelectedElement[BackgroundColor], FallbackValue=#FFFFFF, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
                                 ToolTip="QR code background color (default: white)"/>
 
                         <TextBlock Text="Error Correction Level:" Margin="0,12,0,4"/>

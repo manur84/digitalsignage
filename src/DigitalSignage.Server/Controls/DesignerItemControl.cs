@@ -227,9 +227,10 @@ public class DesignerItemControl : ContentControl
         var textBlock = new TextBlock
         {
             TextWrapping = TextWrapping.Wrap,
-            VerticalAlignment = VerticalAlignment.Center,
-            HorizontalAlignment = HorizontalAlignment.Left,
-            Margin = new Thickness(5) // Add some padding
+            VerticalAlignment = VerticalAlignment.Stretch,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            Margin = new Thickness(5), // Add some padding
+            TextTrimming = TextTrimming.None // Ensure text is not trimmed
         };
 
         if (DisplayElement?.Properties != null)

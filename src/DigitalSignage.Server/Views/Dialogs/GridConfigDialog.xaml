@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:controls="clr-namespace:DigitalSignage.Server.Controls"
         mc:Ignorable="d"
         Title="Grid Configuration"
         Width="400"
@@ -125,28 +126,13 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
                 <TextBlock Grid.Column="0" Text="Color:" Style="{StaticResource LabelStyle}"/>
-                <TextBox Grid.Column="1"
-                        Text="{Binding GridColor, UpdateSourceTrigger=PropertyChanged}"
-                        VerticalAlignment="Center"
-                        Height="28"
-                        Padding="8,4"
-                        BorderBrush="#CCCCCC"
-                        Margin="8,0"/>
-                <Border Grid.Column="2"
-                       Width="40"
-                       Height="28"
-                       BorderBrush="#CCCCCC"
-                       BorderThickness="1"
-                       CornerRadius="4"
-                       Margin="8,0,0,0">
-                    <Border.Background>
-                        <SolidColorBrush Color="{Binding GridColorPreview}"/>
-                    </Border.Background>
-                </Border>
+                <controls:ColorPicker Grid.Column="1"
+                                     SelectedColor="{Binding GridColor, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     Height="28"
+                                     Margin="8,0,0,0"/>
             </Grid>
         </StackPanel>
 
