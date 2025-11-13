@@ -572,12 +572,7 @@
                                                   Width="{Binding Size.Width}"
                                                   Height="{Binding Size.Height}"
                                                   Background="Transparent"
-                                                  Cursor="Hand"
-                                                  MouseLeftButtonDown="Element_MouseLeftButtonDown"
-                                                  MouseMove="Element_MouseMove"
-                                                  MouseLeftButtonUp="Element_MouseLeftButtonUp"
-                                                  MouseEnter="Element_MouseEnter"
-                                                  MouseLeave="Element_MouseLeave">
+                                                  Cursor="Hand">
 
                                                 <!-- ACTUAL ELEMENT RENDERING (what shows on display) -->
                                                 <Grid x:Name="ElementContent">
