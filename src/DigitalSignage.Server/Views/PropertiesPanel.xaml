@@ -288,6 +288,103 @@
 
                     <Separator Margin="0,16"/>
 
+                    <!-- Image Properties -->
+                    <StackPanel>
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding SelectedElement.Type}" Value="image">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
+
+                        <TextBlock Text="Image Properties" FontWeight="SemiBold" Margin="0,0,0,8"/>
+
+                        <!-- Image Source with Browse Button -->
+                        <TextBlock Text="Image Source:" Margin="0,4,0,2"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <TextBox Grid.Column="0"
+                                     Text="{Binding SelectedElement[Source], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     IsReadOnly="True"
+                                     Margin="0,0,8,0"
+                                     ToolTip="Path to the image file"/>
+
+                            <Button Grid.Column="1"
+                                    Content="Browse..."
+                                    Width="80"
+                                    Padding="8,4"
+                                    Command="{Binding BrowseImageCommand}"
+                                    CommandParameter="{Binding SelectedElement}"
+                                    ToolTip="Browse media library to select an image"/>
+                        </Grid>
+
+                        <!-- Stretch Mode -->
+                        <TextBlock Text="Stretch Mode:" Margin="0,12,0,4"/>
+                        <ComboBox SelectedValue="{Binding SelectedElement[Stretch], FallbackValue=Uniform, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
+                                 ToolTip="How the image should be stretched to fill the container">
+                            <ComboBoxItem Content="None" Tag="None"/>
+                            <ComboBoxItem Content="Fill" Tag="Fill"/>
+                            <ComboBoxItem Content="Uniform" Tag="Uniform" IsSelected="True"/>
+                            <ComboBoxItem Content="Uniform to Fill" Tag="UniformToFill"/>
+                        </ComboBox>
+
+                        <!-- Image Preview -->
+                        <TextBlock Text="Preview:" Margin="0,12,0,4" FontWeight="SemiBold"/>
+                        <Border BorderBrush="#CCCCCC"
+                                BorderThickness="1"
+                                Background="#F5F5F5"
+                                Height="150"
+                                Margin="0,4,0,0">
+                            <Grid>
+                                <TextBlock Text="No image selected"
+                                           Foreground="#999999"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedElement[Source]}" Value="">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding SelectedElement[Source]}" Value="{x:Null}">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                                <Image Source="{Binding SelectedElement[Source]}"
+                                       Stretch="Uniform"
+                                       Margin="4">
+                                    <Image.Style>
+                                        <Style TargetType="Image">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedElement[Source]}" Value="">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding SelectedElement[Source]}" Value="{x:Null}">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Image.Style>
+                                </Image>
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+
+                    <Separator Margin="0,16"/>
+
                     <!-- QR Code Properties -->
                     <StackPanel>
                         <StackPanel.Style>

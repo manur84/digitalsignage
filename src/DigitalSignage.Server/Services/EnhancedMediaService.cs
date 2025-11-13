@@ -230,6 +230,30 @@ public class EnhancedMediaService : IMediaService
         }
     }
 
+    /// <summary>
+    /// Gets all media files with full metadata
+    /// </summary>
+    public async Task<List<MediaFile>> GetAllMediaAsync()
+    {
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<DigitalSignageDbContext>();
+
+            var files = await dbContext.MediaFiles
+                .OrderByDescending(m => m.UploadedAt)
+                .ToListAsync();
+
+            _logger.LogDebug("Retrieved {Count} media files with metadata", files.Count);
+            return files;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to retrieve media file list with metadata");
+            throw;
+        }
+    }
+
     private MediaType GetMediaType(string extension)
     {
         if (_allowedImageExtensions.Contains(extension))

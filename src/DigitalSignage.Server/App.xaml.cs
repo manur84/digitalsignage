@@ -122,6 +122,7 @@ public partial class App : Application
                 services.AddTransient<MediaLibraryViewModel>();
                 services.AddTransient<LogViewerViewModel>();
                 services.AddTransient<ScreenshotViewModel>();
+                services.AddTransient<MediaBrowserViewModel>();
 
                 // Register LiveLogsViewModel as singleton with shared log collection
                 services.AddSingleton<LiveLogsViewModel>(sp =>

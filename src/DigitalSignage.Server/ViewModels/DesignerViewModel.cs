@@ -1546,4 +1546,64 @@ public partial class DesignerViewModel : ObservableObject
     }
 
     #endregion
+
+    #region Media Browser Commands
+
+    /// <summary>
+    /// Opens the Media Browser Dialog to select an image for an element
+    /// </summary>
+    [RelayCommand]
+    private void BrowseImage(DisplayElement? element)
+    {
+        if (element == null)
+        {
+            _logger.LogWarning("BrowseImage called with null element");
+            return;
+        }
+
+        try
+        {
+            _logger.LogInformation("Opening media browser for element: {ElementName}", element.Name);
+
+            // Get services from DI container
+            var mediaService = App.GetService<EnhancedMediaService>();
+            var viewModelLogger = App.GetService<Microsoft.Extensions.Logging.ILogger<MediaBrowserViewModel>>();
+            var dialogLogger = App.GetService<Microsoft.Extensions.Logging.ILogger<Views.Dialogs.MediaBrowserDialog>>();
+
+            // Create ViewModel
+            var viewModel = new MediaBrowserViewModel(mediaService, viewModelLogger);
+
+            // Create and show dialog
+            var dialog = new Views.Dialogs.MediaBrowserDialog(viewModel, dialogLogger)
+            {
+                Owner = System.Windows.Application.Current.MainWindow
+            };
+
+            if (dialog.ShowDialog() == true && dialog.SelectedMedia != null)
+            {
+                // Set the image source to the file path
+                element["Source"] = dialog.SelectedMedia.FilePath;
+                _logger.LogInformation("Image source set to: {FilePath} for element {ElementName}",
+                    dialog.SelectedMedia.FilePath, element.Name);
+
+                // Mark as having unsaved changes
+                HasUnsavedChanges = true;
+            }
+            else
+            {
+                _logger.LogInformation("Media browser cancelled or no file selected");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error browsing images for element: {ElementName}", element?.Name);
+            System.Windows.MessageBox.Show(
+                $"Failed to open media browser:\n\n{ex.Message}",
+                "Error",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Error);
+        }
+    }
+
+    #endregion
 }
