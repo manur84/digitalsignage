@@ -81,7 +81,7 @@
             <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center">
                 <TextBlock Style="{StaticResource StatusItemStyle}">
                     <Run Text="Selection:"/>
-                    <Run Text="{Binding SelectionService.SelectionCount, FallbackValue=0}"/>
+                    <Run Text="{Binding SelectionService.SelectionCount, Mode=OneWay, FallbackValue=0}"/>
                     <Run Text="element(s)"/>
                 </TextBlock>
 
@@ -89,9 +89,9 @@
 
                 <TextBlock Style="{StaticResource StatusItemStyle}">
                     <Run Text="Canvas:"/>
-                    <Run Text="{Binding CurrentLayout.Resolution.Width, FallbackValue=1920}"/>
+                    <Run Text="{Binding CurrentLayout.Resolution.Width, Mode=OneWay, FallbackValue=1920}"/>
                     <Run Text="x"/>
-                    <Run Text="{Binding CurrentLayout.Resolution.Height, FallbackValue=1080}"/>
+                    <Run Text="{Binding CurrentLayout.Resolution.Height, Mode=OneWay, FallbackValue=1080}"/>
                     <Run Text="px"/>
                 </TextBlock>
 
@@ -102,11 +102,11 @@
                     <TextBlock Text="&#xE80A;" Style="{StaticResource IconTextStyle}" Margin="4,0,2,0"/>
                     <TextBlock Style="{StaticResource StatusItemStyle}" Margin="0">
                         <Run Text="Grid:"/>
-                        <Run Text="{Binding GridSize, FallbackValue=10}"/>
+                        <Run Text="{Binding GridSize, Mode=OneWay, FallbackValue=10}"/>
                         <Run Text="px"/>
                     </TextBlock>
                     <TextBlock Style="{StaticResource StatusItemStyle}" Margin="4,0,0,0"
-                               Text="{Binding ShowGrid, Converter={StaticResource BoolToVisibilityStringConverter}, FallbackValue='(Hidden)'}"/>
+                               Text="{Binding ShowGrid, Mode=OneWay, Converter={StaticResource BoolToVisibilityStringConverter}, FallbackValue='(Hidden)'}"/>
                 </StackPanel>
 
                 <Separator Style="{StaticResource StatusSeparatorStyle}"/>
@@ -115,7 +115,7 @@
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="&#xE7C4;" Style="{StaticResource IconTextStyle}" Margin="4,0,2,0"/>
                     <TextBlock Style="{StaticResource StatusItemStyle}" Margin="0"
-                               Text="{Binding SnapToGrid, Converter={StaticResource BoolToOnOffStringConverter}, FallbackValue='Off'}"/>
+                               Text="{Binding SnapToGrid, Mode=OneWay, Converter={StaticResource BoolToOnOffStringConverter}, FallbackValue='Off'}"/>
                 </StackPanel>
             </StackPanel>
 
@@ -128,7 +128,7 @@
                 </Button>
 
                 <TextBlock Style="{StaticResource StatusItemStyle}" MinWidth="60" TextAlignment="Center">
-                    <Run Text="{Binding ZoomLevel, StringFormat=P0, FallbackValue='100%'}"/>
+                    <Run Text="{Binding ZoomLevel, Mode=OneWay, StringFormat=P0, FallbackValue='100%'}"/>
                 </TextBlock>
 
                 <Button Style="{StaticResource ZoomButtonStyle}"
