@@ -1080,4 +1080,126 @@ public partial class DesignerViewModel : ObservableObject
     private bool CanPaste() => _clipboardElements != null && _clipboardElements.Count > 0;
 
     #endregion
+
+    #region Z-Order Commands
+
+    /// <summary>
+    /// Brings selected element(s) to front
+    /// </summary>
+    [RelayCommand]
+    private void BringToFront()
+    {
+        if (!SelectionService.HasSelection) return;
+
+        var maxZIndex = Elements.Max(e => e.ZIndex);
+        foreach (var element in SelectionService.SelectedElements.OrderBy(e => e.ZIndex))
+        {
+            element.ZIndex = ++maxZIndex;
+        }
+
+        UpdateLayers();
+        _logger.LogInformation("Brought {Count} element(s) to front", SelectionService.SelectedElements.Count);
+    }
+
+    /// <summary>
+    /// Brings selected element(s) forward one level
+    /// </summary>
+    [RelayCommand]
+    private void BringForward()
+    {
+        if (!SelectionService.HasSelection) return;
+
+        foreach (var element in SelectionService.SelectedElements.OrderByDescending(e => e.ZIndex))
+        {
+            element.ZIndex++;
+        }
+
+        UpdateLayers();
+        _logger.LogInformation("Brought {Count} element(s) forward", SelectionService.SelectedElements.Count);
+    }
+
+    /// <summary>
+    /// Sends selected element(s) backward one level
+    /// </summary>
+    [RelayCommand]
+    private void SendBackward()
+    {
+        if (!SelectionService.HasSelection) return;
+
+        foreach (var element in SelectionService.SelectedElements.OrderBy(e => e.ZIndex))
+        {
+            if (element.ZIndex > 0)
+            {
+                element.ZIndex--;
+            }
+        }
+
+        UpdateLayers();
+        _logger.LogInformation("Sent {Count} element(s) backward", SelectionService.SelectedElements.Count);
+    }
+
+    /// <summary>
+    /// Sends selected element(s) to back
+    /// </summary>
+    [RelayCommand]
+    private void SendToBack()
+    {
+        if (!SelectionService.HasSelection) return;
+
+        var minZIndex = 0;
+        foreach (var element in SelectionService.SelectedElements.OrderByDescending(e => e.ZIndex))
+        {
+            element.ZIndex = minZIndex++;
+        }
+
+        // Reindex all other elements
+        var otherElements = Elements.Except(SelectionService.SelectedElements).OrderBy(e => e.ZIndex).ToList();
+        foreach (var element in otherElements)
+        {
+            element.ZIndex = minZIndex++;
+        }
+
+        UpdateLayers();
+        _logger.LogInformation("Sent {Count} element(s) to back", SelectionService.SelectedElements.Count);
+    }
+
+    #endregion
+
+    #region Grouping Commands
+
+    /// <summary>
+    /// Groups selected elements
+    /// </summary>
+    [RelayCommand]
+    private void GroupSelected()
+    {
+        if (!SelectionService.HasSelection || SelectionService.SelectedElements.Count < 2)
+        {
+            _logger.LogWarning("Cannot group: Need at least 2 selected elements");
+            return;
+        }
+
+        // TODO: Implement grouping logic
+        // For now, just log the action
+        _logger.LogInformation("Grouping {Count} elements (not yet implemented)", SelectionService.SelectedElements.Count);
+    }
+
+    /// <summary>
+    /// Ungroups selected group
+    /// </summary>
+    [RelayCommand]
+    private void UngroupSelected()
+    {
+        if (!SelectionService.HasSelection)
+        {
+            _logger.LogWarning("Cannot ungroup: No selection");
+            return;
+        }
+
+        // TODO: Implement ungrouping logic
+        // For now, just log the action
+        _logger.LogInformation("Ungrouping elements (not yet implemented)");
+    }
+
+    #endregion
 }
