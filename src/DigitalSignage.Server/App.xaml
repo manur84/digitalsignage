@@ -25,6 +25,8 @@
             <converters:TestResultToColorConverter x:Key="TestResultToColorConverter"/>
             <converters:FontWeightToBoolConverter x:Key="FontWeightToBoolConverter"/>
             <converters:FontStyleToBoolConverter x:Key="FontStyleToBoolConverter"/>
+            <converters:BoolToVisibilityStringConverter x:Key="BoolToVisibilityStringConverter"/>
+            <converters:BoolToOnOffStringConverter x:Key="BoolToOnOffStringConverter"/>
 
             <!-- Global Styles -->
             <Style TargetType="Window">
