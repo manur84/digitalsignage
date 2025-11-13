@@ -480,6 +480,88 @@
 
                     <Separator Margin="0,16"/>
 
+                    <!-- Table Properties -->
+                    <StackPanel>
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding SelectedElement.Type}" Value="table">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
+
+                        <TextBlock Text="Table Properties" FontWeight="SemiBold" Margin="0,0,0,8"/>
+
+                        <TextBlock Text="Columns:" Margin="0,4,0,2"/>
+                        <TextBox Text="{Binding SelectedElement[Columns], UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
+                                IsReadOnly="True"
+                                ToolTip="Comma-separated column names (use Edit Table button to modify)"
+                                Background="#F5F5F5"/>
+
+                        <TextBlock Text="Rows:" Margin="0,12,0,2"/>
+                        <TextBox Text="{Binding SelectedElement[Rows], UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
+                                Height="60"
+                                TextWrapping="Wrap"
+                                IsReadOnly="True"
+                                VerticalScrollBarVisibility="Auto"
+                                ToolTip="Table data in JSON format (use Edit Table button to modify)"
+                                Background="#F5F5F5"/>
+
+                        <Button Content="Tabelle bearbeiten..."
+                                Command="{Binding EditTableCommand}"
+                                CommandParameter="{Binding SelectedElement}"
+                                Margin="0,12,0,0"
+                                Padding="8,4"
+                                ToolTip="Open table editor dialog"/>
+
+                        <TextBlock Text="Header Background:" Margin="0,12,0,4"/>
+                        <controls:ColorPicker SelectedColor="{Binding SelectedElement[HeaderBackgroundColor], FallbackValue=#4A90E2, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
+                                ToolTip="Background color for table header row"/>
+
+                        <TextBlock Text="Header Text Color:" Margin="0,12,0,4"/>
+                        <controls:ColorPicker SelectedColor="{Binding SelectedElement[HeaderTextColor], FallbackValue=#FFFFFF, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
+                                ToolTip="Text color for table header row"/>
+
+                        <TextBlock Text="Cell Background:" Margin="0,12,0,4"/>
+                        <controls:ColorPicker SelectedColor="{Binding SelectedElement[CellBackgroundColor], FallbackValue=#FFFFFF, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
+                                ToolTip="Background color for table data cells"/>
+
+                        <TextBlock Text="Cell Text Color:" Margin="0,12,0,4"/>
+                        <controls:ColorPicker SelectedColor="{Binding SelectedElement[CellTextColor], FallbackValue=#000000, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
+                                ToolTip="Text color for table data cells"/>
+
+                        <TextBlock Text="Border Color:" Margin="0,12,0,4"/>
+                        <controls:ColorPicker SelectedColor="{Binding SelectedElement[BorderColor], FallbackValue=#CCCCCC, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
+                                ToolTip="Color for table borders and grid lines"/>
+
+                        <TextBlock Text="Border Thickness:" Margin="0,12,0,4"/>
+                        <TextBox Text="{Binding SelectedElement[BorderThickness], FallbackValue=1, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
+                                ToolTip="Thickness of table borders in pixels"/>
+
+                        <TextBlock Text="Font Size:" Margin="0,12,0,4"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Slider Grid.Column="0"
+                                   Minimum="8"
+                                   Maximum="48"
+                                   Value="{Binding SelectedElement[FontSize], FallbackValue=12, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
+                                   TickFrequency="2"
+                                   IsSnapToTickEnabled="True"
+                                   Margin="0,0,8,0"/>
+                            <TextBox Grid.Column="1"
+                                    Width="60"
+                                    Text="{Binding SelectedElement[FontSize], FallbackValue=12, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"/>
+                        </Grid>
+                    </StackPanel>
+
+                    <Separator Margin="0,16"/>
+
                     <TextBlock Text="Actions:" FontWeight="SemiBold" Margin="0,8,0,8"/>
                     <Button Content="Duplicate Element" Command="{Binding DuplicateSelectedElementCommand}" Margin="0,0,0,4"/>
                     <Button Content="Delete Element" Command="{Binding DeleteSelectedElementCommand}" Style="{StaticResource SecondaryButton}"/>

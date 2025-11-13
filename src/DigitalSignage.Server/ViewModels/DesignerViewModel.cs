@@ -1670,5 +1670,92 @@ public partial class DesignerViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Opens the Table Editor Dialog to edit table data
+    /// </summary>
+    [RelayCommand]
+    private void EditTable(DisplayElement? element)
+    {
+        if (element == null || element.Type != "table")
+        {
+            _logger.LogWarning("EditTable called with null or non-table element");
+            return;
+        }
+
+        try
+        {
+            _logger.LogInformation("Opening table editor for element: {ElementName}", element.Name);
+
+            // Extract and parse current table data
+            List<string>? columns = null;
+            List<List<string>>? rows = null;
+
+            // Parse columns from comma-separated string
+            if (element.Properties.TryGetValue("Columns", out var colsValue) && colsValue != null)
+            {
+                var colsString = colsValue.ToString();
+                if (!string.IsNullOrWhiteSpace(colsString))
+                {
+                    columns = colsString
+                        .Split(',')
+                        .Select(c => c.Trim())
+                        .Where(c => !string.IsNullOrEmpty(c))
+                        .ToList();
+                }
+            }
+
+            // Parse rows from JSON
+            if (element.Properties.TryGetValue("Rows", out var rowsValue) && rowsValue != null)
+            {
+                var rowsString = rowsValue.ToString();
+                if (!string.IsNullOrWhiteSpace(rowsString) && rowsString != "[]")
+                {
+                    try
+                    {
+                        rows = System.Text.Json.JsonSerializer.Deserialize<List<List<string>>>(rowsString);
+                    }
+                    catch (System.Text.Json.JsonException)
+                    {
+                        _logger.LogWarning("Failed to parse existing rows JSON, starting with empty rows");
+                    }
+                }
+            }
+
+            // Create and show dialog
+            var dialog = new Views.Dialogs.TableEditorDialog(columns, rows)
+            {
+                Owner = System.Windows.Application.Current.MainWindow
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                // Update table data from ViewModel
+                element["Columns"] = dialog.ViewModel.ColumnsText;
+                element["Rows"] = System.Text.Json.JsonSerializer.Serialize(
+                    dialog.ViewModel.Rows,
+                    new System.Text.Json.JsonSerializerOptions { WriteIndented = false });
+
+                _logger.LogInformation("Table data updated for element {ElementName}: {ColumnCount} columns, {RowCount} rows",
+                    element.Name, dialog.ViewModel.Columns.Count, dialog.ViewModel.Rows.Count);
+
+                // Mark as having unsaved changes
+                HasUnsavedChanges = true;
+            }
+            else
+            {
+                _logger.LogInformation("Table editor cancelled");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error editing table for element: {ElementName}", element?.Name);
+            System.Windows.MessageBox.Show(
+                $"Fehler beim Öffnen des Tabelleneditors:\n\n{ex.Message}",
+                "Fehler",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Error);
+        }
+    }
+
     #endregion
 }
