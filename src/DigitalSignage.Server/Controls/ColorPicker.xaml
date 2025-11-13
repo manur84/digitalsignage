@@ -17,17 +17,16 @@
                  Padding="8,0"
                  Text="{Binding SelectedColor, RelativeSource={RelativeSource AncestorType=UserControl}, UpdateSourceTrigger=PropertyChanged}"/>
 
-        <Border Grid.Column="1"
+        <Border x:Name="ColorPreviewBorder"
+                Grid.Column="1"
                 Margin="4,0,0,0"
                 BorderBrush="#CCCCCC"
                 BorderThickness="1"
                 CornerRadius="2"
                 Cursor="Hand"
-                MouseLeftButtonDown="ColorPreview_Click">
-            <Border.Background>
-                <SolidColorBrush Color="{Binding SelectedColor, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
-            </Border.Background>
-        </Border>
+                Background="Black"
+                MouseLeftButtonDown="ColorPreview_Click"/>
+
 
         <Popup x:Name="ColorPopup"
                PlacementTarget="{Binding ElementName=ColorTextBox}"

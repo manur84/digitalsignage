@@ -12,7 +12,7 @@ public partial class ColorPicker : UserControl
             nameof(SelectedColor),
             typeof(string),
             typeof(ColorPicker),
-            new FrameworkPropertyMetadata("#000000", FrameworkPropertyMetadataOptions.BindsTwoWayByDefault));
+            new FrameworkPropertyMetadata("#000000", FrameworkPropertyMetadataOptions.BindsTwoWayByDefault, OnSelectedColorChanged));
 
     public string SelectedColor
     {
@@ -23,6 +23,31 @@ public partial class ColorPicker : UserControl
     public ColorPicker()
     {
         InitializeComponent();
+        UpdatePreviewBrush();
+    }
+
+    private static void OnSelectedColorChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        if (d is ColorPicker picker)
+        {
+            picker.UpdatePreviewBrush();
+        }
+    }
+
+    private void UpdatePreviewBrush()
+    {
+        if (ColorPreviewBorder != null)
+        {
+            try
+            {
+                var color = (Color)ColorConverter.ConvertFromString(SelectedColor ?? "#000000");
+                ColorPreviewBorder.Background = new SolidColorBrush(color);
+            }
+            catch
+            {
+                ColorPreviewBorder.Background = new SolidColorBrush(Colors.Black);
+            }
+        }
     }
 
     private void ColorPreview_Click(object sender, MouseButtonEventArgs e)
