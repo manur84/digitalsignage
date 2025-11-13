@@ -33,12 +33,17 @@ public class DatabaseInitializationService : IHostedService
             using var scope = _serviceProvider.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<DigitalSignageDbContext>();
 
-            // Ensure database is created
+            // Check if database exists by attempting to connect
             _logger.Information("Checking database existence...");
-            bool isCreated = await dbContext.Database.EnsureCreatedAsync(cancellationToken);
+            bool canConnect = await dbContext.Database.CanConnectAsync(cancellationToken);
 
-            if (isCreated)
+            if (!canConnect)
             {
+                _logger.Information("Database does not exist. Creating database schema...");
+
+                // For SQLite: Just ensure created since we're not using migrations yet
+                await dbContext.Database.EnsureCreatedAsync(cancellationToken);
+
                 _logger.Information("Database created successfully");
             }
             else
@@ -46,12 +51,23 @@ public class DatabaseInitializationService : IHostedService
                 _logger.Information("Database already exists");
 
                 // Try to apply pending migrations if they exist
-                var pendingMigrations = await dbContext.Database.GetPendingMigrationsAsync(cancellationToken);
-                if (pendingMigrations.Any())
+                try
                 {
-                    _logger.Information("Applying {Count} pending migrations...", pendingMigrations.Count());
-                    await dbContext.Database.MigrateAsync(cancellationToken);
-                    _logger.Information("Database migrations applied successfully");
+                    var pendingMigrations = await dbContext.Database.GetPendingMigrationsAsync(cancellationToken);
+                    if (pendingMigrations.Any())
+                    {
+                        _logger.Information("Applying {Count} pending migrations...", pendingMigrations.Count());
+                        await dbContext.Database.MigrateAsync(cancellationToken);
+                        _logger.Information("Database migrations applied successfully");
+                    }
+                    else
+                    {
+                        _logger.Information("No pending migrations found");
+                    }
+                }
+                catch (Exception migrationEx)
+                {
+                    _logger.Warning(migrationEx, "Migration check failed. Database might be using EnsureCreated. Continuing...");
                 }
             }
 

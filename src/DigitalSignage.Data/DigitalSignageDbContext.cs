@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using DigitalSignage.Core.Models;
 using DigitalSignage.Data.Entities;
+using System.Text.Json;
 
 namespace DigitalSignage.Data;
 
@@ -42,6 +44,27 @@ public class DigitalSignageDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
 
+        // Value comparers for JSON collections/dictionaries
+        var scheduleListComparer = new ValueComparer<List<Schedule>>(
+            (c1, c2) => (c1 == null && c2 == null) || (c1 != null && c2 != null && c1.SequenceEqual(c2)),
+            c => c.Aggregate(0, (a, v) => HashCode.Combine(a, v.GetHashCode())),
+            c => c.ToList());
+
+        var displayElementListComparer = new ValueComparer<List<DisplayElement>>(
+            (c1, c2) => (c1 == null && c2 == null) || (c1 != null && c2 != null && c1.SequenceEqual(c2)),
+            c => c.Aggregate(0, (a, v) => HashCode.Combine(a, v.GetHashCode())),
+            c => c.ToList());
+
+        var dataSourceListComparer = new ValueComparer<List<DataSource>>(
+            (c1, c2) => (c1 == null && c2 == null) || (c1 != null && c2 != null && c1.SequenceEqual(c2)),
+            c => c.Aggregate(0, (a, v) => HashCode.Combine(a, v.GetHashCode())),
+            c => c.ToList());
+
+        var stringObjectDictComparer = new ValueComparer<Dictionary<string, object>>(
+            (c1, c2) => (c1 == null && c2 == null) || (c1 != null && c2 != null && c1.Count == c2.Count && !c1.Except(c2).Any()),
+            c => c.Aggregate(0, (a, v) => HashCode.Combine(a, v.Key.GetHashCode(), v.Value != null ? v.Value.GetHashCode() : 0)),
+            c => new Dictionary<string, object>(c));
+
         // Configure RaspberryPiClient
         modelBuilder.Entity<RaspberryPiClient>(entity =>
         {
@@ -64,14 +87,16 @@ public class DigitalSignageDbContext : DbContext
                 .HasConversion(
                     v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
                     v => System.Text.Json.JsonSerializer.Deserialize<List<Schedule>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new List<Schedule>()
-                );
+                )
+                .Metadata.SetValueComparer(scheduleListComparer);
 
             // Store Metadata as JSON
             entity.Property(e => e.Metadata)
                 .HasConversion(
                     v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
                     v => System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new Dictionary<string, object>()
-                );
+                )
+                .Metadata.SetValueComparer(stringObjectDictComparer);
 
             // Indexes
             entity.HasIndex(e => e.MacAddress).IsUnique();
@@ -100,21 +125,24 @@ public class DigitalSignageDbContext : DbContext
                 .HasConversion(
                     v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
                     v => System.Text.Json.JsonSerializer.Deserialize<List<DisplayElement>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new List<DisplayElement>()
-                );
+                )
+                .Metadata.SetValueComparer(displayElementListComparer);
 
             // Store DataSources as JSON
             entity.Property(e => e.DataSources)
                 .HasConversion(
                     v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
                     v => System.Text.Json.JsonSerializer.Deserialize<List<DataSource>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new List<DataSource>()
-                );
+                )
+                .Metadata.SetValueComparer(dataSourceListComparer);
 
             // Store Metadata as JSON
             entity.Property(e => e.Metadata)
                 .HasConversion(
                     v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
                     v => System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new Dictionary<string, object>()
-                );
+                )
+                .Metadata.SetValueComparer(stringObjectDictComparer);
 
             // Indexes
             entity.HasIndex(e => e.Name);
@@ -135,14 +163,16 @@ public class DigitalSignageDbContext : DbContext
                 .HasConversion(
                     v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
                     v => System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new Dictionary<string, object>()
-                );
+                )
+                .Metadata.SetValueComparer(stringObjectDictComparer);
 
             // Store Metadata as JSON
             entity.Property(e => e.Metadata)
                 .HasConversion(
                     v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
                     v => System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new Dictionary<string, object>()
-                );
+                )
+                .Metadata.SetValueComparer(stringObjectDictComparer);
 
             // Indexes
             entity.HasIndex(e => e.Name);
@@ -215,7 +245,8 @@ public class DigitalSignageDbContext : DbContext
                 .HasConversion(
                     v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
                     v => System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new Dictionary<string, object>()
-                );
+                )
+                .Metadata.SetValueComparer(stringObjectDictComparer);
 
             // Relationships
             entity.HasOne(e => e.User)
