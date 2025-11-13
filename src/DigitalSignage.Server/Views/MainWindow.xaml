@@ -1310,9 +1310,9 @@
                                     <ComboBox ItemsSource="{Binding DeviceManagement.AvailableLayouts}"
                                              DisplayMemberPath="Name"
                                              SelectedValuePath="Id"
-                                             SelectedValue="{Binding DeviceManagement.SelectedClient.AssignedLayoutId}"
+                                             SelectedValue="{Binding DeviceManagement.SelectedLayoutId, Mode=TwoWay}"
                                              Margin="0,0,0,8"/>
-                                    <Button Content="📋 Assign Layout" Command="{Binding DeviceManagement.AssignLayoutCommand}" CommandParameter="{Binding DeviceManagement.SelectedClient.AssignedLayoutId}" Margin="0,0,0,16" HorizontalAlignment="Stretch"/>
+                                    <Button Content="📋 Assign Layout" Command="{Binding DeviceManagement.AssignLayoutCommand}" Margin="0,0,0,16" HorizontalAlignment="Stretch"/>
 
                                     <!-- Maintenance -->
                                     <TextBlock Text="Maintenance" FontWeight="SemiBold" Margin="0,0,0,8"/>

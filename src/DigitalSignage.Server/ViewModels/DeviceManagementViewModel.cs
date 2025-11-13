@@ -43,6 +43,9 @@ public partial class DeviceManagementViewModel : ObservableObject
     [ObservableProperty]
     private string _configLogLevel = "INFO";
 
+    [ObservableProperty]
+    private string? _selectedLayoutId;
+
     public ObservableCollection<RaspberryPiClient> Clients { get; } = new();
     public ObservableCollection<DisplayLayout> AvailableLayouts { get; } = new();
     public ObservableCollection<string> LogLevels { get; } = new() { "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL" };
@@ -259,25 +262,30 @@ public partial class DeviceManagementViewModel : ObservableObject
         }
     }
 
-    [RelayCommand]
-    private async Task AssignLayout(string layoutId)
+    [RelayCommand(CanExecute = nameof(CanAssignLayout))]
+    private async Task AssignLayout()
     {
-        if (SelectedClient == null || string.IsNullOrEmpty(layoutId)) return;
+        if (SelectedClient == null || string.IsNullOrEmpty(SelectedLayoutId)) return;
 
         try
         {
-            await _clientService.AssignLayoutAsync(SelectedClient.Id, layoutId);
-            SelectedClient.AssignedLayoutId = layoutId;
+            await _clientService.AssignLayoutAsync(SelectedClient.Id, SelectedLayoutId);
+            SelectedClient.AssignedLayoutId = SelectedLayoutId;
 
-            var layout = AvailableLayouts.FirstOrDefault(l => l.Id == layoutId);
-            StatusMessage = $"Assigned layout '{layout?.Name ?? layoutId}' to {SelectedClient.Name}";
-            _logger.LogInformation("Assigned layout {LayoutId} to client {ClientId}", layoutId, SelectedClient.Id);
+            var layout = AvailableLayouts.FirstOrDefault(l => l.Id == SelectedLayoutId);
+            StatusMessage = $"Assigned layout '{layout?.Name ?? SelectedLayoutId}' to {SelectedClient.Name}";
+            _logger.LogInformation("Assigned layout {LayoutId} to client {ClientId}", SelectedLayoutId, SelectedClient.Id);
         }
         catch (Exception ex)
         {
             StatusMessage = $"Failed to assign layout to {SelectedClient.Name}: {ex.Message}";
-            _logger.LogError(ex, "Failed to assign layout {LayoutId} to client {ClientId}", layoutId, SelectedClient.Id);
+            _logger.LogError(ex, "Failed to assign layout {LayoutId} to client {ClientId}", SelectedLayoutId, SelectedClient.Id);
         }
+    }
+
+    private bool CanAssignLayout()
+    {
+        return SelectedClient != null && !string.IsNullOrEmpty(SelectedLayoutId) && !IsLoading;
     }
 
     [RelayCommand(CanExecute = nameof(CanExecuteClientCommand))]
@@ -348,12 +356,24 @@ public partial class DeviceManagementViewModel : ObservableObject
         ClearCacheCommand.NotifyCanExecuteChanged();
         RemoveClientCommand.NotifyCanExecuteChanged();
         UpdateClientConfigCommand.NotifyCanExecuteChanged();
+        AssignLayoutCommand.NotifyCanExecuteChanged();
 
         if (value != null)
         {
+            // Pre-select the currently assigned layout in the ComboBox
+            SelectedLayoutId = value.AssignedLayoutId;
             StatusMessage = $"Selected: {value.Name} ({value.Status})";
             _logger.LogDebug("Selected client {ClientId}", value.Id);
         }
+        else
+        {
+            SelectedLayoutId = null;
+        }
+    }
+
+    partial void OnSelectedLayoutIdChanged(string? value)
+    {
+        AssignLayoutCommand.NotifyCanExecuteChanged();
     }
 
     private void OnClientConnected(object? sender, string clientId)
