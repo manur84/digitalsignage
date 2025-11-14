@@ -495,27 +495,18 @@
 
                         <TextBlock Text="Table Properties" FontWeight="SemiBold" Margin="0,0,0,8"/>
 
-                        <TextBlock Text="Columns:" Margin="0,4,0,2"/>
-                        <TextBox Text="{Binding SelectedElement[Columns], UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
-                                IsReadOnly="True"
-                                ToolTip="Comma-separated column names (use Edit Table button to modify)"
-                                Background="#F5F5F5"/>
+                        <!-- Live Table Editor -->
+                        <controls:TablePropertiesControl x:Name="TablePropertiesControl"
+                                                        Margin="0,0,0,12"/>
 
-                        <TextBlock Text="Rows:" Margin="0,12,0,2"/>
-                        <TextBox Text="{Binding SelectedElement[Rows], UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
-                                Height="60"
-                                TextWrapping="Wrap"
-                                IsReadOnly="True"
-                                VerticalScrollBarVisibility="Auto"
-                                ToolTip="Table data in JSON format (use Edit Table button to modify)"
-                                Background="#F5F5F5"/>
-
-                        <Button Content="Tabelle bearbeiten..."
+                        <!-- Alternative: Legacy Table Editor Dialog -->
+                        <Button Content="Open Legacy Editor..."
                                 Command="{Binding EditTableCommand}"
                                 CommandParameter="{Binding SelectedElement}"
-                                Margin="0,12,0,0"
+                                Margin="0,0,0,12"
                                 Padding="8,4"
-                                ToolTip="Open table editor dialog"/>
+                                ToolTip="Open table editor dialog (JSON-based)"
+                                Visibility="Collapsed"/>
 
                         <TextBlock Text="Header Background:" Margin="0,12,0,4"/>
                         <controls:ColorPicker SelectedColor="{Binding SelectedElement[HeaderBackgroundColor], FallbackValue=#4A90E2, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
