@@ -90,8 +90,10 @@ public partial class ScreenshotViewModel : ObservableObject
                 }
             }
 
-            // Create BitmapImage on UI thread
-            Application.Current.Dispatcher.Invoke(() =>
+            // Create BitmapImage on UI thread - check if already on UI thread first
+            var dispatcher = Application.Current.Dispatcher;
+
+            Action createBitmap = () =>
             {
                 try
                 {
@@ -132,7 +134,16 @@ public partial class ScreenshotViewModel : ObservableObject
                     IsLoading = false;
                     StatusMessage = $"Error loading image: {ex.Message}";
                 }
-            });
+            };
+
+            if (dispatcher.CheckAccess())
+            {
+                createBitmap();
+            }
+            else
+            {
+                dispatcher.Invoke(createBitmap);
+            }
         }
         catch (FormatException ex)
         {

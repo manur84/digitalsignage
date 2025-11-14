@@ -104,14 +104,27 @@ public partial class MediaLibraryViewModel : ObservableObject
                 .OrderByDescending(m => m.UploadedAt)
                 .ToListAsync();
 
-            Application.Current.Dispatcher.Invoke(() =>
+            // Check if already on UI thread to avoid unnecessary context switch
+            var dispatcher = Application.Current.Dispatcher;
+            if (dispatcher.CheckAccess())
             {
                 MediaFiles.Clear();
                 foreach (var file in files)
                 {
                     MediaFiles.Add(file);
                 }
-            });
+            }
+            else
+            {
+                dispatcher.Invoke(() =>
+                {
+                    MediaFiles.Clear();
+                    foreach (var file in files)
+                    {
+                        MediaFiles.Add(file);
+                    }
+                });
+            }
 
             StatusMessage = $"Loaded {files.Count} media file(s)";
             _logger.LogInformation("Loaded {Count} media files", files.Count);

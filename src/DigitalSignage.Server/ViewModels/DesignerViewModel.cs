@@ -149,8 +149,10 @@ public partial class DesignerViewModel : ObservableObject, IDisposable
         {
             _logger.LogInformation("Starting to load layout: {LayoutName}", layout.Name);
 
-            // Ensure we're on the UI thread
-            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+            // Ensure we're on the UI thread - check if already on UI thread first
+            var dispatcher = System.Windows.Application.Current.Dispatcher;
+
+            Action loadElements = () =>
             {
                 CurrentLayout = layout;
                 Elements.Clear();
@@ -209,7 +211,16 @@ public partial class DesignerViewModel : ObservableObject, IDisposable
                 UpdateLayers();
                 SelectedElement = null;
                 HasUnsavedChanges = false; // Just loaded, no unsaved changes
-            });
+            };
+
+            if (dispatcher.CheckAccess())
+            {
+                loadElements();
+            }
+            else
+            {
+                await dispatcher.InvokeAsync(loadElements);
+            }
 
             _logger.LogInformation("Loaded layout: {LayoutName} with {ElementCount} elements",
                 layout.Name, Elements.Count);

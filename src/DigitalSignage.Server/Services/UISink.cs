@@ -54,8 +54,11 @@ public class UISink : ILogEventSink
             // Queue for UI thread processing
             _pendingMessages.Enqueue(formattedMessage);
 
-            // Dispatch to UI thread
-            System.Windows.Application.Current?.Dispatcher.InvokeAsync(() =>
+            // Dispatch to UI thread - check if already on UI thread first
+            var dispatcher = System.Windows.Application.Current?.Dispatcher;
+            if (dispatcher == null) return;
+
+            Action processMessages = () =>
             {
                 try
                 {
@@ -76,7 +79,16 @@ public class UISink : ILogEventSink
                     // Avoid recursion - log to debug output
                     System.Diagnostics.Debug.WriteLine($"UISink error: {ex.Message}");
                 }
-            }, System.Windows.Threading.DispatcherPriority.Background);
+            };
+
+            if (dispatcher.CheckAccess())
+            {
+                processMessages();
+            }
+            else
+            {
+                dispatcher.InvokeAsync(processMessages, System.Windows.Threading.DispatcherPriority.Background);
+            }
         }
         catch (Exception ex)
         {

@@ -28,12 +28,23 @@ public partial class ScreenshotWindow : Window
         // Load the screenshot data into the view model
         viewModel.LoadScreenshot(clientName, base64ImageData);
 
-        // Create and show the window on the UI thread
-        Application.Current.Dispatcher.Invoke(() =>
+        // Create and show the window on the UI thread - check if already on UI thread first
+        var dispatcher = Application.Current.Dispatcher;
+
+        Action showWindow = () =>
         {
             var window = new ScreenshotWindow(viewModel);
             window.Show();
             window.Activate();
-        });
+        };
+
+        if (dispatcher.CheckAccess())
+        {
+            showWindow();
+        }
+        else
+        {
+            dispatcher.Invoke(showWindow);
+        }
     }
 }

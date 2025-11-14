@@ -80,10 +80,20 @@ public partial class AlertsViewModel : ObservableObject, IDisposable
                 try
                 {
                     await Task.Delay(5000, _pollingCts.Token);
-                    await Application.Current.Dispatcher.InvokeAsync(async () =>
+
+                    var dispatcher = Application.Current.Dispatcher;
+                    // Check if already on UI thread to avoid unnecessary context switch
+                    if (dispatcher.CheckAccess())
                     {
                         await LoadAlertsAsync();
-                    });
+                    }
+                    else
+                    {
+                        await dispatcher.InvokeAsync(async () =>
+                        {
+                            await LoadAlertsAsync();
+                        });
+                    }
                 }
                 catch (OperationCanceledException)
                 {

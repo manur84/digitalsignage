@@ -389,19 +389,35 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
     private void OnClientConnected(object? sender, string clientId)
     {
         _logger.LogInformation("Client connected event received: {ClientId}", clientId);
-        // Refresh device list on UI thread
-        System.Windows.Application.Current?.Dispatcher.InvokeAsync(async () =>
+
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher == null) return;
+
+        // Check if already on UI thread to avoid unnecessary context switch
+        if (dispatcher.CheckAccess())
         {
-            await LoadClientsCommand.ExecuteAsync(null);
+            _ = LoadClientsCommand.ExecuteAsync(null);
             StatusMessage = $"Client {clientId} connected";
-        });
+        }
+        else
+        {
+            dispatcher.InvokeAsync(async () =>
+            {
+                await LoadClientsCommand.ExecuteAsync(null);
+                StatusMessage = $"Client {clientId} connected";
+            });
+        }
     }
 
     private void OnClientDisconnected(object? sender, string clientId)
     {
         _logger.LogInformation("Client disconnected event received: {ClientId}", clientId);
-        // Update specific client status on UI thread
-        System.Windows.Application.Current?.Dispatcher.InvokeAsync(() =>
+
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher == null) return;
+
+        // Check if already on UI thread to avoid unnecessary context switch
+        if (dispatcher.CheckAccess())
         {
             var client = Clients.FirstOrDefault(c => c.Id == clientId);
             if (client != null)
@@ -409,17 +425,40 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
                 client.Status = ClientStatus.Offline;
                 StatusMessage = $"Client {client.Name} disconnected";
             }
-        });
+        }
+        else
+        {
+            dispatcher.InvokeAsync(() =>
+            {
+                var client = Clients.FirstOrDefault(c => c.Id == clientId);
+                if (client != null)
+                {
+                    client.Status = ClientStatus.Offline;
+                    StatusMessage = $"Client {client.Name} disconnected";
+                }
+            });
+        }
     }
 
     private void OnClientStatusChanged(object? sender, string clientId)
     {
         _logger.LogDebug("Client status changed event received: {ClientId}", clientId);
-        // Refresh device list on UI thread
-        System.Windows.Application.Current?.Dispatcher.InvokeAsync(async () =>
+
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher == null) return;
+
+        // Check if already on UI thread to avoid unnecessary context switch
+        if (dispatcher.CheckAccess())
         {
-            await LoadClientsCommand.ExecuteAsync(null);
-        });
+            _ = LoadClientsCommand.ExecuteAsync(null);
+        }
+        else
+        {
+            dispatcher.InvokeAsync(async () =>
+            {
+                await LoadClientsCommand.ExecuteAsync(null);
+            });
+        }
     }
 
     /// <summary>
