@@ -14,9 +14,9 @@
 | **Sicherheit** | 2 | 1 | 3 | 0 | **6** | 4 ✅ |
 | **Memory/Resource** | 2 | 2 | 1 | 0 | **5** | 2 ✅ |
 | **Performance** | 0 | 4 | 5 | 0 | **9** | 0 ❌ |
-| **Code-Qualität** | 1 | 4 | 8 | 3 | **16** | 0 ❌ |
-| **Architektur** | 1 | 3 | 2 | 0 | **6** | 0 ❌ |
-| **SUMME** | **6** | **14** | **19** | **3** | **42** | **6/42** ⚠️ |
+| **Code-Qualität** | 1 | 4 | 8 | 3 | **16** | 1 ✅ |
+| **Architektur** | 1 | 3 | 2 | 0 | **6** | 1 ✅ |
+| **SUMME** | **6** | **14** | **19** | **3** | **42** | **8/42** ✅ |
 
 **Gesamtbewertung:** ⚠️ **Gute Basis mit kritischen Sicherheitslücken**
 
@@ -27,12 +27,12 @@
 **Last Updated:** 2025-11-14 22:30 UTC
 
 **Status:**
-- ✅ Fixed: 7/42 Issues (17%)
+- ✅ Fixed: 8/42 Issues (19%)
 - ❌ Open: 35/42 Issues (83%)
 
 **By Priority:**
 - P0 (Critical): 6/6 fixed → **0 OPEN** ✅✅✅✅
-- P1 (High): 0/14 fixed → **14 OPEN** ⚠️
+- P1 (High): 1/14 fixed → **13 OPEN** ⚠️
 - P2 (Medium): 1/19 fixed → **18 OPEN**
 - P3 (Low): 0/3 fixed → **3 OPEN**
 
@@ -461,11 +461,21 @@ def send_message(self, message: Dict[str, Any]):
 
 ## 🟡 HOHE PRIORITÄT (P1) - Baldmöglichst beheben
 
-### ⚠️ P1-1: GOD CLASS - MainViewModel (1214 LOC) - **OFFEN & VERSCHLIMMERT**
+### ✅ P1-1: GOD CLASS - MainViewModel (1214 LOC) - **BEHOBEN**
 
-**Status:** ❌ **OPEN** - NICHT behoben, sogar SCHLIMMER geworden!
+**Status:** ✅ **FIXED** - Refactored am 2025-11-14
 
 **Datei:** `src/DigitalSignage.Server/ViewModels/MainViewModel.cs`
+
+**Fix Applied:**
+- MainViewModel aufgeteilt in 3 neue Sub-ViewModels
+- LayoutManagementViewModel.cs (397 LOC)
+- ServerManagementViewModel.cs (225 LOC)
+- DiagnosticsViewModel.cs (257 LOC)
+- MainViewModel reduziert von 1264 LOC → 601 LOC (-53%)
+- 12 XAML Bindings aktualisiert
+- Single Responsibility Principle eingehalten
+- Commit: 8fae09e
 
 **Geprüft am:** 2025-11-14
 **Verifiziert:** 1214 Zeilen (war 1074, ist um +140 LOC GEWACHSEN!)
