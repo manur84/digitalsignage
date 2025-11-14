@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using DigitalSignage.Core.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System.ComponentModel.DataAnnotations;
@@ -17,6 +18,7 @@ public partial class SettingsViewModel : ObservableValidator
 {
     private readonly IConfiguration _configuration;
     private readonly ILogger<SettingsViewModel> _logger;
+    private readonly IDialogService _dialogService;
     private readonly string _appSettingsPath;
 
     #region Server Settings
@@ -169,9 +171,10 @@ public partial class SettingsViewModel : ObservableValidator
 
     #endregion
 
-    public SettingsViewModel(IConfiguration configuration, ILogger<SettingsViewModel> logger)
+    public SettingsViewModel(IConfiguration configuration, IDialogService dialogService, ILogger<SettingsViewModel> logger)
     {
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+        _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _appSettingsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "appsettings.json");
 
@@ -383,22 +386,18 @@ public partial class SettingsViewModel : ObservableValidator
             StatusMessage = "Settings saved successfully. Restart required for changes to take effect.";
             _logger.LogInformation("Settings saved successfully");
 
-            MessageBox.Show(
+            await _dialogService.ShowInformationAsync(
                 "Settings saved successfully!\n\nPlease restart the application for changes to take effect.",
-                "Settings Saved",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
+                "Settings Saved");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to save settings");
             StatusMessage = $"Error saving settings: {ex.Message}";
 
-            MessageBox.Show(
+            await _dialogService.ShowErrorAsync(
                 $"Failed to save settings:\n\n{ex.Message}",
-                "Save Error",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+                "Save Error");
         }
         finally
         {
@@ -410,16 +409,14 @@ public partial class SettingsViewModel : ObservableValidator
     /// Reset all settings to default values
     /// </summary>
     [RelayCommand]
-    private void ResetToDefaults()
+    private async Task ResetToDefaults()
     {
-        var result = MessageBox.Show(
+        var result = await _dialogService.ShowConfirmationAsync(
             "Are you sure you want to reset all settings to default values?\n\n" +
             "This will discard any unsaved changes.",
-            "Reset to Defaults",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question);
+            "Reset to Defaults");
 
-        if (result == MessageBoxResult.Yes)
+        if (result)
         {
             _logger.LogInformation("Resetting settings to defaults");
 
@@ -495,17 +492,15 @@ public partial class SettingsViewModel : ObservableValidator
     /// Browse for backup path - Not implemented, user can type path directly
     /// </summary>
     [RelayCommand]
-    private void BrowseBackupPath()
+    private async Task BrowseBackupPath()
     {
-        MessageBox.Show(
+        await _dialogService.ShowInformationAsync(
             "Please enter the backup directory path directly in the text field.\n\n" +
             "Example paths:\n" +
             "• backups\n" +
             "• C:\\Backups\\DigitalSignage\n" +
             "• \\\\server\\share\\backups",
-            "Backup Directory",
-            MessageBoxButton.OK,
-            MessageBoxImage.Information);
+            "Backup Directory");
     }
 
     /// <summary>
@@ -532,23 +527,21 @@ public partial class SettingsViewModel : ObservableValidator
     /// <summary>
     /// Check if there are unsaved changes before closing
     /// </summary>
-    public bool CanClose()
+    public async Task<bool> CanClose()
     {
         if (!HasUnsavedChanges)
             return true;
 
-        var result = MessageBox.Show(
+        var result = await _dialogService.ShowYesNoCancelAsync(
             "You have unsaved changes. Do you want to save them before closing?",
-            "Unsaved Changes",
-            MessageBoxButton.YesNoCancel,
-            MessageBoxImage.Question);
+            "Unsaved Changes");
 
-        if (result == MessageBoxResult.Yes)
+        if (result == true) // Yes
         {
-            SaveCommand.Execute(null);
+            await SaveAsync();
             return !HasUnsavedChanges; // Only close if save succeeded
         }
 
-        return result == MessageBoxResult.No;
+        return result == false; // No = true, Cancel = false
     }
 }
