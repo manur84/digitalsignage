@@ -53,8 +53,85 @@ echo -e "${YELLOW}[3/7] Recent changes:${NC}"
 git log -3 --oneline
 echo ""
 
+# Copy updated Python files from repository
+echo -e "${YELLOW}[4/7] Copying updated Python files...${NC}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+INSTALL_DIR="/opt/digitalsignage-client"
+
+# List of Python client files that must be present
+REQUIRED_FILES=(
+    "client.py"
+    "config.py"
+    "discovery.py"
+    "device_manager.py"
+    "display_renderer.py"
+    "cache_manager.py"
+    "watchdog_monitor.py"
+    "status_screen.py"
+    "web_interface.py"
+    "start-with-display.sh"
+)
+
+# Copy all required files
+COPIED_COUNT=0
+FAILED_FILES=()
+
+for file in "${REQUIRED_FILES[@]}"; do
+    if [ -f "$SCRIPT_DIR/$file" ]; then
+        cp "$SCRIPT_DIR/$file" "$INSTALL_DIR/"
+        if [ $? -eq 0 ]; then
+            ((COPIED_COUNT++))
+            echo "  ✓ Copied $file"
+        else
+            echo -e "  ${RED}✗ Failed to copy $file${NC}"
+            FAILED_FILES+=("$file")
+        fi
+    else
+        echo -e "  ${YELLOW}⚠ $file not found in repository${NC}"
+    fi
+done
+
+# Copy optional files (don't fail if missing)
+OPTIONAL_FILES=(
+    "wait-for-x11.sh"
+    "remote_log_handler.py"
+    "diagnose.sh"
+    "fix-installation.sh"
+    "enable-autologin-x11.sh"
+    "check-autostart.sh"
+    "TROUBLESHOOTING.md"
+)
+
+for file in "${OPTIONAL_FILES[@]}"; do
+    if [ -f "$SCRIPT_DIR/$file" ]; then
+        cp "$SCRIPT_DIR/$file" "$INSTALL_DIR/"
+        if [ $? -eq 0 ]; then
+            ((COPIED_COUNT++))
+        fi
+    fi
+done
+
+echo -e "${GREEN}✓ Copied $COPIED_COUNT files${NC}"
+
+if [ ${#FAILED_FILES[@]} -gt 0 ]; then
+    echo -e "${RED}✗ Failed to copy: ${FAILED_FILES[*]}${NC}"
+    echo "Installation may be incomplete"
+    exit 1
+fi
+
+# Make scripts executable
+chmod +x "$INSTALL_DIR/client.py" 2>/dev/null
+chmod +x "$INSTALL_DIR/start-with-display.sh" 2>/dev/null
+chmod +x "$INSTALL_DIR/wait-for-x11.sh" 2>/dev/null
+chmod +x "$INSTALL_DIR/diagnose.sh" 2>/dev/null
+chmod +x "$INSTALL_DIR/fix-installation.sh" 2>/dev/null
+chmod +x "$INSTALL_DIR/enable-autologin-x11.sh" 2>/dev/null
+chmod +x "$INSTALL_DIR/check-autostart.sh" 2>/dev/null
+
+echo ""
+
 # Update Python dependencies if requirements.txt changed
-echo -e "${YELLOW}[4/7] Checking for dependency updates...${NC}"
+echo -e "${YELLOW}[5/7] Checking for dependency updates...${NC}"
 if [ -f "requirements.txt" ]; then
     if git diff HEAD@{1} HEAD --name-only 2>/dev/null | grep -q "requirements.txt"; then
         echo "requirements.txt changed, updating dependencies..."
@@ -74,7 +151,7 @@ fi
 echo ""
 
 # Update systemd service file
-echo -e "${YELLOW}[5/7] Updating systemd service...${NC}"
+echo -e "${YELLOW}[6/8] Updating systemd service...${NC}"
 
 # Detect the user who is running the service
 ACTUAL_USER="${SUDO_USER:-$USER}"
@@ -109,7 +186,7 @@ fi
 echo ""
 
 # Restart service
-echo -e "${YELLOW}[6/7] Starting digitalsignage-client service...${NC}"
+echo -e "${YELLOW}[7/8] Starting digitalsignage-client service...${NC}"
 sudo systemctl start digitalsignage-client
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✓ Service started${NC}"
@@ -123,7 +200,7 @@ echo ""
 sleep 3
 
 # Show status
-echo -e "${YELLOW}[7/7] Service status:${NC}"
+echo -e "${YELLOW}[8/8] Service status:${NC}"
 echo ""
 sudo systemctl status digitalsignage-client --no-pager -l
 echo ""
