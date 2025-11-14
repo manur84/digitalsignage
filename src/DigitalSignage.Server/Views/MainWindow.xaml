@@ -1112,7 +1112,7 @@
 
             <!-- Devices Tab -->
             <TabItem Header="Devices">
-                <devicemgmt:DeviceManagementTabControl DataContext="{Binding}"/>
+                <devicemgmt:DeviceManagementTabControl DataContext="{Binding DeviceManagement}"/>
             </TabItem>
 
             <!-- Data Sources Tab -->
@@ -1322,11 +1322,97 @@
             <!-- Live Debug Logs Tab -->
             <TabItem Header="Live Debug Logs">
                 <Grid DataContext="{Binding LiveLogsViewModel}">
-                    <TextBlock Text="Live Debug Logs - Real-time logging will be shown here"
-                               HorizontalAlignment="Center"
-                               VerticalAlignment="Center"
-                               FontSize="14"
-                               Foreground="#999999"/>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Toolbar -->
+                    <Border Grid.Row="0" Background="#F5F5F5" BorderBrush="#CCCCCC" BorderThickness="0,0,0,1" Padding="10">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Column="0" Text="🔴 Live Debug Logs" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
+
+                            <StackPanel Grid.Column="2" Orientation="Horizontal">
+                                <CheckBox Content="Auto-scroll" IsChecked="{Binding AutoScroll}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                <Button Content="Clear Logs" Command="{Binding ClearLogsCommand}" Width="100" Padding="8,4"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- Log Display -->
+                    <ListBox Grid.Row="1"
+                             ItemsSource="{Binding LogMessages}"
+                             BorderThickness="0"
+                             Margin="0"
+                             FontFamily="Consolas,Courier New"
+                             FontSize="11"
+                             ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto"
+                             VirtualizingPanel.IsVirtualizing="True"
+                             VirtualizingPanel.VirtualizationMode="Recycling">
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem">
+                                <Setter Property="Padding" Value="4,2"/>
+                                <Setter Property="Margin" Value="0"/>
+                                <Style.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Background" Value="#E8F4F8"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" TextWrapping="NoWrap">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="Black"/>
+                                            <Style.Triggers>
+                                                <!-- Color based on log level -->
+                                                <DataTrigger Binding="{Binding Converter={StaticResource LogLevelToStringConverter}}" Value="Error">
+                                                    <Setter Property="Foreground" Value="Red"/>
+                                                    <Setter Property="FontWeight" Value="Bold"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Converter={StaticResource LogLevelToStringConverter}}" Value="Warning">
+                                                    <Setter Property="Foreground" Value="Orange"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Converter={StaticResource LogLevelToStringConverter}}" Value="Information">
+                                                    <Setter Property="Foreground" Value="Blue"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Converter={StaticResource LogLevelToStringConverter}}" Value="Debug">
+                                                    <Setter Property="Foreground" Value="Gray"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <!-- Status Bar -->
+                    <Border Grid.Row="2" Background="#F0F0F0" BorderBrush="#CCCCCC" BorderThickness="0,1,0,0" Padding="10,5">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Column="0" Text="{Binding StatusText}" VerticalAlignment="Center" FontStyle="Italic"/>
+
+                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <TextBlock Text="Log Entries: " VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding LogCount}" VerticalAlignment="Center" FontWeight="Bold" Margin="4,0,0,0"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
                 </Grid>
             </TabItem>
 
