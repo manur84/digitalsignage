@@ -134,10 +134,11 @@ public partial class LayoutManagementViewModel : ObservableObject, IDisposable
                 var elements = JsonSerializer.Deserialize<List<DisplayElement>>(template.ElementsJson)
                     ?? new List<DisplayElement>();
 
-                // Create new layout from template
+                // Create new layout from template with unique name
+                var uniqueId = Guid.NewGuid().ToString("N").Substring(0, 8); // Short unique ID (8 chars)
                 var newLayout = new DisplayLayout
                 {
-                    Name = $"{template.Name} - Copy",
+                    Name = $"{template.Name} - {uniqueId}",
                     Resolution = template.Resolution,
                     BackgroundColor = template.BackgroundColor,
                     BackgroundImage = template.BackgroundImage,
@@ -155,8 +156,9 @@ public partial class LayoutManagementViewModel : ObservableObject, IDisposable
                     _designer.Elements.Add(element);
                 }
 
-                StatusText = $"Layout created from template: {template.Name}";
-                _logger.LogInformation("Successfully created layout from template");
+                StatusText = $"Layout created: {newLayout.Name}";
+                _logger.LogInformation("Successfully created layout '{LayoutName}' from template '{TemplateName}'",
+                    newLayout.Name, template.Name);
             }
             else
             {
