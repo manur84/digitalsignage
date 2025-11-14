@@ -147,29 +147,51 @@ public partial class DesignerViewModel : ObservableObject, IDisposable
     {
         try
         {
-            CurrentLayout = layout;
-            Elements.Clear();
-            Layers.Clear();
+            _logger.LogInformation("Starting to load layout: {LayoutName}", layout.Name);
 
-            if (layout.Elements != null)
+            // Ensure we're on the UI thread
+            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
             {
-                foreach (var element in layout.Elements)
-                {
-                    // Initialize default properties for loaded elements to prevent KeyNotFoundException
-                    element.InitializeDefaultProperties();
-                    Elements.Add(element);
-                }
-            }
+                CurrentLayout = layout;
+                Elements.Clear();
+                Layers.Clear();
 
-            UpdateLayers();
-            SelectedElement = null;
-            HasUnsavedChanges = false; // Just loaded, no unsaved changes
+                if (layout.Elements != null && layout.Elements.Count > 0)
+                {
+                    _logger.LogInformation("Loading {Count} elements into canvas", layout.Elements.Count);
+
+                    foreach (var element in layout.Elements)
+                    {
+                        // Initialize default properties for loaded elements to prevent KeyNotFoundException
+                        element.InitializeDefaultProperties();
+
+                        // Ensure element is visible
+                        element.Visible = true;
+
+                        Elements.Add(element);
+                        _logger.LogDebug("Added element: {Type} at ({X},{Y}) size ({W}x{H})",
+                            element.Type, element.Position.X, element.Position.Y,
+                            element.Size.Width, element.Size.Height);
+                    }
+
+                    _logger.LogInformation("Successfully added {Count} elements to Elements collection", Elements.Count);
+                }
+                else
+                {
+                    _logger.LogWarning("Layout has no elements to load");
+                }
+
+                UpdateLayers();
+                SelectedElement = null;
+                HasUnsavedChanges = false; // Just loaded, no unsaved changes
+            });
+
             _logger.LogInformation("Loaded layout: {LayoutName} with {ElementCount} elements",
-                layout.Name, layout.Elements?.Count ?? 0);
+                layout.Name, Elements.Count);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to load layout: {LayoutName}", layout.Name);
+            _logger.LogError(ex, "Failed to load layout: {LayoutName}", layout?.Name ?? "Unknown");
         }
     }
 
