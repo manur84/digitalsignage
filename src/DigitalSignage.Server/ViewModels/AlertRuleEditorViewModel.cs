@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using DigitalSignage.Core.Interfaces;
 using DigitalSignage.Data;
 using DigitalSignage.Data.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -19,6 +20,7 @@ public partial class AlertRuleEditorViewModel : ObservableObject
 {
     private readonly IDbContextFactory<DigitalSignageDbContext> _contextFactory;
     private readonly ILogger _logger;
+    private readonly IDialogService _dialogService;
 
     [ObservableProperty]
     private AlertRule? _currentRule;
@@ -69,10 +71,12 @@ public partial class AlertRuleEditorViewModel : ObservableObject
     public AlertRuleEditorViewModel(
         IDbContextFactory<DigitalSignageDbContext> contextFactory,
         ILogger<AlertRuleEditorViewModel> logger,
+        IDialogService dialogService,
         AlertRule? existingRule = null)
     {
         _contextFactory = contextFactory ?? throw new ArgumentNullException(nameof(contextFactory));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
 
         if (existingRule != null)
         {
@@ -137,9 +141,9 @@ public partial class AlertRuleEditorViewModel : ObservableObject
     /// Saves the alert rule
     /// </summary>
     [RelayCommand]
-    private void Save()
+    private async Task Save()
     {
-        if (!ValidateRule())
+        if (!await ValidateRule())
         {
             return;
         }
@@ -173,7 +177,7 @@ public partial class AlertRuleEditorViewModel : ObservableObject
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error saving alert rule");
-            MessageBox.Show($"Failed to save alert rule: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            await _dialogService.ShowErrorAsync($"Failed to save alert rule: {ex.Message}", "Error");
         }
     }
 
@@ -189,17 +193,17 @@ public partial class AlertRuleEditorViewModel : ObservableObject
     /// <summary>
     /// Validates the rule
     /// </summary>
-    private bool ValidateRule()
+    private async Task<bool> ValidateRule()
     {
         if (string.IsNullOrWhiteSpace(RuleName))
         {
-            MessageBox.Show("Please enter a rule name.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+            await _dialogService.ShowValidationErrorAsync("Please enter a rule name.");
             return false;
         }
 
         if (CooldownMinutes < 0 || CooldownMinutes > 1440)
         {
-            MessageBox.Show("Cooldown minutes must be between 0 and 1440 (24 hours).", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+            await _dialogService.ShowValidationErrorAsync("Cooldown minutes must be between 0 and 1440 (24 hours).");
             return false;
         }
 
@@ -209,7 +213,7 @@ public partial class AlertRuleEditorViewModel : ObservableObject
             case AlertRuleType.DeviceOffline:
                 if (OfflineThresholdMinutes < 1 || OfflineThresholdMinutes > 1440)
                 {
-                    MessageBox.Show("Offline threshold must be between 1 and 1440 minutes.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    await _dialogService.ShowValidationErrorAsync("Offline threshold must be between 1 and 1440 minutes.");
                     return false;
                 }
                 break;
@@ -217,7 +221,7 @@ public partial class AlertRuleEditorViewModel : ObservableObject
             case AlertRuleType.DeviceHighCpu:
                 if (CpuThreshold < 1 || CpuThreshold > 100)
                 {
-                    MessageBox.Show("CPU threshold must be between 1 and 100%.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    await _dialogService.ShowValidationErrorAsync("CPU threshold must be between 1 and 100%.");
                     return false;
                 }
                 break;
@@ -225,7 +229,7 @@ public partial class AlertRuleEditorViewModel : ObservableObject
             case AlertRuleType.DeviceHighMemory:
                 if (MemoryThreshold < 1 || MemoryThreshold > 100)
                 {
-                    MessageBox.Show("Memory threshold must be between 1 and 100%.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    await _dialogService.ShowValidationErrorAsync("Memory threshold must be between 1 and 100%.");
                     return false;
                 }
                 break;
@@ -233,7 +237,7 @@ public partial class AlertRuleEditorViewModel : ObservableObject
             case AlertRuleType.DeviceLowDiskSpace:
                 if (DiskThreshold < 1 || DiskThreshold > 100)
                 {
-                    MessageBox.Show("Disk threshold must be between 1 and 100%.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    await _dialogService.ShowValidationErrorAsync("Disk threshold must be between 1 and 100%.");
                     return false;
                 }
                 break;

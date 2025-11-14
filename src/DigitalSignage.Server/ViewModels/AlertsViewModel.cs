@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using DigitalSignage.Core.Interfaces;
 using DigitalSignage.Data;
 using DigitalSignage.Data.Entities;
 using DigitalSignage.Server.Services;
@@ -24,6 +25,7 @@ public partial class AlertsViewModel : ObservableObject, IDisposable
     private readonly IDbContextFactory<DigitalSignageDbContext> _contextFactory;
     private readonly ILogger<AlertsViewModel> _logger;
     private readonly ILogger<AlertRuleEditorViewModel> _alertRuleEditorLogger;
+    private readonly IDialogService _dialogService;
     private CancellationTokenSource? _pollingCts;
     private bool _disposed = false;
 
@@ -57,11 +59,13 @@ public partial class AlertsViewModel : ObservableObject, IDisposable
     public AlertsViewModel(
         AlertService alertService,
         IDbContextFactory<DigitalSignageDbContext> contextFactory,
+        IDialogService dialogService,
         ILogger<AlertsViewModel> logger,
         ILogger<AlertRuleEditorViewModel> alertRuleEditorLogger)
     {
         _alertService = alertService ?? throw new ArgumentNullException(nameof(alertService));
         _contextFactory = contextFactory ?? throw new ArgumentNullException(nameof(contextFactory));
+        _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _alertRuleEditorLogger = alertRuleEditorLogger ?? throw new ArgumentNullException(nameof(alertRuleEditorLogger));
 
@@ -236,8 +240,8 @@ public partial class AlertsViewModel : ObservableObject, IDisposable
     {
         try
         {
-            // Use injected logger instead of service locator
-            var viewModel = new AlertRuleEditorViewModel(_contextFactory, _alertRuleEditorLogger);
+            // Use injected dependencies instead of service locator
+            var viewModel = new AlertRuleEditorViewModel(_contextFactory, _alertRuleEditorLogger, _dialogService);
             var dialog = new AlertRuleEditorDialog
             {
                 DataContext = viewModel,
@@ -274,8 +278,8 @@ public partial class AlertsViewModel : ObservableObject, IDisposable
 
         try
         {
-            // Use injected logger instead of service locator
-            var viewModel = new AlertRuleEditorViewModel(_contextFactory, _alertRuleEditorLogger, SelectedAlertRule);
+            // Use injected dependencies instead of service locator
+            var viewModel = new AlertRuleEditorViewModel(_contextFactory, _alertRuleEditorLogger, _dialogService, SelectedAlertRule);
             var dialog = new AlertRuleEditorDialog
             {
                 DataContext = viewModel,
