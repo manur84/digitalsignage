@@ -17,6 +17,7 @@ public partial class DiagnosticsViewModel : ObservableObject, IDisposable
     private readonly ILayoutService _layoutService;
     private readonly DigitalSignageDbContext _dbContext;
     private readonly ILogger<DiagnosticsViewModel> _logger;
+    private readonly IDialogService _dialogService;
     private bool _disposed = false;
 
     [ObservableProperty]
@@ -32,11 +33,13 @@ public partial class DiagnosticsViewModel : ObservableObject, IDisposable
         IClientService clientService,
         ILayoutService layoutService,
         DigitalSignageDbContext dbContext,
+        IDialogService dialogService,
         ILogger<DiagnosticsViewModel> logger)
     {
         _clientService = clientService ?? throw new ArgumentNullException(nameof(clientService));
         _layoutService = layoutService ?? throw new ArgumentNullException(nameof(layoutService));
         _dbContext = dbContext ?? throw new ArgumentNullException(nameof(dbContext));
+        _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -62,27 +65,21 @@ public partial class DiagnosticsViewModel : ObservableObject, IDisposable
                              $"• Layouts: {layouts.Count()}\n" +
                              $"• Provider: {_dbContext.Database.ProviderName}";
 
-                System.Windows.MessageBox.Show(
-                    message,
-                    "Database Test Result",
-                    System.Windows.MessageBoxButton.OK,
-                    System.Windows.MessageBoxImage.Information);
+                await _dialogService.ShowInformationAsync(message, "Database Test Result");
 
                 StatusText = "Database test successful";
                 _logger.LogInformation("Database test successful: {ClientCount} clients, {LayoutCount} layouts", clients.Count(), layouts.Count());
             }
             else
             {
-                System.Windows.MessageBox.Show(
+                await _dialogService.ShowErrorAsync(
                     "❌ Database connection failed!\n\n" +
                     "Please check:\n" +
                     "• SQL Server is running\n" +
                     "• Connection string in appsettings.json\n" +
                     "• Network connectivity\n" +
                     "• Firewall settings",
-                    "Database Test Failed",
-                    System.Windows.MessageBoxButton.OK,
-                    System.Windows.MessageBoxImage.Error);
+                    "Database Test Failed");
 
                 StatusText = "Database test failed";
                 _logger.LogError("Database test failed: Cannot connect");
@@ -93,16 +90,14 @@ public partial class DiagnosticsViewModel : ObservableObject, IDisposable
             _logger.LogError(ex, "Database test error");
             StatusText = $"Database test error: {ex.Message}";
 
-            System.Windows.MessageBox.Show(
+            await _dialogService.ShowErrorAsync(
                 $"Database Test Error:\n\n{ex.Message}",
-                "Database Test Error",
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Error);
+                "Database Test Error");
         }
     }
 
     [RelayCommand]
-    private void DatabaseConnection()
+    private async Task DatabaseConnection()
     {
         try
         {
@@ -111,11 +106,7 @@ public partial class DiagnosticsViewModel : ObservableObject, IDisposable
                          $"Server: {_dbContext.Database.CanConnect()}\n" +
                          $"Provider: {_dbContext.Database.ProviderName}";
 
-            System.Windows.MessageBox.Show(
-                message,
-                "Database Connection",
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Information);
+            await _dialogService.ShowInformationAsync(message, "Database Connection");
 
             StatusText = "Database connection info displayed";
         }
@@ -127,7 +118,7 @@ public partial class DiagnosticsViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
-    private void SystemDiagnostics()
+    private async Task SystemDiagnostics()
     {
         try
         {
@@ -165,11 +156,7 @@ public partial class DiagnosticsViewModel : ObservableObject, IDisposable
             diagnostics.AppendLine($"  Logs: {System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs")}");
             diagnostics.AppendLine($"  Temp: {System.IO.Path.GetTempPath()}");
 
-            System.Windows.MessageBox.Show(
-                diagnostics.ToString(),
-                "System Diagnostics",
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Information);
+            await _dialogService.ShowInformationAsync(diagnostics.ToString(), "System Diagnostics");
 
             StatusText = "System diagnostics displayed";
             _logger.LogInformation("System diagnostics viewed by user");
@@ -182,17 +169,15 @@ public partial class DiagnosticsViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
-    private void ClearLogs()
+    private async Task ClearLogs()
     {
-        var result = System.Windows.MessageBox.Show(
+        var result = await _dialogService.ShowConfirmationAsync(
             "Are you sure you want to clear all application logs?\n\n" +
             "This will delete all log files in the logs directory.\n" +
             "This action cannot be undone.",
-            "Clear Logs",
-            System.Windows.MessageBoxButton.YesNo,
-            System.Windows.MessageBoxImage.Warning);
+            "Clear Logs");
 
-        if (result == System.Windows.MessageBoxResult.Yes)
+        if (result)
         {
             try
             {
