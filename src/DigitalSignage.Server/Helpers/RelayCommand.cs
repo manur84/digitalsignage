@@ -68,6 +68,8 @@ public class AsyncRelayCommand : ICommand
         return !_isExecuting && (_canExecute == null || _canExecute(parameter));
     }
 
+    // ICommand.Execute must be void, so async void is required here
+    // Exceptions are caught and logged by the command implementation
     public async void Execute(object? parameter)
     {
         if (CanExecute(parameter))
@@ -77,6 +79,12 @@ public class AsyncRelayCommand : ICommand
                 _isExecuting = true;
                 CommandManager.InvalidateRequerySuggested();
                 await _execute(parameter);
+            }
+            catch (Exception ex)
+            {
+                // Log unhandled exceptions in async commands
+                System.Diagnostics.Debug.WriteLine($"Unhandled exception in AsyncRelayCommand: {ex}");
+                throw; // Re-throw to maintain exception visibility
             }
             finally
             {

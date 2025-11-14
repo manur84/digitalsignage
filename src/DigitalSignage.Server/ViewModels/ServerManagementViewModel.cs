@@ -108,7 +108,14 @@ public partial class ServerManagementViewModel : ObservableObject, IDisposable
         }
     }
 
+    // Event handlers must be async void, but delegate to async Task for better exception handling
     private async void OnClientConnected(object? sender, ClientConnectedEventArgs e)
+        => await HandleClientConnectedAsync(e);
+
+    private async void OnClientDisconnected(object? sender, ClientDisconnectedEventArgs e)
+        => await HandleClientDisconnectedAsync(e);
+
+    private async Task HandleClientConnectedAsync(ClientConnectedEventArgs e)
     {
         try
         {
@@ -123,7 +130,7 @@ public partial class ServerManagementViewModel : ObservableObject, IDisposable
         }
     }
 
-    private async void OnClientDisconnected(object? sender, ClientDisconnectedEventArgs e)
+    private async Task HandleClientDisconnectedAsync(ClientDisconnectedEventArgs e)
     {
         try
         {

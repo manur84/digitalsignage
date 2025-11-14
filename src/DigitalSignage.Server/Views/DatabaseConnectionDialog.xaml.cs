@@ -124,11 +124,13 @@ public partial class DatabaseConnectionDialog : Window
         GetBindingExpression(DataContextProperty)?.UpdateTarget();
     }
 
+    // Event handler must be async void, but delegates to async Task method
     private async void TestConnection_Click(object sender, RoutedEventArgs e)
+        => await TestConnectionAsync((Button)sender);
+
+    private async Task TestConnectionAsync(Button button)
     {
         TestResultBorder.Visibility = Visibility.Collapsed;
-
-        var button = (Button)sender;
         button.IsEnabled = false;
 
         try

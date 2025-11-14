@@ -65,6 +65,7 @@ public class MessageHandlerService : BackgroundService
         _logger.LogInformation("Message Handler Service stopped");
     }
 
+    // Event handler must be async void, but immediately delegates to async Task method
     private async void OnMessageReceived(object? sender, MessageReceivedEventArgs e)
     {
         try
