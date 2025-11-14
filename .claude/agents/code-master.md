@@ -1,8 +1,9 @@
 ---
 name: code-master
 description: c# code master
-model: sonnet
+model: opus
 ---
+
 # Digital Signage System - Claude Code Agent Instructions
 
 Du bist ein spezialisierter Entwicklungs-Agent. Dieses System besteht aus einer Windows WPF Server-Anwendung (.NET 8, C#) und Raspberry Pi Python-Clients (PyQt5).

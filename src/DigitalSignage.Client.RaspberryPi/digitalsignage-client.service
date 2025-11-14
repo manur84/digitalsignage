@@ -14,9 +14,10 @@ Environment="QT_LOGGING_RULES=*.debug=false"
 Environment="DISPLAY=:0"
 Environment="XAUTHORITY=/home/INSTALL_USER/.Xauthority"
 
-# Wait for X11 to be fully ready (critical for autostart after reboot)
-# X11 startup can take 5-15 seconds on Raspberry Pi
-ExecStartPre=/bin/bash -c 'for i in {1..30}; do if DISPLAY=:0 xset q &>/dev/null 2>&1; then echo "X11 ready after $i seconds"; exit 0; fi; echo "Waiting for X11... ($i/30)"; sleep 1; done; echo "WARNING: X11 not detected, will use Xvfb fallback"; exit 0'
+# CRITICAL FIX: Wait for X11 AND desktop environment to be fully ready
+# Problem: X11 may be running but desktop not yet loaded → PyQt5 window invisible
+# Solution: Extended wait time + verification that desktop is actually usable
+ExecStartPre=/bin/bash -c 'echo "Waiting for X11 and desktop environment to be ready..."; for i in {1..45}; do if DISPLAY=:0 xset q &>/dev/null 2>&1 && DISPLAY=:0 xdpyinfo &>/dev/null 2>&1; then if [ $i -gt 15 ]; then echo "X11 and desktop ready after $i seconds (waited for desktop)"; sleep 5; else echo "X11 ready after $i seconds"; fi; exit 0; fi; echo "Waiting for X11 and desktop... ($i/45)"; sleep 1; done; echo "WARNING: X11 not detected after 45s, will use Xvfb fallback"; exit 0'
 
 # Pre-start file checks
 ExecStartPre=/bin/bash -c 'test -f /opt/digitalsignage-client/start-with-display.sh || (echo "ERROR: start-with-display.sh not found" && exit 1)'

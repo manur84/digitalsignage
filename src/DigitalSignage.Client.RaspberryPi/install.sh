@@ -284,6 +284,7 @@ cp remote_log_handler.py "$INSTALL_DIR/" 2>/dev/null || echo "Note: remote_log_h
 cp diagnose.sh "$INSTALL_DIR/" 2>/dev/null || echo "Note: diagnose.sh not found (optional)"
 cp fix-installation.sh "$INSTALL_DIR/" 2>/dev/null || echo "Note: fix-installation.sh not found (optional)"
 cp enable-autologin-x11.sh "$INSTALL_DIR/" 2>/dev/null || echo "Note: enable-autologin-x11.sh not found (optional)"
+cp check-autostart.sh "$INSTALL_DIR/" 2>/dev/null || echo "Note: check-autostart.sh not found (optional)"
 cp TROUBLESHOOTING.md "$INSTALL_DIR/" 2>/dev/null || echo "Note: TROUBLESHOOTING.md not found (optional)"
 
 # Set ownership
@@ -311,6 +312,7 @@ chmod +x "$INSTALL_DIR/wait-for-x11.sh" 2>/dev/null || true
 chmod +x "$INSTALL_DIR/diagnose.sh" 2>/dev/null || true
 chmod +x "$INSTALL_DIR/fix-installation.sh" 2>/dev/null || true
 chmod +x "$INSTALL_DIR/enable-autologin-x11.sh" 2>/dev/null || true
+chmod +x "$INSTALL_DIR/check-autostart.sh" 2>/dev/null || true
 
 # Verify critical files
 echo "Verifying installation files..."

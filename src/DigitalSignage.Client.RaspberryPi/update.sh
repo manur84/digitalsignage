@@ -55,9 +55,27 @@ echo ""
 
 # Update systemd service file
 echo -e "${YELLOW}[4/6] Updating systemd service...${NC}"
-sudo cp digitalsignage-client.service /etc/systemd/system/
+
+# Detect the user who is running the service
+ACTUAL_USER="${SUDO_USER:-$USER}"
+if [ "$ACTUAL_USER" = "root" ]; then
+    # If running as root without sudo, try to detect from service file
+    ACTUAL_USER=$(grep "^User=" /etc/systemd/system/digitalsignage-client.service 2>/dev/null | cut -d= -f2)
+    if [ -z "$ACTUAL_USER" ]; then
+        echo -e "${YELLOW}Warning: Could not detect user, using 'pi' as default${NC}"
+        ACTUAL_USER="pi"
+    fi
+fi
+
+echo "Service will run as user: $ACTUAL_USER"
+
+# Update service file with actual user
+sed "s/INSTALL_USER/$ACTUAL_USER/g" digitalsignage-client.service > /tmp/digitalsignage-client.service
+sudo cp /tmp/digitalsignage-client.service /etc/systemd/system/
+sudo rm /tmp/digitalsignage-client.service
+
 if [ $? -eq 0 ]; then
-    echo -e "${GREEN}✓ Service file copied${NC}"
+    echo -e "${GREEN}✓ Service file copied and configured for user $ACTUAL_USER${NC}"
 else
     echo -e "${RED}✗ Failed to copy service file${NC}"
 fi

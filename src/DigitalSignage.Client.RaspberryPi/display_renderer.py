@@ -51,9 +51,24 @@ class DisplayRenderer(QWidget):
         if self.fullscreen:
             self.showFullScreen()
             self.setCursor(Qt.BlankCursor)  # Hide cursor
+
+            # CRITICAL FIX: Force window to be visible and on top after boot
+            # Problem: Window may be created but not visible on HDMI display after reboot
+            # Solution: Explicitly raise, activate and ensure window is on top
+            self.raise_()
+            self.activateWindow()
+            self.setWindowState(Qt.WindowFullScreen | Qt.WindowActive)
+
+            # Additional fix: Set window flags to ensure it stays on top initially
+            self.setWindowFlags(Qt.Window | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
+
+            logger.info("Display renderer set to fullscreen with window activation")
         else:
             self.resize(1920, 1080)
             self.show()
+            self.raise_()
+            self.activateWindow()
+            logger.info("Display renderer set to windowed mode")
 
     async def render_layout(self, layout: Dict[str, Any], data: Optional[Dict[str, Any]] = None):
         """Render a display layout"""

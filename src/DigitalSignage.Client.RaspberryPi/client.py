@@ -1199,6 +1199,27 @@ def main():
         # Create display renderer
         client.display_renderer = DisplayRenderer(fullscreen=config.fullscreen)
         client.display_renderer.show()
+
+        # CRITICAL FIX: Force window to front after creation (especially important after boot)
+        # Problem: PyQt5 window may be created but not visible on HDMI after reboot
+        # Solution: Explicitly raise and activate window multiple times with delay
+        client.display_renderer.raise_()
+        client.display_renderer.activateWindow()
+        client.display_renderer.setFocus()
+
+        # Additional fix: Use QTimer to re-raise window after event loop starts
+        # This ensures window is visible even if desktop is still loading
+        def ensure_window_visible():
+            logger.info("Ensuring display window is visible and on top...")
+            client.display_renderer.raise_()
+            client.display_renderer.activateWindow()
+            client.display_renderer.setFocus()
+            client.display_renderer.showFullScreen() if config.fullscreen else client.display_renderer.show()
+            logger.info("Display window visibility ensured")
+
+        # Schedule window visibility check after 2 seconds (when event loop is running)
+        QTimer.singleShot(2000, ensure_window_visible)
+
         logger.info("Display renderer created and shown")
 
         logger.info("Starting client event loop...")
