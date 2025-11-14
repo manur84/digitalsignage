@@ -1,8 +1,9 @@
 # Refactoring Plan: Digital Signage Management System
 
-**Date:** 2025-11-13
-**Status:** In Progress
+**Date:** 2025-11-14 (Updated)
+**Status:** Phase 2/5 In Progress
 **Priority:** HIGH
+**Progress:** ~497 lines extracted from MainWindow.xaml (21% complete)
 
 ---
 
@@ -16,7 +17,7 @@ This document outlines the comprehensive refactoring strategy for the Digital Si
 
 | File | Lines | Priority | Status | Action Required |
 |------|-------|----------|--------|-----------------|
-| **MainWindow.xaml** | 2291 | 🔴 HIGH | In Progress | Split into 15-20 UserControls |
+| **MainWindow.xaml** | 2411→~1914 | 🔴 HIGH | Phase 2/5 (~21% done) | Split into 15-20 UserControls |
 | **DesignerViewModel.cs** | 1262 | 🔴 HIGH | Pending | Extract services and commands |
 | **MainViewModel.cs** | 1075 | 🟡 MEDIUM | Acceptable | Optional: Extract command services |
 | **ClientService.cs** | 619 | 🟢 LOW | Excellent | No changes needed |
@@ -49,15 +50,16 @@ This document outlines the comprehensive refactoring strategy for the Digital Si
 - [x] **ToolPaletteControl.xaml** (91 lines) - Tool buttons for designer
 - [x] **AlignmentToolbarControl.xaml** (106 lines) - Alignment commands
 
-#### Phase 2: Extract Designer Tab Components
+#### Phase 2: Extract Designer Tab Components ⚙️ IN PROGRESS
 **Target:** Reduce MainWindow by ~700 lines
+**Status:** 2/4 completed (~497 lines extracted)
 
 ```
 Views/Designer/
-├── DesignerTabControl.xaml          (Main designer tab container)
-├── LayersPanelControl.xaml          (Layer list with visibility controls)
-├── DesignerCanvasControl.xaml       (Canvas wrapper with context menu)
-└── PropertiesPanelControl.xaml      (Properties editor panel)
+├── DesignerTabControl.xaml          (Main designer tab container) - PENDING
+├── LayersPanelControl.xaml          (Layer list - 147 lines) ✅ COMPLETE
+├── DesignerCanvasControl.xaml       (Canvas wrapper) - PENDING
+└── PropertiesPanelControl.xaml      (Properties panel - 371 lines) ✅ COMPLETE
 ```
 
 **Benefits:**
