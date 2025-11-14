@@ -23,6 +23,11 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private string _statusMessage = "Ready";
 
+    /// <summary>
+    /// Gets the discovered devices ViewModel
+    /// </summary>
+    public DiscoveredDevicesViewModel DiscoveredDevices { get; }
+
     [ObservableProperty]
     private int _volumeLevel = 50;
 
@@ -54,10 +59,12 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
     public DeviceManagementViewModel(
         IClientService clientService,
         ILayoutService layoutService,
+        DiscoveredDevicesViewModel discoveredDevicesViewModel,
         ILogger<DeviceManagementViewModel> logger)
     {
         _clientService = clientService ?? throw new ArgumentNullException(nameof(clientService));
         _layoutService = layoutService ?? throw new ArgumentNullException(nameof(layoutService));
+        DiscoveredDevices = discoveredDevicesViewModel ?? throw new ArgumentNullException(nameof(discoveredDevicesViewModel));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
         // Subscribe to client events for auto-refresh
@@ -483,6 +490,9 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
             _clientService.ClientConnected -= OnClientConnected;
             _clientService.ClientDisconnected -= OnClientDisconnected;
             _clientService.ClientStatusChanged -= OnClientStatusChanged;
+
+            // Dispose discovered devices ViewModel
+            DiscoveredDevices?.Dispose();
 
             _logger.LogInformation("DeviceManagementViewModel disposed");
         }

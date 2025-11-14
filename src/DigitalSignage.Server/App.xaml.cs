@@ -123,6 +123,7 @@ public partial class App : Application
                 // Existing ViewModels
                 services.AddTransient<DesignerViewModel>();
                 services.AddTransient<DeviceManagementViewModel>();
+                services.AddTransient<DiscoveredDevicesViewModel>();
                 services.AddTransient<DataSourceViewModel>();
                 services.AddTransient<PreviewViewModel>();
                 services.AddTransient<SchedulingViewModel>();
@@ -166,6 +167,7 @@ public partial class App : Application
                 services.AddSingleton<QueryCacheService>();
                 services.AddSingleton<AlertService>();
                 services.AddSingleton<BackupService>();
+                services.AddSingleton<NetworkScannerService>();
 
                 // Register Repositories
                 services.AddSingleton<DataSourceRepository>();

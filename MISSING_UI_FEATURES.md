@@ -269,28 +269,41 @@ These services are **fully registered** in App.xaml.cs but have **zero UI access
 
 ---
 
-### 9. Discovery Service & mDNS Discovery Service
+### 9. Discovery Service & mDNS Discovery Service ✅ **COMPLETED**
 - **Service Files:**
   - `DiscoveryService.cs` (HostedService)
   - `MdnsDiscoveryService.cs` (HostedService)
+  - `NetworkScannerService.cs` (Active network scanning)
 - **Backend Status:** ✅ **FULLY IMPLEMENTED**
-- **UI Status:** ❌ **NO UI**
-- **What Exists:**
-  - Automatic client discovery on network
-  - mDNS/Bonjour service broadcasting
-  - UDP-based discovery
-  - Discovered clients list
-- **What's Missing:**
-  - No UI to view discovered (unregistered) clients
-  - No UI to configure discovery settings (enable/disable)
-  - No UI to manually trigger discovery scan
-  - No UI to register discovered clients
+- **UI Status:** ✅ **FULLY IMPLEMENTED**
+- **Implementation Details:**
+  - ✅ NetworkScannerService for active device discovery via ping scan
+  - ✅ DiscoveredDevicesViewModel with full discovery management
+  - ✅ RegisterDiscoveredDeviceDialog for device registration workflow
+  - ✅ DiscoveredDevice model for tracking discovered devices
+- **Features Implemented:**
+  - ✅ "Discovered Devices" section integrated in Devices tab (bottom panel with GridSplitter)
+  - ✅ Manual "Scan Network" button with progress indicator
+  - ✅ Register discovered devices with pre-filled information
+  - ✅ Auto-refresh capability with configurable interval
+  - ✅ Remove stale devices (configurable threshold)
+  - ✅ Real-time discovery updates via events
+  - ✅ Display: hostname, IP, MAC, discovery method, timestamp, Raspberry Pi detection
+  - ✅ Registration dialog with device info pre-population
+  - ✅ Support for both UDP broadcast and ping-based discovery
+- **Files Created:**
+  - /src/DigitalSignage.Core/Models/DiscoveredDevice.cs
+  - /src/DigitalSignage.Server/Services/NetworkScannerService.cs
+  - /src/DigitalSignage.Server/ViewModels/DiscoveredDevicesViewModel.cs
+  - /src/DigitalSignage.Server/Views/Dialogs/RegisterDiscoveredDeviceDialog.xaml
+  - /src/DigitalSignage.Server/Views/Dialogs/RegisterDiscoveredDeviceDialog.xaml.cs
+- **Files Modified:**
+  - /src/DigitalSignage.Server/Views/DeviceManagement/DeviceManagementTabControl.xaml (added discovered devices section)
+  - /src/DigitalSignage.Server/ViewModels/DeviceManagementViewModel.cs (added DiscoveredDevicesViewModel property)
+  - /src/DigitalSignage.Server/App.xaml.cs (registered NetworkScannerService and DiscoveredDevicesViewModel)
 - **Priority:** 🟡 **MEDIUM** - Nice-to-have auto-discovery UI
-- **Estimated Effort:** Medium (3-4 hours)
-  - Add "Discovered Devices" section in Devices tab
-  - Add manual scan button
-  - Add "Register" button for discovered clients
-  - Add discovery settings in Settings dialog
+- **Status:** ✅ **COMPLETED** - Full network discovery UI with registration workflow
+- **Completion Date:** 2025-11-14
 
 ---
 

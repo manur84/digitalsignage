@@ -13,22 +13,31 @@
             <ColumnDefinition Width="300"/>
         </Grid.ColumnDefinitions>
 
-        <!-- Device List -->
+        <!-- Main Content - Registered + Discovered Devices -->
         <Grid Grid.Column="0">
             <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="*"/>
-                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="2*"/>
+                <RowDefinition Height="5"/>
+                <RowDefinition Height="1*" MinHeight="200"/>
             </Grid.RowDefinitions>
 
-            <!-- Toolbar -->
-            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="12,8">
-                <Button Content="🔄 Refresh" Command="{Binding LoadClientsCommand}" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0"/>
-                <Button Content="❌ Remove" Command="{Binding RemoveClientCommand}" Style="{StaticResource SecondaryButton}" Padding="8,6" ToolTip="Remove selected device"/>
-            </StackPanel>
+            <!-- Registered Devices Section -->
+            <Grid Grid.Row="0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
 
-            <!-- DataGrid -->
-            <DataGrid Grid.Row="1"
+                <!-- Toolbar -->
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="12,8">
+                    <TextBlock Text="Registered Devices" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,16,0"/>
+                    <Button Content="🔄 Refresh" Command="{Binding LoadClientsCommand}" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0"/>
+                    <Button Content="❌ Remove" Command="{Binding RemoveClientCommand}" Style="{StaticResource SecondaryButton}" Padding="8,6" ToolTip="Remove selected device"/>
+                </StackPanel>
+
+                <!-- DataGrid -->
+                <DataGrid Grid.Row="1"
                      ItemsSource="{Binding Clients}"
                      SelectedItem="{Binding SelectedClient}"
                      AutoGenerateColumns="False"
@@ -70,10 +79,95 @@
                 </DataGrid.Columns>
             </DataGrid>
 
-            <!-- Status Bar -->
-            <Border Grid.Row="2" Background="#F0F0F0" BorderBrush="#CCCCCC" BorderThickness="0,1,0,0" Padding="12,8">
-                <TextBlock Text="{Binding StatusMessage}" FontSize="12" Foreground="#666666"/>
-            </Border>
+                <!-- Status Bar -->
+                <Border Grid.Row="2" Background="#F0F0F0" BorderBrush="#CCCCCC" BorderThickness="0,1,0,0" Padding="12,8">
+                    <TextBlock Text="{Binding StatusMessage}" FontSize="12" Foreground="#666666"/>
+                </Border>
+            </Grid>
+
+            <!-- Splitter -->
+            <GridSplitter Grid.Row="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                          Background="#CCCCCC" ResizeBehavior="PreviousAndNext"/>
+
+            <!-- Discovered Devices Section -->
+            <Grid Grid.Row="2" DataContext="{Binding DiscoveredDevices}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Toolbar -->
+                <Border Grid.Row="0" Background="#E3F2FD" BorderBrush="#2196F3" BorderThickness="0,2,0,0" Padding="12,8">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0" Orientation="Horizontal">
+                            <TextBlock Text="🔍 Discovered Devices" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,16,0"/>
+                            <Button Content="🔍 Scan Network" Command="{Binding ScanNetworkCommand}"
+                                    Style="{StaticResource PrimaryButton}" Margin="0,0,8,0"
+                                    IsEnabled="{Binding IsScanning, Converter={StaticResource InverseBooleanConverter}}"/>
+                            <Button Content="➕ Register" Command="{Binding RegisterDeviceCommand}"
+                                    Margin="0,0,8,0" Padding="8,6"
+                                    ToolTip="Register selected discovered device"/>
+                            <Button Content="🗑 Clear" Command="{Binding ClearDiscoveredDevicesCommand}"
+                                    Style="{StaticResource SecondaryButton}" Padding="8,6"
+                                    ToolTip="Clear all discovered devices"/>
+                        </StackPanel>
+
+                        <TextBlock Grid.Column="2" VerticalAlignment="Center" Margin="8,0">
+                            <Run Text="Found: "/>
+                            <Run Text="{Binding DiscoveredDeviceCount, Mode=OneWay}" FontWeight="Bold"/>
+                            <Run Text=" devices"/>
+                        </TextBlock>
+                    </Grid>
+                </Border>
+
+                <!-- Discovered Devices DataGrid -->
+                <DataGrid Grid.Row="1"
+                         ItemsSource="{Binding DiscoveredDevices}"
+                         SelectedItem="{Binding SelectedDiscoveredDevice}"
+                         AutoGenerateColumns="False"
+                         CanUserAddRows="False"
+                         IsReadOnly="True"
+                         SelectionMode="Single"
+                         Margin="12,8">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Hostname" Binding="{Binding Hostname}" Width="150"/>
+                        <DataGridTextColumn Header="IP Address" Binding="{Binding IpAddress}" Width="120"/>
+                        <DataGridTextColumn Header="MAC Address" Binding="{Binding MacAddress}" Width="140"/>
+                        <DataGridTextColumn Header="Discovery Method" Binding="{Binding DiscoveryMethod}" Width="120"/>
+                        <DataGridTextColumn Header="Discovered At" Binding="{Binding DiscoveredAt, StringFormat='{}{0:dd.MM.yyyy HH:mm:ss}'}" Width="140"/>
+                        <DataGridCheckBoxColumn Header="Raspberry Pi?" Binding="{Binding IsLikelyRaspberryPi}" Width="100" IsReadOnly="True"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+
+                <!-- Discovery Status Bar -->
+                <Border Grid.Row="2" Background="#F0F0F0" BorderBrush="#CCCCCC" BorderThickness="0,1,0,0" Padding="12,8">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Grid.Column="0" FontSize="12" Foreground="#666666">
+                            <Run Text="{Binding ScanStatusMessage, Mode=OneWay}"/>
+                        </TextBlock>
+
+                        <StackPanel Grid.Column="1" Orientation="Horizontal">
+                            <ProgressBar Width="100" Height="16" Margin="0,0,8,0"
+                                         IsIndeterminate="True"
+                                         Visibility="{Binding IsScanning, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                            <TextBlock Text="Scanning..." Foreground="#2196F3" FontWeight="SemiBold"
+                                       Visibility="{Binding IsScanning, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </Grid>
         </Grid>
 
         <!-- Control Panel -->
