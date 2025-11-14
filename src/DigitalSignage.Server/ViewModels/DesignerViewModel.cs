@@ -4,6 +4,7 @@ using DigitalSignage.Core.Interfaces;
 using DigitalSignage.Core.Models;
 using DigitalSignage.Server.Commands;
 using DigitalSignage.Server.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System.Collections.ObjectModel;
 
@@ -17,6 +18,7 @@ public partial class DesignerViewModel : ObservableObject, IDisposable
     private readonly ILogger<MediaBrowserViewModel> _mediaBrowserViewModelLogger;
     private readonly ILogger<Views.Dialogs.MediaBrowserDialog> _mediaBrowserDialogLogger;
     private readonly IDialogService _dialogService;
+    private readonly IServiceProvider _serviceProvider;
     private bool _disposed = false;
 
     [ObservableProperty]
@@ -75,7 +77,8 @@ public partial class DesignerViewModel : ObservableObject, IDisposable
         EnhancedMediaService mediaService,
         ILogger<MediaBrowserViewModel> mediaBrowserViewModelLogger,
         ILogger<Views.Dialogs.MediaBrowserDialog> mediaBrowserDialogLogger,
-        IDialogService dialogService)
+        IDialogService dialogService,
+        IServiceProvider serviceProvider)
     {
         _layoutService = layoutService ?? throw new ArgumentNullException(nameof(layoutService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -83,6 +86,7 @@ public partial class DesignerViewModel : ObservableObject, IDisposable
         _mediaBrowserViewModelLogger = mediaBrowserViewModelLogger ?? throw new ArgumentNullException(nameof(mediaBrowserViewModelLogger));
         _mediaBrowserDialogLogger = mediaBrowserDialogLogger ?? throw new ArgumentNullException(nameof(mediaBrowserDialogLogger));
         _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
+        _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
 
         // Subscribe to command history changes
         CommandHistory.HistoryChanged += OnHistoryChanged;
@@ -1701,6 +1705,80 @@ public partial class DesignerViewModel : ObservableObject, IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to open grid configuration dialog");
+        }
+    }
+
+    #endregion
+
+    #region Data Mapping Commands
+
+    /// <summary>
+    /// Opens the Data Mapping Dialog for visual SQL → UI element mapping
+    /// </summary>
+    [RelayCommand]
+    private async Task OpenDataMappingAsync()
+    {
+        try
+        {
+            if (CurrentLayout == null)
+            {
+                System.Windows.MessageBox.Show(
+                    "Please create or open a layout first before configuring data mapping.",
+                    "No Layout",
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Warning);
+                return;
+            }
+
+            // Check if there are any mappable elements
+            var mappableElements = CurrentLayout.Elements
+                .Where(e => e.Type == "text" || e.Type == "table" || e.Type == "datetime")
+                .ToList();
+
+            if (mappableElements.Count == 0)
+            {
+                System.Windows.MessageBox.Show(
+                    "No mappable elements found in the layout.\n\nAdd Text, Table, or DateTime elements to enable data mapping.",
+                    "No Mappable Elements",
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Information);
+                return;
+            }
+
+            // Prompt for data source selection (simplified - in production you'd have a data source selector)
+            // For now, we'll pass null and let the user know they need to configure a data source first
+            DataSource? dataSource = null;
+
+            // TODO: Add data source selection dialog
+            // For MVP, user must configure data source elsewhere first
+
+            var viewModel = _serviceProvider.GetRequiredService<DataMappingViewModel>();
+            await viewModel.InitializeAsync(CurrentLayout, dataSource);
+
+            var dialog = new Views.Dialogs.DataMappingDialog(viewModel)
+            {
+                Owner = System.Windows.Application.Current.MainWindow
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                _logger.LogInformation("Data mapping configured for layout {LayoutId}", CurrentLayout.Id);
+
+                // Trigger layout save
+                if (CurrentLayout != null)
+                {
+                    await SaveLayoutAsync();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to open data mapping dialog");
+            System.Windows.MessageBox.Show(
+                $"Failed to open data mapping dialog: {ex.Message}",
+                "Error",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Error);
         }
     }
 

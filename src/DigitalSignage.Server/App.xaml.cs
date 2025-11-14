@@ -137,6 +137,7 @@ public partial class App : Application
                 services.AddTransient<TemplateManagerViewModel>();
                 services.AddTransient<TokenManagementViewModel>();
                 services.AddTransient<SystemDiagnosticsViewModel>();
+                services.AddTransient<DataMappingViewModel>();
 
                 // Register LiveLogsViewModel as singleton with shared log collection
                 services.AddSingleton<LiveLogsViewModel>(sp =>
