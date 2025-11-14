@@ -672,10 +672,76 @@ public class ClientService : IClientService
     /// </summary>
     private async Task EmbedMediaFilesInLayoutAsync(DisplayLayout layout, CancellationToken cancellationToken)
     {
-        // TODO: Implement media embedding for layouts
-        // This method should embed media files as Base64 in layout elements
-        // for offline client support
-        await Task.CompletedTask;
-        _logger.LogDebug("Media embedding not yet implemented for layout {LayoutId}", layout.Id);
+        if (layout?.Elements == null || layout.Elements.Count == 0)
+        {
+            _logger.LogDebug("No elements to process for media embedding in layout {LayoutId}", layout.Id);
+            return;
+        }
+
+        // Get MediaService from DI container
+        var mediaService = _serviceProvider.GetService<IMediaService>();
+        if (mediaService == null)
+        {
+            _logger.LogWarning("MediaService not available, cannot embed media files in layout {LayoutId}", layout.Id);
+            return;
+        }
+
+        int embedCount = 0;
+        int errorCount = 0;
+
+        // Process all image elements
+        foreach (var element in layout.Elements.Where(e => e.Type?.ToLower() == "image"))
+        {
+            try
+            {
+                // Get the Source property (filename, path, or media ID)
+                var source = element.GetProperty<string>("Source", "");
+                if (string.IsNullOrEmpty(source))
+                {
+                    _logger.LogDebug("Image element {ElementId} has no Source property, skipping", element.Id);
+                    continue;
+                }
+
+                // Extract filename (might be full path or just filename)
+                var fileName = System.IO.Path.GetFileName(source);
+
+                _logger.LogDebug("Attempting to load media file: {FileName} for element {ElementId}", fileName, element.Id);
+
+                // Try to load media file from disk
+                var imageData = await mediaService.GetMediaAsync(fileName);
+
+                if (imageData != null && imageData.Length > 0)
+                {
+                    // Embed as Base64
+                    var base64 = Convert.ToBase64String(imageData);
+                    element.SetProperty("ImageData", base64);
+
+                    embedCount++;
+                    _logger.LogInformation("✓ Embedded media file {FileName} ({Size} KB) as Base64 for element {ElementId}",
+                        fileName, imageData.Length / 1024, element.Id);
+                }
+                else
+                {
+                    errorCount++;
+                    _logger.LogWarning("✗ Media file not found: {FileName} for element {ElementId} (Source: {Source})",
+                        fileName, element.Id, source);
+                }
+            }
+            catch (Exception ex)
+            {
+                errorCount++;
+                _logger.LogError(ex, "Failed to embed media file for image element {ElementId}", element.Id);
+            }
+        }
+
+        if (embedCount > 0 || errorCount > 0)
+        {
+            _logger.LogInformation("Media embedding complete for layout {LayoutId}: {EmbedCount} embedded, {ErrorCount} errors",
+                layout.Id, embedCount, errorCount);
+        }
+        else
+        {
+            _logger.LogDebug("No image elements found in layout {LayoutId}", layout.Id);
+        }
     }
 }
