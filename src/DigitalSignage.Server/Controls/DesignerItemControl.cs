@@ -604,26 +604,54 @@ public class DesignerItemControl : ContentControl
         {
             if (DisplayElement.Properties.TryGetValue("HeaderBackground", out var hBg))
             {
-                try { headerBg = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hBg?.ToString() ?? "#2196F3")); }
-                catch { }
+                try
+                {
+                    headerBg = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hBg?.ToString() ?? "#2196F3"));
+                }
+                catch (FormatException)
+                {
+                    // Invalid color format - use default blue
+                    headerBg = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2196F3"));
+                }
             }
 
             if (DisplayElement.Properties.TryGetValue("HeaderForeground", out var hFg))
             {
-                try { headerFg = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hFg?.ToString() ?? "#FFFFFF")); }
-                catch { }
+                try
+                {
+                    headerFg = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hFg?.ToString() ?? "#FFFFFF"));
+                }
+                catch (FormatException)
+                {
+                    // Invalid color format - use default white
+                    headerFg = Brushes.White;
+                }
             }
 
             if (DisplayElement.Properties.TryGetValue("RowBackground", out var rBg))
             {
-                try { rowBg = new SolidColorBrush((Color)ColorConverter.ConvertFromString(rBg?.ToString() ?? "#FFFFFF")); }
-                catch { }
+                try
+                {
+                    rowBg = new SolidColorBrush((Color)ColorConverter.ConvertFromString(rBg?.ToString() ?? "#FFFFFF"));
+                }
+                catch (FormatException)
+                {
+                    // Invalid color format - use default white
+                    rowBg = Brushes.White;
+                }
             }
 
             if (DisplayElement.Properties.TryGetValue("AlternateRowBackground", out var arBg))
             {
-                try { altRowBg = new SolidColorBrush((Color)ColorConverter.ConvertFromString(arBg?.ToString() ?? "#F5F5F5")); }
-                catch { }
+                try
+                {
+                    altRowBg = new SolidColorBrush((Color)ColorConverter.ConvertFromString(arBg?.ToString() ?? "#F5F5F5"));
+                }
+                catch (FormatException)
+                {
+                    // Invalid color format - use default light gray
+                    altRowBg = Brushes.LightGray;
+                }
             }
         }
 

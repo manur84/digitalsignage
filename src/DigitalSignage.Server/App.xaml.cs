@@ -316,7 +316,11 @@ Common Solutions:
             {
                 File.WriteAllText(emergencyLogPath, errorMessage);
             }
-            catch { }
+            catch (Exception logEx)
+            {
+                // Unable to write emergency log - best effort only, don't crash on logging failure
+                System.Diagnostics.Debug.WriteLine($"Failed to write emergency log: {logEx.Message}");
+            }
 
             MessageBox.Show(
                 $"Failed to start Digital Signage Server\n\n" +
