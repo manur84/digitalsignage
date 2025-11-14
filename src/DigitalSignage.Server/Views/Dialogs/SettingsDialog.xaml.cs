@@ -1,4 +1,5 @@
 using System.Windows;
+using DigitalSignage.Core.Interfaces;
 using DigitalSignage.Server.ViewModels;
 using Microsoft.Extensions.Logging;
 
@@ -11,15 +12,17 @@ public partial class SettingsDialog : Window
 {
     private readonly SettingsViewModel _viewModel;
     private readonly ILogger<SettingsDialog> _logger;
+    private readonly IDialogService _dialogService;
 
     /// <summary>
     /// Constructor for Settings Dialog
     /// </summary>
-    public SettingsDialog(SettingsViewModel viewModel, ILogger<SettingsDialog> logger)
+    public SettingsDialog(SettingsViewModel viewModel, IDialogService dialogService, ILogger<SettingsDialog> logger)
     {
         InitializeComponent();
 
         _viewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
+        _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
         DataContext = _viewModel;
@@ -46,33 +49,37 @@ public partial class SettingsDialog : Window
     /// <summary>
     /// Handle window closing event to check for unsaved changes
     /// </summary>
-    private void OnWindowClosing(object? sender, System.ComponentModel.CancelEventArgs e)
+    private async void OnWindowClosing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
-        if (!_viewModel.CanClose())
+        // Cancel the close first, then check if we can actually close
+        e.Cancel = true;
+
+        if (await _viewModel.CanClose())
         {
-            e.Cancel = true;
-            _logger.LogInformation("Settings dialog close cancelled due to unsaved changes");
+            _logger.LogInformation("Settings dialog closed");
+            // Remove the event handler to avoid recursion
+            Closing -= OnWindowClosing;
+            // Now actually close the window
+            Close();
         }
         else
         {
-            _logger.LogInformation("Settings dialog closed");
+            _logger.LogInformation("Settings dialog close cancelled due to unsaved changes");
         }
     }
 
     /// <summary>
     /// Handle Cancel button click
     /// </summary>
-    private void CancelButton_Click(object sender, RoutedEventArgs e)
+    private async void CancelButton_Click(object sender, RoutedEventArgs e)
     {
         if (_viewModel.HasUnsavedChanges)
         {
-            var result = MessageBox.Show(
+            var result = await _dialogService.ShowConfirmationAsync(
                 "You have unsaved changes. Are you sure you want to discard them?",
-                "Unsaved Changes",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question);
+                "Unsaved Changes");
 
-            if (result == MessageBoxResult.No)
+            if (!result)
             {
                 return;
             }

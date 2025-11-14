@@ -203,7 +203,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             StatusText = "Opening settings...";
 
             // Use injected dependencies instead of service locator
-            var dialog = new Views.Dialogs.SettingsDialog(_settingsViewModel, _settingsDialogLogger)
+            var dialog = new Views.Dialogs.SettingsDialog(_settingsViewModel, _dialogService, _settingsDialogLogger)
             {
                 Owner = System.Windows.Application.Current.MainWindow
             };
