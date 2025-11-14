@@ -287,6 +287,9 @@ if [ "$MODE" = "UPDATE" ]; then
     COPIED_COUNT=0
     MISSING_FILES=()
 
+    # Disable exit on error for file copying (we handle errors manually)
+    set +e
+
     for file in "${REQUIRED_FILES[@]}"; do
         if [ -f "$SCRIPT_DIR/$file" ]; then
             if cp "$SCRIPT_DIR/$file" "$INSTALL_DIR/" 2>/dev/null; then
@@ -351,6 +354,9 @@ if [ "$MODE" = "UPDATE" ]; then
     fi
 
     show_success "Copied $COPIED_COUNT files"
+
+    # Re-enable exit on error
+    set -e
 
     # Make scripts executable
     chmod +x "$INSTALL_DIR"/*.sh 2>/dev/null || true
@@ -609,6 +615,9 @@ REQUIRED_FILES=(
 COPIED_COUNT=0
 MISSING_FILES=()
 
+# Disable exit on error for file copying (we handle errors manually)
+set +e
+
 for file in "${REQUIRED_FILES[@]}"; do
     if [ -f "$SCRIPT_DIR/$file" ]; then
         if cp "$SCRIPT_DIR/$file" "$INSTALL_DIR/" 2>/dev/null; then
@@ -672,6 +681,9 @@ if [ ${#MISSING_FILES[@]} -gt 0 ]; then
 fi
 
 show_success "Copied $COPIED_COUNT files"
+
+# Re-enable exit on error
+set -e
 
 # Set ownership
 chown -R "$ACTUAL_USER:$ACTUAL_USER" "$INSTALL_DIR"
