@@ -335,15 +335,9 @@ public partial class SchedulingViewModel : ObservableObject, IDisposable
         {
             _logger.LogInformation("Saving schedule: {ScheduleName}", SelectedSchedule.Name);
 
-            // Update ClientId from SelectedDevices
-            if (SelectedDevices.Any())
-            {
-                SelectedSchedule.ClientId = SelectedDevices.First().Id.ToString();
-            }
-            else
-            {
-                SelectedSchedule.ClientId = null;
-            }
+            // Update ClientId from SelectedDevices - use FirstOrDefault for safety
+            var firstDevice = SelectedDevices.FirstOrDefault();
+            SelectedSchedule.ClientId = firstDevice?.Id.ToString();
 
             // Check if it's a new schedule or existing
             if (SelectedSchedule.Id == 0)

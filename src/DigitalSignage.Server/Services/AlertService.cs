@@ -192,11 +192,12 @@ public class AlertService
             .Where(c => c.LastSeen < threshold)
             .ToListAsync(cancellationToken);
 
-        if (offlineClients.Any())
+        // Use Count check and index access instead of Any() + First()
+        if (offlineClients.Count > 0)
         {
             var clientNames = string.Join(", ", offlineClients.Select(c => c.Name));
             var message = $"{offlineClients.Count} device(s) offline: {clientNames}";
-            return (true, "Client", offlineClients.First().Id, message);
+            return (true, "Client", offlineClients[0].Id, message);
         }
 
         return (false, null, null, string.Empty);

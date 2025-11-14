@@ -121,8 +121,10 @@ public class AlignmentService
         if (elementList.Count < 3) return;
 
         var totalWidth = elementList.Sum(e => e.Size.Width);
-        var minX = elementList.First().Position.X;
-        var maxRight = elementList.Last().Position.X + elementList.Last().Size.Width;
+        var firstElement = elementList[0]; // Index access - safe after Count check
+        var lastElement = elementList[^1]; // Index from end - safe after Count check
+        var minX = firstElement.Position.X;
+        var maxRight = lastElement.Position.X + lastElement.Size.Width;
         var availableSpace = (maxRight - minX) - totalWidth;
         var spacing = availableSpace / (elementList.Count - 1);
 
@@ -143,8 +145,10 @@ public class AlignmentService
         if (elementList.Count < 3) return;
 
         var totalHeight = elementList.Sum(e => e.Size.Height);
-        var minY = elementList.First().Position.Y;
-        var maxBottom = elementList.Last().Position.Y + elementList.Last().Size.Height;
+        var firstElement = elementList[0]; // Index access - safe after Count check
+        var lastElement = elementList[^1]; // Index from end - safe after Count check
+        var minY = firstElement.Position.Y;
+        var maxBottom = lastElement.Position.Y + lastElement.Size.Height;
         var availableSpace = (maxBottom - minY) - totalHeight;
         var spacing = availableSpace / (elementList.Count - 1);
 

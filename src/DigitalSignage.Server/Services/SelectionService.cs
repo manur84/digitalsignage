@@ -101,14 +101,8 @@ public class SelectionService : INotifyPropertyChanged
         element.IsSelected = false;
         _selectedElements.Remove(element);
 
-        if (_selectedElements.Count > 0)
-        {
-            PrimarySelection = _selectedElements.Last();
-        }
-        else
-        {
-            PrimarySelection = null;
-        }
+        // Use index access instead of Last() for better performance
+        PrimarySelection = _selectedElements.Count > 0 ? _selectedElements[^1] : null;
     }
 
     /// <summary>
@@ -145,9 +139,10 @@ public class SelectionService : INotifyPropertyChanged
             element.IsSelected = true;
         }
 
+        // Use index access instead of Last() for better performance
         if (_selectedElements.Count > 0)
         {
-            PrimarySelection = _selectedElements.Last();
+            PrimarySelection = _selectedElements[^1];
         }
     }
 
@@ -207,9 +202,10 @@ public class SelectionService : INotifyPropertyChanged
             }
         }
 
+        // Use index access instead of Last() for better performance
         if (_selectedElements.Count > 0)
         {
-            PrimarySelection = _selectedElements.Last();
+            PrimarySelection = _selectedElements[^1];
         }
     }
 

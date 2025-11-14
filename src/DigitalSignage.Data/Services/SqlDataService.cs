@@ -116,9 +116,10 @@ public class SqlDataService : ISqlDataService
             var resultDict = new Dictionary<string, object>();
             var resultList = result.ToList();
 
-            if (resultList.Any())
+            // Use index access instead of First() for better performance
+            if (resultList.Count > 0)
             {
-                var firstRow = resultList.First() as IDictionary<string, object>;
+                var firstRow = resultList[0] as IDictionary<string, object>;
                 if (firstRow != null)
                 {
                     foreach (var kvp in firstRow)
