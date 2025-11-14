@@ -540,6 +540,10 @@ class DigitalSignageClient:
                 await self.device_manager.set_volume(volume)
             elif command == "CLEAR_CACHE":
                 await self.clear_cache()
+            elif command == "GET_LOGS":
+                await self.send_logs()
+            elif command == "UPDATE":
+                await self.update_client()
             else:
                 logger.warning(f"Unknown command: {command}")
         except Exception as e:
@@ -660,6 +664,114 @@ class DigitalSignageClient:
                 logger.error("Failed to clear cache")
         except Exception as e:
             logger.error(f"Failed to clear cache: {e}", exc_info=True)
+
+    async def send_logs(self):
+        """Send recent log entries to server"""
+        try:
+            import subprocess
+
+            logger.info("Collecting logs for server...")
+
+            # Get recent logs from journalctl (last 100 lines)
+            try:
+                result = subprocess.run(
+                    ['journalctl', '-u', 'digitalsignage-client', '-n', '100', '--no-pager'],
+                    capture_output=True,
+                    text=True,
+                    timeout=10
+                )
+
+                if result.returncode == 0:
+                    log_data = result.stdout
+                else:
+                    log_data = f"Failed to get logs: {result.stderr}"
+                    logger.warning(f"journalctl failed: {result.stderr}")
+
+            except subprocess.TimeoutExpired:
+                log_data = "Failed to get logs: Command timed out"
+                logger.error("journalctl command timed out")
+            except FileNotFoundError:
+                log_data = "journalctl not available (not running as systemd service)"
+                logger.warning("journalctl not available")
+            except Exception as e:
+                log_data = f"Failed to get logs: {e}"
+                logger.error(f"Error getting logs: {e}")
+
+            # Send logs to server
+            log_message = {
+                "Type": "LOG",
+                "ClientId": self.config.client_id,
+                "Level": "INFO",
+                "Message": "Client logs requested",
+                "LogData": log_data,
+                "Timestamp": datetime.utcnow().isoformat()
+            }
+
+            self.send_message(log_message)
+            logger.info("Logs sent to server successfully")
+
+        except Exception as e:
+            logger.error(f"Failed to send logs: {e}", exc_info=True)
+
+    async def update_client(self):
+        """Update client code from git repository"""
+        try:
+            import subprocess
+            import os
+
+            logger.info("Starting client update from git...")
+
+            # Get current directory (should be /opt/digitalsignage-client)
+            client_dir = os.path.dirname(os.path.abspath(__file__))
+            logger.info(f"Client directory: {client_dir}")
+
+            # Check if we're in a git repository
+            if not os.path.exists(os.path.join(client_dir, '.git')):
+                logger.error("Not in a git repository, cannot update")
+                return
+
+            # Perform git pull
+            try:
+                result = subprocess.run(
+                    ['git', 'pull'],
+                    cwd=client_dir,
+                    capture_output=True,
+                    text=True,
+                    timeout=60
+                )
+
+                if result.returncode == 0:
+                    logger.info(f"Git pull successful: {result.stdout}")
+
+                    # Check if there were actual updates
+                    if "Already up to date" in result.stdout or "Already up-to-date" in result.stdout:
+                        logger.info("Client is already up to date")
+                    else:
+                        logger.info("Client code updated, restart required")
+                        logger.info("To apply updates, run: sudo systemctl restart digitalsignage-client")
+
+                        # Optionally send notification to server
+                        status_message = {
+                            "Type": "STATUS_REPORT",
+                            "ClientId": self.config.client_id,
+                            "Status": "Online",
+                            "Message": "Client updated successfully, restart required",
+                            "Timestamp": datetime.utcnow().isoformat()
+                        }
+                        self.send_message(status_message)
+
+                else:
+                    logger.error(f"Git pull failed: {result.stderr}")
+
+            except subprocess.TimeoutExpired:
+                logger.error("Git pull command timed out")
+            except FileNotFoundError:
+                logger.error("git command not found")
+            except Exception as e:
+                logger.error(f"Error running git pull: {e}")
+
+        except Exception as e:
+            logger.error(f"Failed to update client: {e}", exc_info=True)
 
     async def handle_update_config(self, data: Dict[str, Any]):
         """Handle configuration update from server"""

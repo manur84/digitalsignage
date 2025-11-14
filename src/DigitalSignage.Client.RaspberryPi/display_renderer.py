@@ -9,7 +9,7 @@ import locale
 
 from PyQt5.QtWidgets import QWidget, QLabel, QGraphicsDropShadowEffect
 from PyQt5.QtCore import Qt, QRect, QTimer
-from PyQt5.QtGui import QPixmap, QFont, QColor, QPainter, QImage
+from PyQt5.QtGui import QPixmap, QFont, QColor, QPainter, QImage, QPen, QBrush
 import qrcode
 from datetime import datetime
 
@@ -29,6 +29,92 @@ except locale.Error:
         logger.info("Locale set to German_Germany.1252 for datetime formatting")
     except locale.Error:
         logger.warning("Failed to set German locale, using system default")
+
+
+class ShapeWidget(QWidget):
+    """Custom widget for rendering shapes (circle, ellipse, rectangle with rounded corners)"""
+
+    def __init__(self, parent=None, shape_type='rectangle'):
+        super().__init__(parent)
+        self.shape_type = shape_type  # 'circle', 'ellipse', 'rectangle'
+        self.fill_color = QColor('#CCCCCC')
+        self.stroke_color = QColor('#000000')
+        self.stroke_width = 1
+        self.corner_radius = 0
+
+    def set_fill_color(self, color: str):
+        """Set fill color from hex string"""
+        try:
+            self.fill_color = QColor(color)
+        except Exception as e:
+            logger.warning(f"Invalid fill color {color}: {e}")
+            self.fill_color = QColor('#CCCCCC')
+
+    def set_stroke_color(self, color: str):
+        """Set stroke color from hex string"""
+        try:
+            self.stroke_color = QColor(color)
+        except Exception as e:
+            logger.warning(f"Invalid stroke color {color}: {e}")
+            self.stroke_color = QColor('#000000')
+
+    def set_stroke_width(self, width: int):
+        """Set stroke width"""
+        try:
+            self.stroke_width = max(0, int(width))
+        except (ValueError, TypeError):
+            self.stroke_width = 1
+
+    def set_corner_radius(self, radius: float):
+        """Set corner radius for rectangles"""
+        try:
+            self.corner_radius = max(0, float(radius))
+        except (ValueError, TypeError):
+            self.corner_radius = 0
+
+    def paintEvent(self, event):
+        """Custom paint event to draw shapes"""
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+
+        # Set brush (fill)
+        brush = QBrush(self.fill_color)
+        painter.setBrush(brush)
+
+        # Set pen (stroke)
+        pen = QPen(self.stroke_color)
+        pen.setWidth(self.stroke_width)
+        painter.setPen(pen)
+
+        # Get widget dimensions
+        rect = self.rect()
+
+        # Adjust rect for stroke width to prevent clipping
+        if self.stroke_width > 0:
+            margin = self.stroke_width // 2
+            rect = rect.adjusted(margin, margin, -margin, -margin)
+
+        # Draw based on shape type
+        if self.shape_type == 'circle':
+            # Circle: use smaller dimension as diameter to ensure perfect circle
+            size = min(rect.width(), rect.height())
+            # Center the circle
+            x = rect.x() + (rect.width() - size) // 2
+            y = rect.y() + (rect.height() - size) // 2
+            painter.drawEllipse(x, y, size, size)
+
+        elif self.shape_type == 'ellipse':
+            # Ellipse: fill the entire rect
+            painter.drawEllipse(rect)
+
+        elif self.shape_type == 'rectangle':
+            # Rectangle with optional rounded corners
+            if self.corner_radius > 0:
+                painter.drawRoundedRect(rect, self.corner_radius, self.corner_radius)
+            else:
+                painter.drawRect(rect)
+
+        painter.end()
 
 
 class DisplayRenderer(QWidget):
@@ -107,12 +193,40 @@ class DisplayRenderer(QWidget):
                         logger.warning(f"Failed to stop datetime timer: {e}")
                 self._datetime_timers.clear()
 
-            # Set background
+            # Set background (color and/or image)
             bg_color = layout.get('BackgroundColor', '#FFFFFF')
+            bg_image = layout.get('BackgroundImage')
+
             try:
-                self.setStyleSheet(f"background-color: {bg_color};")
+                style = ""
+
+                # Background color
+                if bg_color:
+                    style += f"background-color: {bg_color};"
+
+                # Background image (if provided)
+                if bg_image and isinstance(bg_image, str):
+                    import os
+                    if os.path.isfile(bg_image):
+                        # Use absolute path with file:/// protocol for Qt
+                        abs_path = os.path.abspath(bg_image)
+                        # Qt requires forward slashes on all platforms
+                        abs_path = abs_path.replace('\\', '/')
+                        style += f"background-image: url(file:///{abs_path});"
+                        style += "background-repeat: no-repeat;"
+                        style += "background-position: center;"
+                        style += "background-size: cover;"  # Cover the entire widget
+                        logger.debug(f"Set background image: {bg_image}")
+                    else:
+                        logger.warning(f"Background image file not found: {bg_image}")
+
+                if style:
+                    self.setStyleSheet(style)
+                else:
+                    self.setStyleSheet("background-color: #FFFFFF;")
+
             except Exception as e:
-                logger.warning(f"Failed to set background color {bg_color}: {e}")
+                logger.warning(f"Failed to set background: {e}")
                 self.setStyleSheet("background-color: #FFFFFF;")
 
             # Render elements
@@ -121,10 +235,18 @@ class DisplayRenderer(QWidget):
                 logger.warning(f"Elements is not a list: {type(elements)}")
                 elements = []
 
+            # Sort elements by ZIndex to render in correct order (lower ZIndex first = background)
+            try:
+                elements_sorted = sorted(elements, key=lambda e: e.get('ZIndex', 0) if isinstance(e, dict) else 0)
+                logger.debug(f"Sorted {len(elements_sorted)} elements by ZIndex")
+            except Exception as e:
+                logger.warning(f"Failed to sort elements by ZIndex: {e}, using original order")
+                elements_sorted = elements
+
             rendered_count = 0
             failed_count = 0
 
-            for element_data in elements:
+            for element_data in elements_sorted:
                 try:
                     element = self.create_element(element_data, data)
                     if element:
@@ -173,6 +295,13 @@ class DisplayRenderer(QWidget):
             logger.warning(f"Properties is not a dict: {type(properties)}, using defaults")
             properties = {}
 
+        # Check if element is visible
+        visible = element_data.get('Visible', True)
+        if not visible:
+            # Element is marked as invisible, skip rendering
+            logger.debug(f"Skipping invisible element of type {element_type}")
+            return None
+
         # Parse dimensions with error handling
         try:
             x = int(position.get('X', 0))
@@ -195,8 +324,12 @@ class DisplayRenderer(QWidget):
                 return self.create_text_element(x, y, width, height, properties, data)
             elif element_type == 'image':
                 return self.create_image_element(x, y, width, height, properties)
-            elif element_type == 'shape':
-                return self.create_shape_element(x, y, width, height, properties)
+            elif element_type == 'shape' or element_type == 'rectangle':
+                return self.create_shape_element(x, y, width, height, properties, shape_type='rectangle')
+            elif element_type == 'circle':
+                return self.create_shape_element(x, y, width, height, properties, shape_type='circle')
+            elif element_type == 'ellipse':
+                return self.create_shape_element(x, y, width, height, properties, shape_type='ellipse')
             elif element_type == 'qrcode':
                 return self.create_qrcode_element(x, y, width, height, properties, data)
             elif element_type == 'datetime':
@@ -256,6 +389,15 @@ class DisplayRenderer(QWidget):
                 font_style = properties.get('FontStyle', 'normal')
                 if font_style == 'italic':
                     font.setItalic(True)
+
+                # Text decorations
+                underline = properties.get('TextDecoration_Underline', False)
+                if underline:
+                    font.setUnderline(True)
+
+                strikethrough = properties.get('TextDecoration_Strikethrough', False)
+                if strikethrough:
+                    font.setStrikeOut(True)
 
                 label.setFont(font)
             except Exception as e:
@@ -367,43 +509,44 @@ class DisplayRenderer(QWidget):
         self,
         x: int, y: int,
         width: int, height: int,
-        properties: Dict[str, Any]
+        properties: Dict[str, Any],
+        shape_type: str = 'rectangle'
     ) -> Optional[QWidget]:
-        """Create a shape element"""
+        """Create a shape element (rectangle, circle, or ellipse)"""
         try:
-            widget = QWidget(self)
+            # Create ShapeWidget with proper shape type
+            widget = ShapeWidget(self, shape_type=shape_type)
             widget.setGeometry(x, y, width, height)
 
+            # Get colors and stroke from properties
             fill_color = properties.get('FillColor', '#CCCCCC')
-            stroke_color = properties.get('StrokeColor', '#000000')
-            stroke_width = properties.get('StrokeWidth', 1)
+            stroke_color = properties.get('StrokeColor') or properties.get('BorderColor', '#000000')
+            stroke_width = properties.get('StrokeWidth') or properties.get('BorderThickness', 1)
 
-            # Validate stroke width
-            try:
-                stroke_width = int(stroke_width)
-                if stroke_width < 0:
-                    logger.warning(f"Invalid stroke width: {stroke_width}, using 0")
-                    stroke_width = 0
-            except (ValueError, TypeError) as e:
-                logger.warning(f"Failed to parse stroke width: {e}, using default")
-                stroke_width = 1
+            # Apply shape properties
+            widget.set_fill_color(fill_color)
+            widget.set_stroke_color(stroke_color)
+            widget.set_stroke_width(stroke_width)
 
-            try:
-                widget.setStyleSheet(f"""
-                    background-color: {fill_color};
-                    border: {stroke_width}px solid {stroke_color};
-                """)
-            except Exception as e:
-                logger.warning(f"Failed to set shape style: {e}")
+            # Apply corner radius for rectangles (support both property names)
+            if shape_type == 'rectangle':
+                corner_radius = properties.get('CornerRadius') or properties.get('BorderRadius', 0)
+                try:
+                    widget.set_corner_radius(float(corner_radius))
+                except (ValueError, TypeError):
+                    widget.set_corner_radius(0)
 
-            # Apply common styling (shadow, opacity, rotation - border already handled above)
-            # Note: We don't call apply_common_styling for border here since shapes have their own border handling
-            self.apply_common_styling(widget, properties)
+            # Apply common styling (shadow, opacity, rotation)
+            # Note: We don't use background-color/border from apply_common_styling
+            # since ShapeWidget handles these via paintEvent
+            self.apply_common_styling(widget, properties, skip_border=True)
+
+            logger.debug(f"Created {shape_type} shape: fill={fill_color}, stroke={stroke_color}, width={stroke_width}")
 
             return widget
 
         except Exception as e:
-            logger.error(f"Failed to create shape element: {e}")
+            logger.error(f"Failed to create {shape_type} shape element: {e}")
             return None
 
     def create_qrcode_element(
@@ -434,9 +577,23 @@ class DisplayRenderer(QWidget):
                 return label
 
             try:
+                # Get error correction level from properties (support both property names)
+                error_level_str = properties.get('ErrorCorrectionLevel') or properties.get('ErrorCorrection', 'M')
+                if not isinstance(error_level_str, str):
+                    error_level_str = str(error_level_str)
+
+                # Map to qrcode constants
+                error_level_map = {
+                    'L': qrcode.constants.ERROR_CORRECT_L,  # Low (~7% error correction)
+                    'M': qrcode.constants.ERROR_CORRECT_M,  # Medium (~15% error correction)
+                    'Q': qrcode.constants.ERROR_CORRECT_Q,  # Quartile (~25% error correction)
+                    'H': qrcode.constants.ERROR_CORRECT_H,  # High (~30% error correction)
+                }
+                error_correction = error_level_map.get(error_level_str.upper(), qrcode.constants.ERROR_CORRECT_M)
+
                 qr = qrcode.QRCode(
                     version=1,
-                    error_correction=qrcode.constants.ERROR_CORRECT_M,
+                    error_correction=error_correction,
                     box_size=10,
                     border=4,
                 )
@@ -752,29 +909,36 @@ class DisplayRenderer(QWidget):
             logger.error(f"Failed to create Table element: {e}")
             return None
 
-    def apply_common_styling(self, widget: QWidget, properties: Dict[str, Any]):
+    def apply_common_styling(self, widget: QWidget, properties: Dict[str, Any], skip_border: bool = False):
         """
         Apply common styling properties to any widget.
         Supports: Opacity, Rotation, Border, Shadow, BackgroundColor
+
+        Args:
+            widget: The widget to style
+            properties: Properties dictionary
+            skip_border: If True, skip border and background styling (for ShapeWidget with paintEvent)
         """
         try:
             style_parts = []
 
-            # Background Color
-            background_color = properties.get('BackgroundColor')
-            if background_color:
-                style_parts.append(f"background-color: {background_color};")
+            # Background Color (skip for ShapeWidget)
+            if not skip_border:
+                background_color = properties.get('BackgroundColor')
+                if background_color:
+                    style_parts.append(f"background-color: {background_color};")
 
-            # Border
-            border_color = properties.get('BorderColor')
-            border_thickness = properties.get('BorderThickness', 0)
-            if border_color and border_thickness:
-                try:
-                    border_thickness = int(border_thickness)
-                    if border_thickness > 0:
-                        style_parts.append(f"border: {border_thickness}px solid {border_color};")
-                except (ValueError, TypeError):
-                    logger.warning(f"Invalid BorderThickness: {border_thickness}")
+            # Border (skip for ShapeWidget)
+            if not skip_border:
+                border_color = properties.get('BorderColor')
+                border_thickness = properties.get('BorderThickness', 0)
+                if border_color and border_thickness:
+                    try:
+                        border_thickness = int(border_thickness)
+                        if border_thickness > 0:
+                            style_parts.append(f"border: {border_thickness}px solid {border_color};")
+                    except (ValueError, TypeError):
+                        logger.warning(f"Invalid BorderThickness: {border_thickness}")
 
             # Apply stylesheet if we have style parts
             if style_parts:
