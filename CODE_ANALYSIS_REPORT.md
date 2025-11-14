@@ -145,60 +145,88 @@ catch (Exception ex)
 
 ---
 
-### ⚠️ P2: MessageBox in MVVM ViewModels
+### ⚠️ P2: MessageBox in MVVM ViewModels - **PARTIALLY FIXED**
 
-**Severity:** P2 - Medium  
-**Category:** Architecture/MVVM Violation  
-**Count:** 50+ instances
+**Severity:** P2 - Medium
+**Category:** Architecture/MVVM Violation
+**Count:** 88 instances total (31 fixed, 57 remaining)
+**Status:** ⚙️ **IN PROGRESS** - 35% Complete (Commits: 4f668a6, 083737f, ddb4763, 362830d)
 
-#### Files with MessageBox.Show calls (MVVM violation):
+#### ✅ IDialogService Pattern Implemented
 
-```
-/home/user/digitalsignage/src/DigitalSignage.Server/Program.cs - 4 calls
-/home/user/digitalsignage/src/DigitalSignage.Server/ViewModels/MainViewModel.cs - 12 calls
-/home/user/digitalsignage/src/DigitalSignage.Server/ViewModels/ServerManagementViewModel.cs - 3 calls
-/home/user/digitalsignage/src/DigitalSignage.Server/ViewModels/DiagnosticsViewModel.cs - 6 calls
-/home/user/digitalsignage/src/DigitalSignage.Server/ViewModels/DesignerViewModel.cs - 4 calls
-/home/user/digitalsignage/src/DigitalSignage.Server/ViewModels/AlertRuleEditorViewModel.cs - 8 calls
-/home/user/digitalsignage/src/DigitalSignage.Server/ViewModels/AlertsViewModel.cs - 2 calls
-/home/user/digitalsignage/src/DigitalSignage.Server/Controls/TablePropertiesControl.xaml.cs - 5 calls
-/home/user/digitalsignage/src/DigitalSignage.Server/App.xaml.cs - 3 calls
-```
+**New Infrastructure Created:**
+- `IDialogService` interface with 6 dialog methods
+- `DialogService` implementation with WPF MessageBox backend
+- Full UI thread safety (CheckAccess pattern)
+- Automatic error/warning logging
+- Registered in DI container
 
-**Status:** OPEN  
-**Example Issue:**
-
-**File:** `/home/user/digitalsignage/src/DigitalSignage.Server/ViewModels/AlertRuleEditorViewModel.cs`
-```csharp
-Line 176:
-catch (Exception ex)
-{
-    MessageBox.Show($"Failed to save alert rule: {ex.Message}", "Error", 
-                    MessageBoxButton.OK, MessageBoxImage.Error);  // ❌ MVVM violation
-}
-
-Line 196:
-MessageBox.Show("Please enter a rule name.", "Validation Error", 
-                MessageBoxButton.OK, MessageBoxImage.Warning);  // ❌ MVVM violation
-```
-
-**Impact:**
-- Violates MVVM separation of concerns
-- Hard to unit test
-- Binds UI presentation logic to business logic
-- Makes code less reusable
-
-**Recommendation:** Use DialogService pattern
+**Interface Methods:**
 ```csharp
 public interface IDialogService
 {
-    Task<MessageBoxResult> ShowAsync(string title, string message, MessageBoxButton button);
-    Task<(bool, string)> ShowValidationAsync(string field, string error);
+    Task ShowInformationAsync(string message, string? title = null);
+    Task ShowErrorAsync(string message, string? title = null);
+    Task ShowWarningAsync(string message, string? title = null);
+    Task<bool> ShowConfirmationAsync(string message, string? title = null);
+    Task<bool?> ShowYesNoCancelAsync(string message, string? title = null);
+    Task ShowValidationErrorAsync(string message, string? title = null);
 }
-
-// Then inject and use:
-await _dialogService.ShowAsync("Error", $"Failed to save alert rule: {ex.Message}", MessageBoxButton.OK);
 ```
+
+#### ✅ Fixed Files (31/88 calls - 35%):
+
+```
+✅ MainViewModel.cs                      - 12/12 calls FIXED (commit 4f668a6)
+✅ AlertRuleEditorViewModel.cs           - 8/8 calls FIXED (commit 083737f)
+✅ DiagnosticsViewModel.cs               - 6/6 calls FIXED (commit ddb4763)
+✅ SettingsViewModel.cs                  - 5/5 calls FIXED (commit 362830d)
+```
+
+**Pattern Applied:**
+```csharp
+// ❌ Before: Direct UI dependency
+MessageBox.Show($"Failed to save: {ex.Message}", "Error",
+                MessageBoxButton.OK, MessageBoxImage.Error);
+
+// ✅ After: Injected IDialogService
+await _dialogService.ShowErrorAsync($"Failed to save: {ex.Message}", "Error");
+```
+
+#### ⏳ Remaining Files (57/88 calls - 65%):
+
+```
+⏳ AlertsViewModel.cs                    - 23 calls (create, edit, delete alerts)
+⏳ DesignerViewModel.cs                  - 5 calls
+⏳ ServerManagementViewModel.cs          - 5 calls
+⏳ Program.cs                            - 5 calls (startup/critical errors)
+⏳ TablePropertiesControl.xaml.cs        - 5 calls
+⏳ ScreenshotViewModel.cs                - 4 calls
+⏳ App.xaml.cs                           - 3 calls (startup errors)
+⏳ LayoutManagementViewModel.cs          - 2 calls
+⏳ MediaBrowserDialog.xaml.cs            - 2 calls
+⏳ MediaLibraryViewModel.cs              - 1 call
+⏳ LiveLogsViewModel.cs                  - 1 call
+⏳ SettingsDialog.xaml.cs                - 1 call
+```
+
+**Note:** Program.cs and App.xaml.cs calls are for critical startup errors before DI is available.
+
+#### Impact (Already Achieved):
+
+**Before Fix:**
+- ❌ Violates MVVM separation of concerns
+- ❌ Hard to unit test (direct UI dependencies)
+- ❌ Non-async blocking dialogs
+- ❌ Inconsistent error handling
+
+**After Fix (for 31 calls):**
+- ✅ MVVM compliant - No System.Windows dependencies in ViewModels
+- ✅ 100% testable - Can inject mock IDialogService
+- ✅ Async/await throughout - Non-blocking UI
+- ✅ Thread-safe - CheckAccess() pattern prevents cross-thread exceptions
+- ✅ Centralized logging - All errors/warnings automatically logged
+- ✅ Consistent UX - All dialogs use same service
 
 ---
 
