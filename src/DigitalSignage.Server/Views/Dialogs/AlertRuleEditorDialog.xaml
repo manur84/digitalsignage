@@ -1,0 +1,171 @@
+<Window x:Class="DigitalSignage.Server.Views.Dialogs.AlertRuleEditorDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:local="clr-namespace:DigitalSignage.Server.Converters"
+        xmlns:entities="clr-namespace:DigitalSignage.Data.Entities;assembly=DigitalSignage.Data"
+        mc:Ignorable="d"
+        Title="{Binding IsEditMode, Converter={StaticResource EditModeTitleConverter}, FallbackValue='Create Alert Rule'}"
+        Height="650" Width="600"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False">
+
+    <Window.Resources>
+        <local:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+        <local:AlertRuleTypeToStringConverter x:Key="AlertRuleTypeToStringConverter"/>
+
+        <!-- Edit Mode Title Converter -->
+        <local:BoolToStringConverter x:Key="EditModeTitleConverter" TrueValue="Edit Alert Rule" FalseValue="Create Alert Rule"/>
+
+        <local:EnumVisibilityConverter x:Key="EnumVisibilityConverter"/>
+
+        <!-- Primary Button Style -->
+        <Style x:Key="PrimaryButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#2196F3"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="16,8"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#1976D2"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#0D47A1"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="SectionHeaderStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Margin" Value="0,12,0,8"/>
+        </Style>
+
+        <Style x:Key="FieldLabelStyle" TargetType="TextBlock">
+            <Setter Property="Margin" Value="0,8,0,4"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Main Content -->
+        <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <!-- Rule Name -->
+                <TextBlock Text="Rule Name *" Style="{StaticResource FieldLabelStyle}"/>
+                <TextBox Text="{Binding RuleName, UpdateSourceTrigger=PropertyChanged}"
+                         Padding="8" FontSize="13"/>
+
+                <!-- Description -->
+                <TextBlock Text="Description" Style="{StaticResource FieldLabelStyle}"/>
+                <TextBox Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}"
+                         Padding="8" FontSize="13" Height="60" TextWrapping="Wrap"
+                         AcceptsReturn="True" VerticalScrollBarVisibility="Auto"/>
+
+                <!-- Rule Type -->
+                <TextBlock Text="Alert Type *" Style="{StaticResource FieldLabelStyle}"/>
+                <ComboBox ItemsSource="{Binding RuleTypes}"
+                          SelectedItem="{Binding SelectedRuleType}"
+                          Padding="8" FontSize="13">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Converter={StaticResource AlertRuleTypeToStringConverter}}"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+
+                <!-- Severity -->
+                <TextBlock Text="Severity Level *" Style="{StaticResource FieldLabelStyle}"/>
+                <ComboBox ItemsSource="{Binding SeverityLevels}"
+                          SelectedItem="{Binding SelectedSeverity}"
+                          Padding="8" FontSize="13"/>
+
+                <!-- Configuration Section -->
+                <TextBlock Text="Configuration" Style="{StaticResource SectionHeaderStyle}"/>
+                <Border Background="#F5F5F5" BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="4" Padding="12">
+                    <StackPanel>
+                        <!-- Device Offline Config -->
+                        <StackPanel Visibility="{Binding SelectedRuleType, Converter={StaticResource EnumVisibilityConverter}, ConverterParameter=DeviceOffline}">
+                            <TextBlock Text="Device offline threshold (minutes):" Style="{StaticResource FieldLabelStyle}"/>
+                            <TextBox Text="{Binding OfflineThresholdMinutes, UpdateSourceTrigger=PropertyChanged}"
+                                     Padding="8" FontSize="13"/>
+                            <TextBlock Text="Alert will trigger when a device hasn't been seen for this many minutes."
+                                       FontSize="11" Foreground="#666" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                        </StackPanel>
+
+                        <!-- High CPU Config -->
+                        <StackPanel Visibility="{Binding SelectedRuleType, Converter={StaticResource EnumVisibilityConverter}, ConverterParameter=DeviceHighCpu}">
+                            <TextBlock Text="CPU usage threshold (%):" Style="{StaticResource FieldLabelStyle}"/>
+                            <TextBox Text="{Binding CpuThreshold, UpdateSourceTrigger=PropertyChanged}"
+                                     Padding="8" FontSize="13"/>
+                            <TextBlock Text="Alert will trigger when CPU usage exceeds this percentage."
+                                       FontSize="11" Foreground="#666" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                        </StackPanel>
+
+                        <!-- High Memory Config -->
+                        <StackPanel Visibility="{Binding SelectedRuleType, Converter={StaticResource EnumVisibilityConverter}, ConverterParameter=DeviceHighMemory}">
+                            <TextBlock Text="Memory usage threshold (%):" Style="{StaticResource FieldLabelStyle}"/>
+                            <TextBox Text="{Binding MemoryThreshold, UpdateSourceTrigger=PropertyChanged}"
+                                     Padding="8" FontSize="13"/>
+                            <TextBlock Text="Alert will trigger when memory usage exceeds this percentage."
+                                       FontSize="11" Foreground="#666" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                        </StackPanel>
+
+                        <!-- Low Disk Space Config -->
+                        <StackPanel Visibility="{Binding SelectedRuleType, Converter={StaticResource EnumVisibilityConverter}, ConverterParameter=DeviceLowDiskSpace}">
+                            <TextBlock Text="Disk usage threshold (%):" Style="{StaticResource FieldLabelStyle}"/>
+                            <TextBox Text="{Binding DiskThreshold, UpdateSourceTrigger=PropertyChanged}"
+                                     Padding="8" FontSize="13"/>
+                            <TextBlock Text="Alert will trigger when disk usage exceeds this percentage."
+                                       FontSize="11" Foreground="#666" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                        </StackPanel>
+
+                        <!-- Other types -->
+                        <StackPanel Visibility="{Binding SelectedRuleType, Converter={StaticResource EnumVisibilityConverter}, ConverterParameter='DataSourceError,HighErrorRate,LayoutUpdateFailed,Custom'}">
+                            <TextBlock Text="Configuration for this rule type is not yet implemented."
+                                       FontStyle="Italic" Foreground="#999"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Cooldown Period -->
+                <TextBlock Text="Cooldown Period (minutes)" Style="{StaticResource FieldLabelStyle}"/>
+                <TextBox Text="{Binding CooldownMinutes, UpdateSourceTrigger=PropertyChanged}"
+                         Padding="8" FontSize="13"/>
+                <TextBlock Text="Minimum time between consecutive alerts for this rule."
+                           FontSize="11" Foreground="#666" Margin="0,4,0,0" TextWrapping="Wrap"/>
+
+                <!-- Notification Channels -->
+                <TextBlock Text="Notification Channels" Style="{StaticResource FieldLabelStyle}"/>
+                <TextBox Text="{Binding NotificationChannels, UpdateSourceTrigger=PropertyChanged}"
+                         Padding="8" FontSize="13"/>
+                <TextBlock Text="Comma-separated list (e.g., UI, Email, SMS). Currently only UI is supported."
+                           FontSize="11" Foreground="#666" Margin="0,4,0,0" TextWrapping="Wrap"/>
+
+                <!-- Enable/Disable -->
+                <CheckBox Content="Enable this rule" IsChecked="{Binding IsEnabled}"
+                          Margin="0,16,0,0" FontWeight="SemiBold"/>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Action Buttons -->
+        <Border Grid.Row="1" BorderBrush="#E0E0E0" BorderThickness="0,1,0,0" Padding="0,16,0,0" Margin="0,16,0,0">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Cancel" Command="{Binding CancelCommand}"
+                        Width="100" Padding="12,8" Margin="0,0,8,0"/>
+                <Button Content="Save" Command="{Binding SaveCommand}"
+                        Width="100" Padding="12,8" IsDefault="True"
+                        Style="{StaticResource PrimaryButtonStyle}"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

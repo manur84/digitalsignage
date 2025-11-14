@@ -1,0 +1,324 @@
+<UserControl x:Class="DigitalSignage.Server.Views.Alerts.AlertsPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:local="clr-namespace:DigitalSignage.Server.Converters"
+             xmlns:entities="clr-namespace:DigitalSignage.Data.Entities;assembly=DigitalSignage.Data"
+             mc:Ignorable="d"
+             d:DesignHeight="800" d:DesignWidth="1200">
+
+    <UserControl.Resources>
+        <local:AlertSeverityToColorConverter x:Key="AlertSeverityToColorConverter"/>
+        <local:AlertSeverityToIconConverter x:Key="AlertSeverityToIconConverter"/>
+        <local:AlertRuleTypeToStringConverter x:Key="AlertRuleTypeToStringConverter"/>
+        <local:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+
+        <Style x:Key="AlertBadgeStyle" TargetType="Border">
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="6,2"/>
+            <Setter Property="Margin" Value="4,0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Alert Rules Section -->
+        <Border Grid.Row="0" Background="#F5F5F5" BorderBrush="#E0E0E0" BorderThickness="0,0,0,1" Padding="12">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Left" Text="Alert Rules" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Content="➕ New Rule" Command="{Binding CreateAlertRuleCommand}"
+                            Margin="4,0" Padding="12,6" FontWeight="SemiBold"/>
+                    <Button Content="✏️ Edit" Command="{Binding EditAlertRuleCommand}"
+                            Margin="4,0" Padding="12,6" IsEnabled="{Binding SelectedAlertRule, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                    <Button Content="🗑️ Delete" Command="{Binding DeleteAlertRuleCommand}"
+                            Margin="4,0" Padding="12,6" IsEnabled="{Binding SelectedAlertRule, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                    <Button Content="🧪 Test" Command="{Binding TestAlertRuleCommand}"
+                            Margin="4,0" Padding="12,6" IsEnabled="{Binding SelectedAlertRule, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                    <Button Content="🔄 Toggle" Command="{Binding ToggleAlertRuleCommand}"
+                            Margin="4,0" Padding="12,6" IsEnabled="{Binding SelectedAlertRule, Converter={StaticResource BoolToVisibilityConverter}}"
+                            ToolTip="Enable/Disable selected rule"/>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- Alert Rules DataGrid -->
+        <DataGrid Grid.Row="1"
+                  ItemsSource="{Binding AlertRules}"
+                  SelectedItem="{Binding SelectedAlertRule}"
+                  AutoGenerateColumns="False"
+                  CanUserAddRows="False"
+                  CanUserDeleteRows="False"
+                  IsReadOnly="True"
+                  SelectionMode="Single"
+                  GridLinesVisibility="Horizontal"
+                  HeadersVisibility="Column"
+                  AlternatingRowBackground="#FAFAFA"
+                  Margin="12">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Status" Width="80" Binding="{Binding IsEnabled}">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="HorizontalAlignment" Value="Center"/>
+                            <Setter Property="FontWeight" Value="SemiBold"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsEnabled}" Value="True">
+                                    <Setter Property="Text" Value="✓ Enabled"/>
+                                    <Setter Property="Foreground" Value="Green"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding IsEnabled}" Value="False">
+                                    <Setter Property="Text" Value="✗ Disabled"/>
+                                    <Setter Property="Foreground" Value="#999"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+
+                <DataGridTextColumn Header="Rule Name" Width="*" Binding="{Binding Name}">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="FontWeight" Value="SemiBold"/>
+                            <Setter Property="Padding" Value="4"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+
+                <DataGridTextColumn Header="Type" Width="180" Binding="{Binding RuleType, Converter={StaticResource AlertRuleTypeToStringConverter}}"/>
+
+                <DataGridTemplateColumn Header="Severity" Width="120">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Border Style="{StaticResource AlertBadgeStyle}"
+                                    Background="{Binding Severity, Converter={StaticResource AlertSeverityToColorConverter}}">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{Binding Severity, Converter={StaticResource AlertSeverityToIconConverter}}"
+                                               Margin="0,0,4,0" FontSize="14"/>
+                                    <TextBlock Text="{Binding Severity}" Foreground="White" FontWeight="SemiBold"/>
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <DataGridTextColumn Header="Cooldown (min)" Width="120" Binding="{Binding CooldownMinutes}">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="HorizontalAlignment" Value="Center"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+
+                <DataGridTextColumn Header="Trigger Count" Width="110" Binding="{Binding TriggerCount}">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="HorizontalAlignment" Value="Center"/>
+                            <Setter Property="FontWeight" Value="SemiBold"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+
+                <DataGridTextColumn Header="Last Triggered" Width="160" Binding="{Binding LastTriggeredAt, StringFormat='{}{0:yyyy-MM-dd HH:mm}'}">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="HorizontalAlignment" Value="Center"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <!-- Alerts Section Header -->
+        <Border Grid.Row="2" Background="#F5F5F5" BorderBrush="#E0E0E0" BorderThickness="0,1,0,1" Padding="12">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
+                    <TextBlock Text="Active Alerts" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
+
+                    <!-- Unread Badge -->
+                    <Border Style="{StaticResource AlertBadgeStyle}" Background="#FF5722"
+                            Visibility="{Binding UnreadAlertCount, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <TextBlock Text="{Binding UnreadAlertCount, StringFormat='{}{0} Unread'}"
+                                   Foreground="White" FontWeight="SemiBold"/>
+                    </Border>
+
+                    <!-- Critical Badge -->
+                    <Border Style="{StaticResource AlertBadgeStyle}" Background="#F44336"
+                            Visibility="{Binding CriticalAlertCount, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <TextBlock Text="{Binding CriticalAlertCount, StringFormat='{}{0} Critical'}"
+                                   Foreground="White" FontWeight="SemiBold"/>
+                    </Border>
+                </StackPanel>
+
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
+                    <!-- Filter ComboBox -->
+                    <TextBlock Text="Filter:" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <ComboBox SelectedItem="{Binding SelectedFilter}" Width="140" Margin="0,0,12,0">
+                        <ComboBox.Items>
+                            <ComboBoxItem Content="All Alerts" Tag="All"/>
+                            <ComboBoxItem Content="Unread" Tag="Unread"/>
+                            <ComboBoxItem Content="Critical" Tag="Critical"/>
+                            <ComboBoxItem Content="Error" Tag="Error"/>
+                            <ComboBoxItem Content="Warning" Tag="Warning"/>
+                            <ComboBoxItem Content="Info" Tag="Info"/>
+                            <ComboBoxItem Content="Resolved" Tag="Resolved"/>
+                            <ComboBoxItem Content="Unresolved" Tag="Unresolved"/>
+                        </ComboBox.Items>
+                    </ComboBox>
+
+                    <!-- Search TextBox -->
+                    <TextBox Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
+                             Width="200" Margin="0,0,12,0"
+                             VerticalContentAlignment="Center"
+                             ToolTip="Search in alerts..."/>
+
+                    <!-- Action Buttons -->
+                    <Button Content="✓ Acknowledge" Command="{Binding AcknowledgeAlertCommand}"
+                            Margin="4,0" Padding="12,6"
+                            IsEnabled="{Binding SelectedAlert, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                    <Button Content="✓ Ack All" Command="{Binding AcknowledgeAllAlertsCommand}"
+                            Margin="4,0" Padding="12,6"/>
+                    <Button Content="✓ Resolve" Command="{Binding ResolveAlertCommand}"
+                            Margin="4,0" Padding="12,6"
+                            IsEnabled="{Binding SelectedAlert, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                    <Button Content="🗑️ Delete" Command="{Binding DeleteAlertCommand}"
+                            Margin="4,0" Padding="12,6"
+                            IsEnabled="{Binding SelectedAlert, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                    <Button Content="🗑️ Clear Resolved" Command="{Binding ClearResolvedAlertsCommand}"
+                            Margin="4,0" Padding="12,6"/>
+                    <Button Content="🔄" Command="{Binding RefreshCommand}"
+                            Margin="4,0" Padding="12,6" ToolTip="Refresh"/>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- Alerts DataGrid -->
+        <DataGrid Grid.Row="3"
+                  ItemsSource="{Binding Alerts}"
+                  SelectedItem="{Binding SelectedAlert}"
+                  AutoGenerateColumns="False"
+                  CanUserAddRows="False"
+                  CanUserDeleteRows="False"
+                  IsReadOnly="True"
+                  SelectionMode="Single"
+                  GridLinesVisibility="Horizontal"
+                  HeadersVisibility="Column"
+                  AlternatingRowBackground="#FAFAFA"
+                  Margin="12">
+            <DataGrid.Columns>
+                <DataGridTemplateColumn Header="" Width="50">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Severity, Converter={StaticResource AlertSeverityToIconConverter}}"
+                                       FontSize="20" HorizontalAlignment="Center"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <DataGridTextColumn Header="Triggered At" Width="160" Binding="{Binding TriggeredAt, StringFormat='{}{0:yyyy-MM-dd HH:mm:ss}'}">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="FontWeight" Value="SemiBold"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+
+                <DataGridTemplateColumn Header="Severity" Width="110">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Border Style="{StaticResource AlertBadgeStyle}"
+                                    Background="{Binding Severity, Converter={StaticResource AlertSeverityToColorConverter}}">
+                                <TextBlock Text="{Binding Severity}" Foreground="White" FontWeight="SemiBold"/>
+                            </Border>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <DataGridTextColumn Header="Title" Width="200" Binding="{Binding Title}">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="FontWeight" Value="SemiBold"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+
+                <DataGridTextColumn Header="Message" Width="*" Binding="{Binding Message}">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="TextWrapping" Value="Wrap"/>
+                            <Setter Property="Padding" Value="4"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+
+                <DataGridTextColumn Header="Entity" Width="120" Binding="{Binding EntityType}">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="HorizontalAlignment" Value="Center"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+
+                <DataGridTextColumn Header="Status" Width="100">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="HorizontalAlignment" Value="Center"/>
+                            <Setter Property="FontWeight" Value="SemiBold"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsResolved}" Value="True">
+                                    <Setter Property="Text" Value="✓ Resolved"/>
+                                    <Setter Property="Foreground" Value="Green"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding IsAcknowledged}" Value="True">
+                                    <Setter Property="Text" Value="✓ Ack"/>
+                                    <Setter Property="Foreground" Value="Orange"/>
+                                </DataTrigger>
+                                <MultiDataTrigger>
+                                    <MultiDataTrigger.Conditions>
+                                        <Condition Binding="{Binding IsResolved}" Value="False"/>
+                                        <Condition Binding="{Binding IsAcknowledged}" Value="False"/>
+                                    </MultiDataTrigger.Conditions>
+                                    <Setter Property="Text" Value="● New"/>
+                                    <Setter Property="Foreground" Value="Red"/>
+                                </MultiDataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+            </DataGrid.Columns>
+
+            <DataGrid.RowStyle>
+                <Style TargetType="DataGridRow">
+                    <Style.Triggers>
+                        <!-- Dim resolved alerts -->
+                        <DataTrigger Binding="{Binding IsResolved}" Value="True">
+                            <Setter Property="Opacity" Value="0.6"/>
+                        </DataTrigger>
+                        <!-- Bold unread alerts -->
+                        <DataTrigger Binding="{Binding IsAcknowledged}" Value="False">
+                            <Setter Property="FontWeight" Value="SemiBold"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </DataGrid.RowStyle>
+        </DataGrid>
+
+        <!-- Loading Overlay -->
+        <Border Grid.Row="0" Grid.RowSpan="4"
+                Background="#80000000"
+                Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibilityConverter}}">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                <TextBlock Text="Loading..." FontSize="24" FontWeight="SemiBold" Foreground="White"
+                           HorizontalAlignment="Center" Margin="0,0,0,12"/>
+                <ProgressBar IsIndeterminate="True" Width="200" Height="4"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

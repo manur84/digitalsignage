@@ -124,6 +124,8 @@ public partial class App : Application
                 services.AddTransient<ScreenshotViewModel>();
                 services.AddTransient<MediaBrowserViewModel>();
                 services.AddTransient<SettingsViewModel>();
+                services.AddSingleton<AlertsViewModel>();
+                services.AddTransient<AlertRuleEditorViewModel>();
 
                 // Register LiveLogsViewModel as singleton with shared log collection
                 services.AddSingleton<LiveLogsViewModel>(sp =>
@@ -384,6 +386,15 @@ Common Solutions:
         if (Current is App app)
         {
             return app._host.Services.GetRequiredService<T>();
+        }
+        throw new InvalidOperationException("Application is not initialized");
+    }
+
+    public static IServiceProvider GetServiceProvider()
+    {
+        if (Current is App app)
+        {
+            return app._host.Services;
         }
         throw new InvalidOperationException("Application is not initialized");
     }

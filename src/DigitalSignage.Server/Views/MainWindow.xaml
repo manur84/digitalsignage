@@ -6,6 +6,7 @@
         xmlns:controls="clr-namespace:DigitalSignage.Server.Controls"
         xmlns:local="clr-namespace:DigitalSignage.Server.Converters"
         xmlns:designer="clr-namespace:DigitalSignage.Server.Views.Designer"
+        xmlns:alerts="clr-namespace:DigitalSignage.Server.Views.Alerts"
         mc:Ignorable="d"
         Title="Digital Signage Manager"
         Height="800"
@@ -2210,6 +2211,21 @@
                         </Grid>
                     </Border>
                 </Grid>
+            </TabItem>
+
+            <!-- Alerts Tab -->
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Alerts" Margin="0,0,6,0"/>
+                        <Border Background="#F44336" CornerRadius="8" Padding="4,2" Margin="0,0,4,0"
+                                Visibility="{Binding Alerts.UnreadAlertCount, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <TextBlock Text="{Binding Alerts.UnreadAlertCount}"
+                                       Foreground="White" FontSize="10" FontWeight="Bold"/>
+                        </Border>
+                    </StackPanel>
+                </TabItem.Header>
+                <alerts:AlertsPanel DataContext="{Binding Alerts}"/>
             </TabItem>
         </TabControl>
     </DockPanel>
