@@ -152,6 +152,7 @@ public partial class App : Application
 
                 services.AddSingleton<ITemplateService, TemplateService>();
                 services.AddSingleton<ICommunicationService, WebSocketCommunicationService>();
+                services.AddSingleton<IDialogService, DialogService>();
 
                 // Register EnhancedMediaService for both interface and concrete type
                 services.AddSingleton<EnhancedMediaService>();

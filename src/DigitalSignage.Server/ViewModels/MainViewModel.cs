@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using DigitalSignage.Core.Interfaces;
 using DigitalSignage.Server.Services;
 using DigitalSignage.Server.Views;
 using Microsoft.Extensions.Logging;
@@ -16,6 +17,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private readonly BackupService _backupService;
     private readonly SettingsViewModel _settingsViewModel;
     private readonly ILogger<Views.Dialogs.SettingsDialog> _settingsDialogLogger;
+    private readonly IDialogService _dialogService;
     private bool _disposed = false;
 
     // View Options
@@ -66,6 +68,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         AlertsViewModel alertsViewModel,
         SettingsViewModel settingsViewModel,
         BackupService backupService,
+        IDialogService dialogService,
         ILogger<MainViewModel> logger,
         ILogger<Views.Dialogs.SettingsDialog> settingsDialogLogger)
     {
@@ -87,6 +90,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
         _settingsViewModel = settingsViewModel ?? throw new ArgumentNullException(nameof(settingsViewModel));
         _backupService = backupService ?? throw new ArgumentNullException(nameof(backupService));
+        _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _settingsDialogLogger = settingsDialogLogger ?? throw new ArgumentNullException(nameof(settingsDialogLogger));
 
@@ -191,7 +195,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     #region Menu Commands
 
     [RelayCommand]
-    private void Settings()
+    private async Task Settings()
     {
         try
         {
@@ -219,11 +223,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
         {
             _logger.LogError(ex, "Error opening settings dialog");
             StatusText = $"Error opening settings: {ex.Message}";
-            System.Windows.MessageBox.Show(
+            await _dialogService.ShowErrorAsync(
                 $"Failed to open settings dialog:\n\n{ex.Message}",
-                "Settings Error",
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Error);
+                "Settings Error");
         }
     }
 
@@ -236,7 +238,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
-    private void Documentation()
+    private async Task Documentation()
     {
         try
         {
@@ -262,19 +264,17 @@ public partial class MainViewModel : ObservableObject, IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to open documentation");
-            System.Windows.MessageBox.Show(
+            await _dialogService.ShowInformationAsync(
                 "Documentation available at:\n\n" +
                 "Local: ./docs folder\n" +
                 "Online: https://github.com/manur84/digitalsignage/tree/main/docs",
-                "Documentation",
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Information);
+                "Documentation");
             StatusText = "Documentation location shown";
         }
     }
 
     [RelayCommand]
-    private void About()
+    private async Task About()
     {
         var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
         var message = $"Digital Signage Manager\n\n" +
@@ -286,11 +286,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
                      $"© 2024 Digital Signage Project\n" +
                      $"Built with Claude Code";
 
-        System.Windows.MessageBox.Show(
+        await _dialogService.ShowInformationAsync(
             message,
-            "About Digital Signage Manager",
-            System.Windows.MessageBoxButton.OK,
-            System.Windows.MessageBoxImage.Information);
+            "About Digital Signage Manager");
 
         StatusText = $"Digital Signage Manager v{version}";
     }
@@ -335,40 +333,34 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 _logger.LogInformation("Database backup created successfully");
 
                 var fileInfo = new System.IO.FileInfo(saveDialog.FileName);
-                System.Windows.MessageBox.Show(
+                await _dialogService.ShowInformationAsync(
                     $"Database backup created successfully!\n\n" +
                     $"Location: {saveDialog.FileName}\n\n" +
                     $"Size: {fileInfo.Length / 1024:N0} KB\n" +
                     $"Date: {DateTime.Now:yyyy-MM-dd HH:mm:ss}",
-                    "Backup Success",
-                    System.Windows.MessageBoxButton.OK,
-                    System.Windows.MessageBoxImage.Information);
+                    "Backup Success");
             }
             else
             {
                 StatusText = "Backup failed";
                 _logger.LogError("Database backup failed: {Error}", result.Error);
 
-                System.Windows.MessageBox.Show(
+                await _dialogService.ShowErrorAsync(
                     $"Database backup failed:\n\n{result.Error}\n\n" +
                     $"Please check:\n" +
                     $"- Sufficient disk space\n" +
                     $"- Write permissions to target directory\n" +
                     $"- Database is not locked by another process",
-                    "Backup Error",
-                    System.Windows.MessageBoxButton.OK,
-                    System.Windows.MessageBoxImage.Error);
+                    "Backup Error");
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error creating database backup");
             StatusText = "Backup failed";
-            System.Windows.MessageBox.Show(
+            await _dialogService.ShowErrorAsync(
                 $"Error creating backup:\n\n{ex.Message}",
-                "Error",
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Error);
+                "Error");
         }
     }
 
@@ -380,7 +372,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             _logger.LogWarning("User initiated database restore - showing warning dialog");
 
             // FIRST WARNING CONFIRMATION
-            var warningResult = System.Windows.MessageBox.Show(
+            var warningResult = await _dialogService.ShowConfirmationAsync(
                 "⚠️ WARNING: Restoring a backup will REPLACE the current database!\n\n" +
                 "All current data will be LOST. This action CANNOT be undone.\n\n" +
                 "This includes:\n" +
@@ -391,11 +383,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 "• All logs and history\n\n" +
                 "It is STRONGLY recommended to create a backup of the current database first.\n\n" +
                 "Do you want to continue?",
-                "Restore Database - WARNING",
-                System.Windows.MessageBoxButton.YesNo,
-                System.Windows.MessageBoxImage.Warning);
+                "Restore Database - WARNING");
 
-            if (warningResult != System.Windows.MessageBoxResult.Yes)
+            if (!warningResult)
             {
                 StatusText = "Database restore cancelled";
                 _logger.LogInformation("Database restore cancelled by user at first warning");
@@ -418,18 +408,16 @@ public partial class MainViewModel : ObservableObject, IDisposable
             }
 
             // FINAL CONFIRMATION
-            var finalResult = System.Windows.MessageBox.Show(
+            var finalResult = await _dialogService.ShowConfirmationAsync(
                 $"⚠️ FINAL CONFIRMATION\n\n" +
                 $"Are you ABSOLUTELY SURE you want to restore from:\n\n" +
                 $"{openDialog.FileName}\n\n" +
                 $"Current database will be REPLACED and CANNOT be recovered!\n\n" +
                 $"A safety backup will be created automatically before restore.\n\n" +
                 $"Continue with restore?",
-                "Final Confirmation - Restore Database",
-                System.Windows.MessageBoxButton.YesNo,
-                System.Windows.MessageBoxImage.Stop);
+                "Final Confirmation - Restore Database");
 
-            if (finalResult != System.Windows.MessageBoxResult.Yes)
+            if (!finalResult)
             {
                 StatusText = "Database restore cancelled";
                 _logger.LogInformation("Database restore cancelled by user at final confirmation");
@@ -448,14 +436,12 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 StatusText = "Database restored successfully - application will restart";
                 _logger.LogInformation("Database restored successfully");
 
-                System.Windows.MessageBox.Show(
+                await _dialogService.ShowInformationAsync(
                     "Database restored successfully!\n\n" +
                     "A safety backup of the previous database has been created.\n\n" +
                     "The application will now RESTART to apply changes.\n\n" +
                     "Please wait for the application to restart automatically.",
-                    "Restore Success",
-                    System.Windows.MessageBoxButton.OK,
-                    System.Windows.MessageBoxImage.Information);
+                    "Restore Success");
 
                 _logger.LogInformation("Restarting application after successful restore");
 
@@ -482,7 +468,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 StatusText = "Database restore failed";
                 _logger.LogError("Database restore failed: {Error}", result.Error);
 
-                System.Windows.MessageBox.Show(
+                await _dialogService.ShowErrorAsync(
                     $"Database restore failed:\n\n{result.Error}\n\n" +
                     $"The current database has been preserved.\n\n" +
                     $"Please check:\n" +
@@ -490,21 +476,17 @@ public partial class MainViewModel : ObservableObject, IDisposable
                     $"- Backup file is not corrupted\n" +
                     $"- Sufficient disk space available\n" +
                     $"- Database is not locked by another process",
-                    "Restore Error",
-                    System.Windows.MessageBoxButton.OK,
-                    System.Windows.MessageBoxImage.Error);
+                    "Restore Error");
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error restoring database backup");
             StatusText = "Database restore failed";
-            System.Windows.MessageBox.Show(
+            await _dialogService.ShowErrorAsync(
                 $"Error restoring backup:\n\n{ex.Message}\n\n" +
                 $"The current database has been preserved.",
-                "Error",
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Error);
+                "Error");
         }
     }
 
@@ -513,11 +495,11 @@ public partial class MainViewModel : ObservableObject, IDisposable
     #region Placeholder Commands (Future Implementation)
 
     [RelayCommand]
-    private void TemplateManager()
+    private async Task TemplateManager()
     {
         StatusText = "Opening Template Manager...";
 
-        System.Windows.MessageBox.Show(
+        await _dialogService.ShowInformationAsync(
             "Template Manager\n\n" +
             "Current Templates: 11 built-in templates\n\n" +
             "Features:\n" +
@@ -527,17 +509,15 @@ public partial class MainViewModel : ObservableObject, IDisposable
             "• Export/Import templates\n\n" +
             "Access templates via:\n" +
             "File → New from Template",
-            "Template Manager",
-            System.Windows.MessageBoxButton.OK,
-            System.Windows.MessageBoxImage.Information);
+            "Template Manager");
     }
 
     [RelayCommand]
-    private void ClientTokens()
+    private async Task ClientTokens()
     {
         StatusText = "Opening Client Registration Tokens...";
 
-        System.Windows.MessageBox.Show(
+        await _dialogService.ShowInformationAsync(
             "Client Registration Tokens\n\n" +
             "Manage tokens for client device registration.\n\n" +
             "Features:\n" +
@@ -548,9 +528,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             "• Restrict by MAC address\n\n" +
             "Token-based registration ensures secure\n" +
             "client onboarding.",
-            "Client Registration Tokens",
-            System.Windows.MessageBoxButton.OK,
-            System.Windows.MessageBoxImage.Information);
+            "Client Registration Tokens");
     }
 
     #endregion
