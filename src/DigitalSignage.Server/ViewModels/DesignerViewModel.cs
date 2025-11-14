@@ -9,10 +9,11 @@ using System.Collections.ObjectModel;
 
 namespace DigitalSignage.Server.ViewModels;
 
-public partial class DesignerViewModel : ObservableObject
+public partial class DesignerViewModel : ObservableObject, IDisposable
 {
     private readonly ILayoutService _layoutService;
     private readonly ILogger<DesignerViewModel> _logger;
+    private bool _disposed = false;
 
     [ObservableProperty]
     private DisplayLayout? _currentLayout;
@@ -70,28 +71,13 @@ public partial class DesignerViewModel : ObservableObject
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
         // Subscribe to command history changes
-        CommandHistory.HistoryChanged += (s, e) =>
-        {
-            UndoCommand.NotifyCanExecuteChanged();
-            RedoCommand.NotifyCanExecuteChanged();
-            HasUnsavedChanges = true; // Mark as having unsaved changes on any command
-        };
+        CommandHistory.HistoryChanged += OnHistoryChanged;
 
         // Subscribe to selection changes
-        SelectionService.SelectionChanged += (s, e) =>
-        {
-            // Update SelectedElement to match primary selection
-            SelectedElement = SelectionService.PrimarySelection;
-            DeleteSelectedCommand.NotifyCanExecuteChanged();
-            DuplicateSelectedCommand.NotifyCanExecuteChanged();
-        };
+        SelectionService.SelectionChanged += OnSelectionChanged;
 
         // Subscribe to Elements collection changes
-        Elements.CollectionChanged += (s, e) =>
-        {
-            HasUnsavedChanges = true;
-            UpdateLayers();
-        };
+        Elements.CollectionChanged += OnElementsCollectionChanged;
 
         // Create default layout
         CreateNewLayout();
@@ -1831,4 +1817,45 @@ public partial class DesignerViewModel : ObservableObject
     }
 
     #endregion
+
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (_disposed) return;
+
+        if (disposing)
+        {
+            // Unregister event handlers
+            CommandHistory.HistoryChanged -= OnHistoryChanged;
+            SelectionService.SelectionChanged -= OnSelectionChanged;
+            Elements.CollectionChanged -= OnElementsCollectionChanged;
+        }
+
+        _disposed = true;
+    }
+
+    private void OnHistoryChanged(object? sender, EventArgs e)
+    {
+        UndoCommand.NotifyCanExecuteChanged();
+        RedoCommand.NotifyCanExecuteChanged();
+        HasUnsavedChanges = true;
+    }
+
+    private void OnSelectionChanged(object? sender, EventArgs e)
+    {
+        SelectedElement = SelectionService.PrimarySelection;
+        DeleteSelectedCommand.NotifyCanExecuteChanged();
+        DuplicateSelectedCommand.NotifyCanExecuteChanged();
+    }
+
+    private void OnElementsCollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        HasUnsavedChanges = true;
+        UpdateLayers();
+    }
 }

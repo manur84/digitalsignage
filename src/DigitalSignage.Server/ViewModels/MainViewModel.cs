@@ -13,13 +13,14 @@ using System.Windows.Input;
 
 namespace DigitalSignage.Server.ViewModels;
 
-public partial class MainViewModel : ObservableObject
+public partial class MainViewModel : ObservableObject, IDisposable
 {
     private readonly ILayoutService _layoutService;
     private readonly IClientService _clientService;
     private readonly ICommunicationService _communicationService;
     private readonly DigitalSignageDbContext _dbContext;
     private readonly ILogger<MainViewModel> _logger;
+    private bool _disposed = false;
 
     [ObservableProperty]
     private DisplayLayout? _currentLayout;
@@ -1210,5 +1211,53 @@ public partial class MainViewModel : ObservableObject
         {
             StatusText = $"Failed to remove client: {ex.Message}";
         }
+    }
+
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (_disposed) return;
+
+        if (disposing)
+        {
+            // Dispose all sub-viewmodels
+            if (Designer is IDisposable designerDisposable)
+                designerDisposable.Dispose();
+
+            if (DeviceManagement is IDisposable deviceManagementDisposable)
+                deviceManagementDisposable.Dispose();
+
+            if (DataSourceViewModel is IDisposable dataSourceDisposable)
+                dataSourceDisposable.Dispose();
+
+            if (PreviewViewModel is IDisposable previewDisposable)
+                previewDisposable.Dispose();
+
+            if (SchedulingViewModel is IDisposable schedulingDisposable)
+                schedulingDisposable.Dispose();
+
+            if (MediaLibraryViewModel is IDisposable mediaLibraryDisposable)
+                mediaLibraryDisposable.Dispose();
+
+            if (LogViewerViewModel is IDisposable logViewerDisposable)
+                logViewerDisposable.Dispose();
+
+            if (LiveLogsViewModel is IDisposable liveLogsDisposable)
+                liveLogsDisposable.Dispose();
+
+            if (Alerts is IDisposable alertsDisposable)
+                alertsDisposable.Dispose();
+
+            // Unregister event handlers
+            _communicationService.ClientConnected -= OnClientConnected;
+            _communicationService.ClientDisconnected -= OnClientDisconnected;
+        }
+
+        _disposed = true;
     }
 }

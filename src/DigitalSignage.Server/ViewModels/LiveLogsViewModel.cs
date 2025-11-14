@@ -10,9 +10,10 @@ namespace DigitalSignage.Server.ViewModels;
 /// <summary>
 /// ViewModel for the Live Logs tab - displays real-time debug logs from the server
 /// </summary>
-public partial class LiveLogsViewModel : ObservableObject
+public partial class LiveLogsViewModel : ObservableObject, IDisposable
 {
     private readonly ILogger<LiveLogsViewModel> _logger;
+    private bool _disposed = false;
 
     /// <summary>
     /// Observable collection of log messages for real-time display.
@@ -39,13 +40,15 @@ public partial class LiveLogsViewModel : ObservableObject
         LogMessages = sharedLogCollection ?? throw new ArgumentNullException(nameof(sharedLogCollection));
 
         // Subscribe to collection changes to update count
-        LogMessages.CollectionChanged += (s, e) =>
-        {
-            LogCount = LogMessages.Count;
-            StatusText = $"{LogCount} log entries";
-        };
+        LogMessages.CollectionChanged += OnLogMessagesCollectionChanged;
 
         _logger.LogInformation("Live Logs viewer initialized with {Count} existing logs", LogMessages.Count);
+    }
+
+    private void OnLogMessagesCollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        LogCount = LogMessages.Count;
+        StatusText = $"{LogCount} log entries";
     }
 
     [RelayCommand]
@@ -92,5 +95,24 @@ public partial class LiveLogsViewModel : ObservableObject
             }
         }
         return new ObservableCollection<string>();
+    }
+
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (_disposed) return;
+
+        if (disposing)
+        {
+            // Unregister event handler
+            LogMessages.CollectionChanged -= OnLogMessagesCollectionChanged;
+        }
+
+        _disposed = true;
     }
 }

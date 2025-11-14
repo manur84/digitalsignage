@@ -24,12 +24,13 @@ public class SchedulePreviewItem
 /// <summary>
 /// ViewModel for managing layout schedules
 /// </summary>
-public partial class SchedulingViewModel : ObservableObject
+public partial class SchedulingViewModel : ObservableObject, IDisposable
 {
     private readonly DigitalSignageDbContext _dbContext;
     private readonly ILayoutService _layoutService;
     private readonly IClientService _clientService;
     private readonly ILogger<SchedulingViewModel> _logger;
+    private bool _disposed = false;
 
     [ObservableProperty]
     private LayoutSchedule? _selectedSchedule;
@@ -695,5 +696,24 @@ public partial class SchedulingViewModel : ObservableObject
         Schedules.Add(duplicate);
         SelectedSchedule = duplicate;
         StatusMessage = "Schedule duplicated (not saved yet)";
+    }
+
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (_disposed) return;
+
+        if (disposing)
+        {
+            // Unregister PropertyChanged event handler
+            PropertyChanged -= OnPropertyChanged;
+        }
+
+        _disposed = true;
     }
 }

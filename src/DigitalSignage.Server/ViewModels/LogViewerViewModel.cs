@@ -16,11 +16,12 @@ namespace DigitalSignage.Server.ViewModels;
 /// <summary>
 /// ViewModel for the Log Viewer tab
 /// </summary>
-public partial class LogViewerViewModel : ObservableObject
+public partial class LogViewerViewModel : ObservableObject, IDisposable
 {
     private readonly LogStorageService _logStorageService;
     private readonly IClientService _clientService;
     private readonly ILogger<LogViewerViewModel> _logger;
+    private bool _disposed = false;
 
     [ObservableProperty]
     private string? _selectedClientId;
@@ -351,5 +352,24 @@ public partial class LogViewerViewModel : ObservableObject
     public LogStatistics GetStatistics()
     {
         return _logStorageService.GetStatistics();
+    }
+
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (_disposed) return;
+
+        if (disposing)
+        {
+            // Unregister event handler
+            _logStorageService.LogReceived -= OnLogReceived;
+        }
+
+        _disposed = true;
     }
 }
