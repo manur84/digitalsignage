@@ -27,17 +27,16 @@
 **Last Updated:** 2025-11-14 22:30 UTC
 
 **Status:**
-- ✅ Fixed: 6/42 Issues (14%)
-- 🔄 Partial: 1/42 Issues (2%)
-- ❌ Open: 35/42 Issues (84%)
+- ✅ Fixed: 7/42 Issues (17%)
+- ❌ Open: 35/42 Issues (83%)
 
 **By Priority:**
-- P0 (Critical): 5/6 fixed, 1/6 partial → **0 OPEN** ✅✅✅
-- P1 (High): 0/14 fixed, 0/14 partial → **14 OPEN** ⚠️
-- P2 (Medium): 1/19 fixed, 0/19 partial → **18 OPEN**
-- P3 (Low): 0/3 fixed, 0/3 partial → **3 OPEN**
+- P0 (Critical): 6/6 fixed → **0 OPEN** ✅✅✅✅
+- P1 (High): 0/14 fixed → **14 OPEN** ⚠️
+- P2 (Medium): 1/19 fixed → **18 OPEN**
+- P3 (Low): 0/3 fixed → **3 OPEN**
 
-**🎉 ALLE P0-ISSUES BEHOBEN! Next: P1 Issues 🎉**
+**🎉🎉 ALLE P0-ISSUES KOMPLETT BEHOBEN! Next: P1 Issues 🎉🎉**
 
 **Neue Issues seit letztem Report (2025-11-14):**
 - 🆕 AlertsViewModel: Memory Leak durch Polling Task ohne Dispose
@@ -131,31 +130,28 @@ private static string HashPassword(string password)
 
 ---
 
-### ✅ P0-2: MEMORY LEAK - EVENT-HANDLER NICHT ABGEMELDET - **TEILWEISE BEHOBEN**
+### ✅ P0-2: MEMORY LEAK - EVENT-HANDLER NICHT ABGEMELDET - **KOMPLETT BEHOBEN**
 
-**Status:** 🔄 **PARTIAL** - AlertsViewModel & DeviceManagementViewModel behoben (2025-11-14), 9 weitere ViewModels ausstehend
+**Status:** ✅ **FIXED** - Alle 11 ViewModels behoben (2025-11-14 23:00 UTC)
 
-**Datei:** `src/DigitalSignage.Server/ViewModels/DeviceManagementViewModel.cs:60-62`
+**Datei:** Mehrere ViewModels
 
 **Geprüft am:** 2025-11-14
-**Verifiziert:** 11 ViewModels OHNE IDisposable identifiziert (vorher nur 5 bekannt)
+**Code-Zeilen:** Verschiedene
+**Verifiziert:** Alle 11 ViewModels haben jetzt IDisposable ✅
 
-**🆕 NEUE FUNDE:**
-- **AlertsViewModel.cs** - Startet Polling Task ohne Dispose! ⚠️⚠️
-- **SchedulingViewModel.cs** - Kein IDisposable ⚠️
-
-**Vollständige Liste der betroffenen ViewModels:**
-1. ✅ DeviceManagementViewModel (FIXED - IDisposable implementiert)
-2. ✅ **AlertsViewModel (FIXED!)** - Polling Task wird jetzt gestoppt!
-3. ❌ **SchedulingViewModel**
-4. ❌ MainViewModel
-5. ❌ DesignerViewModel
-6. ❌ DataSourceViewModel
-7. ❌ PreviewViewModel
-8. ❌ LiveLogsViewModel
-9. ❌ MediaLibraryViewModel
-10. ❌ ScreenshotViewModel
-11. ❌ LogViewerViewModel
+**✅ IMPLEMENTIERT (11 ViewModels):**
+1. ✅ DeviceManagementViewModel - 3 Event-Handler
+2. ✅ AlertsViewModel - Polling Task + CancellationTokenSource
+3. ✅ SchedulingViewModel - PropertyChanged Event
+4. ✅ MainViewModel - 2 Communication Events + disposes 9 Sub-ViewModels
+5. ✅ DesignerViewModel - CommandHistory, SelectionService, Elements.CollectionChanged
+6. ✅ DataSourceViewModel - Keine Ressourcen (leeres Dispose)
+7. ✅ PreviewViewModel - Keine Ressourcen (leeres Dispose)
+8. ✅ LiveLogsViewModel - LogMessages.CollectionChanged
+9. ✅ MediaLibraryViewModel - Keine Ressourcen (leeres Dispose)
+10. ✅ ScreenshotViewModel - Eigenes Event (kein Subscription)
+11. ✅ LogViewerViewModel - LogStorageService.LogReceived
 
 **Problem:**
 ```csharp
@@ -212,14 +208,15 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
 }
 ```
 
-**Betroffene ViewModels (ALLE müssen IDisposable implementieren):**
-- ✅ DeviceManagementViewModel
-- ✅ DesignerViewModel (EventHandler in SelectionService)
-- ✅ DataSourceViewModel
-- ✅ PreviewViewModel
-- ✅ LiveLogsViewModel
+**Implementierungsdetails:**
+- Lambda-Handler zu named methods konvertiert für sauberes Unsubscribe
+- MainViewModel disposed alle 9 Child-ViewModels
+- Thread-safe Disposal mit `_disposed` flag
+- Null-Checks vor Event-Unsubscribe
+- CancellationTokenSource für Polling-Tasks
 
-**Zeitaufwand:** 3-4 Stunden für alle ViewModels
+**Tatsächlicher Zeitaufwand:** ~2 Stunden (11 ViewModels)
+**Build:** ✅ 0 Errors (bestehende Warnings unverändert)
 
 ---
 
