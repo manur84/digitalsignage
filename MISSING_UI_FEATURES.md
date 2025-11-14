@@ -26,7 +26,7 @@ The Digital Signage Server has **21 registered services** in App.xaml.cs. This r
 - ~~Configuration Classes with no UI editor~~ → **Settings Dialog now provides comprehensive UI**
 
 **Remaining Work:**
-- **4 MEDIUM Priority** items (Discovery UI, System Diagnostics, Logs Enhancements, Server Config merge)
+- **3 MEDIUM Priority** items (Logs Enhancements, Server Config merge, Grid Config Dialog)
 - **3 LOW Priority** items (Data Refresh UI, Query Cache UI, Connection Pool UI)
 
 ---
@@ -125,28 +125,42 @@ These menu items exist in MainWindow.xaml but have **no backing Command in MainV
 
 ---
 
-### 5. System Diagnostics Command
+### 5. System Diagnostics Command ✅ **COMPLETED**
 - **Menu Location:** Tools → System Diagnostics (🔧)
-- **Backend Status:** No dedicated service
-- **UI Status:** ❌ Command NOT implemented
-- **What's Missing:**
-  - No SystemDiagnosticsCommand in MainViewModel
-  - No diagnostics dialog/window
-  - No system health checks
-- **Potential Features:**
-  - Database connection status
-  - WebSocket server health
-  - Port availability check
-  - Certificate validation
-  - Client connection statistics
-  - Performance metrics
-  - Log analysis
+- **Backend Status:** ✅ **FULLY IMPLEMENTED** - SystemDiagnosticsService
+- **UI Status:** ✅ **FULLY IMPLEMENTED**
+- **Implementation Details:**
+  - ✅ SystemDiagnosticsCommand implemented in MainViewModel (line 263-288)
+  - ✅ SystemDiagnosticsService with comprehensive health checks
+  - ✅ SystemDiagnosticsWindow.xaml with professional tabbed UI
+  - ✅ SystemDiagnosticsViewModel with all diagnostic properties and commands
+- **Features Implemented:**
+  - ✅ Database Health (connection status, file size, table counts, last backup date)
+  - ✅ WebSocket Server Health (running status, listening URL, SSL/TLS, active connections, uptime)
+  - ✅ Port Availability (configured port, alternative ports, current active port)
+  - ✅ Certificate Validation (path, subject, issuer, expiration date, validity)
+  - ✅ Client Statistics (total/online/offline/disconnected clients, last heartbeats)
+  - ✅ Performance Metrics (CPU usage, memory usage, thread count, disk usage)
+  - ✅ Log Analysis (log files count, total size, errors/warnings counts, last critical error)
+  - ✅ System Information (machine name, OS, processors, .NET version, app version)
+  - ✅ Refresh diagnostics command
+  - ✅ Copy to clipboard (formatted text report)
+  - ✅ Export to file (JSON or text)
+  - ✅ Professional tabbed interface with 7 tabs
+  - ✅ Color-coded status indicators (green/yellow/red)
+  - ✅ Real-time diagnostic checks (async)
+  - ✅ Overall health status calculation
+- **Files Created:**
+  - /src/DigitalSignage.Server/Services/SystemDiagnosticsService.cs (700+ lines)
+  - /src/DigitalSignage.Server/ViewModels/SystemDiagnosticsViewModel.cs (400+ lines)
+  - /src/DigitalSignage.Server/Views/Dialogs/SystemDiagnosticsWindow.xaml (700+ lines)
+  - /src/DigitalSignage.Server/Views/Dialogs/SystemDiagnosticsWindow.xaml.cs
+- **Files Modified:**
+  - MainViewModel.cs - Added SystemDiagnosticsCommand
+  - App.xaml.cs - Registered SystemDiagnosticsService and SystemDiagnosticsViewModel
 - **Priority:** 🟡 **MEDIUM** - Useful for troubleshooting
-- **Estimated Effort:** Large (4-6 hours)
-  - Create DiagnosticsService
-  - Create DiagnosticsWindow.xaml
-  - Implement comprehensive health checks
-  - Add copy-to-clipboard for diagnostics report
+- **Status:** ✅ **COMPLETED** - Comprehensive diagnostic tool ready for use
+- **Completion Date:** 2025-11-14
 
 ---
 
@@ -485,14 +499,14 @@ These configuration classes exist but can only be edited via JSON:
 **Total Effort: ~30-40 hours** → ✅ **COMPLETED**
 
 ### 🟡 **MEDIUM PRIORITY** (Should Implement)
-5. Template Manager - Advanced users want custom templates
-6. Client Registration Tokens - Security improvement
-7. Discovery Service UI - Ease of setup
-8. System Diagnostics - Troubleshooting aid
+5. ✅ Template Manager - COMPLETED
+6. ✅ Client Registration Tokens - COMPLETED
+7. ✅ Discovery Service UI - COMPLETED
+8. ✅ System Diagnostics - COMPLETED
 9. Logs Tab Enhancements - Better debugging
 10. Grid Config Dialog - Table elements need it
 
-**Total Effort: ~20-25 hours**
+**Total Effort: ~6-9 hours remaining** (✅ ~14-16 hours completed)
 
 ### 🟢 **LOW PRIORITY** (Nice to Have)
 11. Server Configuration Command (merge with Settings)

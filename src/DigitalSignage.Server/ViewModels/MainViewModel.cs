@@ -261,6 +261,33 @@ public partial class MainViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
+    private async Task SystemDiagnostics()
+    {
+        try
+        {
+            _logger.LogInformation("Opening System Diagnostics window");
+            StatusText = "Opening system diagnostics...";
+
+            var viewModel = _serviceProvider.GetRequiredService<SystemDiagnosticsViewModel>();
+            var window = new Views.Dialogs.SystemDiagnosticsWindow(viewModel)
+            {
+                Owner = System.Windows.Application.Current.MainWindow
+            };
+
+            window.ShowDialog();
+            StatusText = "System diagnostics window closed";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error opening system diagnostics window");
+            StatusText = $"Error opening diagnostics: {ex.Message}";
+            await _dialogService.ShowErrorAsync(
+                $"Failed to open system diagnostics window:\n\n{ex.Message}",
+                "Diagnostics Error");
+        }
+    }
+
+    [RelayCommand]
     private void Logs()
     {
         // Switch to Logs tab - assuming TabControl can be accessed

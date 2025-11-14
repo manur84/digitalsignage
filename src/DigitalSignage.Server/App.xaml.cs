@@ -136,6 +136,7 @@ public partial class App : Application
                 services.AddTransient<AlertRuleEditorViewModel>();
                 services.AddTransient<TemplateManagerViewModel>();
                 services.AddTransient<TokenManagementViewModel>();
+                services.AddTransient<SystemDiagnosticsViewModel>();
 
                 // Register LiveLogsViewModel as singleton with shared log collection
                 services.AddSingleton<LiveLogsViewModel>(sp =>
@@ -168,6 +169,7 @@ public partial class App : Application
                 services.AddSingleton<AlertService>();
                 services.AddSingleton<BackupService>();
                 services.AddSingleton<NetworkScannerService>();
+                services.AddSingleton<SystemDiagnosticsService>();
 
                 // Register Repositories
                 services.AddSingleton<DataSourceRepository>();
