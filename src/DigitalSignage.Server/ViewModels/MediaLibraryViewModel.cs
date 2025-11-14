@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using DigitalSignage.Core.Interfaces;
 using DigitalSignage.Data;
 using DigitalSignage.Data.Entities;
 using DigitalSignage.Server.Services;
@@ -20,6 +21,7 @@ public partial class MediaLibraryViewModel : ObservableObject
     private readonly IMediaService _mediaService;
     private readonly DigitalSignageDbContext _dbContext;
     private readonly ILogger<MediaLibraryViewModel> _logger;
+    private readonly IDialogService _dialogService;
 
     [ObservableProperty]
     private ObservableCollection<MediaFile> _mediaFiles = new();
@@ -52,10 +54,12 @@ public partial class MediaLibraryViewModel : ObservableObject
     public MediaLibraryViewModel(
         IMediaService mediaService,
         DigitalSignageDbContext dbContext,
+        IDialogService dialogService,
         ILogger<MediaLibraryViewModel> logger)
     {
         _mediaService = mediaService ?? throw new ArgumentNullException(nameof(mediaService));
         _dbContext = dbContext ?? throw new ArgumentNullException(nameof(dbContext));
+        _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
         // Load media files on initialization
@@ -212,13 +216,11 @@ public partial class MediaLibraryViewModel : ObservableObject
 
         try
         {
-            var result = MessageBox.Show(
+            var confirmed = await _dialogService.ShowConfirmationAsync(
                 $"Are you sure you want to delete '{SelectedMedia.OriginalFileName}'?",
-                "Confirm Delete",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Warning);
+                "Confirm Delete");
 
-            if (result == MessageBoxResult.Yes)
+            if (confirmed)
             {
                 IsLoading = true;
                 StatusMessage = $"Deleting {SelectedMedia.OriginalFileName}...";

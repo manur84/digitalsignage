@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using DigitalSignage.Core.Interfaces;
 using Microsoft.Extensions.Logging;
 using Microsoft.Win32;
 using System.IO;
@@ -14,6 +15,7 @@ namespace DigitalSignage.Server.ViewModels;
 public partial class ScreenshotViewModel : ObservableObject
 {
     private readonly ILogger<ScreenshotViewModel> _logger;
+    private readonly IDialogService _dialogService;
 
     [ObservableProperty]
     private BitmapImage? _screenshotImage;
@@ -38,9 +40,10 @@ public partial class ScreenshotViewModel : ObservableObject
     /// </summary>
     public event EventHandler? CloseRequested;
 
-    public ScreenshotViewModel(ILogger<ScreenshotViewModel> logger)
+    public ScreenshotViewModel(ILogger<ScreenshotViewModel> logger, IDialogService dialogService)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
     }
 
     /// <summary>
@@ -163,7 +166,7 @@ public partial class ScreenshotViewModel : ObservableObject
     /// Save screenshot to file
     /// </summary>
     [RelayCommand(CanExecute = nameof(CanSaveScreenshot))]
-    private void SaveScreenshot()
+    private async Task SaveScreenshot()
     {
         try
         {
@@ -195,16 +198,16 @@ public partial class ScreenshotViewModel : ObservableObject
                 StatusMessage = "Screenshot saved successfully";
                 _logger.LogInformation("Screenshot saved to {FilePath}", saveFileDialog.FileName);
 
-                MessageBox.Show($"Screenshot saved successfully to:\n\n{saveFileDialog.FileName}",
-                    "Screenshot Saved", MessageBoxButton.OK, MessageBoxImage.Information);
+                await _dialogService.ShowInformationAsync($"Screenshot saved successfully to:\n\n{saveFileDialog.FileName}",
+                    "Screenshot Saved");
             }
         }
         catch (Exception ex)
         {
             StatusMessage = $"Error saving screenshot: {ex.Message}";
             _logger.LogError(ex, "Failed to save screenshot");
-            MessageBox.Show($"Failed to save screenshot:\n\n{ex.Message}",
-                "Save Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            await _dialogService.ShowErrorAsync($"Failed to save screenshot:\n\n{ex.Message}",
+                "Save Error");
         }
     }
 
@@ -214,7 +217,7 @@ public partial class ScreenshotViewModel : ObservableObject
     /// Copy screenshot to clipboard
     /// </summary>
     [RelayCommand(CanExecute = nameof(CanCopyToClipboard))]
-    private void CopyToClipboard()
+    private async Task CopyToClipboard()
     {
         try
         {
@@ -224,16 +227,16 @@ public partial class ScreenshotViewModel : ObservableObject
                 StatusMessage = "Screenshot copied to clipboard";
                 _logger.LogInformation("Screenshot copied to clipboard for client {ClientName}", ClientName);
 
-                MessageBox.Show("Screenshot copied to clipboard successfully!",
-                    "Copied", MessageBoxButton.OK, MessageBoxImage.Information);
+                await _dialogService.ShowInformationAsync("Screenshot copied to clipboard successfully!",
+                    "Copied");
             }
         }
         catch (Exception ex)
         {
             StatusMessage = $"Error copying to clipboard: {ex.Message}";
             _logger.LogError(ex, "Failed to copy screenshot to clipboard");
-            MessageBox.Show($"Failed to copy screenshot to clipboard:\n\n{ex.Message}",
-                "Copy Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            await _dialogService.ShowErrorAsync($"Failed to copy screenshot to clipboard:\n\n{ex.Message}",
+                "Copy Error");
         }
     }
 

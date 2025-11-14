@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using DigitalSignage.Core.Interfaces;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.ObjectModel;
@@ -13,6 +14,7 @@ namespace DigitalSignage.Server.ViewModels;
 public partial class LiveLogsViewModel : ObservableObject, IDisposable
 {
     private readonly ILogger<LiveLogsViewModel> _logger;
+    private readonly IDialogService _dialogService;
     private bool _disposed = false;
 
     /// <summary>
@@ -30,13 +32,14 @@ public partial class LiveLogsViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private string _statusText = "Live logs - ready";
 
-    public LiveLogsViewModel(ILogger<LiveLogsViewModel> logger) : this(logger, new ObservableCollection<string>())
+    public LiveLogsViewModel(ILogger<LiveLogsViewModel> logger, IDialogService dialogService) : this(logger, dialogService, new ObservableCollection<string>())
     {
     }
 
-    public LiveLogsViewModel(ILogger<LiveLogsViewModel> logger, ObservableCollection<string> sharedLogCollection)
+    public LiveLogsViewModel(ILogger<LiveLogsViewModel> logger, IDialogService dialogService, ObservableCollection<string> sharedLogCollection)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
         LogMessages = sharedLogCollection ?? throw new ArgumentNullException(nameof(sharedLogCollection));
 
         // Subscribe to collection changes to update count
@@ -52,7 +55,7 @@ public partial class LiveLogsViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
-    private void ClearLogs()
+    private async Task ClearLogs()
     {
         try
         {
@@ -65,7 +68,7 @@ public partial class LiveLogsViewModel : ObservableObject, IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to clear live logs");
-            MessageBox.Show($"Failed to clear logs: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            await _dialogService.ShowErrorAsync($"Failed to clear logs: {ex.Message}", "Error");
         }
     }
 

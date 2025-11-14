@@ -19,6 +19,7 @@ public partial class LayoutManagementViewModel : ObservableObject, IDisposable
     private readonly DesignerViewModel _designer;
     private readonly DigitalSignageDbContext _dbContext;
     private readonly ILogger<LayoutManagementViewModel> _logger;
+    private readonly IDialogService _dialogService;
     private bool _disposed = false;
 
     [ObservableProperty]
@@ -31,11 +32,13 @@ public partial class LayoutManagementViewModel : ObservableObject, IDisposable
         ILayoutService layoutService,
         DesignerViewModel designerViewModel,
         DigitalSignageDbContext dbContext,
+        IDialogService dialogService,
         ILogger<LayoutManagementViewModel> logger)
     {
         _layoutService = layoutService ?? throw new ArgumentNullException(nameof(layoutService));
         _designer = designerViewModel ?? throw new ArgumentNullException(nameof(designerViewModel));
         _dbContext = dbContext ?? throw new ArgumentNullException(nameof(dbContext));
+        _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
         // Subscribe to Designer.HasUnsavedChanges to update Save command
@@ -255,11 +258,9 @@ public partial class LayoutManagementViewModel : ObservableObject, IDisposable
         {
             _logger.LogError(ex, "Failed to save layout");
             StatusText = $"Failed to save layout: {ex.Message}";
-            System.Windows.MessageBox.Show(
+            await _dialogService.ShowErrorAsync(
                 $"Failed to save layout: {ex.Message}",
-                "Error",
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Error);
+                "Error");
         }
     }
 
@@ -371,11 +372,9 @@ public partial class LayoutManagementViewModel : ObservableObject, IDisposable
         {
             _logger.LogError(ex, "Failed to import layout");
             StatusText = $"Failed to import: {ex.Message}";
-            System.Windows.MessageBox.Show(
+            await _dialogService.ShowErrorAsync(
                 $"Failed to import layout:\n{ex.Message}",
-                "Import Error",
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Error);
+                "Import Error");
         }
     }
 
