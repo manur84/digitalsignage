@@ -130,6 +130,23 @@ for DISPLAY_TEST in "${DISPLAY_CANDIDATES[@]}"; do
     fi
 done
 
+if [ "$X11_FOUND" = true ]; then
+    # Hide mouse cursor on real display
+    log_message "Hiding mouse cursor..."
+    if command -v unclutter &>/dev/null; then
+        unclutter -idle 0.1 -root &
+        log_message "✓ Mouse cursor hidden (unclutter started)"
+    else
+        log_message "⚠ unclutter not found - mouse cursor will be visible"
+    fi
+
+    # Disable screen blanking on real display
+    log_message "Disabling screen blanking..."
+    xset s off 2>/dev/null && log_message "✓ Screen saver disabled"
+    xset -dpms 2>/dev/null && log_message "✓ DPMS disabled"
+    xset s noblank 2>/dev/null && log_message "✓ Screen blanking disabled"
+fi
+
 if [ "$X11_FOUND" = false ]; then
     log_message "No X11 display found on any candidate display"
     log_message "Starting virtual framebuffer (Xvfb)"

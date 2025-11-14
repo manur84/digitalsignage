@@ -419,8 +419,37 @@ if [ "$MODE" = "UPDATE" ]; then
         show_info "Service file not changed"
     fi
 
-    # [8/8] Restart service
-    show_step "Starting service..."
+    # [8/8] Configure and restart service
+    show_step "Configuring client..."
+
+    # Check if config.json exists and needs configuration
+    if [ -f "$INSTALL_DIR/config.json" ]; then
+        # Check if server_host is still localhost (needs configuration)
+        if grep -q '"server_host": "localhost"' "$INSTALL_DIR/config.json" 2>/dev/null; then
+            echo ""
+            echo -e "${YELLOW}Client needs configuration:${NC}"
+            echo ""
+            read -p "Enter server IP address (e.g., 192.168.0.100): " SERVER_IP
+            read -p "Enter registration token (from server): " REG_TOKEN
+
+            if [ -n "$SERVER_IP" ] && [ -n "$REG_TOKEN" ]; then
+                # Update config.json
+                python3 << EOF
+import json
+with open("$INSTALL_DIR/config.json", "r") as f:
+    config = json.load(f)
+config["server_host"] = "$SERVER_IP"
+config["registration_token"] = "$REG_TOKEN"
+config["auto_discover"] = True
+with open("$INSTALL_DIR/config.json", "w") as f:
+    json.dump(config, f, indent=2)
+EOF
+                show_success "Configuration updated"
+            else
+                show_warning "Configuration skipped - you can edit $INSTALL_DIR/config.json manually"
+            fi
+        fi
+    fi
 
     systemctl start $SERVICE_NAME --no-block
     sleep 3
@@ -444,6 +473,8 @@ if [ "$MODE" = "UPDATE" ]; then
     echo "  View logs:        sudo journalctl -u $SERVICE_NAME -f"
     echo "  Restart service:  sudo systemctl restart $SERVICE_NAME"
     echo "  Service status:   sudo systemctl status $SERVICE_NAME"
+    echo "  Edit config:      sudo nano $INSTALL_DIR/config.json"
+    echo "  Web interface:    http://$(hostname -I | awk '{print $1}'):5000"
     echo ""
 
     if [ -n "$BACKUP_FILE" ] && [ -f "$BACKUP_FILE" ]; then
@@ -869,6 +900,42 @@ else
     echo ""
     echo "After fixing issues, re-run: sudo ./install.sh"
     exit 1
+fi
+
+# Client Configuration
+echo ""
+echo "════════════════════════════════════════════════════════════"
+echo "  Client Configuration"
+echo "════════════════════════════════════════════════════════════"
+echo ""
+
+# Check if config.json exists and configure it
+if [ -f "$INSTALL_DIR/config.json" ]; then
+    echo -e "${YELLOW}Configure Digital Signage Client:${NC}"
+    echo ""
+    echo "The client needs to know where to find the server."
+    echo ""
+    read -p "Enter server IP address (e.g., 192.168.0.100): " SERVER_IP
+    read -p "Enter registration token (from server): " REG_TOKEN
+
+    if [ -n "$SERVER_IP" ] && [ -n "$REG_TOKEN" ]; then
+        # Update config.json
+        python3 << EOF
+import json
+with open("$INSTALL_DIR/config.json", "r") as f:
+    config = json.load(f)
+config["server_host"] = "$SERVER_IP"
+config["registration_token"] = "$REG_TOKEN"
+config["auto_discover"] = True
+with open("$INSTALL_DIR/config.json", "w") as f:
+    json.dump(config, f, indent=2)
+EOF
+        show_success "Configuration saved"
+    else
+        show_warning "Configuration skipped"
+        echo "You can configure manually: sudo nano $INSTALL_DIR/config.json"
+    fi
+    echo ""
 fi
 
 # Start service
