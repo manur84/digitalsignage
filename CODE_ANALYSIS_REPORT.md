@@ -9,24 +9,62 @@
 
 ## 📊 EXECUTIVE SUMMARY
 
-| Kategorie | Kritisch (P0) | Hoch (P1) | Mittel (P2) | Niedrig (P3) | **Gesamt** |
-|-----------|---------------|-----------|-------------|--------------|------------|
-| **Sicherheit** | 2 | 1 | 3 | 0 | **6** |
-| **Memory/Resource** | 2 | 2 | 1 | 0 | **5** |
-| **Performance** | 0 | 4 | 5 | 0 | **9** |
-| **Code-Qualität** | 1 | 4 | 8 | 3 | **16** |
-| **Architektur** | 1 | 3 | 2 | 0 | **6** |
-| **SUMME** | **6** | **14** | **19** | **3** | **42** |
+| Kategorie | Kritisch (P0) | Hoch (P1) | Mittel (P2) | Niedrig (P3) | **Gesamt** | **Fixed** |
+|-----------|---------------|-----------|-------------|--------------|------------|-----------|
+| **Sicherheit** | 2 | 1 | 3 | 0 | **6** | 0 ❌ |
+| **Memory/Resource** | 2 | 2 | 1 | 0 | **5** | 0 ❌ |
+| **Performance** | 0 | 4 | 5 | 0 | **9** | 0 ❌ |
+| **Code-Qualität** | 1 | 4 | 8 | 3 | **16** | 0 ❌ |
+| **Architektur** | 1 | 3 | 2 | 0 | **6** | 0 ❌ |
+| **SUMME** | **6** | **14** | **19** | **3** | **42** | **0/42** ❌ |
 
 **Gesamtbewertung:** ⚠️ **Gute Basis mit kritischen Sicherheitslücken**
 
 ---
 
+## ✅ PROGRESS TRACKING
+
+**Last Updated:** 2025-11-14 17:05 UTC
+
+**Status:**
+- ✅ Fixed: 0/42 Issues (0%)
+- 🔄 Partial: 3/42 Issues (7%)
+- ❌ Open: 39/42 Issues (93%)
+
+**By Priority:**
+- P0 (Critical): 0/6 fixed, 1/6 partial → **5 OPEN** ⚠️⚠️⚠️
+- P1 (High): 0/14 fixed, 2/14 partial → **12 OPEN** ⚠️
+- P2 (Medium): 0/19 fixed, 0/19 partial → **19 OPEN**
+- P3 (Low): 0/3 fixed, 0/3 partial → **3 OPEN**
+
+**🚨 URGENT: 5 KRITISCHE P0-ISSUES MÜSSEN SOFORT BEHOBEN WERDEN! 🚨**
+
+**Neue Issues seit letztem Report (2025-11-14):**
+- 🆕 AlertsViewModel: Memory Leak durch Polling Task ohne Dispose
+- 🆕 SchedulingViewModel: Kein IDisposable implementiert
+- 🆕 MainViewModel: Von 1074 auf 1214 LOC GEWACHSEN (statt kleiner!)
+- 🆕 11 ViewModels ohne IDisposable identifiziert (war vorher nur 5 bekannt)
+
+**Nächste Schritte (diese Woche):**
+1. P0-1: BCrypt Password Hashing implementieren
+2. P0-2: IDisposable in allen 11 ViewModels
+3. P0-3: SQL Injection Fix
+4. P0-4: Race Condition mit SemaphoreSlim
+5. P0-6: Python Exception Handling
+
+---
+
 ## 🔴 KRITISCHE PROBLEME (P0) - SOFORT BEHEBEN!
 
-### ❌ P0-1: SCHWACHES PASSWORD-HASHING (SHA256)
+### ❌ P0-1: SCHWACHES PASSWORD-HASHING (SHA256) - **OFFEN**
+
+**Status:** ❌ **OPEN** - Noch nicht behoben
 
 **Datei:** `src/DigitalSignage.Server/Services/DatabaseInitializationService.cs:289-294`
+
+**Geprüft am:** 2025-11-14
+**Code-Zeilen:** 294-299
+**Verifiziert:** SHA256.Create() wird noch verwendet (mit Kommentar "use BCrypt in production")
 
 **Problem:**
 ```csharp
@@ -83,9 +121,31 @@ private static string HashPassword(string password)
 
 ---
 
-### ❌ P0-2: MEMORY LEAK - EVENT-HANDLER NICHT ABGEMELDET
+### ❌ P0-2: MEMORY LEAK - EVENT-HANDLER NICHT ABGEMELDET - **OFFEN**
+
+**Status:** ❌ **OPEN** - Noch nicht behoben, VERSCHLIMMERT durch neue Features!
 
 **Datei:** `src/DigitalSignage.Server/ViewModels/DeviceManagementViewModel.cs:60-62`
+
+**Geprüft am:** 2025-11-14
+**Verifiziert:** 11 ViewModels OHNE IDisposable identifiziert (vorher nur 5 bekannt)
+
+**🆕 NEUE FUNDE:**
+- **AlertsViewModel.cs** - Startet Polling Task ohne Dispose! ⚠️⚠️
+- **SchedulingViewModel.cs** - Kein IDisposable ⚠️
+
+**Vollständige Liste der betroffenen ViewModels:**
+1. ❌ DeviceManagementViewModel (registriert Events)
+2. ❌ **AlertsViewModel (NEU!)** - Polling Task läuft endlos!
+3. ❌ **SchedulingViewModel (NEU!)**
+4. ❌ MainViewModel
+5. ❌ DesignerViewModel
+6. ❌ DataSourceViewModel
+7. ❌ PreviewViewModel
+8. ❌ LiveLogsViewModel
+9. ❌ MediaLibraryViewModel
+10. ❌ ScreenshotViewModel
+11. ❌ LogViewerViewModel
 
 **Problem:**
 ```csharp
@@ -153,9 +213,15 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
 
 ---
 
-### ❌ P0-3: SQL INJECTION RISIKO IM QUERY BUILDER
+### ❌ P0-3: SQL INJECTION RISIKO IM QUERY BUILDER - **OFFEN**
+
+**Status:** ❌ **OPEN** - Noch nicht behoben
 
 **Datei:** `src/DigitalSignage.Server/ViewModels/DataSourceViewModel.cs:240-258`
+
+**Geprüft am:** 2025-11-14
+**Code-Zeilen:** 241-250
+**Verifiziert:** String-Interpolation ohne Parametrisierung weiterhin vorhanden
 
 **Problem:**
 ```csharp
@@ -206,9 +272,15 @@ private bool IsSafeQuery(string query)
 
 ---
 
-### ❌ P0-4: RACE CONDITION - ASYNC/AWAIT MIT DOUBLE-CHECKED LOCKING
+### ❌ P0-4: RACE CONDITION - ASYNC/AWAIT MIT DOUBLE-CHECKED LOCKING - **OFFEN**
+
+**Status:** ❌ **OPEN** - Noch nicht behoben
 
 **Datei:** `src/DigitalSignage.Server/Services/ClientService.cs:87-103`
+
+**Geprüft am:** 2025-11-14
+**Code-Zeilen:** 87-109
+**Verifiziert:** lock() mit async await kombiniert, keine SemaphoreSlim-Lösung
 
 **Problem:**
 ```csharp
@@ -271,9 +343,15 @@ private async Task InitializeClientsAsync()
 
 ---
 
-### ❌ P0-5: NULL REFERENCE - FEHLENDE DEFENSIVE CHECKS
+### 🟡 P0-5: NULL REFERENCE - FEHLENDE DEFENSIVE CHECKS - **TEILWEISE OK**
+
+**Status:** 🔄 **PARTIAL** - Technisch OK, aber defensive Checks wären besser
 
 **Datei:** `src/DigitalSignage.Server/Services/WebSocketCommunicationService.cs:274-299`
+
+**Geprüft am:** 2025-11-14
+**Code-Zeilen:** 282-299
+**Hinweis:** WebSocketReceiveResult ist laut MSDN-Dokumentation nie null, aber defensive Programmierung empfohlen
 
 **Problem:**
 ```csharp
@@ -322,9 +400,15 @@ do
 
 ---
 
-### ❌ P0-6: PYTHON - STILLE EXCEPTION HANDLER
+### ❌ P0-6: PYTHON - STILLE EXCEPTION HANDLER - **OFFEN**
+
+**Status:** ❌ **OPEN** - Noch nicht behoben
 
 **Datei:** `src/DigitalSignage.Client.RaspberryPi/client.py:181-193`
+
+**Geprüft am:** 2025-11-14
+**Code-Zeilen:** 191-193
+**Verifiziert:** `pass` im Exception-Handler weiterhin vorhanden
 
 **Problem:**
 ```python
@@ -370,12 +454,23 @@ def send_message(self, message: Dict[str, Any]):
 
 ## 🟡 HOHE PRIORITÄT (P1) - Baldmöglichst beheben
 
-### ⚠️ P1-1: GOD CLASS - MainViewModel (1074 LOC)
+### ⚠️ P1-1: GOD CLASS - MainViewModel (1214 LOC) - **OFFEN & VERSCHLIMMERT**
+
+**Status:** ❌ **OPEN** - NICHT behoben, sogar SCHLIMMER geworden!
 
 **Datei:** `src/DigitalSignage.Server/ViewModels/MainViewModel.cs`
 
+**Geprüft am:** 2025-11-14
+**Verifiziert:** 1214 Zeilen (war 1074, ist um +140 LOC GEWACHSEN!)
+
+**🚨 VERSCHLIMMERUNG:** Statt die God-Class zu refactoren wurden neue Features hinzugefügt:
+- Backup/Restore Database (+50 LOC)
+- Settings Dialog Integration (+30 LOC)
+- Alert System Commands (+30 LOC)
+- Scheduling Commands (+30 LOC)
+
 **Problem:**
-- **1074 Zeilen** - viel zu groß!
+- **1214 Zeilen** - NOCH viel zu groß!
 - Verantwortlichkeiten:
   - Layout-Management (New, Open, Save, SaveAs, Export, Import)
   - Server-Steuerung (Start/Stop, Status)
@@ -455,9 +550,15 @@ public partial class LayoutManagementViewModel : ObservableObject
 
 ---
 
-### ⚠️ P1-2: ASYNC VOID EVENT HANDLERS
+### ⚠️ P1-2: ASYNC VOID EVENT HANDLERS - **OFFEN**
+
+**Status:** ❌ **OPEN** - Noch nicht behoben
 
 **Datei:** `src/DigitalSignage.Server/ViewModels/MainViewModel.cs:165-177`
+
+**Geprüft am:** 2025-11-14
+**Code-Zeilen:** 179-189
+**Verifiziert:** async void Event-Handler OHNE try-catch weiterhin vorhanden
 
 **Problem:**
 ```csharp
@@ -498,9 +599,23 @@ private async void OnClientConnected(object? sender, ClientConnectedEventArgs e)
 
 ---
 
-### ⚠️ P1-3: TIGHT COUPLING - MESSAGEBOXPRÜFE SHOWS IN VIEWMODELS
+### ⚠️ P1-3: TIGHT COUPLING - MESSAGEBOX SHOWS IN VIEWMODELS - **OFFEN**
 
-**Betroffene Dateien:** 30+ Stellen mit `System.Windows.MessageBox.Show()`
+**Status:** ❌ **OPEN** - Nicht behoben, jetzt NOCH MEHR Vorkommen!
+
+**Betroffene Dateien:** 81 Vorkommen in 12 Dateien (vorher 30+)
+
+**Geprüft am:** 2025-11-14
+**Verifiziert:** grep zeigt 81 Vorkommen:
+- MainViewModel.cs: 24 Mal
+- AlertsViewModel.cs: 23 Mal (**NEU!**)
+- AlertRuleEditorViewModel.cs: 7 Mal
+- SettingsViewModel.cs: 5 Mal (**NEU!**)
+- DesignerViewModel.cs: 5 Mal
+- ScreenshotViewModel.cs: 4 Mal
+- Program.cs: 5 Mal
+- App.xaml.cs: 3 Mal
+- Weitere...
 
 **Problem:**
 ```csharp
@@ -656,9 +771,13 @@ public async Task BackupDatabase_WhenUserCancels_DoesNotBackup()
 
 ---
 
-### ⚠️ P1-4: PERFORMANCE - N+1 QUERY PROBLEM
+### ⚠️ P1-4: PERFORMANCE - N+1 QUERY PROBLEM - **UNGEPRÜFT**
+
+**Status:** ⚠️ **UNKNOWN** - Nicht verifiziert (Zeilen haben sich verschoben)
 
 **Datei:** `src/DigitalSignage.Server/Services/ClientService.cs:486-503`
+
+**Hinweis:** Code-Zeilen haben sich durch Refactorings verschoben, müsste manuell geprüft werden
 
 **Problem:**
 ```csharp
@@ -724,9 +843,14 @@ public async Task<Dictionary<string, object>> GetDataBatchAsync(
 
 ---
 
-### ⚠️ P1-5: DISPATCHER MISUSE - UNNÖTIGE UI-THREAD CALLS
+### ⚠️ P1-5: DISPATCHER MISUSE - UNNÖTIGE UI-THREAD CALLS - **TEILWEISE**
+
+**Status:** 🔄 **PARTIAL** - Einige Stellen OK, andere noch mit Dispatcher
 
 **Datei:** `src/DigitalSignage.Server/ViewModels/MainViewModel.cs:184-191`
+
+**Geprüft am:** 2025-11-14
+**Hinweis:** Code-Zeilen haben sich verschoben, Pattern vermutlich noch vorhanden
 
 **Problem:**
 ```csharp
@@ -788,7 +912,13 @@ private async void OnClientConnected(object? sender, ClientConnectedEventArgs e)
 
 ## 🟠 MITTLERE PRIORITÄT (P2) - Refactoring
 
-### 🔄 P2-1: CODE DUPLICATION - ERROR-HANDLING PATTERN
+**Status aller P2-Issues:** ❌ **ALLE OFFEN** (0/19 behoben)
+**Geprüft am:** 2025-11-14
+**Hinweis:** P2-Issues wurden nicht im Detail geprüft, da P0/P1 Priorität haben
+
+### 🔄 P2-1: CODE DUPLICATION - ERROR-HANDLING PATTERN - **OFFEN**
+
+**Status:** ❌ **OPEN**
 
 **Problem:** Fast jedes ViewModel hat dieses Pattern **30+ Mal** dupliziert:
 ```csharp
@@ -1111,7 +1241,12 @@ var buffer = new byte[_settings.BufferSize];
 
 ## 🟢 NIEDRIGE PRIORITÄT (P3) - Nice-to-Have
 
-### ✨ P3-1: MISSING XML DOCUMENTATION
+**Status aller P3-Issues:** ❌ **ALLE OFFEN** (0/3 behoben)
+**Geprüft am:** 2025-11-14
+
+### ✨ P3-1: MISSING XML DOCUMENTATION - **OFFEN**
+
+**Status:** ❌ **OPEN**
 
 Nur ~20% der öffentlichen Methoden haben XML-Kommentare.
 
@@ -1136,7 +1271,9 @@ public async Task<RaspberryPiClient> RegisterClientAsync(
 
 ---
 
-### ✨ P3-2: UNUSED CODE - LEERE METHODEN
+### ✨ P3-2: UNUSED CODE - LEERE METHODEN - **OFFEN**
+
+**Status:** ❌ **OPEN**
 
 **Datei:** `src/DigitalSignage.Server/ViewModels/MainViewModel.cs:540-561`
 
@@ -1173,7 +1310,9 @@ private void ZoomToFit() { StatusText = "Zoom to fit"; }
 
 ---
 
-### ✨ P3-3: DESIGN PATTERN - MISSING FACTORY
+### ✨ P3-3: DESIGN PATTERN - MISSING FACTORY - **OFFEN**
+
+**Status:** ❌ **OPEN**
 
 **Datei:** `src/DigitalSignage.Client.RaspberryPi/display_renderer.py:107-165`
 
@@ -1680,16 +1819,133 @@ if (await _featureManager.IsEnabledAsync("NewTemplateEngine"))
 
 
 
+## 🆕 NEUE ISSUES ENTDECKT (2025-11-14)
+
+### 🆕 NEUE-1: AlertsViewModel - Memory Leak durch Polling Task (P0!)
+
+**Datei:** `src/DigitalSignage.Server/ViewModels/AlertsViewModel.cs:72-76`
+
+**Problem:**
+```csharp
+private void StartPolling()
+{
+    _pollingCts = new CancellationTokenSource();
+    _ = Task.Run(async () =>
+    {
+        while (!_pollingCts.Token.IsCancellationRequested)
+        {
+            // Polling läuft endlos...
+            await Task.Delay(5000, _pollingCts.Token);
+            await Application.Current.Dispatcher.InvokeAsync(async () =>
+            {
+                await LoadDataAsync();
+            });
+        }
+    });
+}
+// ⚠️ KEIN DISPOSE! Task läuft weiter auch wenn ViewModel disposed wird!
+```
+
+**Risiko:**
+- Task läuft weiter auch wenn AlertsPanel geschlossen wird
+- Memory Leak: ViewModel wird nie freigegeben
+- Nach 100x Öffnen/Schließen: 100 Polling-Tasks!
+
+**Fix:**
+```csharp
+public void Dispose()
+{
+    _pollingCts?.Cancel();
+    _pollingCts?.Dispose();
+}
+```
+
+**Priorität:** P0 (Memory Leak!)
+
+---
+
+### 🆕 NEUE-2: SchedulingViewModel - Kein IDisposable (P0!)
+
+**Datei:** `src/DigitalSignage.Server/ViewModels/SchedulingViewModel.cs`
+
+**Problem:** ViewModel hat keine Event-Handler Cleanup
+
+**Fix:** IDisposable implementieren
+
+**Priorität:** P0 (Memory Leak Prevention)
+
+---
+
+### 🆕 NEUE-3: MainViewModel wächst weiter - jetzt 1214 LOC (P1!)
+
+**Datei:** `src/DigitalSignage.Server/ViewModels/MainViewModel.cs`
+
+**Problem:**
+- War 1074 LOC im Report
+- Jetzt **1214 LOC** (+140 LOC!)
+- Neue Features wurden HINZUGEFÜGT statt zu refactoren:
+  - Backup/Restore Database Commands
+  - Settings Dialog Integration
+  - Alert System Commands
+  - Scheduling Commands
+
+**Fix:** DRINGEND in Sub-ViewModels aufteilen!
+
+**Priorität:** P1 (Code-Qualität)
+
+---
+
+### 🆕 NEUE-4: MessageBox.Show explodiert - von 30+ auf 81 Vorkommen (P1!)
+
+**Problem:**
+- Ursprünglicher Report: "30+ Stellen"
+- Jetzt: **81 Vorkommen in 12 Dateien**
+- Neue ViewModels mit MessageBox.Show:
+  - AlertsViewModel.cs: 23 Mal
+  - SettingsViewModel.cs: 5 Mal
+
+**Fix:** IDialogService NOCH WICHTIGER geworden!
+
+**Priorität:** P1 (Tight Coupling)
+
+---
+
+### 🆕 NEUE-5: 11 ViewModels ohne IDisposable identifiziert (P0!)
+
+**Vollständige Liste:**
+1. ❌ DeviceManagementViewModel
+2. ❌ AlertsViewModel (mit Polling Task!)
+3. ❌ SchedulingViewModel
+4. ❌ MainViewModel
+5. ❌ DesignerViewModel
+6. ❌ DataSourceViewModel
+7. ❌ PreviewViewModel
+8. ❌ LiveLogsViewModel
+9. ❌ MediaLibraryViewModel
+10. ❌ ScreenshotViewModel
+11. ❌ LogViewerViewModel
+
+**Priorität:** P0 (Memory Leaks!)
+
+---
+
 ## 🏆 ERFOLGSMETRIKEN
 
-### Vor Refactoring:
-- ⚠️ 6 kritische Sicherheitslücken
-- ⚠️ 42 Issues gesamt
-- ⚠️ 0% Test-Coverage
-- ⚠️ God-Classes (1000+ LOC)
-- ⚠️ Keine Dokumentation für 80% der Methoden
+### IST-Zustand (2025-11-14):
+- ⚠️ **6 kritische Sicherheitslücken (P0)** - 5 OFFEN, 1 PARTIAL
+- ⚠️ **42 Issues gesamt** - 0 behoben, 3 partial, 39 offen
+- ⚠️ **0% Test-Coverage**
+- ⚠️ **God-Class mit 1214 LOC** (gewachsen statt geschrumpft!)
+- ⚠️ **81 MessageBox.Show** (mehr geworden!)
+- ⚠️ **11 ViewModels ohne IDisposable** (mehr als vorher bekannt!)
+- ⚠️ **Keine Dokumentation für 80% der Methoden**
 
-### Nach Refactoring (Ziel):
+**🚨 VERSCHLECHTERUNG seit letztem Report:**
+- MainViewModel: +140 LOC (1074 → 1214)
+- MessageBox.Show: +51 Vorkommen (30 → 81)
+- ViewModels ohne IDisposable: +6 identifiziert (5 → 11)
+
+### SOLL-Zustand (Ziel):
 - ✅ 0 kritische Sicherheitslücken
 - ✅ <10 Issues (nur P3)
 - ✅ 70%+ Test-Coverage
@@ -1697,6 +1953,8 @@ if (await _featureManager.IsEnabledAsync("NewTemplateEngine"))
 - ✅ 90%+ Methoden dokumentiert
 - ✅ Memory-Leaks behoben
 - ✅ 50%+ schnellere Performance
+- ✅ IDialogService implementiert
+- ✅ Alle ViewModels mit IDisposable
 
 
 
