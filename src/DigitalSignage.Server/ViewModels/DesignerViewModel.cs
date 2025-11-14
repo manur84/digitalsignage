@@ -390,7 +390,7 @@ public partial class DesignerViewModel : ObservableObject, IDisposable
             var viewModel = new MediaBrowserViewModel(_mediaService, _mediaBrowserViewModelLogger);
 
             // Create and show dialog
-            var dialog = new Views.Dialogs.MediaBrowserDialog(viewModel, _mediaBrowserDialogLogger)
+            var dialog = new Views.Dialogs.MediaBrowserDialog(viewModel, _mediaBrowserDialogLogger, _dialogService)
             {
                 Owner = System.Windows.Application.Current.MainWindow
             };
@@ -1754,7 +1754,7 @@ public partial class DesignerViewModel : ObservableObject, IDisposable
             var viewModel = new MediaBrowserViewModel(_mediaService, _mediaBrowserViewModelLogger);
 
             // Create and show dialog
-            var dialog = new Views.Dialogs.MediaBrowserDialog(viewModel, _mediaBrowserDialogLogger)
+            var dialog = new Views.Dialogs.MediaBrowserDialog(viewModel, _mediaBrowserDialogLogger, _dialogService)
             {
                 Owner = System.Windows.Application.Current.MainWindow
             };

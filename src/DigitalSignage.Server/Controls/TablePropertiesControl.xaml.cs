@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
+using DigitalSignage.Core.Interfaces;
 using DigitalSignage.Core.Models;
 
 namespace DigitalSignage.Server.Controls;
@@ -18,6 +19,7 @@ public partial class TablePropertiesControl : UserControl, INotifyPropertyChange
     private ObservableCollection<TableRow> _tableData = new();
     private List<string> _columns = new();
     private string _columnsText = string.Empty;
+    private readonly IDialogService? _dialogService;
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -25,6 +27,12 @@ public partial class TablePropertiesControl : UserControl, INotifyPropertyChange
     {
         InitializeComponent();
         DataContext = this;
+
+        // Get IDialogService from App (for View code-behind, Service Locator is acceptable)
+        if (Application.Current is App app)
+        {
+            _dialogService = app.GetService<IDialogService>();
+        }
     }
 
     public string ColumnsText
@@ -164,7 +172,7 @@ public partial class TablePropertiesControl : UserControl, INotifyPropertyChange
         _element["Rows"] = JsonSerializer.Serialize(rows, new JsonSerializerOptions { WriteIndented = false });
     }
 
-    private void UpdateColumns_Click(object sender, RoutedEventArgs e)
+    private async void UpdateColumns_Click(object sender, RoutedEventArgs e)
     {
         try
         {
@@ -177,11 +185,17 @@ public partial class TablePropertiesControl : UserControl, INotifyPropertyChange
 
             if (newColumns.Count == 0)
             {
-                MessageBox.Show(
-                    "Please enter at least one column name.",
-                    "Invalid Columns",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Warning);
+                if (_dialogService != null)
+                {
+                    await _dialogService.ShowWarningAsync(
+                        "Please enter at least one column name.",
+                        "Invalid Columns");
+                }
+                else
+                {
+                    MessageBox.Show("Please enter at least one column name.", "Invalid Columns",
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                }
                 return;
             }
 
@@ -201,19 +215,31 @@ public partial class TablePropertiesControl : UserControl, INotifyPropertyChange
             // Save changes
             SaveToElement();
 
-            MessageBox.Show(
-                $"Columns updated successfully!\n\nOld: {oldColumnCount} columns\nNew: {_columns.Count} columns",
-                "Columns Updated",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
+            if (_dialogService != null)
+            {
+                await _dialogService.ShowInformationAsync(
+                    $"Columns updated successfully!\n\nOld: {oldColumnCount} columns\nNew: {_columns.Count} columns",
+                    "Columns Updated");
+            }
+            else
+            {
+                MessageBox.Show($"Columns updated successfully!\n\nOld: {oldColumnCount} columns\nNew: {_columns.Count} columns",
+                    "Columns Updated", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
         }
         catch (Exception ex)
         {
-            MessageBox.Show(
-                $"Error updating columns:\n\n{ex.Message}",
-                "Error",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+            if (_dialogService != null)
+            {
+                await _dialogService.ShowErrorAsync(
+                    $"Error updating columns:\n\n{ex.Message}",
+                    "Error");
+            }
+            else
+            {
+                MessageBox.Show($"Error updating columns:\n\n{ex.Message}", "Error",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
     }
 
@@ -224,27 +250,41 @@ public partial class TablePropertiesControl : UserControl, INotifyPropertyChange
         SaveToElement();
     }
 
-    private void DeleteRow_Click(object sender, RoutedEventArgs e)
+    private async void DeleteRow_Click(object sender, RoutedEventArgs e)
     {
         if (TableDataGrid.SelectedItems.Count == 0)
         {
-            MessageBox.Show(
-                "Please select one or more rows to delete.",
-                "No Selection",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
+            if (_dialogService != null)
+            {
+                await _dialogService.ShowInformationAsync(
+                    "Please select one or more rows to delete.",
+                    "No Selection");
+            }
+            else
+            {
+                MessageBox.Show("Please select one or more rows to delete.", "No Selection",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+            }
             return;
         }
 
         var selectedRows = TableDataGrid.SelectedItems.Cast<TableRow>().ToList();
 
-        var result = MessageBox.Show(
-            $"Delete {selectedRows.Count} row(s)?",
-            "Confirm Delete",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question);
+        bool confirmed;
+        if (_dialogService != null)
+        {
+            confirmed = await _dialogService.ShowConfirmationAsync(
+                $"Delete {selectedRows.Count} row(s)?",
+                "Confirm Delete");
+        }
+        else
+        {
+            var result = MessageBox.Show($"Delete {selectedRows.Count} row(s)?", "Confirm Delete",
+                MessageBoxButton.YesNo, MessageBoxImage.Question);
+            confirmed = result == MessageBoxResult.Yes;
+        }
 
-        if (result == MessageBoxResult.Yes)
+        if (confirmed)
         {
             foreach (var row in selectedRows)
             {
