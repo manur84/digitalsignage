@@ -383,9 +383,9 @@ using var scope = _serviceProvider.CreateScope();
 
 ---
 
-### ⚠️ P2: Event Handler Subscription/Unsubscription
+### ✅ P2: Event Handler Subscription/Unsubscription - **IMPLEMENTED**
 
-**Status:** MOSTLY IMPLEMENTED, SOME GAPS  
+**Status:** ✅ **PROPERLY IMPLEMENTED**
 
 #### Properly Handled:
 
@@ -416,26 +416,62 @@ private static void OnDisplayElementChanged(DependencyObject d, DependencyProper
 }
 ```
 
-**Status:** FIXED ✅ for this file
-
-#### Potential Issues (Memory Leak Risk):
+**Status:** ✅ FIXED for this file
 
 **File:** `/home/user/digitalsignage/src/DigitalSignage.Server/ViewModels/DesignerViewModel.cs`
 ```csharp
-Line 73-80:
+Line 85-91 (Constructor):
 // Subscribe to command history changes
-CommandHistory.HistoryChanged += OnHistoryChanged;  // ✅ Subscribed
+CommandHistory.HistoryChanged += OnHistoryChanged;
 
 // Subscribe to selection changes
-SelectionService.SelectionChanged += OnSelectionChanged;  // ✅ Subscribed
+SelectionService.SelectionChanged += OnSelectionChanged;
 
 // Subscribe to Elements collection changes
-Elements.CollectionChanged += OnElementsCollectionChanged;  // ✅ Subscribed
+Elements.CollectionChanged += OnElementsCollectionChanged;
+
+Line 1880-1899 (Dispose implementation):
+public void Dispose()
+{
+    Dispose(true);
+    GC.SuppressFinalize(this);
+}
+
+protected virtual void Dispose(bool disposing)
+{
+    if (_disposed) return;
+
+    if (disposing)
+    {
+        // Unregister event handlers ✅
+        CommandHistory.HistoryChanged -= OnHistoryChanged;
+        SelectionService.SelectionChanged -= OnSelectionChanged;
+        Elements.CollectionChanged -= OnElementsCollectionChanged;
+    }
+
+    _disposed = true;
+}
 ```
 
-**Issue:** No visible unsubscription in Dispose() method  
-**Status:** OPEN - May need review  
-**Impact:** Potential memory leak if DesignerViewModel instances are created/disposed frequently
+**Status:** ✅ **PROPERLY IMPLEMENTED**
+- DesignerViewModel implements IDisposable
+- All event handlers properly unsubscribed in Dispose()
+- Follows standard Dispose pattern with guard flag
+- Uses GC.SuppressFinalize() correctly
+
+**Other ViewModels with Proper Disposal:**
+All major ViewModels that subscribe to events implement IDisposable:
+- ✅ MainViewModel
+- ✅ DeviceManagementViewModel
+- ✅ ServerManagementViewModel
+- ✅ SchedulingViewModel
+- ✅ LayoutManagementViewModel
+- ✅ LiveLogsViewModel
+- ✅ LogViewerViewModel
+- ✅ AlertsViewModel
+- ✅ DiagnosticsViewModel
+
+**Impact:** No memory leaks from event handler subscriptions
 
 ---
 
