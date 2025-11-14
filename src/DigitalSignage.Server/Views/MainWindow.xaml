@@ -1138,11 +1138,184 @@
             <!-- Logs Tab -->
             <TabItem Header="Logs">
                 <Grid DataContext="{Binding LogViewerViewModel}">
-                    <TextBlock Text="Logs Tab - See Logs folder for application logs"
-                               HorizontalAlignment="Center"
-                               VerticalAlignment="Center"
-                               FontSize="14"
-                               Foreground="#999999"/>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Filter Toolbar -->
+                    <Border Grid.Row="0" Background="#F5F5F5" BorderBrush="#CCCCCC" BorderThickness="0,0,0,1" Padding="10">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="10"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="10"/>
+                                <ColumnDefinition Width="200"/>
+                                <ColumnDefinition Width="20"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="10"/>
+                                <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="20"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="10"/>
+                                <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Row 1: Client, Log Level, Date Range -->
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Client:" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                            <ComboBox Grid.Row="0" Grid.Column="2" ItemsSource="{Binding AvailableClients}"
+                                     SelectedItem="{Binding SelectedClientId}" MinWidth="150"/>
+
+                            <TextBlock Grid.Row="0" Grid.Column="4" Text="Log Level:" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                            <ComboBox Grid.Row="0" Grid.Column="6" ItemsSource="{Binding LogLevels}"
+                                     SelectedItem="{Binding SelectedLogLevel}" MinWidth="120"/>
+
+                            <TextBlock Grid.Row="0" Grid.Column="8" Text="Date From:" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                            <DatePicker Grid.Row="0" Grid.Column="10" SelectedDate="{Binding DateFrom}" MinWidth="130"/>
+
+                            <!-- Row 2: Source Filter, Date To, Buttons -->
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Source:" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                            <ComboBox Grid.Row="2" Grid.Column="2" ItemsSource="{Binding AvailableSources}"
+                                     Text="{Binding SourceFilter, UpdateSourceTrigger=PropertyChanged}"
+                                     IsEditable="True" MinWidth="150"/>
+
+                            <TextBlock Grid.Row="2" Grid.Column="8" Text="Date To:" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                            <DatePicker Grid.Row="2" Grid.Column="10" SelectedDate="{Binding DateTo}" MinWidth="130"/>
+
+                            <StackPanel Grid.Row="2" Grid.Column="11" Orientation="Horizontal" HorizontalAlignment="Right" Margin="10,0,0,0">
+                                <Button Content="Clear Filters" Command="{Binding ClearFiltersCommand}"
+                                       Width="100" Margin="0,0,5,0"/>
+                                <Button Content="Refresh" Command="{Binding RefreshLogsCommand}"
+                                       Width="80" Margin="0,0,5,0"/>
+                                <Button Content="Clear All" Command="{Binding ClearLogsCommand}"
+                                       Width="80" Background="#DC143C" Foreground="White"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- Search and Export Toolbar -->
+                    <Border Grid.Row="1" Background="White" BorderBrush="#E0E0E0" BorderThickness="0,0,0,1" Padding="10,8">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="10"/>
+                                <ColumnDefinition Width="300"/>
+                                <ColumnDefinition Width="10"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Column="0" Text="Search:" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                            <TextBox Grid.Column="2" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                                    VerticalAlignment="Center" ToolTip="Search in message, source, client name, and exception"/>
+
+                            <CheckBox Grid.Column="4" Content="Case Sensitive" IsChecked="{Binding CaseSensitiveSearch}"
+                                     VerticalAlignment="Center" Margin="0,0,10,0"/>
+
+                            <TextBlock Grid.Column="5" VerticalAlignment="Center" Margin="10,0,0,0">
+                                <Run Text="Results: "/>
+                                <Run Text="{Binding SearchResultCount, Mode=OneWay}" FontWeight="Bold"/>
+                            </TextBlock>
+
+                            <StackPanel Grid.Column="6" Orientation="Horizontal" HorizontalAlignment="Right">
+                                <TextBlock Text="Export:" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,10,0"/>
+                                <Button Content="CSV" Command="{Binding ExportToCsvCommand}"
+                                       Width="60" Margin="0,0,5,0" IsEnabled="{Binding IsExporting, Converter={StaticResource InverseBoolConverter}}"/>
+                                <Button Content="Text" Command="{Binding ExportToTextCommand}"
+                                       Width="60" Margin="0,0,5,0" IsEnabled="{Binding IsExporting, Converter={StaticResource InverseBoolConverter}}"/>
+                                <Button Content="JSON" Command="{Binding ExportToJsonCommand}"
+                                       Width="60" IsEnabled="{Binding IsExporting, Converter={StaticResource InverseBoolConverter}}"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- Logs DataGrid -->
+                    <DataGrid Grid.Row="2" ItemsSource="{Binding FilteredLogs}"
+                             AutoGenerateColumns="False"
+                             IsReadOnly="True"
+                             SelectionMode="Extended"
+                             CanUserAddRows="False"
+                             CanUserDeleteRows="False"
+                             EnableRowVirtualization="True"
+                             VirtualizingPanel.IsVirtualizing="True"
+                             VirtualizingPanel.VirtualizationMode="Recycling"
+                             GridLinesVisibility="Horizontal"
+                             HeadersVisibility="Column"
+                             AlternationCount="2"
+                             AlternatingRowBackground="#F9F9F9">
+
+                        <DataGrid.RowStyle>
+                            <Style TargetType="DataGridRow">
+                                <Setter Property="Background" Value="{Binding Level, Converter={StaticResource LogLevelToBackgroundConverter}}"/>
+                                <Style.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Background" Value="#E8F4F8"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </DataGrid.RowStyle>
+
+                        <DataGrid.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="Copy Selected" Click="CopyLogsToClipboard_Click"/>
+                                <Separator/>
+                                <MenuItem Header="Show Details" Click="ShowLogDetails_Click"/>
+                            </ContextMenu>
+                        </DataGrid.ContextMenu>
+
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Timestamp" Binding="{Binding Timestamp, StringFormat='{}{0:yyyy-MM-dd HH:mm:ss.fff}'}"
+                                               Width="170" SortDirection="Descending"/>
+                            <DataGridTextColumn Header="Level" Width="80">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Text" Value="{Binding Level}"/>
+                                        <Setter Property="Foreground" Value="{Binding Level, Converter={StaticResource LogLevelToColorConverter}}"/>
+                                        <Setter Property="FontWeight" Value="SemiBold"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="Client" Binding="{Binding ClientName}" Width="150"/>
+                            <DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="200"/>
+                            <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="*" MinWidth="300">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="TextWrapping" Value="NoWrap"/>
+                                        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                                        <Setter Property="ToolTip" Value="{Binding Message}"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <!-- Status Bar -->
+                    <Border Grid.Row="3" Background="#F0F0F0" BorderBrush="#CCCCCC" BorderThickness="0,1,0,0" Padding="10,5">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Column="0" Text="{Binding StatusText}" VerticalAlignment="Center" FontStyle="Italic"/>
+
+                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <CheckBox Content="Auto-scroll" IsChecked="{Binding AutoScroll}"
+                                         VerticalAlignment="Center" Margin="0,0,20,0"
+                                         ToolTip="Automatically scroll to newest log entries"/>
+                                <TextBlock Text="Total Logs: " VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding LogCount}" VerticalAlignment="Center" FontWeight="Bold"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
                 </Grid>
             </TabItem>
 
