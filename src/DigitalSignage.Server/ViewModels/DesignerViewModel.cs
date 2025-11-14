@@ -16,6 +16,7 @@ public partial class DesignerViewModel : ObservableObject, IDisposable
     private readonly EnhancedMediaService _mediaService;
     private readonly ILogger<MediaBrowserViewModel> _mediaBrowserViewModelLogger;
     private readonly ILogger<Views.Dialogs.MediaBrowserDialog> _mediaBrowserDialogLogger;
+    private readonly IDialogService _dialogService;
     private bool _disposed = false;
 
     [ObservableProperty]
@@ -73,13 +74,15 @@ public partial class DesignerViewModel : ObservableObject, IDisposable
         ILogger<DesignerViewModel> logger,
         EnhancedMediaService mediaService,
         ILogger<MediaBrowserViewModel> mediaBrowserViewModelLogger,
-        ILogger<Views.Dialogs.MediaBrowserDialog> mediaBrowserDialogLogger)
+        ILogger<Views.Dialogs.MediaBrowserDialog> mediaBrowserDialogLogger,
+        IDialogService dialogService)
     {
         _layoutService = layoutService ?? throw new ArgumentNullException(nameof(layoutService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _mediaService = mediaService ?? throw new ArgumentNullException(nameof(mediaService));
         _mediaBrowserViewModelLogger = mediaBrowserViewModelLogger ?? throw new ArgumentNullException(nameof(mediaBrowserViewModelLogger));
         _mediaBrowserDialogLogger = mediaBrowserDialogLogger ?? throw new ArgumentNullException(nameof(mediaBrowserDialogLogger));
+        _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
 
         // Subscribe to command history changes
         CommandHistory.HistoryChanged += OnHistoryChanged;
@@ -272,22 +275,18 @@ public partial class DesignerViewModel : ObservableObject, IDisposable
             HasUnsavedChanges = false;
 
             // Show success message (optional)
-            System.Windows.MessageBox.Show(
+            await _dialogService.ShowInformationAsync(
                 $"Layout '{CurrentLayout.Name}' saved successfully!",
-                "Success",
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Information);
+                "Success");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to save layout: {LayoutName}", CurrentLayout?.Name);
 
             // Show error message
-            System.Windows.MessageBox.Show(
+            await _dialogService.ShowErrorAsync(
                 $"Failed to save layout: {ex.Message}",
-                "Error",
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Error);
+                "Error");
         }
     }
 
@@ -381,7 +380,7 @@ public partial class DesignerViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
-    private void AddMediaLibraryElement()
+    private async Task AddMediaLibraryElement()
     {
         _logger.LogInformation("=== Adding Media Library Element ===");
 
@@ -440,11 +439,9 @@ public partial class DesignerViewModel : ObservableObject, IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error adding media library element");
-            System.Windows.MessageBox.Show(
+            await _dialogService.ShowErrorAsync(
                 $"Fehler beim Hinzufügen des Media-Elements:\n\n{ex.Message}",
-                "Fehler",
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Error);
+                "Fehler");
         }
     }
 
@@ -1741,7 +1738,7 @@ public partial class DesignerViewModel : ObservableObject, IDisposable
     /// Opens the Media Browser Dialog to select an image for an element
     /// </summary>
     [RelayCommand]
-    private void BrowseImage(DisplayElement? element)
+    private async Task BrowseImage(DisplayElement? element)
     {
         if (element == null)
         {
@@ -1780,11 +1777,9 @@ public partial class DesignerViewModel : ObservableObject, IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error browsing images for element: {ElementName}", element?.Name);
-            System.Windows.MessageBox.Show(
+            await _dialogService.ShowErrorAsync(
                 $"Failed to open media browser:\n\n{ex.Message}",
-                "Error",
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Error);
+                "Error");
         }
     }
 
@@ -1792,7 +1787,7 @@ public partial class DesignerViewModel : ObservableObject, IDisposable
     /// Opens the Table Editor Dialog to edit table data
     /// </summary>
     [RelayCommand]
-    private void EditTable(DisplayElement? element)
+    private async Task EditTable(DisplayElement? element)
     {
         if (element == null || element.Type != "table")
         {
@@ -1867,11 +1862,9 @@ public partial class DesignerViewModel : ObservableObject, IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error editing table for element: {ElementName}", element?.Name);
-            System.Windows.MessageBox.Show(
+            await _dialogService.ShowErrorAsync(
                 $"Fehler beim Öffnen des Tabelleneditors:\n\n{ex.Message}",
-                "Fehler",
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Error);
+                "Fehler");
         }
     }
 

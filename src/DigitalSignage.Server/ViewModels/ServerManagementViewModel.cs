@@ -16,6 +16,7 @@ public partial class ServerManagementViewModel : ObservableObject, IDisposable
     private readonly IClientService _clientService;
     private readonly ICommunicationService _communicationService;
     private readonly ILogger<ServerManagementViewModel> _logger;
+    private readonly IDialogService _dialogService;
     private bool _disposed = false;
 
     [ObservableProperty]
@@ -35,10 +36,12 @@ public partial class ServerManagementViewModel : ObservableObject, IDisposable
     public ServerManagementViewModel(
         IClientService clientService,
         ICommunicationService communicationService,
+        IDialogService dialogService,
         ILogger<ServerManagementViewModel> logger)
     {
         _clientService = clientService ?? throw new ArgumentNullException(nameof(clientService));
         _communicationService = communicationService ?? throw new ArgumentNullException(nameof(communicationService));
+        _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
         // Subscribe to communication events
@@ -65,48 +68,20 @@ public partial class ServerManagementViewModel : ObservableObject, IDisposable
             StatusText = "Server failed to start: Access Denied (URL ACL not configured)";
             _logger.LogError(ex, "Failed to start server due to URL ACL permissions");
 
-            // Check if already on UI thread to avoid unnecessary context switch
-            if (System.Windows.Application.Current.Dispatcher.CheckAccess())
-            {
-                System.Windows.MessageBox.Show(
-                    $"Access Denied - Cannot start server\n\n" +
-                    $"Windows requires URL ACL registration to bind HTTP servers.\n\n" +
-                    $"SOLUTION 1 (Recommended - One-time setup):\n" +
-                    $"  1. Right-click setup-urlacl.bat in the application folder\n" +
-                    $"  2. Select 'Run as administrator'\n" +
-                    $"  3. Restart the application normally (no admin needed)\n\n" +
-                    $"SOLUTION 2 (Temporary):\n" +
-                    $"  Close this application and run as Administrator\n\n" +
-                    $"After running setup-urlacl.bat once, you will never need\n" +
-                    $"administrator privileges again for this application.\n\n" +
-                    $"Technical Details:\n" +
-                    $"{ex.Message}",
-                    "Permission Error - Digital Signage Server",
-                    System.Windows.MessageBoxButton.OK,
-                    System.Windows.MessageBoxImage.Warning);
-            }
-            else
-            {
-                System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
-                {
-                    System.Windows.MessageBox.Show(
-                        $"Access Denied - Cannot start server\n\n" +
-                        $"Windows requires URL ACL registration to bind HTTP servers.\n\n" +
-                        $"SOLUTION 1 (Recommended - One-time setup):\n" +
-                        $"  1. Right-click setup-urlacl.bat in the application folder\n" +
-                        $"  2. Select 'Run as administrator'\n" +
-                        $"  3. Restart the application normally (no admin needed)\n\n" +
-                        $"SOLUTION 2 (Temporary):\n" +
-                        $"  Close this application and run as Administrator\n\n" +
-                        $"After running setup-urlacl.bat once, you will never need\n" +
-                        $"administrator privileges again for this application.\n\n" +
-                        $"Technical Details:\n" +
-                        $"{ex.Message}",
-                        "Permission Error - Digital Signage Server",
-                        System.Windows.MessageBoxButton.OK,
-                        System.Windows.MessageBoxImage.Warning);
-                });
-            }
+            await _dialogService.ShowWarningAsync(
+                $"Access Denied - Cannot start server\n\n" +
+                $"Windows requires URL ACL registration to bind HTTP servers.\n\n" +
+                $"SOLUTION 1 (Recommended - One-time setup):\n" +
+                $"  1. Right-click setup-urlacl.bat in the application folder\n" +
+                $"  2. Select 'Run as administrator'\n" +
+                $"  3. Restart the application normally (no admin needed)\n\n" +
+                $"SOLUTION 2 (Temporary):\n" +
+                $"  Close this application and run as Administrator\n\n" +
+                $"After running setup-urlacl.bat once, you will never need\n" +
+                $"administrator privileges again for this application.\n\n" +
+                $"Technical Details:\n" +
+                $"{ex.Message}",
+                "Permission Error - Digital Signage Server");
         }
         catch (Exception ex)
         {
@@ -114,38 +89,15 @@ public partial class ServerManagementViewModel : ObservableObject, IDisposable
             StatusText = $"Failed to start server: {ex.Message}";
             _logger.LogError(ex, "Failed to start server");
 
-            // Check if already on UI thread to avoid unnecessary context switch
-            if (System.Windows.Application.Current.Dispatcher.CheckAccess())
-            {
-                System.Windows.MessageBox.Show(
-                    $"Failed to start Digital Signage Server\n\n" +
-                    $"Error: {ex.Message}\n\n" +
-                    $"Common Solutions:\n" +
-                    $"- Run diagnose-server.ps1 for diagnostics\n" +
-                    $"- Check that port 8080 is not in use\n" +
-                    $"- Use fix-and-run.bat for automatic fix\n\n" +
-                    $"Check the logs folder for detailed error information.",
-                    "Startup Error - Digital Signage Server",
-                    System.Windows.MessageBoxButton.OK,
-                    System.Windows.MessageBoxImage.Error);
-            }
-            else
-            {
-                System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
-                {
-                    System.Windows.MessageBox.Show(
-                        $"Failed to start Digital Signage Server\n\n" +
-                        $"Error: {ex.Message}\n\n" +
-                        $"Common Solutions:\n" +
-                        $"- Run diagnose-server.ps1 for diagnostics\n" +
-                        $"- Check that port 8080 is not in use\n" +
-                        $"- Use fix-and-run.bat for automatic fix\n\n" +
-                        $"Check the logs folder for detailed error information.",
-                        "Startup Error - Digital Signage Server",
-                        System.Windows.MessageBoxButton.OK,
-                        System.Windows.MessageBoxImage.Error);
-                });
-            }
+            await _dialogService.ShowErrorAsync(
+                $"Failed to start Digital Signage Server\n\n" +
+                $"Error: {ex.Message}\n\n" +
+                $"Common Solutions:\n" +
+                $"- Run diagnose-server.ps1 for diagnostics\n" +
+                $"- Check that port 8080 is not in use\n" +
+                $"- Use fix-and-run.bat for automatic fix\n\n" +
+                $"Check the logs folder for detailed error information.",
+                "Startup Error - Digital Signage Server");
         }
     }
 
@@ -253,7 +205,7 @@ public partial class ServerManagementViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
-    private void ServerConfiguration()
+    private async Task ServerConfiguration()
     {
         try
         {
@@ -265,11 +217,9 @@ public partial class ServerManagementViewModel : ObservableObject, IDisposable
             config.AppendLine($"WebSocket Port: 8080");
             config.AppendLine($"Base Directory: {AppDomain.CurrentDomain.BaseDirectory}");
 
-            System.Windows.MessageBox.Show(
+            await _dialogService.ShowInformationAsync(
                 config.ToString(),
-                "Server Configuration",
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Information);
+                "Server Configuration");
 
             StatusText = "Server configuration displayed";
         }
