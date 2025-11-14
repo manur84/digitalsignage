@@ -197,6 +197,71 @@ class WebInterface:
                 logger.error(f"Error updating settings: {e}", exc_info=True)
                 return jsonify({'success': False, 'error': str(e)}), 500
 
+        @self.app.route('/api/cache/layouts')
+        def api_get_cached_layouts():
+            """Get list of all cached layouts"""
+            try:
+                if not hasattr(self.client, 'cache_manager'):
+                    return jsonify({'error': 'Cache manager not available'}), 503
+
+                layouts = self.client.cache_manager.get_all_layouts()
+
+                return jsonify({
+                    'success': True,
+                    'layouts': layouts,
+                    'count': len(layouts),
+                    'timestamp': datetime.utcnow().isoformat()
+                })
+            except Exception as e:
+                logger.error(f"Error getting cached layouts: {e}", exc_info=True)
+                return jsonify({'success': False, 'error': str(e)}), 500
+
+        @self.app.route('/api/cache/select', methods=['POST'])
+        def api_select_cached_layout():
+            """Set a specific layout as current for offline display"""
+            try:
+                if not hasattr(self.client, 'cache_manager'):
+                    return jsonify({'success': False, 'error': 'Cache manager not available'}), 503
+
+                data = request.get_json()
+                if not data or 'layout_id' not in data:
+                    return jsonify({'success': False, 'error': 'layout_id required'}), 400
+
+                layout_id = str(data['layout_id'])
+
+                # Set the layout as current
+                if self.client.cache_manager.set_current_layout(layout_id):
+                    # If offline mode is active and show_cached_layout_on_disconnect is enabled,
+                    # reload the display with the newly selected layout
+                    if (hasattr(self.client, 'offline_mode') and
+                        self.client.offline_mode and
+                        self.client.config.show_cached_layout_on_disconnect):
+
+                        # Get the layout and its data
+                        cached_data = self.client.cache_manager.get_current_layout()
+                        if cached_data:
+                            layout, layout_data = cached_data
+                            # Reload the display
+                            if hasattr(self.client, 'renderer'):
+                                self.client.renderer.render_layout(layout, layout_data)
+                                logger.info(f"Reloaded display with layout {layout_id}")
+
+                    return jsonify({
+                        'success': True,
+                        'message': f'Layout {layout_id} selected as current',
+                        'layout_id': layout_id,
+                        'timestamp': datetime.utcnow().isoformat()
+                    })
+                else:
+                    return jsonify({
+                        'success': False,
+                        'error': 'Failed to set current layout (layout may not exist in cache)'
+                    }), 400
+
+            except Exception as e:
+                logger.error(f"Error selecting cached layout: {e}", exc_info=True)
+                return jsonify({'success': False, 'error': str(e)}), 500
+
     def _get_status_data(self) -> Dict[str, Any]:
         """Get current client status data"""
         try:

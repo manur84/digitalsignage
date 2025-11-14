@@ -8,7 +8,7 @@ import json
 import sqlite3
 import logging
 from pathlib import Path
-from typing import Optional, Dict, Any, Tuple
+from typing import Optional, Dict, Any, Tuple, List
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
@@ -400,3 +400,76 @@ class CacheManager:
         except Exception as e:
             logger.error(f"Failed to get metadata: {e}", exc_info=True)
             return None
+
+    def get_all_layouts(self) -> List[Dict[str, Any]]:
+        """
+        Get list of all cached layouts with metadata
+
+        Returns:
+            List of layout metadata dictionaries
+        """
+        try:
+            conn = sqlite3.connect(str(self.db_path))
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                SELECT id, name, cached_at, is_current
+                FROM layouts
+                ORDER BY cached_at DESC
+            """)
+
+            layouts = []
+            for row in cursor.fetchall():
+                layout_id, name, cached_at, is_current = row
+                layouts.append({
+                    'id': layout_id,
+                    'name': name if name else 'Unnamed Layout',
+                    'cached_at': cached_at,
+                    'is_current': bool(is_current)
+                })
+
+            conn.close()
+
+            logger.debug(f"Retrieved {len(layouts)} cached layouts")
+            return layouts
+
+        except Exception as e:
+            logger.error(f"Failed to get all layouts: {e}", exc_info=True)
+            return []
+
+    def set_current_layout(self, layout_id: str) -> bool:
+        """
+        Set a specific layout as the current active layout
+
+        Args:
+            layout_id: Layout ID to set as current
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            conn = sqlite3.connect(str(self.db_path))
+            cursor = conn.cursor()
+
+            # Check if layout exists
+            cursor.execute("SELECT id FROM layouts WHERE id = ?", (layout_id,))
+            if not cursor.fetchone():
+                logger.warning(f"Layout {layout_id} not found in cache")
+                conn.close()
+                return False
+
+            # Mark all layouts as not current
+            cursor.execute("UPDATE layouts SET is_current = 0")
+
+            # Mark specified layout as current
+            cursor.execute("UPDATE layouts SET is_current = 1 WHERE id = ?", (layout_id,))
+
+            conn.commit()
+            conn.close()
+
+            logger.info(f"Set layout {layout_id} as current")
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to set current layout: {e}", exc_info=True)
+            return False

@@ -434,6 +434,82 @@
             font-size: 0.85em;
             margin-top: 10px;
         }
+
+        .layout-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .layout-item {
+            background: rgba(30, 30, 30, 0.5);
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #4A90E2;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .layout-item:hover {
+            background: rgba(40, 40, 40, 0.7);
+            transform: translateX(5px);
+        }
+
+        .layout-item.current {
+            border-left-color: #5CB85C;
+            background: rgba(92, 184, 92, 0.1);
+        }
+
+        .layout-item.current::after {
+            content: '✓ Current';
+            background: #5CB85C;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+
+        .layout-info {
+            flex: 1;
+        }
+
+        .layout-name {
+            color: #FFFFFF;
+            font-size: 1.1em;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .layout-date {
+            color: #B0B0B0;
+            font-size: 0.85em;
+        }
+
+        .layout-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-small {
+            padding: 8px 16px;
+            font-size: 0.85em;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #B0B0B0;
+        }
+
+        .empty-state .icon {
+            font-size: 3em;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
     </style>
 </head>
 <body>
@@ -472,6 +548,20 @@
                 <div class="loading">
                     <div class="spinner"></div>
                     <p>Loading connection status...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cached Layouts -->
+        <div class="card" id="cachedLayoutsCard" style="display: none;">
+            <h2><span class="icon">💾</span> Cached Layouts</h2>
+            <p style="color: #B0B0B0; margin-bottom: 15px;">
+                Select which layout to display when disconnected from server
+            </p>
+            <div id="cachedLayoutsContainer">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Loading cached layouts...</p>
                 </div>
             </div>
         </div>
@@ -597,6 +687,7 @@
             loadSystemInfo();
             loadConnectionStatus();
             loadSettings();
+            loadCachedLayouts();
             loadLogs();
             updateLastUpdated();
         }
@@ -951,6 +1042,9 @@
                 if (data.success) {
                     alert('Settings saved successfully!\n\nUpdated: ' + data.updated_fields.join(', '));
 
+                    // Reload cached layouts if setting changed
+                    loadCachedLayouts();
+
                     // Ask if user wants to restart for changes to take effect
                     if (confirm('Some settings require a restart to take effect. Restart now?')) {
                         restartClient();
@@ -961,6 +1055,105 @@
             } catch (error) {
                 console.error('Error saving settings:', error);
                 alert('Failed to save settings: ' + error.message);
+            }
+        }
+
+        async function loadCachedLayouts() {
+            try {
+                // First check if show_cached_layout_on_disconnect is enabled
+                const settingsResponse = await fetch('/api/settings');
+                const settingsData = await settingsResponse.json();
+
+                const cachedLayoutsCard = document.getElementById('cachedLayoutsCard');
+
+                if (!settingsData.show_cached_layout_on_disconnect) {
+                    // Hide the card if feature is disabled
+                    cachedLayoutsCard.style.display = 'none';
+                    return;
+                }
+
+                // Show the card
+                cachedLayoutsCard.style.display = 'block';
+
+                // Load cached layouts
+                const response = await fetch('/api/cache/layouts');
+                const data = await response.json();
+
+                const container = document.getElementById('cachedLayoutsContainer');
+
+                if (data.success && data.layouts && data.layouts.length > 0) {
+                    const html = `
+                        <div class="layout-list">
+                            ${data.layouts.map(layout => `
+                                <div class="layout-item ${layout.is_current ? 'current' : ''}"
+                                     onclick="selectLayout('${layout.id}', '${layout.name}')">
+                                    <div class="layout-info">
+                                        <div class="layout-name">${layout.name}</div>
+                                        <div class="layout-date">
+                                            Cached: ${new Date(layout.cached_at).toLocaleString()}
+                                        </div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                    container.innerHTML = html;
+                } else if (data.success && data.layouts && data.layouts.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="icon">📭</div>
+                            <p>No layouts cached yet</p>
+                            <p style="font-size: 0.9em; margin-top: 10px;">
+                                Layouts will be automatically cached when received from the server
+                            </p>
+                        </div>
+                    `;
+                } else {
+                    container.innerHTML = `
+                        <div class="error-message">
+                            Failed to load cached layouts: ${data.error || 'Unknown error'}
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error loading cached layouts:', error);
+                const container = document.getElementById('cachedLayoutsContainer');
+                if (container) {
+                    container.innerHTML = `
+                        <div class="error-message">
+                            Failed to load cached layouts: ${error.message}
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        async function selectLayout(layoutId, layoutName) {
+            try {
+                if (!confirm(`Select "${layoutName}" as the offline layout?\n\nThis layout will be displayed when the client is disconnected from the server.`)) {
+                    return;
+                }
+
+                const response = await fetch('/api/cache/select', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ layout_id: layoutId })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    alert(`Layout "${layoutName}" selected successfully!\n\nThis layout will now be displayed when offline.`);
+                    // Reload cached layouts to update UI
+                    loadCachedLayouts();
+                } else {
+                    alert('Failed to select layout: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error selecting layout:', error);
+                alert('Failed to select layout: ' + error.message);
             }
         }
     </script>
