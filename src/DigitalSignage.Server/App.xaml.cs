@@ -152,6 +152,7 @@ public partial class App : Application
                 services.AddSingleton<LogStorageService>();
                 services.AddSingleton<QueryCacheService>();
                 services.AddSingleton<AlertService>();
+                services.AddSingleton<BackupService>();
 
                 // Register Repositories
                 services.AddSingleton<DataSourceRepository>();

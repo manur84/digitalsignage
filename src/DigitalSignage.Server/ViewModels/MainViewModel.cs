@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 using DigitalSignage.Core.Interfaces;
 using DigitalSignage.Core.Models;
 using DigitalSignage.Data;
+using DigitalSignage.Server.Services;
 using DigitalSignage.Server.Views;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -908,110 +909,213 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private async Task BackupDatabase()
     {
-        var result = System.Windows.MessageBox.Show(
-            "Create a backup of the database?\n\n" +
-            "This will export all data to a SQL backup file.",
-            "Backup Database",
-            System.Windows.MessageBoxButton.YesNo,
-            System.Windows.MessageBoxImage.Question);
-
-        if (result == System.Windows.MessageBoxResult.Yes)
+        try
         {
-            try
+            _logger.LogInformation("User initiated database backup");
+
+            // File Save Dialog
+            var saveDialog = new Microsoft.Win32.SaveFileDialog
             {
-                StatusText = "Creating database backup...";
+                Title = "Backup Database",
+                Filter = "SQLite Database (*.db)|*.db|All Files (*.*)|*.*",
+                FileName = $"digitalsignage-backup-{DateTime.Now:yyyyMMdd-HHmmss}.db",
+                DefaultExt = ".db"
+            };
 
-                var dialog = new Microsoft.Win32.SaveFileDialog
-                {
-                    Filter = "SQL Backup (*.bak)|*.bak|All Files (*.*)|*.*",
-                    DefaultExt = ".bak",
-                    FileName = $"DigitalSignage_Backup_{DateTime.Now:yyyyMMdd_HHmmss}.bak"
-                };
-
-                if (dialog.ShowDialog() == true)
-                {
-                    // TODO: Implement actual backup logic
-                    await Task.Delay(1000); // Simulate backup
-
-                    StatusText = $"Database backup saved: {dialog.FileName}";
-                    _logger.LogInformation("Database backup created: {FileName}", dialog.FileName);
-
-                    System.Windows.MessageBox.Show(
-                        $"Database backup completed successfully!\n\n" +
-                        $"Backup file: {dialog.FileName}",
-                        "Backup Complete",
-                        System.Windows.MessageBoxButton.OK,
-                        System.Windows.MessageBoxImage.Information);
-                }
+            if (saveDialog.ShowDialog() != true)
+            {
+                StatusText = "Backup cancelled";
+                _logger.LogInformation("Database backup cancelled by user");
+                return;
             }
-            catch (Exception ex)
+
+            // Show progress
+            StatusText = "Creating database backup...";
+            _logger.LogInformation("Starting backup to: {FilePath}", saveDialog.FileName);
+
+            var backupService = App.GetService<BackupService>();
+
+            // Create backup
+            var result = await backupService.CreateBackupAsync(saveDialog.FileName);
+
+            if (result.IsSuccess)
             {
-                _logger.LogError(ex, "Database backup failed");
-                StatusText = $"Backup failed: {ex.Message}";
+                StatusText = $"Backup created successfully: {saveDialog.FileName}";
+                _logger.LogInformation("Database backup created successfully");
+
+                var fileInfo = new System.IO.FileInfo(saveDialog.FileName);
+                System.Windows.MessageBox.Show(
+                    $"Database backup created successfully!\n\n" +
+                    $"Location: {saveDialog.FileName}\n\n" +
+                    $"Size: {fileInfo.Length / 1024:N0} KB\n" +
+                    $"Date: {DateTime.Now:yyyy-MM-dd HH:mm:ss}",
+                    "Backup Success",
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Information);
+            }
+            else
+            {
+                StatusText = "Backup failed";
+                _logger.LogError("Database backup failed: {Error}", result.Error);
 
                 System.Windows.MessageBox.Show(
-                    $"Database backup failed:\n\n{ex.Message}",
+                    $"Database backup failed:\n\n{result.Error}\n\n" +
+                    $"Please check:\n" +
+                    $"- Sufficient disk space\n" +
+                    $"- Write permissions to target directory\n" +
+                    $"- Database is not locked by another process",
                     "Backup Error",
                     System.Windows.MessageBoxButton.OK,
                     System.Windows.MessageBoxImage.Error);
             }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating database backup");
+            StatusText = "Backup failed";
+            System.Windows.MessageBox.Show(
+                $"Error creating backup:\n\n{ex.Message}",
+                "Error",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Error);
         }
     }
 
     [RelayCommand]
     private async Task RestoreDatabase()
     {
-        var result = System.Windows.MessageBox.Show(
-            "⚠️ WARNING: Restore Database\n\n" +
-            "This will REPLACE all current data with the backup!\n\n" +
-            "• All current layouts will be lost\n" +
-            "• All client registrations will be lost\n" +
-            "• All settings will be lost\n\n" +
-            "Make sure you have a recent backup before proceeding!\n\n" +
-            "Are you sure you want to continue?",
-            "Restore Database - WARNING",
-            System.Windows.MessageBoxButton.YesNo,
-            System.Windows.MessageBoxImage.Warning);
-
-        if (result == System.Windows.MessageBoxResult.Yes)
+        try
         {
-            try
+            _logger.LogWarning("User initiated database restore - showing warning dialog");
+
+            // FIRST WARNING CONFIRMATION
+            var warningResult = System.Windows.MessageBox.Show(
+                "⚠️ WARNING: Restoring a backup will REPLACE the current database!\n\n" +
+                "All current data will be LOST. This action CANNOT be undone.\n\n" +
+                "This includes:\n" +
+                "• All layouts and templates\n" +
+                "• All client registrations\n" +
+                "• All media library files\n" +
+                "• All settings and configurations\n" +
+                "• All logs and history\n\n" +
+                "It is STRONGLY recommended to create a backup of the current database first.\n\n" +
+                "Do you want to continue?",
+                "Restore Database - WARNING",
+                System.Windows.MessageBoxButton.YesNo,
+                System.Windows.MessageBoxImage.Warning);
+
+            if (warningResult != System.Windows.MessageBoxResult.Yes)
             {
-                var dialog = new Microsoft.Win32.OpenFileDialog
-                {
-                    Filter = "SQL Backup (*.bak)|*.bak|All Files (*.*)|*.*",
-                    DefaultExt = ".bak"
-                };
-
-                if (dialog.ShowDialog() == true)
-                {
-                    StatusText = "Restoring database...";
-
-                    // TODO: Implement actual restore logic
-                    await Task.Delay(2000); // Simulate restore
-
-                    StatusText = "Database restored successfully";
-                    _logger.LogInformation("Database restored from: {FileName}", dialog.FileName);
-
-                    System.Windows.MessageBox.Show(
-                        "Database restored successfully!\n\n" +
-                        "Please restart the application to apply changes.",
-                        "Restore Complete",
-                        System.Windows.MessageBoxButton.OK,
-                        System.Windows.MessageBoxImage.Information);
-                }
+                StatusText = "Database restore cancelled";
+                _logger.LogInformation("Database restore cancelled by user at first warning");
+                return;
             }
-            catch (Exception ex)
+
+            // File Open Dialog
+            var openDialog = new Microsoft.Win32.OpenFileDialog
             {
-                _logger.LogError(ex, "Database restore failed");
-                StatusText = $"Restore failed: {ex.Message}";
+                Title = "Select Database Backup File",
+                Filter = "SQLite Database (*.db)|*.db|All Files (*.*)|*.*",
+                DefaultExt = ".db"
+            };
+
+            if (openDialog.ShowDialog() != true)
+            {
+                StatusText = "Database restore cancelled";
+                _logger.LogInformation("Database restore cancelled by user at file selection");
+                return;
+            }
+
+            // FINAL CONFIRMATION
+            var finalResult = System.Windows.MessageBox.Show(
+                $"⚠️ FINAL CONFIRMATION\n\n" +
+                $"Are you ABSOLUTELY SURE you want to restore from:\n\n" +
+                $"{openDialog.FileName}\n\n" +
+                $"Current database will be REPLACED and CANNOT be recovered!\n\n" +
+                $"A safety backup will be created automatically before restore.\n\n" +
+                $"Continue with restore?",
+                "Final Confirmation - Restore Database",
+                System.Windows.MessageBoxButton.YesNo,
+                System.Windows.MessageBoxImage.Stop);
+
+            if (finalResult != System.Windows.MessageBoxResult.Yes)
+            {
+                StatusText = "Database restore cancelled";
+                _logger.LogInformation("Database restore cancelled by user at final confirmation");
+                return;
+            }
+
+            // Show progress
+            StatusText = "Restoring database from backup...";
+            _logger.LogWarning("Starting database restore from: {FilePath}", openDialog.FileName);
+
+            var backupService = App.GetService<BackupService>();
+
+            // Restore backup
+            var result = await backupService.RestoreBackupAsync(openDialog.FileName);
+
+            if (result.IsSuccess)
+            {
+                StatusText = "Database restored successfully - application will restart";
+                _logger.LogInformation("Database restored successfully");
 
                 System.Windows.MessageBox.Show(
-                    $"Database restore failed:\n\n{ex.Message}",
+                    "Database restored successfully!\n\n" +
+                    "A safety backup of the previous database has been created.\n\n" +
+                    "The application will now RESTART to apply changes.\n\n" +
+                    "Please wait for the application to restart automatically.",
+                    "Restore Success",
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Information);
+
+                _logger.LogInformation("Restarting application after successful restore");
+
+                // RESTART APPLICATION
+                try
+                {
+                    var currentExecutable = System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName;
+                    if (!string.IsNullOrEmpty(currentExecutable))
+                    {
+                        System.Diagnostics.Process.Start(currentExecutable);
+                        _logger.LogInformation("Started new application instance");
+                    }
+                }
+                catch (Exception restartEx)
+                {
+                    _logger.LogError(restartEx, "Failed to restart application automatically");
+                }
+
+                // Shutdown current instance
+                System.Windows.Application.Current.Shutdown();
+            }
+            else
+            {
+                StatusText = "Database restore failed";
+                _logger.LogError("Database restore failed: {Error}", result.Error);
+
+                System.Windows.MessageBox.Show(
+                    $"Database restore failed:\n\n{result.Error}\n\n" +
+                    $"The current database has been preserved.\n\n" +
+                    $"Please check:\n" +
+                    $"- Backup file is valid\n" +
+                    $"- Backup file is not corrupted\n" +
+                    $"- Sufficient disk space available\n" +
+                    $"- Database is not locked by another process",
                     "Restore Error",
                     System.Windows.MessageBoxButton.OK,
                     System.Windows.MessageBoxImage.Error);
             }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error restoring database backup");
+            StatusText = "Database restore failed";
+            System.Windows.MessageBox.Show(
+                $"Error restoring backup:\n\n{ex.Message}\n\n" +
+                $"The current database has been preserved.",
+                "Error",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Error);
         }
     }
 
