@@ -1,0 +1,537 @@
+<Window x:Class="DigitalSignage.Server.Views.TokenManagementWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:converters="clr-namespace:DigitalSignage.Server.Converters"
+        mc:Ignorable="d"
+        Title="Client Registration Tokens"
+        Height="700"
+        Width="1100"
+        WindowStartupLocation="CenterScreen"
+        Background="#F5F5F5">
+    <Window.Resources>
+        <!-- Converters -->
+        <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+        <converters:ZeroToVisibilityConverter x:Key="ZeroToVisibilityConverter"/>
+        <converters:NullToVisibilityConverter x:Key="NullToVisibilityConverter" Invert="True"/>
+
+        <!-- Drop Shadow Effect -->
+        <DropShadowEffect x:Key="DropShadowEffect" BlurRadius="15" ShadowDepth="2" Opacity="0.3"/>
+        <!-- Card Style -->
+        <Style x:Key="CardStyle" TargetType="Border">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#E0E0E0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="Padding" Value="15"/>
+            <Setter Property="Margin" Value="0,0,0,10"/>
+        </Style>
+
+        <!-- Primary Button Style -->
+        <Style x:Key="PrimaryButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#2196F3"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="15,8"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="MinWidth" Value="100"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                CornerRadius="3"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#1976D2"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="#CCCCCC"/>
+                    <Setter Property="Cursor" Value="Arrow"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Secondary Button Style -->
+        <Style x:Key="SecondaryButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Foreground" Value="#333333"/>
+            <Setter Property="BorderBrush" Value="#CCCCCC"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="15,8"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="MinWidth" Value="100"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="3"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#F5F5F5"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="#F5F5F5"/>
+                    <Setter Property="Foreground" Value="#CCCCCC"/>
+                    <Setter Property="Cursor" Value="Arrow"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Danger Button Style -->
+        <Style x:Key="DangerButtonStyle" TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+            <Setter Property="Foreground" Value="#D32F2F"/>
+            <Setter Property="BorderBrush" Value="#D32F2F"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#FFEBEE"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Status Badge Style -->
+        <Style x:Key="StatusBadgeStyle" TargetType="Border">
+            <Setter Property="CornerRadius" Value="3"/>
+            <Setter Property="Padding" Value="6,2"/>
+            <Setter Property="Margin" Value="0"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Border Grid.Row="0" Style="{StaticResource CardStyle}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Client Registration Tokens" FontSize="20" FontWeight="SemiBold" Foreground="#333333"/>
+                    <TextBlock Text="Manage tokens for client device registration" Foreground="#757575" Margin="0,5,0,0"/>
+                </StackPanel>
+
+                <Button Grid.Column="1"
+                        Content="+ Add Token"
+                        Style="{StaticResource PrimaryButtonStyle}"
+                        Command="{Binding OpenAddTokenDialogCommand}"/>
+            </Grid>
+        </Border>
+
+        <!-- Token List -->
+        <Border Grid.Row="1" Style="{StaticResource CardStyle}" Margin="0,10,0,0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- Column Headers -->
+                <Grid Grid.Row="0" Background="#F5F5F5" Margin="-15,-15,-15,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="200"/>
+                        <ColumnDefinition Width="300"/>
+                        <ColumnDefinition Width="150"/>
+                        <ColumnDefinition Width="150"/>
+                        <ColumnDefinition Width="100"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Grid.Column="0" Text="Created" FontWeight="SemiBold" Padding="15,10" Foreground="#333333"/>
+                    <TextBlock Grid.Column="1" Text="Description" FontWeight="SemiBold" Padding="15,10" Foreground="#333333"/>
+                    <TextBlock Grid.Column="2" Text="Expiration" FontWeight="SemiBold" Padding="15,10" Foreground="#333333"/>
+                    <TextBlock Grid.Column="3" Text="Uses" FontWeight="SemiBold" Padding="15,10" Foreground="#333333"/>
+                    <TextBlock Grid.Column="4" Text="Status" FontWeight="SemiBold" Padding="15,10" Foreground="#333333"/>
+                    <TextBlock Grid.Column="5" Text="Restrictions" FontWeight="SemiBold" Padding="15,10" Foreground="#333333"/>
+                </Grid>
+
+                <!-- Token DataGrid -->
+                <DataGrid Grid.Row="1"
+                          ItemsSource="{Binding Tokens}"
+                          SelectedItem="{Binding SelectedToken}"
+                          AutoGenerateColumns="False"
+                          IsReadOnly="True"
+                          GridLinesVisibility="Horizontal"
+                          HeadersVisibility="None"
+                          RowHeight="60"
+                          BorderThickness="0"
+                          Background="White"
+                          Margin="0,10,0,0"
+                          SelectionMode="Single"
+                          CanUserResizeRows="False">
+                    <DataGrid.Columns>
+                        <!-- Created Date -->
+                        <DataGridTextColumn Width="200" Binding="{Binding CreatedAt, StringFormat='{}{0:yyyy-MM-dd HH:mm}'}">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Padding" Value="15,0"/>
+                                    <Setter Property="VerticalAlignment" Value="Center"/>
+                                    <Setter Property="Foreground" Value="#333333"/>
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+
+                        <!-- Description -->
+                        <DataGridTextColumn Width="300" Binding="{Binding Description}">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Padding" Value="15,0"/>
+                                    <Setter Property="VerticalAlignment" Value="Center"/>
+                                    <Setter Property="TextWrapping" Value="Wrap"/>
+                                    <Setter Property="Foreground" Value="#333333"/>
+                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+
+                        <!-- Expiration -->
+                        <DataGridTemplateColumn Width="150">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Padding="15,0" VerticalAlignment="Center">
+                                        <TextBlock.Text>
+                                            <MultiBinding StringFormat="{}{0}">
+                                                <Binding Path="ExpiresAt" StringFormat="{}{0:yyyy-MM-dd}"/>
+                                            </MultiBinding>
+                                        </TextBlock.Text>
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="#666666"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding ExpiresAt}" Value="{x:Null}">
+                                                        <Setter Property="Text" Value="Never"/>
+                                                        <Setter Property="FontStyle" Value="Italic"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+
+                        <!-- Uses -->
+                        <DataGridTemplateColumn Width="150">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Padding="15,0" VerticalAlignment="Center" Foreground="#666666">
+                                        <TextBlock.Text>
+                                            <MultiBinding StringFormat="{}{0} / {1}">
+                                                <Binding Path="UsesCount"/>
+                                                <Binding Path="MaxUses" TargetNullValue="∞"/>
+                                            </MultiBinding>
+                                        </TextBlock.Text>
+                                    </TextBlock>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+
+                        <!-- Status Badge -->
+                        <DataGridTemplateColumn Width="100">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Border HorizontalAlignment="Left" Margin="15,0">
+                                        <Border.Style>
+                                            <Style TargetType="Border" BasedOn="{StaticResource StatusBadgeStyle}">
+                                                <Setter Property="Background" Value="#4CAF50"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsUsed}" Value="True">
+                                                        <Setter Property="Background" Value="#9E9E9E"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <TextBlock Foreground="White" FontSize="11" FontWeight="SemiBold">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Text" Value="ACTIVE"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsUsed}" Value="True">
+                                                            <Setter Property="Text" Value="REVOKED"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Border>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+
+                        <!-- Restrictions -->
+                        <DataGridTemplateColumn Width="*">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Vertical" Margin="15,5" VerticalAlignment="Center">
+                                        <TextBlock FontSize="11" Foreground="#666666" TextWrapping="Wrap">
+                                            <TextBlock.Text>
+                                                <MultiBinding StringFormat="{}MAC: {0}">
+                                                    <Binding Path="AllowedMacAddress"/>
+                                                </MultiBinding>
+                                            </TextBlock.Text>
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding AllowedMacAddress}" Value="">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding AllowedMacAddress}" Value="{x:Null}">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                        <TextBlock FontSize="11" Foreground="#666666" TextWrapping="Wrap">
+                                            <TextBlock.Text>
+                                                <MultiBinding StringFormat="{}Group: {0}">
+                                                    <Binding Path="AllowedGroup"/>
+                                                </MultiBinding>
+                                            </TextBlock.Text>
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding AllowedGroup}" Value="">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding AllowedGroup}" Value="{x:Null}">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                        <TextBlock FontSize="11" Foreground="#666666" TextWrapping="Wrap">
+                                            <TextBlock.Text>
+                                                <MultiBinding StringFormat="{}Location: {0}">
+                                                    <Binding Path="AllowedLocation"/>
+                                                </MultiBinding>
+                                            </TextBlock.Text>
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding AllowedLocation}" Value="">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding AllowedLocation}" Value="{x:Null}">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+
+                    <DataGrid.RowStyle>
+                        <Style TargetType="DataGridRow">
+                            <Setter Property="Background" Value="White"/>
+                            <Setter Property="BorderBrush" Value="#E0E0E0"/>
+                            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                            <Style.Triggers>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter Property="Background" Value="#E3F2FD"/>
+                                </Trigger>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Background" Value="#F5F5F5"/>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </DataGrid.RowStyle>
+                </DataGrid>
+
+                <!-- Empty State -->
+                <StackPanel Grid.Row="1"
+                            VerticalAlignment="Center"
+                            HorizontalAlignment="Center"
+                            Visibility="{Binding Tokens.Count, Converter={StaticResource ZeroToVisibilityConverter}}">
+                    <TextBlock Text="📝" FontSize="48" HorizontalAlignment="Center" Margin="0,0,0,10"/>
+                    <TextBlock Text="No tokens yet" FontSize="16" FontWeight="SemiBold" Foreground="#757575" HorizontalAlignment="Center"/>
+                    <TextBlock Text="Click 'Add Token' to create your first registration token" Foreground="#9E9E9E" HorizontalAlignment="Center" Margin="0,5,0,0"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Action Buttons and Status -->
+        <Grid Grid.Row="2" Margin="0,10,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Action Buttons -->
+            <StackPanel Grid.Column="0" Orientation="Horizontal">
+                <Button Content="Copy Token"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        Command="{Binding CopyTokenCommand}"
+                        Margin="0,0,10,0"/>
+                <Button Content="Revoke"
+                        Style="{StaticResource DangerButtonStyle}"
+                        Command="{Binding RevokeTokenCommand}"
+                        Margin="0,0,10,0"/>
+                <Button Content="Delete"
+                        Style="{StaticResource DangerButtonStyle}"
+                        Command="{Binding DeleteTokenCommand}"/>
+            </StackPanel>
+
+            <!-- Status Message -->
+            <TextBlock Grid.Column="1"
+                       Text="{Binding StatusMessage}"
+                       VerticalAlignment="Center"
+                       HorizontalAlignment="Center"
+                       Foreground="#757575"
+                       FontStyle="Italic"/>
+
+            <!-- Close and Refresh Buttons -->
+            <StackPanel Grid.Column="2" Orientation="Horizontal">
+                <Button Content="🔄 Refresh"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        Command="{Binding RefreshCommand}"
+                        Margin="0,0,10,0"/>
+                <Button Content="Close"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        Click="CloseButton_Click"/>
+            </StackPanel>
+        </Grid>
+
+        <!-- Add Token Dialog Overlay -->
+        <Border Grid.Row="0" Grid.RowSpan="3"
+                Background="#AA000000"
+                Visibility="{Binding IsAddTokenDialogOpen, Converter={StaticResource BoolToVisibilityConverter}}">
+            <Border Background="White"
+                    CornerRadius="8"
+                    Padding="25"
+                    MaxWidth="600"
+                    VerticalAlignment="Center"
+                    HorizontalAlignment="Center"
+                    Effect="{StaticResource DropShadowEffect}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Dialog Header -->
+                    <TextBlock Grid.Row="0"
+                               Text="Create New Registration Token"
+                               FontSize="18"
+                               FontWeight="SemiBold"
+                               Foreground="#333333"
+                               Margin="0,0,0,20"/>
+
+                    <!-- Dialog Content -->
+                    <ScrollViewer Grid.Row="1" MaxHeight="400" VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                            <!-- Description -->
+                            <TextBlock Text="Description *" FontWeight="SemiBold" Foreground="#333333" Margin="0,0,0,5"/>
+                            <TextBox Text="{Binding NewTokenDescription, UpdateSourceTrigger=PropertyChanged}"
+                                     Padding="10"
+                                     BorderBrush="#CCCCCC"
+                                     BorderThickness="1"
+                                     Margin="0,0,0,15"/>
+
+                            <!-- Expiration -->
+                            <CheckBox Content="Set expiration date"
+                                      IsChecked="{Binding NewTokenHasExpiration}"
+                                      Margin="0,0,0,10"/>
+                            <DatePicker SelectedDate="{Binding NewTokenExpirationDate}"
+                                        IsEnabled="{Binding NewTokenHasExpiration}"
+                                        Margin="0,0,0,15"
+                                        Padding="10"
+                                        BorderBrush="#CCCCCC"/>
+
+                            <!-- Max Uses -->
+                            <CheckBox Content="Limit number of uses"
+                                      IsChecked="{Binding NewTokenHasMaxUses}"
+                                      Margin="0,0,0,10"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,15">
+                                <TextBlock Text="Max uses:" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                <TextBox Text="{Binding NewTokenMaxUses, UpdateSourceTrigger=PropertyChanged}"
+                                         IsEnabled="{Binding NewTokenHasMaxUses}"
+                                         Width="100"
+                                         Padding="10"
+                                         BorderBrush="#CCCCCC"
+                                         BorderThickness="1"/>
+                            </StackPanel>
+
+                            <!-- Optional Restrictions -->
+                            <TextBlock Text="Optional Restrictions" FontWeight="SemiBold" Foreground="#333333" Margin="0,10,0,10"/>
+
+                            <TextBlock Text="Allowed MAC Address" Foreground="#666666" Margin="0,0,0,5"/>
+                            <TextBox Text="{Binding NewTokenAllowedMacAddress, UpdateSourceTrigger=PropertyChanged}"
+                                     Padding="10"
+                                     BorderBrush="#CCCCCC"
+                                     BorderThickness="1"
+                                     Margin="0,0,0,15"/>
+
+                            <TextBlock Text="Auto-assign Group" Foreground="#666666" Margin="0,0,0,5"/>
+                            <TextBox Text="{Binding NewTokenAllowedGroup, UpdateSourceTrigger=PropertyChanged}"
+                                     Padding="10"
+                                     BorderBrush="#CCCCCC"
+                                     BorderThickness="1"
+                                     Margin="0,0,0,15"/>
+
+                            <TextBlock Text="Auto-assign Location" Foreground="#666666" Margin="0,0,0,5"/>
+                            <TextBox Text="{Binding NewTokenAllowedLocation, UpdateSourceTrigger=PropertyChanged}"
+                                     Padding="10"
+                                     BorderBrush="#CCCCCC"
+                                     BorderThickness="1"
+                                     Margin="0,0,0,0"/>
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <!-- Dialog Actions -->
+                    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+                        <Button Content="Cancel"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                Command="{Binding CancelAddTokenCommand}"
+                                Margin="0,0,10,0"/>
+                        <Button Content="Create Token"
+                                Style="{StaticResource PrimaryButtonStyle}"
+                                Command="{Binding AddTokenCommand}"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Border>
+
+        <!-- Loading Overlay -->
+        <Border Grid.Row="0" Grid.RowSpan="3"
+                Background="#AA000000"
+                Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibilityConverter}}">
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                <TextBlock Text="⏳" FontSize="48" HorizontalAlignment="Center"/>
+                <TextBlock Text="Loading..." Foreground="White" FontSize="16" HorizontalAlignment="Center" Margin="0,10,0,0"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

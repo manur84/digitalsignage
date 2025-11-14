@@ -6,6 +6,8 @@ namespace DigitalSignage.Server.Converters;
 
 public class BoolToVisibilityConverter : IValueConverter
 {
+    public static BoolToVisibilityConverter Instance { get; } = new();
+
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
     {
         if (value is bool boolValue)

@@ -26,8 +26,8 @@ The Digital Signage Server has **21 registered services** in App.xaml.cs. This r
 - ~~Configuration Classes with no UI editor~~ → **Settings Dialog now provides comprehensive UI**
 
 **Remaining Work:**
-- **5 MEDIUM Priority** items (Template Manager, Client Tokens, Discovery UI, System Diagnostics, Logs Enhancements)
-- **4 LOW Priority** items (Server Config merge, Data Refresh UI, Query Cache UI, Connection Pool UI)
+- **4 MEDIUM Priority** items (Discovery UI, System Diagnostics, Logs Enhancements, Server Config merge)
+- **3 LOW Priority** items (Data Refresh UI, Query Cache UI, Connection Pool UI)
 
 ---
 
@@ -188,26 +188,44 @@ These menu items exist in MainWindow.xaml but have **no backing Command in MainV
 
 ---
 
-### 7. Client Registration Tokens Command
+### 7. Client Registration Tokens Command ✅ **COMPLETED**
 - **Menu Location:** Tools → Client Registration Tokens (🔑)
-- **Backend Status:** Token-based auth implemented in ClientService
-- **UI Status:** ❌ Command NOT implemented
-- **What's Missing:**
-  - No ClientTokensCommand in MainViewModel
-  - No token management UI
-  - Cannot generate new tokens
-  - Cannot revoke tokens
-  - Cannot list active tokens
-- **Backend Features:**
-  - Token-based client registration (from appsettings.json)
-  - Currently hardcoded in configuration
+- **Backend Status:** Token-based auth implemented in AuthenticationService
+- **UI Status:** ✅ **FULLY IMPLEMENTED**
+- **Implementation Details:**
+  - ✅ ClientTokensCommand implemented in MainViewModel
+  - ✅ TokenManagementWindow.xaml with full CRUD interface
+  - ✅ TokenManagementViewModel with CommunityToolkit.Mvvm
+  - ✅ Database integration with ClientRegistrationToken entity
+- **Features Implemented:**
+  - ✅ Token list display with DataGrid (creation date, description, expiration, usage count, status)
+  - ✅ Generate new registration tokens (GUID-based, secure)
+  - ✅ Token properties: Description, Expiration date, Max uses, Restrictions
+  - ✅ Revoke tokens (mark as inactive)
+  - ✅ Delete tokens (with confirmation)
+  - ✅ Copy token to clipboard
+  - ✅ Auto-assign groups and locations
+  - ✅ MAC address restrictions
+  - ✅ Token status badges (Active/Revoked)
+  - ✅ Empty state message
+  - ✅ Loading overlay
+  - ✅ Add token dialog with all options
+  - ✅ Real-time token validation in backend
+  - ✅ Token consumption tracking
+  - ✅ Error handling and validation
+- **Files Created:**
+  - /src/DigitalSignage.Server/ViewModels/TokenManagementViewModel.cs (391 lines)
+  - /src/DigitalSignage.Server/Views/TokenManagementWindow.xaml (534 lines)
+  - /src/DigitalSignage.Server/Views/TokenManagementWindow.xaml.cs
+  - /src/DigitalSignage.Server/Converters/ZeroToVisibilityConverter.cs
+- **Files Modified:**
+  - MainViewModel.cs - Added ClientTokensCommand
+  - App.xaml.cs - Registered TokenManagementViewModel
+  - BoolToVisibilityConverter.cs - Added static Instance property
+  - NullToVisibilityConverter.cs - Added static Instance property
 - **Priority:** 🟡 **MEDIUM** - Security feature
-- **Estimated Effort:** Medium (3-4 hours)
-  - Create TokenManagementWindow.xaml
-  - Implement token generation (GUID-based)
-  - Add token list with creation date
-  - Add revoke functionality
-  - Store tokens in database (AlertRules table exists)
+- **Status:** ✅ **COMPLETED** - Full token management with comprehensive UI
+- **Completion Date:** 2025-11-14
 
 ---
 

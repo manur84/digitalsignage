@@ -234,6 +234,33 @@ public partial class MainViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
+    private async Task ClientTokens()
+    {
+        try
+        {
+            _logger.LogInformation("Opening Client Registration Tokens window");
+            StatusText = "Opening token management...";
+
+            var viewModel = _serviceProvider.GetRequiredService<TokenManagementViewModel>();
+            var window = new Views.TokenManagementWindow(viewModel)
+            {
+                Owner = System.Windows.Application.Current.MainWindow
+            };
+
+            window.ShowDialog();
+            StatusText = "Token management window closed";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error opening token management window");
+            StatusText = $"Error opening token management: {ex.Message}";
+            await _dialogService.ShowErrorAsync(
+                $"Failed to open token management window:\n\n{ex.Message}",
+                "Token Management Error");
+        }
+    }
+
+    [RelayCommand]
     private void Logs()
     {
         // Switch to Logs tab - assuming TabControl can be accessed
@@ -527,26 +554,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     #endregion
 
     #region Placeholder Commands (Future Implementation)
-
-    [RelayCommand]
-    private async Task ClientTokens()
-    {
-        StatusText = "Opening Client Registration Tokens...";
-
-        await _dialogService.ShowInformationAsync(
-            "Client Registration Tokens\n\n" +
-            "Manage tokens for client device registration.\n\n" +
-            "Features:\n" +
-            "• Generate new registration tokens\n" +
-            "• Set token expiration\n" +
-            "• Limit token usage count\n" +
-            "• Assign groups and locations\n" +
-            "• Restrict by MAC address\n\n" +
-            "Token-based registration ensures secure\n" +
-            "client onboarding.",
-            "Client Registration Tokens");
-    }
-
+    // ClientTokens command moved to implemented section above
     #endregion
 
     public void Dispose()

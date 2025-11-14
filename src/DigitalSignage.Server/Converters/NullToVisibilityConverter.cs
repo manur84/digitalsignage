@@ -9,6 +9,8 @@ namespace DigitalSignage.Server.Converters;
 /// </summary>
 public class NullToVisibilityConverter : IValueConverter
 {
+    public static NullToVisibilityConverter Instance { get; } = new() { Invert = true };
+
     public bool Invert { get; set; }
 
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
