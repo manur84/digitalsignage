@@ -617,7 +617,9 @@ for file in "${REQUIRED_FILES[@]}"; do
         cp "$SCRIPT_DIR/$file" "$INSTALL_DIR/"
         check_error "Failed to copy $file"
         ((COPIED_COUNT++))
+        echo "  ✓ $file"
     else
+        echo -e "  ${RED}✗ Missing: $file${NC}"
         MISSING_FILES+=("$file")
     fi
 done
