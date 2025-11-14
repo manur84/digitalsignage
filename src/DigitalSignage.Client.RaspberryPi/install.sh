@@ -279,6 +279,7 @@ cp cache_manager.py "$INSTALL_DIR/"
 cp watchdog_monitor.py "$INSTALL_DIR/"
 cp status_screen.py "$INSTALL_DIR/"
 cp start-with-display.sh "$INSTALL_DIR/"
+cp wait-for-x11.sh "$INSTALL_DIR/" 2>/dev/null || echo "Note: wait-for-x11.sh not found (optional)"
 cp remote_log_handler.py "$INSTALL_DIR/" 2>/dev/null || echo "Note: remote_log_handler.py not found (optional)"
 cp diagnose.sh "$INSTALL_DIR/" 2>/dev/null || echo "Note: diagnose.sh not found (optional)"
 cp fix-installation.sh "$INSTALL_DIR/" 2>/dev/null || echo "Note: fix-installation.sh not found (optional)"
@@ -306,6 +307,7 @@ fi
 # Make scripts executable
 chmod +x "$INSTALL_DIR/client.py"
 chmod +x "$INSTALL_DIR/start-with-display.sh"
+chmod +x "$INSTALL_DIR/wait-for-x11.sh" 2>/dev/null || true
 chmod +x "$INSTALL_DIR/diagnose.sh" 2>/dev/null || true
 chmod +x "$INSTALL_DIR/fix-installation.sh" 2>/dev/null || true
 chmod +x "$INSTALL_DIR/enable-autologin-x11.sh" 2>/dev/null || true
@@ -378,7 +380,7 @@ else
     cat > /etc/systemd/system/digitalsignage-client.service <<EOF
 [Unit]
 Description=Digital Signage Client
-After=network-online.target graphical.target
+After=network-online.target graphical.target multi-user.target
 Wants=network-online.target
 
 [Service]
@@ -386,10 +388,16 @@ Type=simple
 User=$ACTUAL_USER
 Group=$ACTUAL_USER
 WorkingDirectory=$INSTALL_DIR
+Environment="PYTHONUNBUFFERED=1"
+Environment="QT_QPA_PLATFORM=xcb"
 Environment="DISPLAY=:0"
 Environment="XAUTHORITY=$USER_HOME/.Xauthority"
-ExecStartPre=/bin/sleep 2
-ExecStart=$VENV_DIR/bin/python3 $INSTALL_DIR/client.py
+
+# Wait for X11 to be ready (critical for autostart)
+ExecStartPre=/bin/bash -c 'for i in {1..30}; do if DISPLAY=:0 xset q &>/dev/null 2>&1; then echo "X11 ready"; exit 0; fi; echo "Waiting for X11... (\$i/30)"; sleep 1; done; exit 0'
+ExecStartPre=/bin/bash -c 'test -f $INSTALL_DIR/start-with-display.sh || exit 1'
+ExecStart=$INSTALL_DIR/start-with-display.sh
+
 Restart=always
 RestartSec=10
 StandardOutput=journal

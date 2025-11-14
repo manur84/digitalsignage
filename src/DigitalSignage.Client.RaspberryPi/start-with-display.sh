@@ -109,20 +109,32 @@ log_message "=========================================="
 
 # Check if X11 is already running and accessible
 log_message "Checking for existing X11 display..."
-if xset q &>/dev/null; then
-    log_message "✓ X11 display detected"
-    export DISPLAY=${DISPLAY:-:0}
-    log_message "Using DISPLAY=$DISPLAY"
 
-    # Verify we can query the display
-    if xdpyinfo -display "$DISPLAY" &>/dev/null; then
-        log_message "✓ Display is accessible and responding"
-    else
-        log_message "⚠ Display exists but may have access issues"
+# Try multiple displays in order of preference
+DISPLAY_CANDIDATES=(":0" ":1" "${DISPLAY}")
+X11_FOUND=false
+
+for DISPLAY_TEST in "${DISPLAY_CANDIDATES[@]}"; do
+    if [ -n "$DISPLAY_TEST" ] && DISPLAY="$DISPLAY_TEST" xset q &>/dev/null 2>&1; then
+        log_message "✓ X11 display detected on $DISPLAY_TEST"
+        export DISPLAY="$DISPLAY_TEST"
+        X11_FOUND=true
+
+        # Verify we can query the display
+        if xdpyinfo -display "$DISPLAY" &>/dev/null 2>&1; then
+            log_message "✓ Display is accessible and responding"
+        else
+            log_message "⚠ Display exists but may have access issues"
+        fi
+        break
     fi
-else
-    log_message "No X11 display found, starting virtual framebuffer (Xvfb)"
+done
+
+if [ "$X11_FOUND" = false ]; then
+    log_message "No X11 display found on any candidate display"
+    log_message "Starting virtual framebuffer (Xvfb)"
     log_message "This is normal for headless/testing environments"
+    log_message "⚠ If you have HDMI connected, this indicates X11 hasn't started yet"
 
     # Check if Xvfb is installed
     if ! command -v Xvfb &>/dev/null; then
