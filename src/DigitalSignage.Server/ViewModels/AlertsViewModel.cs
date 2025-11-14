@@ -138,7 +138,7 @@ public partial class AlertsViewModel : ObservableObject, IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error loading alert data");
-            MessageBox.Show($"Failed to load alert data: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            await _dialogService.ShowErrorAsync($"Failed to load alert data: {ex.Message}", "Error");
         }
         finally
         {
@@ -257,14 +257,14 @@ public partial class AlertsViewModel : ObservableObject, IDisposable
                 AlertRules.Add(viewModel.CurrentRule);
                 _logger.LogInformation("Created alert rule: {RuleName}", viewModel.CurrentRule.Name);
 
-                MessageBox.Show($"Alert rule '{viewModel.CurrentRule.Name}' created successfully.",
-                    "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+                await _dialogService.ShowInformationAsync($"Alert rule '{viewModel.CurrentRule.Name}' created successfully.",
+                    "Success");
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error creating alert rule");
-            MessageBox.Show($"Failed to create alert rule: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            await _dialogService.ShowErrorAsync($"Failed to create alert rule: {ex.Message}", "Error");
         }
     }
 
@@ -295,14 +295,14 @@ public partial class AlertsViewModel : ObservableObject, IDisposable
                 await LoadAlertRulesAsync();
                 _logger.LogInformation("Updated alert rule: {RuleName}", viewModel.CurrentRule.Name);
 
-                MessageBox.Show($"Alert rule '{viewModel.CurrentRule.Name}' updated successfully.",
-                    "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+                await _dialogService.ShowInformationAsync($"Alert rule '{viewModel.CurrentRule.Name}' updated successfully.",
+                    "Success");
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error editing alert rule");
-            MessageBox.Show($"Failed to edit alert rule: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            await _dialogService.ShowErrorAsync($"Failed to edit alert rule: {ex.Message}", "Error");
         }
     }
 
@@ -316,13 +316,11 @@ public partial class AlertsViewModel : ObservableObject, IDisposable
     {
         if (SelectedAlertRule == null) return;
 
-        var result = MessageBox.Show(
+        var confirmed = await _dialogService.ShowConfirmationAsync(
             $"Are you sure you want to delete the alert rule '{SelectedAlertRule.Name}'?\n\nThis will also delete all alerts triggered by this rule.",
-            "Confirm Delete",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Warning);
+            "Confirm Delete");
 
-        if (result != MessageBoxResult.Yes) return;
+        if (!confirmed) return;
 
         try
         {
@@ -336,8 +334,8 @@ public partial class AlertsViewModel : ObservableObject, IDisposable
                 AlertRules.Remove(SelectedAlertRule);
                 _logger.LogInformation("Deleted alert rule: {RuleName}", rule.Name);
 
-                MessageBox.Show($"Alert rule '{rule.Name}' deleted successfully.",
-                    "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+                await _dialogService.ShowInformationAsync($"Alert rule '{rule.Name}' deleted successfully.",
+                    "Success");
 
                 await LoadAlertsAsync(); // Refresh alerts
             }
@@ -345,7 +343,7 @@ public partial class AlertsViewModel : ObservableObject, IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error deleting alert rule");
-            MessageBox.Show($"Failed to delete alert rule: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            await _dialogService.ShowErrorAsync($"Failed to delete alert rule: {ex.Message}", "Error");
         }
     }
 
@@ -365,13 +363,13 @@ public partial class AlertsViewModel : ObservableObject, IDisposable
             await _alertService.EvaluateRuleAsync(SelectedAlertRule);
             await LoadAlertsAsync();
 
-            MessageBox.Show($"Alert rule '{SelectedAlertRule.Name}' evaluated.\n\nCheck the alerts list to see if any alerts were triggered.",
-                "Test Complete", MessageBoxButton.OK, MessageBoxImage.Information);
+            await _dialogService.ShowInformationAsync($"Alert rule '{SelectedAlertRule.Name}' evaluated.\n\nCheck the alerts list to see if any alerts were triggered.",
+                "Test Complete");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error testing alert rule");
-            MessageBox.Show($"Failed to test alert rule: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            await _dialogService.ShowErrorAsync($"Failed to test alert rule: {ex.Message}", "Error");
         }
         finally
         {
@@ -409,7 +407,7 @@ public partial class AlertsViewModel : ObservableObject, IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error toggling alert rule");
-            MessageBox.Show($"Failed to toggle alert rule: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            await _dialogService.ShowErrorAsync($"Failed to toggle alert rule: {ex.Message}", "Error");
         }
     }
 
@@ -436,7 +434,7 @@ public partial class AlertsViewModel : ObservableObject, IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error acknowledging alert");
-            MessageBox.Show($"Failed to acknowledge alert: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            await _dialogService.ShowErrorAsync($"Failed to acknowledge alert: {ex.Message}", "Error");
         }
     }
 
@@ -450,17 +448,15 @@ public partial class AlertsViewModel : ObservableObject, IDisposable
     {
         if (UnreadAlertCount == 0)
         {
-            MessageBox.Show("No unread alerts to acknowledge.", "Info", MessageBoxButton.OK, MessageBoxImage.Information);
+            await _dialogService.ShowInformationAsync("No unread alerts to acknowledge.", "Info");
             return;
         }
 
-        var result = MessageBox.Show(
+        var confirmed = await _dialogService.ShowConfirmationAsync(
             $"Are you sure you want to acknowledge all {UnreadAlertCount} unread alerts?",
-            "Confirm Acknowledge All",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question);
+            "Confirm Acknowledge All");
 
-        if (result != MessageBoxResult.Yes) return;
+        if (!confirmed) return;
 
         try
         {
@@ -481,12 +477,12 @@ public partial class AlertsViewModel : ObservableObject, IDisposable
             await LoadAlertsAsync();
 
             _logger.LogInformation("Acknowledged all {Count} unread alerts", unreadAlerts.Count);
-            MessageBox.Show($"Acknowledged {unreadAlerts.Count} alerts.", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+            await _dialogService.ShowInformationAsync($"Acknowledged {unreadAlerts.Count} alerts.", "Success");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error acknowledging all alerts");
-            MessageBox.Show($"Failed to acknowledge alerts: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            await _dialogService.ShowErrorAsync($"Failed to acknowledge alerts: {ex.Message}", "Error");
         }
         finally
         {
@@ -514,7 +510,7 @@ public partial class AlertsViewModel : ObservableObject, IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error resolving alert");
-            MessageBox.Show($"Failed to resolve alert: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            await _dialogService.ShowErrorAsync($"Failed to resolve alert: {ex.Message}", "Error");
         }
     }
 
@@ -528,13 +524,11 @@ public partial class AlertsViewModel : ObservableObject, IDisposable
     {
         if (SelectedAlert == null) return;
 
-        var result = MessageBox.Show(
+        var confirmed = await _dialogService.ShowConfirmationAsync(
             "Are you sure you want to delete this alert?",
-            "Confirm Delete",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Warning);
+            "Confirm Delete");
 
-        if (result != MessageBoxResult.Yes) return;
+        if (!confirmed) return;
 
         try
         {
@@ -552,7 +546,7 @@ public partial class AlertsViewModel : ObservableObject, IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error deleting alert");
-            MessageBox.Show($"Failed to delete alert: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            await _dialogService.ShowErrorAsync($"Failed to delete alert: {ex.Message}", "Error");
         }
     }
 
@@ -571,17 +565,15 @@ public partial class AlertsViewModel : ObservableObject, IDisposable
 
             if (resolvedCount == 0)
             {
-                MessageBox.Show("No resolved alerts to clear.", "Info", MessageBoxButton.OK, MessageBoxImage.Information);
+                await _dialogService.ShowInformationAsync("No resolved alerts to clear.", "Info");
                 return;
             }
 
-            var result = MessageBox.Show(
+            var confirmed = await _dialogService.ShowConfirmationAsync(
                 $"Are you sure you want to delete all {resolvedCount} resolved alerts?",
-                "Confirm Clear",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Warning);
+                "Confirm Clear");
 
-            if (result != MessageBoxResult.Yes) return;
+            if (!confirmed) return;
 
             IsLoading = true;
             var resolvedAlerts = await context.Alerts.Where(a => a.IsResolved).ToListAsync();
@@ -591,12 +583,12 @@ public partial class AlertsViewModel : ObservableObject, IDisposable
             await LoadAlertsAsync();
             _logger.LogInformation("Cleared {Count} resolved alerts", resolvedCount);
 
-            MessageBox.Show($"Cleared {resolvedCount} resolved alerts.", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+            await _dialogService.ShowInformationAsync($"Cleared {resolvedCount} resolved alerts.", "Success");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error clearing resolved alerts");
-            MessageBox.Show($"Failed to clear alerts: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            await _dialogService.ShowErrorAsync($"Failed to clear alerts: {ex.Message}", "Error");
         }
         finally
         {
