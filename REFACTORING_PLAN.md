@@ -1,9 +1,9 @@
 # Refactoring Plan: Digital Signage Management System
 
 **Date:** 2025-11-14 (Updated)
-**Status:** Phase 2/5 In Progress
+**Status:** Phase 4/5 Complete
 **Priority:** HIGH
-**Progress:** ~497 lines extracted from MainWindow.xaml (21% complete)
+**Progress:** ~875 lines extracted from MainWindow.xaml (36% complete)
 
 ---
 
@@ -17,7 +17,7 @@ This document outlines the comprehensive refactoring strategy for the Digital Si
 
 | File | Lines | Priority | Status | Action Required |
 |------|-------|----------|--------|-----------------|
-| **MainWindow.xaml** | 2411→~1914 | 🔴 HIGH | Phase 2/5 (~21% done) | Split into 15-20 UserControls |
+| **MainWindow.xaml** | 2411→~1536 | 🔴 HIGH | Phase 4/5 (~36% done) | Split into 15-20 UserControls |
 | **DesignerViewModel.cs** | 1262 | 🔴 HIGH | Pending | Extract services and commands |
 | **MainViewModel.cs** | 1075 | 🟡 MEDIUM | Acceptable | Optional: Extract command services |
 | **ClientService.cs** | 619 | 🟢 LOW | Excellent | No changes needed |
@@ -68,25 +68,32 @@ Views/Designer/
 - Testable independently
 - Clear boundaries between concerns
 
-#### Phase 3: Extract Device Management Tab
-**Target:** Reduce MainWindow by ~400 lines
+#### Phase 3: Extract Device Management Tab ✅ COMPLETE
+**Target:** Reduce MainWindow by ~174 lines
+**Status:** Complete (174 lines extracted)
 
 ```
 Views/DeviceManagement/
-├── DeviceManagementTabControl.xaml  (Main tab container)
-├── DeviceListControl.xaml           (Client DataGrid)
-└── DeviceDetailsPanelControl.xaml   (Right panel with commands)
+└── DeviceManagementTabControl.xaml  (Complete tab - 174 lines) ✅ COMPLETE
 ```
 
-#### Phase 4: Extract Data Sources Tab
-**Target:** Reduce MainWindow by ~500 lines
+**Completed:** Extracted complete Device Management tab with device list DataGrid and control panel in single file.
+
+#### Phase 4: Extract Data Sources Tab ✅ COMPLETE
+**Target:** Reduce MainWindow by ~183 lines
+**Status:** Complete (183 lines extracted)
 
 ```
 Views/DataSources/
-├── DataSourcesTabControl.xaml       (Main tab container)
-├── DataSourceListControl.xaml       (Data source list panel)
-└── DataSourceEditorControl.xaml     (Editor with SQL query builder)
+└── DataSourcesTabControl.xaml       (Complete tab - 183 lines) ✅ COMPLETE
 ```
+
+**Completed:** Extracted complete Data Sources tab with:
+- Data source list panel (left side)
+- Data source editor panel (right side)
+- Visual Query Builder with table/column/where/orderby fields
+- Static data JSON editor
+- Connection test functionality
 
 #### Phase 5: Extract Remaining Tabs
 **Target:** Reduce MainWindow by ~600 lines
