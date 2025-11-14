@@ -95,8 +95,11 @@ public partial class LogViewerViewModel : ObservableObject, IDisposable
 
     private void OnLogReceived(object? sender, LogEntry logEntry)
     {
-        // Add to collection on UI thread
-        System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+        // Add to collection on UI thread - check if already on UI thread first
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher == null) return;
+
+        if (dispatcher.CheckAccess())
         {
             Logs.Add(logEntry);
             LogCount = Logs.Count;
@@ -109,7 +112,24 @@ public partial class LogViewerViewModel : ObservableObject, IDisposable
 
             // Refresh filter
             FilteredLogs.Refresh();
-        });
+        }
+        else
+        {
+            dispatcher.InvokeAsync(() =>
+            {
+                Logs.Add(logEntry);
+                LogCount = Logs.Count;
+
+                // Update available clients if needed
+                if (!AvailableClients.Contains(logEntry.ClientId))
+                {
+                    AvailableClients.Add(logEntry.ClientId);
+                }
+
+                // Refresh filter
+                FilteredLogs.Refresh();
+            });
+        }
     }
 
     private bool FilterLogEntry(object obj)
@@ -212,7 +232,11 @@ public partial class LogViewerViewModel : ObservableObject, IDisposable
                 .OrderBy(log => log.Timestamp)
                 .ToList();
 
-            System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+            var dispatcher = System.Windows.Application.Current?.Dispatcher;
+            if (dispatcher == null) return;
+
+            // Check if already on UI thread to avoid unnecessary context switch
+            if (dispatcher.CheckAccess())
             {
                 Logs.Clear();
                 foreach (var log in logs)
@@ -220,7 +244,19 @@ public partial class LogViewerViewModel : ObservableObject, IDisposable
                     Logs.Add(log);
                 }
                 LogCount = Logs.Count;
-            });
+            }
+            else
+            {
+                dispatcher.InvokeAsync(() =>
+                {
+                    Logs.Clear();
+                    foreach (var log in logs)
+                    {
+                        Logs.Add(log);
+                    }
+                    LogCount = Logs.Count;
+                });
+            }
         });
     }
 
@@ -230,7 +266,11 @@ public partial class LogViewerViewModel : ObservableObject, IDisposable
         {
             var clients = await _clientService.GetAllClientsAsync();
 
-            System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+            var dispatcher = System.Windows.Application.Current?.Dispatcher;
+            if (dispatcher == null) return;
+
+            // Check if already on UI thread to avoid unnecessary context switch
+            if (dispatcher.CheckAccess())
             {
                 AvailableClients.Clear();
                 AvailableClients.Add("All Clients");
@@ -245,7 +285,26 @@ public partial class LogViewerViewModel : ObservableObject, IDisposable
                 {
                     SelectedClientId = "All Clients";
                 }
-            });
+            }
+            else
+            {
+                await dispatcher.InvokeAsync(() =>
+                {
+                    AvailableClients.Clear();
+                    AvailableClients.Add("All Clients");
+
+                    foreach (var client in clients.OrderBy(c => c.Name))
+                    {
+                        AvailableClients.Add(client.Id);
+                    }
+
+                    // Set default selection
+                    if (SelectedClientId == null && AvailableClients.Any())
+                    {
+                        SelectedClientId = "All Clients";
+                    }
+                });
+            }
         }
         catch (Exception ex)
         {

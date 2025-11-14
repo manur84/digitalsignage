@@ -126,7 +126,15 @@ public class DesignerItemControl : ContentControl
             e.PropertyName == nameof(DisplayElement.Size) ||
             e.PropertyName == nameof(DisplayElement.ZIndex))
         {
-            Dispatcher.Invoke(() => UpdateFromElement());
+            // Check if already on UI thread to avoid unnecessary context switch
+            if (Dispatcher.CheckAccess())
+            {
+                UpdateFromElement();
+            }
+            else
+            {
+                Dispatcher.InvokeAsync(() => UpdateFromElement());
+            }
         }
     }
 
@@ -134,11 +142,20 @@ public class DesignerItemControl : ContentControl
     {
         if (DisplayElement != null)
         {
-            Dispatcher.Invoke(() =>
+            // Check if already on UI thread to avoid unnecessary context switch
+            if (Dispatcher.CheckAccess())
             {
                 Canvas.SetLeft(this, DisplayElement.Position.X);
                 Canvas.SetTop(this, DisplayElement.Position.Y);
-            });
+            }
+            else
+            {
+                Dispatcher.InvokeAsync(() =>
+                {
+                    Canvas.SetLeft(this, DisplayElement.Position.X);
+                    Canvas.SetTop(this, DisplayElement.Position.Y);
+                });
+            }
         }
     }
 
@@ -146,11 +163,20 @@ public class DesignerItemControl : ContentControl
     {
         if (DisplayElement != null)
         {
-            Dispatcher.Invoke(() =>
+            // Check if already on UI thread to avoid unnecessary context switch
+            if (Dispatcher.CheckAccess())
             {
                 Width = DisplayElement.Size.Width;
                 Height = DisplayElement.Size.Height;
-            });
+            }
+            else
+            {
+                Dispatcher.InvokeAsync(() =>
+                {
+                    Width = DisplayElement.Size.Width;
+                    Height = DisplayElement.Size.Height;
+                });
+            }
         }
     }
 

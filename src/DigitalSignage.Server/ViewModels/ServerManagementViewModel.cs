@@ -65,7 +65,8 @@ public partial class ServerManagementViewModel : ObservableObject, IDisposable
             StatusText = "Server failed to start: Access Denied (URL ACL not configured)";
             _logger.LogError(ex, "Failed to start server due to URL ACL permissions");
 
-            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            // Check if already on UI thread to avoid unnecessary context switch
+            if (System.Windows.Application.Current.Dispatcher.CheckAccess())
             {
                 System.Windows.MessageBox.Show(
                     $"Access Denied - Cannot start server\n\n" +
@@ -83,7 +84,29 @@ public partial class ServerManagementViewModel : ObservableObject, IDisposable
                     "Permission Error - Digital Signage Server",
                     System.Windows.MessageBoxButton.OK,
                     System.Windows.MessageBoxImage.Warning);
-            });
+            }
+            else
+            {
+                System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    System.Windows.MessageBox.Show(
+                        $"Access Denied - Cannot start server\n\n" +
+                        $"Windows requires URL ACL registration to bind HTTP servers.\n\n" +
+                        $"SOLUTION 1 (Recommended - One-time setup):\n" +
+                        $"  1. Right-click setup-urlacl.bat in the application folder\n" +
+                        $"  2. Select 'Run as administrator'\n" +
+                        $"  3. Restart the application normally (no admin needed)\n\n" +
+                        $"SOLUTION 2 (Temporary):\n" +
+                        $"  Close this application and run as Administrator\n\n" +
+                        $"After running setup-urlacl.bat once, you will never need\n" +
+                        $"administrator privileges again for this application.\n\n" +
+                        $"Technical Details:\n" +
+                        $"{ex.Message}",
+                        "Permission Error - Digital Signage Server",
+                        System.Windows.MessageBoxButton.OK,
+                        System.Windows.MessageBoxImage.Warning);
+                });
+            }
         }
         catch (Exception ex)
         {
@@ -91,7 +114,8 @@ public partial class ServerManagementViewModel : ObservableObject, IDisposable
             StatusText = $"Failed to start server: {ex.Message}";
             _logger.LogError(ex, "Failed to start server");
 
-            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            // Check if already on UI thread to avoid unnecessary context switch
+            if (System.Windows.Application.Current.Dispatcher.CheckAccess())
             {
                 System.Windows.MessageBox.Show(
                     $"Failed to start Digital Signage Server\n\n" +
@@ -104,7 +128,24 @@ public partial class ServerManagementViewModel : ObservableObject, IDisposable
                     "Startup Error - Digital Signage Server",
                     System.Windows.MessageBoxButton.OK,
                     System.Windows.MessageBoxImage.Error);
-            });
+            }
+            else
+            {
+                System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    System.Windows.MessageBox.Show(
+                        $"Failed to start Digital Signage Server\n\n" +
+                        $"Error: {ex.Message}\n\n" +
+                        $"Common Solutions:\n" +
+                        $"- Run diagnose-server.ps1 for diagnostics\n" +
+                        $"- Check that port 8080 is not in use\n" +
+                        $"- Use fix-and-run.bat for automatic fix\n\n" +
+                        $"Check the logs folder for detailed error information.",
+                        "Startup Error - Digital Signage Server",
+                        System.Windows.MessageBoxButton.OK,
+                        System.Windows.MessageBoxImage.Error);
+                });
+            }
         }
     }
 
@@ -150,14 +191,27 @@ public partial class ServerManagementViewModel : ObservableObject, IDisposable
         try
         {
             var clients = await _clientService.GetAllClientsAsync();
-            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+
+            // Check if already on UI thread to avoid unnecessary context switch
+            if (System.Windows.Application.Current.Dispatcher.CheckAccess())
             {
                 Clients.Clear();
                 foreach (var client in clients)
                 {
                     Clients.Add(client);
                 }
-            });
+            }
+            else
+            {
+                await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    Clients.Clear();
+                    foreach (var client in clients)
+                    {
+                        Clients.Add(client);
+                    }
+                });
+            }
         }
         catch (Exception ex)
         {
