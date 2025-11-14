@@ -110,16 +110,32 @@ public partial class ServerManagementViewModel : ObservableObject, IDisposable
 
     private async void OnClientConnected(object? sender, ClientConnectedEventArgs e)
     {
-        ConnectedClients++;
-        StatusText = $"Client connected: {e.ClientId}";
-        await RefreshClientsAsync();
+        try
+        {
+            ConnectedClients++;
+            StatusText = $"Client connected: {e.ClientId}";
+            await RefreshClientsAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to handle client connected event for client {ClientId}", e.ClientId);
+            StatusText = $"Error handling client connection: {ex.Message}";
+        }
     }
 
     private async void OnClientDisconnected(object? sender, ClientDisconnectedEventArgs e)
     {
-        ConnectedClients--;
-        StatusText = $"Client disconnected: {e.ClientId}";
-        await RefreshClientsAsync();
+        try
+        {
+            ConnectedClients--;
+            StatusText = $"Client disconnected: {e.ClientId}";
+            await RefreshClientsAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to handle client disconnected event for client {ClientId}", e.ClientId);
+            StatusText = $"Error handling client disconnection: {ex.Message}";
+        }
     }
 
     private async Task RefreshClientsAsync()
