@@ -289,10 +289,12 @@ if [ "$MODE" = "UPDATE" ]; then
 
     for file in "${REQUIRED_FILES[@]}"; do
         if [ -f "$SCRIPT_DIR/$file" ]; then
-            cp "$SCRIPT_DIR/$file" "$INSTALL_DIR/"
-            check_error "Failed to copy $file"
-            ((COPIED_COUNT++))
-            echo "  ✓ $file"
+            if cp "$SCRIPT_DIR/$file" "$INSTALL_DIR/" 2>/dev/null; then
+                ((COPIED_COUNT++))
+                echo "  ✓ $file"
+            else
+                echo -e "  ${YELLOW}⚠ Failed to copy: $file${NC}"
+            fi
         else
             echo -e "  ${RED}✗ Missing: $file${NC}"
             MISSING_FILES+=("$file")
@@ -319,38 +321,33 @@ if [ "$MODE" = "UPDATE" ]; then
 
     if [ ${#MISSING_FILES[@]} -gt 0 ]; then
         echo ""
-        echo -e "${RED}════════════════════════════════════════════════════════════${NC}"
-        echo -e "${RED}  ERROR: Missing required files!${NC}"
-        echo -e "${RED}════════════════════════════════════════════════════════════${NC}"
-        echo ""
-        echo -e "${YELLOW}Missing files:${NC}"
+        echo -e "${YELLOW}⚠ Warning: Some files were not found in source:${NC}"
         for file in "${MISSING_FILES[@]}"; do
             echo "  - $file"
         done
         echo ""
-        echo -e "${YELLOW}Current directory:${NC} $SCRIPT_DIR"
-        echo -e "${YELLOW}Looking for files in:${NC} $SCRIPT_DIR/"
-        echo ""
-        echo -e "${BLUE}💡 TROUBLESHOOTING:${NC}"
-        echo ""
-        echo "This usually happens when install.sh is run from the wrong location."
-        echo ""
-        echo "CORRECT update procedure:"
-        echo "  1. Go to your repository (usually in home directory):"
-        echo "     cd ~/digitalsignage"
-        echo ""
-        echo "  2. Update repository:"
-        echo "     git pull"
-        echo ""
-        echo "  3. Run install.sh from the repository:"
-        echo "     cd src/DigitalSignage.Client.RaspberryPi"
-        echo "     sudo ./install.sh"
-        echo ""
-        echo "The installer will update files in /opt/digitalsignage-client"
-        echo ""
-        echo -e "${RED}DO NOT run install.sh from /opt/digitalsignage-client!${NC}"
-        echo ""
-        exit 1
+
+        # Check if critical files are missing
+        CRITICAL_MISSING=false
+        for file in "client.py" "display_renderer.py" "config.py"; do
+            if [[ " ${MISSING_FILES[@]} " =~ " ${file} " ]]; then
+                CRITICAL_MISSING=true
+                break
+            fi
+        done
+
+        if [ "$CRITICAL_MISSING" = true ]; then
+            echo -e "${RED}✗ Critical files missing - cannot continue!${NC}"
+            echo ""
+            echo -e "${BLUE}💡 TROUBLESHOOTING:${NC}"
+            echo "  1. Go to your repository: cd ~/digitalsignage"
+            echo "  2. Update repository: git pull"
+            echo "  3. Run install.sh: cd src/DigitalSignage.Client.RaspberryPi && sudo ./install.sh"
+            echo ""
+            exit 1
+        else
+            echo -e "${YELLOW}⚠ Non-critical files missing, continuing...${NC}"
+        fi
     fi
 
     show_success "Copied $COPIED_COUNT files"
@@ -614,10 +611,12 @@ MISSING_FILES=()
 
 for file in "${REQUIRED_FILES[@]}"; do
     if [ -f "$SCRIPT_DIR/$file" ]; then
-        cp "$SCRIPT_DIR/$file" "$INSTALL_DIR/"
-        check_error "Failed to copy $file"
-        ((COPIED_COUNT++))
-        echo "  ✓ $file"
+        if cp "$SCRIPT_DIR/$file" "$INSTALL_DIR/" 2>/dev/null; then
+            ((COPIED_COUNT++))
+            echo "  ✓ $file"
+        else
+            echo -e "  ${YELLOW}⚠ Failed to copy: $file${NC}"
+        fi
     else
         echo -e "  ${RED}✗ Missing: $file${NC}"
         MISSING_FILES+=("$file")
@@ -644,36 +643,32 @@ done
 
 if [ ${#MISSING_FILES[@]} -gt 0 ]; then
     echo ""
-    echo -e "${RED}════════════════════════════════════════════════════════════${NC}"
-    echo -e "${RED}  ERROR: Missing required files!${NC}"
-    echo -e "${RED}════════════════════════════════════════════════════════════${NC}"
-    echo ""
-    echo -e "${YELLOW}Missing files:${NC}"
+    echo -e "${YELLOW}⚠ Warning: Some files were not found in source:${NC}"
     for file in "${MISSING_FILES[@]}"; do
         echo "  - $file"
     done
     echo ""
-    echo -e "${YELLOW}Current directory:${NC} $SCRIPT_DIR"
-    echo -e "${YELLOW}Looking for files in:${NC} $SCRIPT_DIR/"
-    echo ""
-    echo -e "${BLUE}💡 TROUBLESHOOTING:${NC}"
-    echo ""
-    echo "This usually happens when install.sh is run from the wrong location."
-    echo ""
-    echo "CORRECT installation procedure:"
-    echo "  1. Clone repository to your home directory:"
-    echo "     cd ~"
-    echo "     git clone https://github.com/manur84/digitalsignage.git"
-    echo ""
-    echo "  2. Run install.sh from the repository:"
-    echo "     cd digitalsignage/src/DigitalSignage.Client.RaspberryPi"
-    echo "     sudo ./install.sh"
-    echo ""
-    echo "The installer will copy files to /opt/digitalsignage-client"
-    echo ""
-    echo -e "${RED}DO NOT clone directly to /opt/digitalsignage-client!${NC}"
-    echo ""
-    exit 1
+
+    # Check if critical files are missing
+    CRITICAL_MISSING=false
+    for file in "client.py" "display_renderer.py" "config.py"; do
+        if [[ " ${MISSING_FILES[@]} " =~ " ${file} " ]]; then
+            CRITICAL_MISSING=true
+            break
+        fi
+    done
+
+    if [ "$CRITICAL_MISSING" = true ]; then
+        echo -e "${RED}✗ Critical files missing - cannot continue!${NC}"
+        echo ""
+        echo -e "${BLUE}💡 TROUBLESHOOTING:${NC}"
+        echo "  1. Clone repository to home directory: cd ~ && git clone https://github.com/manur84/digitalsignage.git"
+        echo "  2. Run install.sh: cd digitalsignage/src/DigitalSignage.Client.RaspberryPi && sudo ./install.sh"
+        echo ""
+        exit 1
+    else
+        echo -e "${YELLOW}⚠ Non-critical files missing, continuing...${NC}"
+    fi
 fi
 
 show_success "Copied $COPIED_COUNT files"
