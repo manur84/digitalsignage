@@ -886,29 +886,44 @@ remote_log_handler.py    270 lines
 test_status_screens.py   103 lines
 ```
 
-### ⚠️ P2: Exception Handling in Python
+### ✅ P2: Python Bare Except Clauses - **FIXED**
 
-**File:** `/home/user/digitalsignage/src/DigitalSignage.Client.RaspberryPi/watchdog_monitor.py`
+**Severity:** P2 - Medium
+**Category:** Code Quality/Debugging
+**Count:** 5 instances
+**Status:** ✅ **FIXED** - Commit: d003478
+
+#### Issue: Bare except clauses catch system exceptions
+
+All 5 bare except clauses have been replaced with proper exception handling.
+
+**Files Fixed:**
+- client.py (2 instances): websocket version detection, error log fallback
+- status_screen.py (1 instance): IP address fallback
+- discovery.py (2 instances): socket.close(), timestamp parsing
+
+**Pattern Applied:**
 ```python
-Line 77-80:
-try:
-    # watchdog code
+# ❌ Bad - catches SystemExit, KeyboardInterrupt
 except:
-    pass  # ❌ Bare except clause
+    pass
+
+# ✅ Good - catches normal exceptions only
+except Exception:
+    # Handle or log error
+    pass
+
+# ✅ Best - specific exceptions
+except (ValueError, AttributeError):
+    # Handle specific errors
+    pass
 ```
 
-**Status:** OPEN  
-**Impact:** Silent failures, hard to debug
-
-**Recommendation:** Specific exception handling with logging:
-```python
-try:
-    # code
-except SystemdNotificationError as e:
-    logger.error(f"Watchdog notification failed: {e}")
-except Exception as e:
-    logger.error(f"Unexpected error in watchdog: {e}", exc_info=True)
-```
+**Status:** ✅ **FIXED**
+**Impact:**
+- ~~Silent failures, hard to debug~~ → Explicit exception types with comments
+- ~~Catches system signals inadvertently~~ → SystemExit/KeyboardInterrupt now propagate correctly
+- ~~Makes debugging difficult~~ → Clear exception handling patterns
 
 ### ✅ P1: Logging (IMPLEMENTED)
 
@@ -956,7 +971,7 @@ logger.info("Digital Signage Client Starting...")
 | 4 | Tight coupling (Service locator) | 3-5 | OPEN |
 | 5 | God class (DesignerViewModel) | 1 | OPEN |
 | 6 | Double LINQ calls | 2 | ✅ FIXED (a3e8bf9) |
-| 7 | Python bare except clauses | 1 | OPEN |
+| 7 | Python bare except clauses | 5 | ✅ FIXED (d003478) |
 
 ### P3 (Low) Issues
 | # | Issue | Count | Status |
@@ -1072,14 +1087,14 @@ The Digital Signage project demonstrates **excellent architecture** with proper 
 - ⚠️ Duplicate code patterns - P2
 - ⚠️ Tight coupling (Service locator pattern) - P2
 - ⚠️ Missing XML documentation - P3
-- ⚠️ Python bare except clause - P2
 
 **Completed Work:**
-1. ✅ Fixed P1-1: Empty catch blocks - **COMPLETED** (Commit: 4eaeb87)
-2. ✅ Fixed P1-2: Async void event handlers - **COMPLETED** (Commit: 5e89f69)
-3. ✅ Fixed P1-3: Unsafe collection access - **COMPLETED** (Commit: a3e8bf9)
-4. ✅ Fixed P2: Double LINQ calls - **COMPLETED** (Commit: a3e8bf9)
-5. ✅ Fixed P2: Excessive Dispatcher calls (18/18) - **COMPLETED** (Commits: 89dbd9f, da468a7)
+1. ✅ Fixed P1-1: Empty catch blocks (5 instances) - **COMPLETED** (Commit: 4eaeb87)
+2. ✅ Fixed P1-2: Async void event handlers (5 instances) - **COMPLETED** (Commit: 5e89f69)
+3. ✅ Fixed P1-3: Unsafe collection access (8-10 instances) - **COMPLETED** (Commit: a3e8bf9)
+4. ✅ Fixed P2: Double LINQ calls (2 instances) - **COMPLETED** (Commit: a3e8bf9)
+5. ✅ Fixed P2: Excessive Dispatcher calls (18 instances) - **COMPLETED** (Commits: 89dbd9f, da468a7)
+6. ✅ Fixed P2: Python bare except clauses (5 instances) - **COMPLETED** (Commit: d003478)
 
 **Recommended Next Steps (Priority Order):**
 1. Implement DialogService to fix MVVM violations - **~8 hours** (P2)
