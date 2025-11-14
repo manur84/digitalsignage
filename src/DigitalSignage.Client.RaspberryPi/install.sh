@@ -318,7 +318,38 @@ if [ "$MODE" = "UPDATE" ]; then
     done
 
     if [ ${#MISSING_FILES[@]} -gt 0 ]; then
-        echo -e "${RED}✗ Missing required files: ${MISSING_FILES[*]}${NC}"
+        echo ""
+        echo -e "${RED}════════════════════════════════════════════════════════════${NC}"
+        echo -e "${RED}  ERROR: Missing required files!${NC}"
+        echo -e "${RED}════════════════════════════════════════════════════════════${NC}"
+        echo ""
+        echo -e "${YELLOW}Missing files:${NC}"
+        for file in "${MISSING_FILES[@]}"; do
+            echo "  - $file"
+        done
+        echo ""
+        echo -e "${YELLOW}Current directory:${NC} $SCRIPT_DIR"
+        echo -e "${YELLOW}Looking for files in:${NC} $SCRIPT_DIR/"
+        echo ""
+        echo -e "${BLUE}💡 TROUBLESHOOTING:${NC}"
+        echo ""
+        echo "This usually happens when install.sh is run from the wrong location."
+        echo ""
+        echo "CORRECT update procedure:"
+        echo "  1. Go to your repository (usually in home directory):"
+        echo "     cd ~/digitalsignage"
+        echo ""
+        echo "  2. Update repository:"
+        echo "     git pull"
+        echo ""
+        echo "  3. Run install.sh from the repository:"
+        echo "     cd src/DigitalSignage.Client.RaspberryPi"
+        echo "     sudo ./install.sh"
+        echo ""
+        echo "The installer will update files in /opt/digitalsignage-client"
+        echo ""
+        echo -e "${RED}DO NOT run install.sh from /opt/digitalsignage-client!${NC}"
+        echo ""
         exit 1
     fi
 
@@ -610,7 +641,36 @@ for file in "${OPTIONAL_FILES[@]}"; do
 done
 
 if [ ${#MISSING_FILES[@]} -gt 0 ]; then
-    echo -e "${RED}✗ Missing required files: ${MISSING_FILES[*]}${NC}"
+    echo ""
+    echo -e "${RED}════════════════════════════════════════════════════════════${NC}"
+    echo -e "${RED}  ERROR: Missing required files!${NC}"
+    echo -e "${RED}════════════════════════════════════════════════════════════${NC}"
+    echo ""
+    echo -e "${YELLOW}Missing files:${NC}"
+    for file in "${MISSING_FILES[@]}"; do
+        echo "  - $file"
+    done
+    echo ""
+    echo -e "${YELLOW}Current directory:${NC} $SCRIPT_DIR"
+    echo -e "${YELLOW}Looking for files in:${NC} $SCRIPT_DIR/"
+    echo ""
+    echo -e "${BLUE}💡 TROUBLESHOOTING:${NC}"
+    echo ""
+    echo "This usually happens when install.sh is run from the wrong location."
+    echo ""
+    echo "CORRECT installation procedure:"
+    echo "  1. Clone repository to your home directory:"
+    echo "     cd ~"
+    echo "     git clone https://github.com/manur84/digitalsignage.git"
+    echo ""
+    echo "  2. Run install.sh from the repository:"
+    echo "     cd digitalsignage/src/DigitalSignage.Client.RaspberryPi"
+    echo "     sudo ./install.sh"
+    echo ""
+    echo "The installer will copy files to /opt/digitalsignage-client"
+    echo ""
+    echo -e "${RED}DO NOT clone directly to /opt/digitalsignage-client!${NC}"
+    echo ""
     exit 1
 fi
 

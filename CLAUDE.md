@@ -90,18 +90,24 @@ dotnet ef migrations remove --startup-project ../DigitalSignage.Server/DigitalSi
 ### Client (Raspberry Pi Python)
 
 ```bash
-# Install as systemd service
-cd src/DigitalSignage.Client.RaspberryPi
+# INITIAL INSTALLATION on Raspberry Pi:
+# 1. Clone repository to home directory (NOT /opt!)
+cd ~
+git clone https://github.com/manur84/digitalsignage.git
+cd digitalsignage/src/DigitalSignage.Client.RaspberryPi
 sudo ./install.sh
+# → This copies files to /opt/digitalsignage-client and installs service
+
+# UPDATE existing installation:
+# The repository should be in your home directory, NOT in /opt!
+cd ~/digitalsignage  # Or wherever you cloned it
+git pull
+cd src/DigitalSignage.Client.RaspberryPi
+sudo ./install.sh  # Auto-detects UPDATE mode, preserves config
 
 # Service management
 sudo systemctl status|restart|stop digitalsignage-client
 sudo journalctl -u digitalsignage-client -f
-
-# Update client on Pi
-cd /opt/digitalsignage-client
-sudo git pull
-sudo ./update.sh
 ```
 
 ---
@@ -451,11 +457,13 @@ if (string.IsNullOrWhiteSpace(name) || name.Length > 100)
 
 ### Client (New Pi)
 ```bash
-sudo git clone https://github.com/manur84/digitalsignage.git /opt/digitalsignage-client
-cd /opt/digitalsignage-client/src/DigitalSignage.Client.RaspberryPi
-sudo ./install.sh
-sudo nano /opt/digitalsignage-client/config.json  # Configure
-sudo systemctl start digitalsignage-client
+# Clone to home directory (installer will copy to /opt)
+cd ~
+git clone https://github.com/manur84/digitalsignage.git
+cd digitalsignage/src/DigitalSignage.Client.RaspberryPi
+sudo ./install.sh  # Copies to /opt/digitalsignage-client, installs service
+sudo nano /opt/digitalsignage-client/config.py  # Configure server_host, token
+sudo systemctl restart digitalsignage-client
 ```
 
 ---
@@ -509,8 +517,10 @@ dotnet ef migrations add MigrationName --startup-project ../DigitalSignage.Serve
 
 # === CLIENT (PI) ===
 sshpass -p 'mr412393' ssh pro@192.168.0.178
-cd /opt/digitalsignage-client
-sudo git pull && sudo ./update.sh
+cd ~/digitalsignage  # Repository location (NOT /opt!)
+git pull
+cd src/DigitalSignage.Client.RaspberryPi
+sudo ./install.sh  # Auto-detects UPDATE mode
 sudo journalctl -u digitalsignage-client -f
 sudo systemctl status|restart|stop digitalsignage-client
 
