@@ -133,12 +133,14 @@ public partial class App : Application
                 services.AddTransient<SettingsViewModel>();
                 services.AddSingleton<AlertsViewModel>();
                 services.AddTransient<AlertRuleEditorViewModel>();
+                services.AddTransient<TemplateManagerViewModel>();
 
                 // Register LiveLogsViewModel as singleton with shared log collection
                 services.AddSingleton<LiveLogsViewModel>(sp =>
                 {
                     var logger = sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<LiveLogsViewModel>>();
-                    return new LiveLogsViewModel(logger, _liveLogMessages);
+                    var dialogService = sp.GetRequiredService<IDialogService>();
+                    return new LiveLogsViewModel(logger, dialogService, _liveLogMessages);
                 });
 
                 // Register Services

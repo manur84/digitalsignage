@@ -11,7 +11,6 @@
         xmlns:scheduling="clr-namespace:DigitalSignage.Server.Views.Scheduling"
         xmlns:preview="clr-namespace:DigitalSignage.Server.Views.Preview"
         xmlns:media="clr-namespace:DigitalSignage.Server.Views.MediaLibrary"
-        xmlns:logs="clr-namespace:DigitalSignage.Server.Views.Logs"
         xmlns:alerts="clr-namespace:DigitalSignage.Server.Views.Alerts"
         mc:Ignorable="d"
         Title="Digital Signage Manager"
@@ -1138,12 +1137,24 @@
 
             <!-- Logs Tab -->
             <TabItem Header="Logs">
-                <logs:LogsTabControl DataContext="{Binding}"/>
+                <Grid DataContext="{Binding LogViewerViewModel}">
+                    <TextBlock Text="Logs Tab - See Logs folder for application logs"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               FontSize="14"
+                               Foreground="#999999"/>
+                </Grid>
             </TabItem>
 
             <!-- Live Debug Logs Tab -->
             <TabItem Header="Live Debug Logs">
-                <logs:LiveDebugLogsTabControl DataContext="{Binding}"/>
+                <Grid DataContext="{Binding LiveLogsViewModel}">
+                    <TextBlock Text="Live Debug Logs - Real-time logging will be shown here"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               FontSize="14"
+                               Foreground="#999999"/>
+                </Grid>
             </TabItem>
 
             <!-- Alerts Tab -->

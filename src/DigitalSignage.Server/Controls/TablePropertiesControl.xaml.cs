@@ -29,9 +29,9 @@ public partial class TablePropertiesControl : UserControl, INotifyPropertyChange
         DataContext = this;
 
         // Get IDialogService from App (for View code-behind, Service Locator is acceptable)
-        if (Application.Current is App app)
+        if (Application.Current is App)
         {
-            _dialogService = app.GetService<IDialogService>();
+            _dialogService = App.GetService<IDialogService>();
         }
     }
 

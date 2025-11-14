@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 using DigitalSignage.Core.Interfaces;
 using DigitalSignage.Server.Services;
 using DigitalSignage.Server.Views;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace DigitalSignage.Server.ViewModels;
@@ -18,6 +19,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private readonly SettingsViewModel _settingsViewModel;
     private readonly ILogger<Views.Dialogs.SettingsDialog> _settingsDialogLogger;
     private readonly IDialogService _dialogService;
+    private readonly IServiceProvider _serviceProvider;
     private bool _disposed = false;
 
     // View Options
@@ -69,6 +71,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         SettingsViewModel settingsViewModel,
         BackupService backupService,
         IDialogService dialogService,
+        IServiceProvider serviceProvider,
         ILogger<MainViewModel> logger,
         ILogger<Views.Dialogs.SettingsDialog> settingsDialogLogger)
     {
@@ -91,6 +94,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _settingsViewModel = settingsViewModel ?? throw new ArgumentNullException(nameof(settingsViewModel));
         _backupService = backupService ?? throw new ArgumentNullException(nameof(backupService));
         _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
+        _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _settingsDialogLogger = settingsDialogLogger ?? throw new ArgumentNullException(nameof(settingsDialogLogger));
 
@@ -293,6 +297,36 @@ public partial class MainViewModel : ObservableObject, IDisposable
         StatusText = $"Digital Signage Manager v{version}";
     }
 
+    [RelayCommand]
+    private async Task TemplateManager()
+    {
+        try
+        {
+            _logger.LogInformation("Opening Template Manager");
+            StatusText = "Opening Template Manager...";
+
+            // Resolve TemplateManagerViewModel from DI container
+            var viewModel = _serviceProvider.GetRequiredService<TemplateManagerViewModel>();
+            var window = new TemplateManagerWindow(viewModel)
+            {
+                Owner = System.Windows.Application.Current.MainWindow
+            };
+
+            window.ShowDialog();
+
+            _logger.LogInformation("Template Manager closed");
+            StatusText = "Template Manager closed";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to open Template Manager");
+            StatusText = $"Error opening Template Manager: {ex.Message}";
+            await _dialogService.ShowErrorAsync(
+                $"Failed to open Template Manager:\n\n{ex.Message}",
+                "Template Manager Error");
+        }
+    }
+
     #endregion
 
     #region Backup/Restore (Orchestrate Dialogs)
@@ -493,24 +527,6 @@ public partial class MainViewModel : ObservableObject, IDisposable
     #endregion
 
     #region Placeholder Commands (Future Implementation)
-
-    [RelayCommand]
-    private async Task TemplateManager()
-    {
-        StatusText = "Opening Template Manager...";
-
-        await _dialogService.ShowInformationAsync(
-            "Template Manager\n\n" +
-            "Current Templates: 11 built-in templates\n\n" +
-            "Features:\n" +
-            "• View all available templates\n" +
-            "• Create custom templates\n" +
-            "• Edit template metadata\n" +
-            "• Export/Import templates\n\n" +
-            "Access templates via:\n" +
-            "File → New from Template",
-            "Template Manager");
-    }
 
     [RelayCommand]
     private async Task ClientTokens()

@@ -4,6 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:local="clr-namespace:DigitalSignage.Server.Views"
+             xmlns:converters="clr-namespace:DigitalSignage.Server.Converters"
              mc:Ignorable="d"
              d:DesignHeight="600" d:DesignWidth="1000">
     <Grid>
@@ -87,7 +88,7 @@
                         <TextBlock.Visibility>
                             <Binding Path="SelectedClient">
                                 <Binding.Converter>
-                                    <local:NullToVisibilityConverter/>
+                                    <converters:NullToVisibilityConverter/>
                                 </Binding.Converter>
                             </Binding>
                         </TextBlock.Visibility>
@@ -97,7 +98,7 @@
                         <StackPanel.Visibility>
                             <Binding Path="SelectedClient">
                                 <Binding.Converter>
-                                    <local:NullToVisibilityConverter Invert="True"/>
+                                    <converters:NullToVisibilityConverter Invert="True"/>
                                 </Binding.Converter>
                             </Binding>
                         </StackPanel.Visibility>
