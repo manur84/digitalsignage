@@ -374,7 +374,8 @@ class StatusScreen(QWidget):
             from device_manager import DeviceManager
             device_mgr = DeviceManager()
             ip_address = device_mgr.get_ip_address()
-        except:
+        except Exception:
+            # Fallback to localhost if device manager unavailable
             ip_address = "localhost"
 
         dashboard_url = f"http://{ip_address}:5000"

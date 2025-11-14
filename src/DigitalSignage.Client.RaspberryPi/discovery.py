@@ -404,7 +404,8 @@ class DiscoveryClient:
         finally:
             try:
                 sock.close()
-            except:
+            except Exception:
+                # Socket already closed or invalid - safe to ignore
                 pass
 
         self.logger.info(f"Discovery complete. Found {len(discovered_servers)} server(s)")
@@ -424,7 +425,8 @@ class DiscoveryClient:
             timestamp_str = data.get("Timestamp", "")
             try:
                 timestamp = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
-            except:
+            except (ValueError, AttributeError):
+                # Invalid timestamp format - use current time
                 timestamp = datetime.now()
 
             # Create ServerInfo

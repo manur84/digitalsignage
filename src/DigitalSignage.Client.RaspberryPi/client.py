@@ -68,7 +68,8 @@ try:
         try:
             import pkg_resources
             websocket_version = pkg_resources.get_distribution('websocket-client').version
-        except:
+        except Exception:
+            # Catch all normal exceptions (not SystemExit/KeyboardInterrupt)
             websocket_version = "unknown"
 
     logger.info(f"  websocket-client version: {websocket_version}")
@@ -195,10 +196,10 @@ class DigitalSignageClient:
                 with open(error_log_path, 'a') as f:
                     from datetime import datetime
                     f.write(f"{datetime.now().isoformat()}: send_message failed: {str(e)}\n")
-            except:
+            except Exception as log_error:
                 # Absolute fallback - write to stderr
                 import sys
-                print(f"CRITICAL: send_message failed: {e}", file=sys.stderr)
+                print(f"CRITICAL: send_message failed: {e} (log error: {log_error})", file=sys.stderr)
 
     def _flush_pending_messages(self):
         """Send any messages that were queued while disconnected"""
