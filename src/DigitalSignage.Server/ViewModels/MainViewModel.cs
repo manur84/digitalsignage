@@ -619,19 +619,39 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void Settings()
     {
-        // TODO: Open settings dialog when implemented
-        System.Windows.MessageBox.Show(
-            "Settings dialog coming soon!\n\n" +
-            "Future features:\n" +
-            "• Server configuration\n" +
-            "• Database settings\n" +
-            "• Default layout options\n" +
-            "• UI preferences",
-            "Settings",
-            System.Windows.MessageBoxButton.OK,
-            System.Windows.MessageBoxImage.Information);
+        try
+        {
+            _logger.LogInformation("Opening settings dialog");
+            StatusText = "Opening settings...";
 
-        StatusText = "Settings feature coming soon";
+            var viewModel = App.GetService<SettingsViewModel>();
+            var logger = App.GetService<Microsoft.Extensions.Logging.ILogger<Views.Dialogs.SettingsDialog>>();
+            var dialog = new Views.Dialogs.SettingsDialog(viewModel, logger)
+            {
+                Owner = System.Windows.Application.Current.MainWindow
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                _logger.LogInformation("Settings saved successfully");
+                StatusText = "Settings saved. Restart required for changes to take effect.";
+            }
+            else
+            {
+                _logger.LogInformation("Settings dialog cancelled");
+                StatusText = "Settings not saved";
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error opening settings dialog");
+            StatusText = $"Error opening settings: {ex.Message}";
+            System.Windows.MessageBox.Show(
+                $"Failed to open settings dialog:\n\n{ex.Message}",
+                "Settings Error",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Error);
+        }
     }
 
     [RelayCommand]
