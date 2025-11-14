@@ -591,12 +591,15 @@
                                             <Grid x:Name="ElementContainer"
                                                   Width="{Binding Size.Width}"
                                                   Height="{Binding Size.Height}"
+                                                  MinWidth="10"
+                                                  MinHeight="10"
                                                   Background="Transparent"
                                                   Cursor="Hand"
                                                   MouseLeftButtonDown="Element_MouseLeftButtonDown"
                                                   MouseMove="Element_MouseMove"
                                                   MouseLeftButtonUp="Element_MouseLeftButtonUp"
-                                                  Tag="{Binding}">
+                                                  Tag="{Binding}"
+                                                  Visibility="{Binding Visible, Converter={StaticResource BoolToVisibilityConverter}, FallbackValue=Visible}">
 
                                                 <!-- ACTUAL ELEMENT RENDERING (what shows on display) -->
                                                 <Grid x:Name="ElementContent">

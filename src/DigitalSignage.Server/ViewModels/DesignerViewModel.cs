@@ -168,6 +168,27 @@ public partial class DesignerViewModel : ObservableObject, IDisposable
                         // Ensure element is visible
                         element.Visible = true;
 
+                        // Validate and fix Size - CRITICAL for rendering!
+                        if (element.Size == null)
+                        {
+                            _logger.LogWarning("  ⚠ Element {Type} has NULL Size, creating default 100x100", element.Type);
+                            element.Size = new Size { Width = 100, Height = 100 };
+                        }
+                        else if (element.Size.Width <= 0 || element.Size.Height <= 0)
+                        {
+                            _logger.LogWarning("  ⚠ Element {Type} has invalid Size ({W}x{H}), setting to 100x100",
+                                element.Type, element.Size.Width, element.Size.Height);
+                            element.Size.Width = Math.Max(element.Size.Width, 100);
+                            element.Size.Height = Math.Max(element.Size.Height, 100);
+                        }
+
+                        // Validate Position
+                        if (element.Position == null)
+                        {
+                            _logger.LogWarning("  ⚠ Element {Type} has NULL Position, creating default at (0,0)", element.Type);
+                            element.Position = new Position { X = 0, Y = 0 };
+                        }
+
                         Elements.Add(element);
 
                         // Use Information instead of Debug so we can see it in logs
