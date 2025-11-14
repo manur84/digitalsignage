@@ -126,7 +126,7 @@
                 <MenuItem Header="Snap to Grid" IsCheckable="True" IsChecked="{Binding Designer.SnapToGrid}"/>
             </MenuItem>
             <MenuItem Header="_Tools">
-                <MenuItem Header="_Database Connection" Command="{Binding DatabaseConnectionCommand}" Icon="🗄"/>
+                <MenuItem Header="_Database Connection" Command="{Binding Diagnostics.DatabaseConnectionCommand}" Icon="🗄"/>
                 <MenuItem Header="Test Database" Command="{Binding Diagnostics.TestDatabaseCommand}" Icon="✓"/>
                 <Separator/>
                 <MenuItem Header="_Settings" Command="{Binding SettingsCommand}" Icon="⚙"/>
@@ -158,7 +158,7 @@
             <StatusBarItem>
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="Clients: "/>
-                    <TextBlock Text="{Binding ConnectedClients}" Margin="4,0"/>
+                    <TextBlock Text="{Binding ServerManagement.ConnectedClients}" Margin="4,0"/>
                 </StackPanel>
             </StatusBarItem>
             <Separator/>
@@ -169,14 +169,14 @@
                             <Style TargetType="Ellipse">
                                 <Setter Property="Fill" Value="Red"/>
                                 <Style.Triggers>
-                                    <DataTrigger Binding="{Binding ServerStatus}" Value="Running">
+                                    <DataTrigger Binding="{Binding ServerManagement.ServerStatus}" Value="Running">
                                         <Setter Property="Fill" Value="LimeGreen"/>
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
                         </Ellipse.Style>
                     </Ellipse>
-                    <TextBlock Text="{Binding ServerStatus}"/>
+                    <TextBlock Text="{Binding ServerManagement.ServerStatus}"/>
                 </StackPanel>
             </StatusBarItem>
         </StatusBar>

@@ -169,9 +169,13 @@ public partial class DesignerViewModel : ObservableObject, IDisposable
                         element.Visible = true;
 
                         Elements.Add(element);
-                        _logger.LogDebug("Added element: {Type} at ({X},{Y}) size ({W}x{H})",
-                            element.Type, element.Position.X, element.Position.Y,
-                            element.Size.Width, element.Size.Height);
+
+                        // Use Information instead of Debug so we can see it in logs
+                        _logger.LogInformation("  → Element #{Index}: Type={Type}, Pos=({X},{Y}), Size=({W}x{H}), Visible={Visible}, ZIndex={Z}",
+                            Elements.Count, element.Type,
+                            element.Position?.X ?? 0, element.Position?.Y ?? 0,
+                            element.Size?.Width ?? 0, element.Size?.Height ?? 0,
+                            element.Visible, element.ZIndex);
                     }
 
                     _logger.LogInformation("Successfully added {Count} elements to Elements collection", Elements.Count);
