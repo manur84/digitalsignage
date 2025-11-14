@@ -218,12 +218,12 @@
                                             Padding="8">
                                         <TextBlock Text="T" FontSize="20" FontWeight="Bold"/>
                                     </Button>
-                                    <Button ToolTip="Image"
-                                            Command="{Binding Designer.AddImageElementCommand}"
+                                    <Button ToolTip="Media Library"
+                                            Command="{Binding Designer.AddMediaLibraryElementCommand}"
                                             Style="{StaticResource SecondaryButton}"
                                             Margin="0,4"
                                             Padding="8">
-                                        <TextBlock Text="🖼" FontSize="18"/>
+                                        <TextBlock Text="📚" FontSize="18"/>
                                     </Button>
                                     <Button ToolTip="Rectangle"
                                             Command="{Binding Designer.AddRectangleElementCommand}"
@@ -518,7 +518,7 @@
                                     <ContextMenu>
                                         <MenuItem Header="Add Element" Icon="➕">
                                             <MenuItem Header="Text" Command="{Binding Designer.AddTextElementCommand}" Icon="T" FontWeight="Bold"/>
-                                            <MenuItem Header="Image" Command="{Binding Designer.AddImageElementCommand}" Icon="🖼"/>
+                                            <MenuItem Header="Media Library" Command="{Binding Designer.AddMediaLibraryElementCommand}" Icon="📚"/>
                                             <MenuItem Header="Rectangle" Command="{Binding Designer.AddRectangleElementCommand}" Icon="⬚"/>
                                             <MenuItem Header="Circle" Command="{Binding Designer.AddCircleElementCommand}" Icon="⭕"/>
                                             <MenuItem Header="QR Code" Command="{Binding Designer.AddQRCodeElementCommand}" Icon="▦"/>
