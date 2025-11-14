@@ -1,24 +1,41 @@
 #!/bin/bash
 
-# Digital Signage Client Installation Script for Raspberry Pi
+# Digital Signage Client - Smart Installer & Updater
 # Usage: sudo ./install.sh
 #
-# This script automatically detects and configures:
-# - Display mode (real HDMI vs virtual/headless)
-# - Auto-login and X11 startup (for production displays)
-# - Service configuration and startup
-# - Only prompts for reboot if actually needed
+# This script intelligently detects whether to install or update:
+# - Fresh installation: Full setup with service installation
+# - Existing installation: Smart update with config preservation
+#
+# Features:
+# - Auto-detection of installation mode
+# - Config backup/restore during updates
+# - Intelligent dependency management
+# - Display mode detection and configuration
+# - Idempotent (can be run multiple times)
 
 set -e
 
-echo "========================================="
-echo "Digital Signage Client Installer"
-echo "========================================="
+# Color codes for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Installation constants
+INSTALL_DIR="/opt/digitalsignage-client"
+SERVICE_NAME="digitalsignage-client"
+SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
+
+echo "════════════════════════════════════════════════════════════"
+echo "  Digital Signage Client - Smart Installer"
+echo "════════════════════════════════════════════════════════════"
 echo ""
 
 # Check if running as root
 if [ "$EUID" -ne 0 ]; then
-    echo "ERROR: Please run as root (use sudo)"
+    echo -e "${RED}ERROR: Please run as root (use sudo)${NC}"
     exit 1
 fi
 
@@ -27,22 +44,118 @@ ACTUAL_USER="${SUDO_USER:-$USER}"
 
 # Validate user exists
 if [ -z "$ACTUAL_USER" ] || [ "$ACTUAL_USER" = "root" ]; then
-    echo "ERROR: Could not detect non-root user"
+    echo -e "${RED}ERROR: Could not detect non-root user${NC}"
     echo "Please run this script with sudo as a regular user:"
     echo "  sudo ./install.sh"
     exit 1
 fi
 
 if ! id "$ACTUAL_USER" &>/dev/null; then
-    echo "ERROR: User '$ACTUAL_USER' does not exist"
+    echo -e "${RED}ERROR: User '$ACTUAL_USER' does not exist${NC}"
     exit 1
 fi
 
 USER_HOME=$(eval echo "~$ACTUAL_USER")
+VENV_DIR="$INSTALL_DIR/venv"
+CONFIG_DIR="$USER_HOME/.digitalsignage"
 
-echo "Installing for user: $ACTUAL_USER"
-echo "User home directory: $USER_HOME"
+echo "User: $ACTUAL_USER"
+echo "Home: $USER_HOME"
 echo ""
+
+# ========================================
+# DETECTION LOGIC - Determine MODE
+# ========================================
+
+echo "Detecting installation status..."
+echo "────────────────────────────────────────────────────────────"
+
+MODE="INSTALL"
+GIT_REPO_EXISTS=false
+SERVICE_INSTALLED=false
+VENV_EXISTS=false
+CONFIG_EXISTS=false
+
+# Check for existing installation
+if [ -d "$INSTALL_DIR" ]; then
+    echo -e "${GREEN}✓${NC} Installation directory found: $INSTALL_DIR"
+
+    if [ -d "$INSTALL_DIR/.git" ]; then
+        GIT_REPO_EXISTS=true
+        echo -e "${GREEN}✓${NC} Git repository exists"
+    fi
+
+    if [ -d "$VENV_DIR" ]; then
+        VENV_EXISTS=true
+        echo -e "${GREEN}✓${NC} Virtual environment exists"
+    fi
+
+    if [ -f "$INSTALL_DIR/config.py" ]; then
+        CONFIG_EXISTS=true
+        echo -e "${GREEN}✓${NC} Configuration file exists"
+    fi
+else
+    echo -e "${YELLOW}✗${NC} No installation directory found"
+fi
+
+if [ -f "$SERVICE_FILE" ]; then
+    SERVICE_INSTALLED=true
+    echo -e "${GREEN}✓${NC} Service installed"
+
+    if systemctl is-active --quiet $SERVICE_NAME; then
+        echo -e "${GREEN}✓${NC} Service running"
+    else
+        echo -e "${YELLOW}⚠${NC} Service not running"
+    fi
+else
+    echo -e "${YELLOW}✗${NC} Service not installed"
+fi
+
+# Determine MODE
+if [ -d "$INSTALL_DIR" ] && [ "$SERVICE_INSTALLED" = true ]; then
+    MODE="UPDATE"
+    echo ""
+    echo -e "${BLUE}Mode: 🔄 UPDATE${NC}"
+else
+    MODE="INSTALL"
+    echo ""
+    echo -e "${BLUE}Mode: 📦 INSTALL${NC}"
+fi
+
+echo "════════════════════════════════════════════════════════════"
+echo ""
+
+# ========================================
+# Helper Functions
+# ========================================
+
+step_counter=1
+TOTAL_STEPS=10
+
+function show_step() {
+    echo ""
+    echo -e "${YELLOW}[$step_counter/$TOTAL_STEPS] $1${NC}"
+    ((step_counter++))
+}
+
+function check_error() {
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}✗ Error: $1${NC}"
+        exit 1
+    fi
+}
+
+function show_success() {
+    echo -e "${GREEN}✓ $1${NC}"
+}
+
+function show_warning() {
+    echo -e "${YELLOW}⚠ $1${NC}"
+}
+
+function show_info() {
+    echo -e "${BLUE}ℹ $1${NC}"
+}
 
 # ========================================
 # Display Detection Functions
@@ -94,12 +207,223 @@ check_hdmi_display() {
     return 1
 }
 
-# Check for existing installation and prompt for confirmation
-if [ -d "/opt/digitalsignage-client" ] || systemctl list-unit-files | grep -q "digitalsignage-client.service"; then
+# ========================================
+# UPDATE MODE
+# ========================================
+
+if [ "$MODE" = "UPDATE" ]; then
+    TOTAL_STEPS=8
+
+    echo "════════════════════════════════════════════════════════════"
+    echo "  UPDATE MODE - Updating Existing Installation"
+    echo "════════════════════════════════════════════════════════════"
     echo ""
-    echo "WARNING: Existing installation detected"
+
+    # [1/8] Stop service
+    show_step "Stopping service..."
+    if systemctl is-active --quiet $SERVICE_NAME; then
+        systemctl stop $SERVICE_NAME
+        show_success "Service stopped"
+    else
+        show_info "Service not running"
+    fi
+
+    # [2/8] Backup config
+    show_step "Backing up configuration..."
+    BACKUP_FILE="/tmp/digitalsignage-config-backup-$(date +%s).py"
+    if [ -f "$INSTALL_DIR/config.py" ]; then
+        cp "$INSTALL_DIR/config.py" "$BACKUP_FILE"
+        show_success "Config backed up to: $BACKUP_FILE"
+    else
+        show_warning "No config.py found to backup"
+        BACKUP_FILE=""
+    fi
+
+    # [3/8] Update from Git
+    show_step "Updating code from repository..."
+
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    cd "$SCRIPT_DIR"
+
+    if [ -d "../../.git" ]; then
+        show_info "Git repository detected"
+
+        # Get current branch
+        CURRENT_BRANCH=$(sudo -u "$ACTUAL_USER" git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main")
+        echo "Current branch: $CURRENT_BRANCH"
+
+        # Pull latest changes
+        if sudo -u "$ACTUAL_USER" git pull origin "$CURRENT_BRANCH"; then
+            show_success "Code updated from git"
+
+            # Show recent changes
+            echo ""
+            echo "Recent changes:"
+            sudo -u "$ACTUAL_USER" git log -3 --oneline
+        else
+            show_warning "Git pull failed, continuing with current version"
+        fi
+    else
+        show_info "Not a git repository - using files in current directory"
+    fi
+
+    # [4/8] Copy updated files
+    show_step "Copying updated files..."
+
+    # Required files
+    REQUIRED_FILES=(
+        "client.py"
+        "config.py"
+        "discovery.py"
+        "device_manager.py"
+        "display_renderer.py"
+        "cache_manager.py"
+        "watchdog_monitor.py"
+        "status_screen.py"
+        "web_interface.py"
+        "start-with-display.sh"
+    )
+
+    COPIED_COUNT=0
+    MISSING_FILES=()
+
+    for file in "${REQUIRED_FILES[@]}"; do
+        if [ -f "$SCRIPT_DIR/$file" ]; then
+            cp "$SCRIPT_DIR/$file" "$INSTALL_DIR/"
+            check_error "Failed to copy $file"
+            ((COPIED_COUNT++))
+            echo "  ✓ $file"
+        else
+            echo -e "  ${RED}✗ Missing: $file${NC}"
+            MISSING_FILES+=("$file")
+        fi
+    done
+
+    # Optional files
+    OPTIONAL_FILES=(
+        "wait-for-x11.sh"
+        "remote_log_handler.py"
+        "diagnose.sh"
+        "fix-installation.sh"
+        "enable-autologin-x11.sh"
+        "check-autostart.sh"
+        "TROUBLESHOOTING.md"
+    )
+
+    for file in "${OPTIONAL_FILES[@]}"; do
+        if [ -f "$SCRIPT_DIR/$file" ]; then
+            cp "$SCRIPT_DIR/$file" "$INSTALL_DIR/"
+            ((COPIED_COUNT++))
+        fi
+    done
+
+    if [ ${#MISSING_FILES[@]} -gt 0 ]; then
+        echo -e "${RED}✗ Missing required files: ${MISSING_FILES[*]}${NC}"
+        exit 1
+    fi
+
+    show_success "Copied $COPIED_COUNT files"
+
+    # Make scripts executable
+    chmod +x "$INSTALL_DIR"/*.sh 2>/dev/null || true
+    chmod +x "$INSTALL_DIR/client.py" 2>/dev/null || true
+
+    # [5/8] Update dependencies if needed
+    show_step "Checking Python dependencies..."
+
+    if [ -f "$SCRIPT_DIR/requirements.txt" ]; then
+        # Check if requirements.txt changed
+        if [ -d "../../.git" ] && git diff HEAD@{1} HEAD --name-only 2>/dev/null | grep -q "requirements.txt"; then
+            show_info "requirements.txt changed, updating dependencies..."
+            "$VENV_DIR/bin/pip" install --upgrade pip
+            "$VENV_DIR/bin/pip" install -r "$SCRIPT_DIR/requirements.txt"
+            check_error "Failed to update dependencies"
+            show_success "Dependencies updated"
+        else
+            show_info "No dependency changes detected"
+        fi
+    else
+        show_warning "requirements.txt not found"
+    fi
+
+    # [6/8] Restore config
+    show_step "Restoring configuration..."
+
+    if [ -n "$BACKUP_FILE" ] && [ -f "$BACKUP_FILE" ]; then
+        cp "$BACKUP_FILE" "$INSTALL_DIR/config.py"
+        show_success "Configuration restored"
+    else
+        show_warning "No backup to restore, using new config.py"
+    fi
+
+    # Set ownership
+    chown -R "$ACTUAL_USER:$ACTUAL_USER" "$INSTALL_DIR"
+
+    # [7/8] Update service file
+    show_step "Updating systemd service..."
+
+    if [ -f "$SCRIPT_DIR/digitalsignage-client.service" ]; then
+        sed "s/INSTALL_USER/$ACTUAL_USER/g" "$SCRIPT_DIR/digitalsignage-client.service" | \
+        sed "s|/usr/bin/python3|$VENV_DIR/bin/python3|g" > /tmp/digitalsignage-client.service
+
+        cp /tmp/digitalsignage-client.service "$SERVICE_FILE"
+        rm /tmp/digitalsignage-client.service
+
+        systemctl daemon-reload
+        show_success "Service configuration updated"
+    else
+        show_info "Service file not changed"
+    fi
+
+    # [8/8] Restart service
+    show_step "Starting service..."
+
+    systemctl start $SERVICE_NAME --no-block
+    sleep 3
+
+    if systemctl is-active --quiet $SERVICE_NAME || systemctl is-activating --quiet $SERVICE_NAME; then
+        show_success "Service started successfully"
+    else
+        show_warning "Service may have failed to start"
+        echo "Check status: sudo systemctl status $SERVICE_NAME"
+    fi
+
+    echo ""
+    echo "════════════════════════════════════════════════════════════"
+    echo -e "${GREEN}  UPDATE COMPLETE!${NC}"
+    echo "════════════════════════════════════════════════════════════"
+    echo ""
+    echo "Service Status:"
+    systemctl status $SERVICE_NAME --no-pager -l || true
+    echo ""
+    echo "Useful commands:"
+    echo "  View logs:        sudo journalctl -u $SERVICE_NAME -f"
+    echo "  Restart service:  sudo systemctl restart $SERVICE_NAME"
+    echo "  Service status:   sudo systemctl status $SERVICE_NAME"
+    echo ""
+
+    if [ -n "$BACKUP_FILE" ] && [ -f "$BACKUP_FILE" ]; then
+        echo "Config backup: $BACKUP_FILE"
+        echo ""
+    fi
+
+    exit 0
+fi
+
+# ========================================
+# INSTALL MODE
+# ========================================
+
+echo "════════════════════════════════════════════════════════════"
+echo "  INSTALL MODE - Fresh Installation"
+echo "════════════════════════════════════════════════════════════"
+echo ""
+
+# Check for existing installation and prompt
+if [ -d "$INSTALL_DIR" ] || [ "$SERVICE_INSTALLED" = true ]; then
+    echo -e "${YELLOW}WARNING: Partial installation detected${NC}"
     echo "This will:"
-    echo "  - Stop and disable the current service"
+    echo "  - Stop and disable the current service (if exists)"
     echo "  - Backup config.py to /tmp (if exists)"
     echo "  - Remove the old installation completely"
     echo "  - Install fresh version"
@@ -111,101 +435,73 @@ if [ -d "/opt/digitalsignage-client" ] || systemctl list-unit-files | grep -q "d
         echo "Installation cancelled."
         exit 0
     fi
+
+    # Clean up old installation
+    echo ""
+    echo "Cleaning up old installation..."
+
+    if systemctl is-active --quiet $SERVICE_NAME; then
+        systemctl stop $SERVICE_NAME
+        show_success "Service stopped"
+    fi
+
+    if systemctl is-enabled --quiet $SERVICE_NAME 2>/dev/null; then
+        systemctl disable $SERVICE_NAME
+        show_success "Service disabled"
+    fi
+
+    if [ -f "$INSTALL_DIR/config.py" ]; then
+        BACKUP_FILE="/tmp/digitalsignage-config-backup-$(date +%s).py"
+        cp "$INSTALL_DIR/config.py" "$BACKUP_FILE"
+        show_success "Old config backed up to: $BACKUP_FILE"
+    fi
+
+    if [ -d "$INSTALL_DIR" ]; then
+        rm -rf "$INSTALL_DIR"
+        show_success "Old installation removed"
+    fi
+
+    echo ""
 fi
 
-# Clean up old installation
-echo ""
-echo "========================================="
-echo "Cleaning Up Old Installation"
-echo "========================================="
-echo ""
-
-# Stop service if running
-if systemctl is-active --quiet digitalsignage-client 2>/dev/null; then
-    echo "Stopping existing service..."
-    systemctl stop digitalsignage-client
-    echo "✓ Service stopped"
-else
-    echo "✓ No running service found"
-fi
-
-# Disable service if enabled
-if systemctl is-enabled --quiet digitalsignage-client 2>/dev/null; then
-    echo "Disabling existing service..."
-    systemctl disable digitalsignage-client
-    echo "✓ Service disabled"
-else
-    echo "✓ Service not enabled"
-fi
-
-# Backup old config if exists
-if [ -f "/opt/digitalsignage-client/config.py" ]; then
-    BACKUP_FILE="/tmp/digitalsignage-config-backup-$(date +%s).py"
-    cp /opt/digitalsignage-client/config.py "$BACKUP_FILE"
-    echo "✓ Old config backed up to: $BACKUP_FILE"
-    echo "  (You can restore this later if needed)"
-fi
-
-# Remove old installation directory
-if [ -d "/opt/digitalsignage-client" ]; then
-    echo "Removing old installation directory..."
-    rm -rf /opt/digitalsignage-client
-    echo "✓ Old installation removed"
-else
-    echo "✓ No old installation found (fresh install)"
-fi
-
-echo ""
-echo "========================================="
-echo "Updating Code from Repository"
-echo "========================================="
+# Update code from repository (if in git repo)
+echo "────────────────────────────────────────────────────────────"
+echo "Updating code from repository..."
+echo "────────────────────────────────────────────────────────────"
 echo ""
 
-# Check if we're in a git repository
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
 if [ -d "../../.git" ]; then
-    echo "Git repository detected - updating to latest version..."
+    show_info "Git repository detected - updating to latest version"
 
-    # Get current user's git config
-    if [ -n "$ACTUAL_USER" ]; then
-        # Temporarily become the actual user to do git operations
-        sudo -u "$ACTUAL_USER" bash -c "cd '$SCRIPT_DIR' && git fetch origin"
+    CURRENT_BRANCH=$(sudo -u "$ACTUAL_USER" git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main")
+    echo "Current branch: $CURRENT_BRANCH"
 
-        # Get current branch
-        CURRENT_BRANCH=$(sudo -u "$ACTUAL_USER" git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main")
-        echo "Current branch: $CURRENT_BRANCH"
-
-        # Pull latest changes
-        echo "Pulling latest changes from origin/$CURRENT_BRANCH..."
-        if sudo -u "$ACTUAL_USER" git pull origin "$CURRENT_BRANCH"; then
-            echo "✓ Code updated successfully"
-        else
-            echo "⚠ Warning: git pull failed, continuing with current version"
-            echo "  You may need to resolve conflicts manually"
-        fi
+    if sudo -u "$ACTUAL_USER" git pull origin "$CURRENT_BRANCH"; then
+        show_success "Code updated successfully"
     else
-        echo "⚠ Warning: Could not determine user for git operations"
-        echo "  Continuing with current version"
+        show_warning "Git pull failed, continuing with current version"
     fi
 else
-    echo "ℹ Not a git repository - using files in current directory"
+    show_info "Not a git repository - using files in current directory"
 fi
 
 echo ""
-echo "========================================="
-echo "Installing Digital Signage Client"
-echo "========================================="
+echo "════════════════════════════════════════════════════════════"
+echo "  Installing Digital Signage Client"
+echo "════════════════════════════════════════════════════════════"
 echo ""
 
-# Update package lists
-echo "[1/10] Updating package lists..."
-apt-get update
+# [1/10] Update package lists
+show_step "Updating package lists..."
+apt-get update -qq
+show_success "Package lists updated"
 
-# Install system dependencies
-echo "[2/10] Installing system dependencies..."
-apt-get install -y \
+# [2/10] Install system dependencies
+show_step "Installing system dependencies..."
+apt-get install -y -qq \
     python3 \
     python3-pip \
     python3-venv \
@@ -222,169 +518,152 @@ apt-get install -y \
     libqt5multimedia5-plugins \
     xvfb \
     x11vnc
+show_success "System dependencies installed"
 
-echo ""
-echo "[3/10] Verifying PyQt5 installation..."
+# [3/10] Verify PyQt5
+show_step "Verifying PyQt5 installation..."
 if python3 -c "import PyQt5" 2>/dev/null; then
     PYQT5_VERSION=$(python3 -c "from PyQt5.QtCore import PYQT_VERSION_STR; print(PYQT_VERSION_STR)" 2>/dev/null)
-    echo "✓ PyQt5 $PYQT5_VERSION installed successfully"
-    echo "✓ PyQt5 modules available for use in virtual environment"
+    show_success "PyQt5 $PYQT5_VERSION installed"
 else
-    echo "✗ ERROR: PyQt5 installation failed"
-    echo "Please check apt-get output above for errors"
+    echo -e "${RED}✗ PyQt5 installation failed${NC}"
     exit 1
 fi
 
-# Create installation directory
-echo "[4/10] Creating installation directory..."
-INSTALL_DIR="/opt/digitalsignage-client"
+# [4/10] Create installation directory
+show_step "Creating installation directory..."
 mkdir -p "$INSTALL_DIR"
+show_success "Directory created: $INSTALL_DIR"
 
-# Create virtual environment
-echo "[5/10] Creating Python virtual environment..."
-VENV_DIR="$INSTALL_DIR/venv"
+# [5/10] Create virtual environment
+show_step "Creating Python virtual environment..."
 if [ -d "$VENV_DIR" ]; then
-    echo "Virtual environment already exists, removing old one..."
+    show_info "Removing old virtual environment..."
     rm -rf "$VENV_DIR"
 fi
-# Use --system-site-packages to allow access to system-installed PyQt5 from apt
-# This is necessary because PyQt5 is installed via apt (python3-pyqt5) rather than pip
 python3 -m venv --system-site-packages "$VENV_DIR"
+show_success "Virtual environment created"
 
-# Install Python dependencies in virtual environment
-echo "[6/10] Installing Python dependencies in virtual environment..."
-"$VENV_DIR/bin/pip" install --upgrade pip
-if [ -f "requirements.txt" ]; then
-    "$VENV_DIR/bin/pip" install -r requirements.txt
+# [6/10] Install Python dependencies
+show_step "Installing Python dependencies..."
+"$VENV_DIR/bin/pip" install --upgrade pip -q
+if [ -f "$SCRIPT_DIR/requirements.txt" ]; then
+    "$VENV_DIR/bin/pip" install -r "$SCRIPT_DIR/requirements.txt" -q
+    show_success "Dependencies installed from requirements.txt"
 else
-    echo "Warning: requirements.txt not found, installing basic dependencies..."
-    "$VENV_DIR/bin/pip" install \
+    show_warning "requirements.txt not found, installing basic dependencies..."
+    "$VENV_DIR/bin/pip" install -q \
         python-socketio[client]==5.10.0 \
         aiohttp==3.9.1 \
         requests==2.31.0 \
         psutil==5.9.6 \
         pillow==10.1.0 \
         qrcode==7.4.2
-    echo "Note: PyQt5 installed via apt (python3-pyqt5) in step 2"
+    show_success "Basic dependencies installed"
 fi
 
-# Copy client files
-echo "[7/10] Copying client files..."
-cp client.py "$INSTALL_DIR/"
-cp config.py "$INSTALL_DIR/"
-cp discovery.py "$INSTALL_DIR/"
-cp device_manager.py "$INSTALL_DIR/"
-cp display_renderer.py "$INSTALL_DIR/"
-cp cache_manager.py "$INSTALL_DIR/"
-cp watchdog_monitor.py "$INSTALL_DIR/"
-cp status_screen.py "$INSTALL_DIR/"
-cp web_interface.py "$INSTALL_DIR/"
-cp start-with-display.sh "$INSTALL_DIR/"
-cp wait-for-x11.sh "$INSTALL_DIR/" 2>/dev/null || echo "Note: wait-for-x11.sh not found (optional)"
-cp remote_log_handler.py "$INSTALL_DIR/" 2>/dev/null || echo "Note: remote_log_handler.py not found (optional)"
-cp diagnose.sh "$INSTALL_DIR/" 2>/dev/null || echo "Note: diagnose.sh not found (optional)"
-cp fix-installation.sh "$INSTALL_DIR/" 2>/dev/null || echo "Note: fix-installation.sh not found (optional)"
-cp enable-autologin-x11.sh "$INSTALL_DIR/" 2>/dev/null || echo "Note: enable-autologin-x11.sh not found (optional)"
-cp check-autostart.sh "$INSTALL_DIR/" 2>/dev/null || echo "Note: check-autostart.sh not found (optional)"
-cp TROUBLESHOOTING.md "$INSTALL_DIR/" 2>/dev/null || echo "Note: TROUBLESHOOTING.md not found (optional)"
+# [7/10] Copy client files
+show_step "Copying client files..."
+
+REQUIRED_FILES=(
+    "client.py"
+    "config.py"
+    "discovery.py"
+    "device_manager.py"
+    "display_renderer.py"
+    "cache_manager.py"
+    "watchdog_monitor.py"
+    "status_screen.py"
+    "web_interface.py"
+    "start-with-display.sh"
+)
+
+COPIED_COUNT=0
+MISSING_FILES=()
+
+for file in "${REQUIRED_FILES[@]}"; do
+    if [ -f "$SCRIPT_DIR/$file" ]; then
+        cp "$SCRIPT_DIR/$file" "$INSTALL_DIR/"
+        check_error "Failed to copy $file"
+        ((COPIED_COUNT++))
+    else
+        MISSING_FILES+=("$file")
+    fi
+done
+
+# Optional files
+OPTIONAL_FILES=(
+    "wait-for-x11.sh"
+    "remote_log_handler.py"
+    "diagnose.sh"
+    "fix-installation.sh"
+    "enable-autologin-x11.sh"
+    "check-autostart.sh"
+    "TROUBLESHOOTING.md"
+)
+
+for file in "${OPTIONAL_FILES[@]}"; do
+    if [ -f "$SCRIPT_DIR/$file" ]; then
+        cp "$SCRIPT_DIR/$file" "$INSTALL_DIR/"
+        ((COPIED_COUNT++))
+    fi
+done
+
+if [ ${#MISSING_FILES[@]} -gt 0 ]; then
+    echo -e "${RED}✗ Missing required files: ${MISSING_FILES[*]}${NC}"
+    exit 1
+fi
+
+show_success "Copied $COPIED_COUNT files"
 
 # Set ownership
 chown -R "$ACTUAL_USER:$ACTUAL_USER" "$INSTALL_DIR"
 
-# Convert line endings to Unix format (in case files were edited on Windows)
-echo "Converting line endings to Unix format..."
+# Convert line endings
 if command -v dos2unix &>/dev/null; then
-    dos2unix "$INSTALL_DIR/start-with-display.sh" 2>/dev/null || true
-    dos2unix "$INSTALL_DIR/diagnose.sh" 2>/dev/null || true
-    dos2unix "$INSTALL_DIR/fix-installation.sh" 2>/dev/null || true
-    dos2unix "$INSTALL_DIR/enable-autologin-x11.sh" 2>/dev/null || true
+    dos2unix "$INSTALL_DIR"/*.sh 2>/dev/null || true
 else
-    # Fallback: use sed to remove carriage returns
-    sed -i 's/\r$//' "$INSTALL_DIR/start-with-display.sh" 2>/dev/null || true
-    sed -i 's/\r$//' "$INSTALL_DIR/diagnose.sh" 2>/dev/null || true
-    sed -i 's/\r$//' "$INSTALL_DIR/fix-installation.sh" 2>/dev/null || true
-    sed -i 's/\r$//' "$INSTALL_DIR/enable-autologin-x11.sh" 2>/dev/null || true
+    sed -i 's/\r$//' "$INSTALL_DIR"/*.sh 2>/dev/null || true
 fi
 
 # Make scripts executable
-chmod +x "$INSTALL_DIR/client.py"
-chmod +x "$INSTALL_DIR/start-with-display.sh"
-chmod +x "$INSTALL_DIR/wait-for-x11.sh" 2>/dev/null || true
-chmod +x "$INSTALL_DIR/diagnose.sh" 2>/dev/null || true
-chmod +x "$INSTALL_DIR/fix-installation.sh" 2>/dev/null || true
-chmod +x "$INSTALL_DIR/enable-autologin-x11.sh" 2>/dev/null || true
-chmod +x "$INSTALL_DIR/check-autostart.sh" 2>/dev/null || true
+chmod +x "$INSTALL_DIR"/*.sh 2>/dev/null || true
+chmod +x "$INSTALL_DIR/client.py" 2>/dev/null || true
 
 # Verify critical files
-echo "Verifying installation files..."
-MISSING_FILES=()
+VERIFY_MISSING=()
+for file in "${REQUIRED_FILES[@]}"; do
+    if [ ! -f "$INSTALL_DIR/$file" ]; then
+        VERIFY_MISSING+=("$file")
+    fi
+done
 
-if [ ! -f "$INSTALL_DIR/client.py" ]; then
-    MISSING_FILES+=("client.py")
-fi
-
-if [ ! -f "$INSTALL_DIR/config.py" ]; then
-    MISSING_FILES+=("config.py")
-fi
-
-if [ ! -f "$INSTALL_DIR/discovery.py" ]; then
-    MISSING_FILES+=("discovery.py")
-fi
-
-if [ ! -f "$INSTALL_DIR/device_manager.py" ]; then
-    MISSING_FILES+=("device_manager.py")
-fi
-
-if [ ! -f "$INSTALL_DIR/display_renderer.py" ]; then
-    MISSING_FILES+=("display_renderer.py")
-fi
-
-if [ ! -f "$INSTALL_DIR/cache_manager.py" ]; then
-    MISSING_FILES+=("cache_manager.py")
-fi
-
-if [ ! -f "$INSTALL_DIR/watchdog_monitor.py" ]; then
-    MISSING_FILES+=("watchdog_monitor.py")
-fi
-
-if [ ! -f "$INSTALL_DIR/web_interface.py" ]; then
-    MISSING_FILES+=("web_interface.py")
-fi
-
-if [ ! -f "$INSTALL_DIR/start-with-display.sh" ]; then
-    MISSING_FILES+=("start-with-display.sh")
-fi
-
-if [ ! -x "$INSTALL_DIR/start-with-display.sh" ]; then
-    echo "WARNING: start-with-display.sh not executable, fixing..."
-    chmod +x "$INSTALL_DIR/start-with-display.sh"
-fi
-
-if [ ${#MISSING_FILES[@]} -gt 0 ]; then
-    echo "ERROR: Critical files missing: ${MISSING_FILES[*]}"
+if [ ${#VERIFY_MISSING[@]} -gt 0 ]; then
+    echo -e "${RED}✗ Verification failed, missing: ${VERIFY_MISSING[*]}${NC}"
     exit 1
 fi
 
-echo "✓ All required files present and executable"
+show_success "All required files present and executable"
 
-# Create config directory
-echo "[8/10] Creating config directory..."
-CONFIG_DIR="$USER_HOME/.digitalsignage"
+# [8/10] Create config directory
+show_step "Creating config directory..."
 mkdir -p "$CONFIG_DIR/cache"
 mkdir -p "$CONFIG_DIR/logs"
 chown -R "$ACTUAL_USER:$ACTUAL_USER" "$CONFIG_DIR"
+show_success "Config directory created: $CONFIG_DIR"
 
-# Install systemd service
-echo "[9/10] Installing systemd service..."
-if [ -f "digitalsignage-client.service" ]; then
-    # Update service file with actual user and venv path
-    sed "s/INSTALL_USER/$ACTUAL_USER/g" digitalsignage-client.service | \
+# [9/10] Install systemd service
+show_step "Installing systemd service..."
+if [ -f "$SCRIPT_DIR/digitalsignage-client.service" ]; then
+    sed "s/INSTALL_USER/$ACTUAL_USER/g" "$SCRIPT_DIR/digitalsignage-client.service" | \
     sed "s|/usr/bin/python3|$VENV_DIR/bin/python3|g" > /tmp/digitalsignage-client.service
-    cp /tmp/digitalsignage-client.service /etc/systemd/system/
+
+    cp /tmp/digitalsignage-client.service "$SERVICE_FILE"
     rm /tmp/digitalsignage-client.service
+    show_success "Service file installed"
 else
-    echo "Warning: digitalsignage-client.service not found, creating basic service..."
-    cat > /etc/systemd/system/digitalsignage-client.service <<EOF
+    show_warning "digitalsignage-client.service not found, creating basic service..."
+    cat > "$SERVICE_FILE" <<EOF
 [Unit]
 Description=Digital Signage Client
 After=network-online.target graphical.target multi-user.target
@@ -400,7 +679,6 @@ Environment="QT_QPA_PLATFORM=xcb"
 Environment="DISPLAY=:0"
 Environment="XAUTHORITY=$USER_HOME/.Xauthority"
 
-# Wait for X11 to be ready (critical for autostart)
 ExecStartPre=/bin/bash -c 'for i in {1..30}; do if DISPLAY=:0 xset q &>/dev/null 2>&1; then echo "X11 ready"; exit 0; fi; echo "Waiting for X11... (\$i/30)"; sleep 1; done; exit 0'
 ExecStartPre=/bin/bash -c 'test -f $INSTALL_DIR/start-with-display.sh || exit 1'
 ExecStart=$INSTALL_DIR/start-with-display.sh
@@ -413,12 +691,14 @@ StandardError=journal
 [Install]
 WantedBy=graphical.target
 EOF
+    show_success "Basic service file created"
 fi
 
 systemctl daemon-reload
+show_success "Systemd daemon reloaded"
 
-# Configure autostart
-echo "[10/10] Configuring autostart..."
+# [10/10] Configure autostart
+show_step "Configuring autostart..."
 AUTOSTART_DIR="$USER_HOME/.config/autostart"
 mkdir -p "$AUTOSTART_DIR"
 
@@ -445,464 +725,215 @@ X-GNOME-Autostart-enabled=true
 EOF
 
 chown -R "$ACTUAL_USER:$ACTUAL_USER" "$AUTOSTART_DIR"
+show_success "Autostart configured"
 
+# Verify installation
 echo ""
-echo "========================================="
-echo "Verifying Installation"
-echo "========================================="
+echo "════════════════════════════════════════════════════════════"
+echo "  Verifying Installation"
+echo "════════════════════════════════════════════════════════════"
 echo ""
-echo "Checking Python modules accessibility from virtual environment..."
 
 # Check PyQt5
 if "$VENV_DIR/bin/python3" -c "import PyQt5; from PyQt5.QtWidgets import QApplication; print('PyQt5 OK')" 2>/dev/null; then
-    echo "✓ PyQt5 is accessible from virtual environment"
+    show_success "PyQt5 accessible from virtual environment"
 else
-    echo "✗ WARNING: PyQt5 not accessible from virtual environment"
-    echo "  This may cause client startup issues"
+    show_warning "PyQt5 not accessible from virtual environment"
 fi
 
 # Check Flask
 if "$VENV_DIR/bin/python3" -c "import flask; print('Flask OK')" 2>/dev/null; then
-    echo "✓ Flask is accessible"
+    show_success "Flask accessible"
 else
-    echo "✗ WARNING: Flask not accessible from virtual environment"
-    echo "  Web interface will not work"
+    show_warning "Flask not accessible"
 fi
 
-# Check python-socketio
+# Check socketio
 if "$VENV_DIR/bin/python3" -c "import socketio; print('socketio OK')" 2>/dev/null; then
-    echo "✓ python-socketio is accessible"
+    show_success "python-socketio accessible"
 else
-    echo "✗ WARNING: python-socketio not accessible from virtual environment"
-    echo "  This may cause connection issues"
+    show_warning "python-socketio not accessible"
 fi
 
+# Pre-flight check
 echo ""
-echo "========================================="
-echo "Pre-Flight Check"
-echo "========================================="
+echo "════════════════════════════════════════════════════════════"
+echo "  Pre-Flight Check"
+echo "════════════════════════════════════════════════════════════"
 echo ""
-echo "Testing client startup manually before enabling service..."
-echo "This will verify that all dependencies and configuration are correct."
+echo "Testing client startup before enabling service..."
 echo ""
 
-# Run manual test with timeout
 if timeout 15 sudo -u "$ACTUAL_USER" "$INSTALL_DIR/start-with-display.sh" --test; then
     echo ""
-    echo "✓ Pre-flight check successful!"
-    echo "  The client can start successfully."
+    show_success "Pre-flight check successful!"
 else
     TEST_EXIT_CODE=$?
     echo ""
     if [ $TEST_EXIT_CODE -eq 124 ]; then
-        echo "✗ Pre-flight check timed out after 15 seconds"
-        echo "  This indicates the test is hanging."
+        echo -e "${RED}✗ Pre-flight check timed out${NC}"
     else
-        echo "✗ Pre-flight check failed with exit code: $TEST_EXIT_CODE"
+        echo -e "${RED}✗ Pre-flight check failed (exit code: $TEST_EXIT_CODE)${NC}"
     fi
     echo ""
-    echo "The installation cannot proceed until the pre-flight check passes."
+    echo "Check startup log: sudo cat /var/log/digitalsignage-client-startup.log"
     echo ""
-    echo "Check the startup log for details:"
-    echo "  sudo cat /var/log/digitalsignage-client-startup.log"
-    echo "  OR"
-    echo "  sudo cat /tmp/digitalsignage-client-startup.log"
-    echo ""
-    echo "Common issues:"
-    echo "  - Missing dependencies (PyQt5, Xvfb, etc.)"
-    echo "  - Syntax errors in config.py"
-    echo "  - Permission issues"
-    echo ""
-    echo "After fixing issues, you can:"
-    echo "  1. Run the fix script: sudo ./fix-installation.sh"
-    echo "  2. Or re-run install.sh: sudo ./install.sh"
+    echo "After fixing issues, re-run: sudo ./install.sh"
     exit 1
 fi
 
+# Start service
 echo ""
-echo "========================================="
-echo "Starting Digital Signage Client Service"
-echo "========================================="
+echo "════════════════════════════════════════════════════════════"
+echo "  Starting Service"
+echo "════════════════════════════════════════════════════════════"
 echo ""
 
-# Enable service to start on boot
-echo "Enabling service to start on boot..."
-systemctl enable digitalsignage-client
-echo "✓ Service enabled"
+systemctl enable $SERVICE_NAME
+show_success "Service enabled"
 
-# Start the service
-echo ""
-echo "Starting service..."
-# Use --no-block to avoid hanging if service takes long to start
-systemctl start digitalsignage-client --no-block
-sleep 3  # Give it a moment to initialize
+systemctl start $SERVICE_NAME --no-block
+sleep 3
 
-# Check if it's running or starting
-if systemctl is-active digitalsignage-client &>/dev/null || systemctl is-activating digitalsignage-client &>/dev/null; then
-    echo "✓ Service started successfully"
+if systemctl is-active --quiet $SERVICE_NAME || systemctl is-activating --quiet $SERVICE_NAME; then
+    show_success "Service started successfully"
 else
-    echo "⚠ Service failed to start"
-    echo "  Check status: sudo systemctl status digitalsignage-client"
-    echo "  Check logs: sudo journalctl -u digitalsignage-client -n 50"
+    show_warning "Service failed to start"
+    echo "Check status: sudo systemctl status $SERVICE_NAME"
 fi
 
-# Wait for service to stabilize
+# Display Configuration (only for fresh install)
 echo ""
-echo "Waiting for service to initialize..."
-sleep 2
+echo "════════════════════════════════════════════════════════════"
+echo "  Display Configuration"
+echo "════════════════════════════════════════════════════════════"
+echo ""
 
-if systemctl is-active --quiet digitalsignage-client; then
-    echo "✓ Service is running successfully!"
+set +e
+detect_display_mode
+DISPLAY_DETECTED=$?
 
-    # Intelligent Display Configuration
+check_hdmi_display
+HDMI_DETECTED=$?
+set -e
+
+# Determine recommendation
+if [ $HDMI_DETECTED -eq 0 ] && [ $DISPLAY_DETECTED -ne 0 ]; then
+    RECOMMENDED_MODE=1
+    echo -e "${BLUE}RECOMMENDATION: PRODUCTION MODE${NC}"
     echo ""
-    echo "=========================================="
-    echo "Display Configuration"
-    echo "=========================================="
+    echo "Reason: HDMI display detected, but X11 not configured"
+elif [ $HDMI_DETECTED -eq 0 ] && [ $DISPLAY_DETECTED -eq 0 ]; then
+    RECOMMENDED_MODE=1
+    echo -e "${BLUE}RECOMMENDATION: PRODUCTION MODE (Already Configured)${NC}"
+    echo ""
+    echo "Reason: X11 already running on display"
+else
+    RECOMMENDED_MODE=2
+    echo -e "${BLUE}RECOMMENDATION: DEVELOPMENT MODE (Headless)${NC}"
+    echo ""
+    echo "Reason: No HDMI display detected"
+fi
+
+echo "Select deployment mode:"
+echo ""
+echo "  1) PRODUCTION MODE - For HDMI displays"
+echo "  2) DEVELOPMENT MODE - For headless/testing"
+echo ""
+
+read -p "Enter choice [1/2] (default: $RECOMMENDED_MODE): " DEPLOYMENT_MODE
+DEPLOYMENT_MODE=${DEPLOYMENT_MODE:-$RECOMMENDED_MODE}
+
+if [ "$DEPLOYMENT_MODE" = "1" ]; then
+    echo ""
+    echo "Configuring PRODUCTION MODE..."
     echo ""
 
-    # Detect current configuration
-    echo "Detecting display hardware..."
-    set +e  # Temporarily disable exit on error for detection functions
-    detect_display_mode
-    DISPLAY_DETECTED=$?
+    NEEDS_REBOOT=false
 
-    check_hdmi_display
-    HDMI_DETECTED=$?
-    set -e  # Re-enable exit on error
-
-    echo ""
-    echo "=========================================="
-    echo "Recommended Configuration"
-    echo "=========================================="
-    echo ""
-
-    # Determine recommendation
-    if [ $HDMI_DETECTED -eq 0 ] && [ $DISPLAY_DETECTED -ne 0 ]; then
-        # HDMI connected but X11 not running on :0
-        RECOMMENDED_MODE=1
-        echo "RECOMMENDATION: PRODUCTION MODE"
-        echo ""
-        echo "Reason: HDMI display detected, but X11 not configured"
-        echo ""
-        echo "This will:"
-        echo "  ✓ Enable auto-login to desktop"
-        echo "  ✓ Start X11 automatically on HDMI display"
-        echo "  ✓ Disable screen blanking"
-        echo "  ✓ Hide mouse cursor"
-        echo "  ✓ Show digital signage on your display"
-        echo "  ⚠ Requires reboot"
-        echo ""
-    elif [ $HDMI_DETECTED -eq 0 ] && [ $DISPLAY_DETECTED -eq 0 ]; then
-        # HDMI connected and X11 already running
-        RECOMMENDED_MODE=1
-        echo "RECOMMENDATION: PRODUCTION MODE (Already Configured)"
-        echo ""
-        echo "Reason: X11 already running on display"
-        echo ""
-        echo "This will:"
-        echo "  ✓ Verify auto-login settings"
-        echo "  ✓ Ensure power management is disabled"
-        echo "  ✓ Install the client service"
-        echo "  ℹ May not require reboot"
-        echo ""
-    else
-        # No HDMI or headless mode
-        RECOMMENDED_MODE=2
-        echo "RECOMMENDATION: DEVELOPMENT MODE (Headless)"
-        echo ""
-        echo "Reason: No HDMI display detected or headless environment"
-        echo ""
-        echo "This will:"
-        echo "  ✓ Use Xvfb (virtual display)"
-        echo "  ✓ Allow testing without physical display"
-        echo "  ✓ No reboot required"
-        echo ""
+    # Auto-login
+    if command -v raspi-config &>/dev/null; then
+        CURRENT_BOOT=$(raspi-config nonint get_boot_behaviour 2>/dev/null || echo "unknown")
+        if [ "$CURRENT_BOOT" != "B4" ]; then
+            raspi-config nonint do_boot_behaviour B4 2>/dev/null
+            show_success "Auto-login enabled"
+            NEEDS_REBOOT=true
+        else
+            show_info "Auto-login already enabled"
+        fi
     fi
 
-    echo "Select deployment mode:"
-    echo ""
-    echo "  1) PRODUCTION MODE"
-    echo "     For digital signage displays with HDMI"
-    echo ""
-    echo "  2) DEVELOPMENT MODE"
-    echo "     For headless/testing environments"
-    echo ""
-
-    read -p "Enter choice [1/2] (default: $RECOMMENDED_MODE): " DEPLOYMENT_MODE
-    DEPLOYMENT_MODE=${DEPLOYMENT_MODE:-$RECOMMENDED_MODE}
-
-    if [ "$DEPLOYMENT_MODE" = "1" ]; then
-        echo ""
-        echo "=========================================="
-        echo "Configuring PRODUCTION MODE"
-        echo "=========================================="
-        echo ""
-
-        # Track if reboot is needed
-        NEEDS_REBOOT=false
-
-        # Check 1: Auto-login
-        echo "[1/5] Checking auto-login..."
-        if command -v raspi-config &>/dev/null; then
-            # Check current boot behavior
-            CURRENT_BOOT=$(raspi-config nonint get_boot_behaviour 2>/dev/null || echo "unknown")
-            if [ "$CURRENT_BOOT" != "B4" ]; then
-                echo "  Enabling auto-login to desktop..."
-                raspi-config nonint do_boot_behaviour B4 2>/dev/null
-                if [ $? -eq 0 ]; then
-                    echo "  ✓ Auto-login enabled"
-                    NEEDS_REBOOT=true
-                else
-                    echo "  ⚠ raspi-config completed with warnings (may still be successful)"
-                    NEEDS_REBOOT=true
-                fi
-            else
-                echo "  ✓ Auto-login already enabled"
-            fi
-        else
-            echo "  ⚠ raspi-config not found"
-            echo "  Manual: Run 'sudo raspi-config' → System Options → Boot/Auto Login"
+    # LightDM
+    if [ -f /etc/lightdm/lightdm.conf ]; then
+        if ! grep -q "^autologin-user=$ACTUAL_USER" /etc/lightdm/lightdm.conf; then
+            [ ! -f /etc/lightdm/lightdm.conf.backup ] && cp /etc/lightdm/lightdm.conf /etc/lightdm/lightdm.conf.backup
+            sed -i "s/^#autologin-user=.*/autologin-user=$ACTUAL_USER/" /etc/lightdm/lightdm.conf
+            sed -i "s/^autologin-user=.*/autologin-user=$ACTUAL_USER/" /etc/lightdm/lightdm.conf
+            show_success "LightDM configured"
+            NEEDS_REBOOT=true
         fi
+    fi
 
-        # Check 2: LightDM configuration
-        echo ""
-        echo "[2/5] Configuring display manager..."
-        if [ -f /etc/lightdm/lightdm.conf ]; then
-            if ! grep -q "^autologin-user=$ACTUAL_USER" /etc/lightdm/lightdm.conf; then
-                # Backup if not already backed up
-                if [ ! -f /etc/lightdm/lightdm.conf.backup ]; then
-                    cp /etc/lightdm/lightdm.conf /etc/lightdm/lightdm.conf.backup
-                    echo "  ✓ LightDM config backed up"
-                fi
-
-                sed -i "s/^#autologin-user=.*/autologin-user=$ACTUAL_USER/" /etc/lightdm/lightdm.conf
-                sed -i "s/^autologin-user=.*/autologin-user=$ACTUAL_USER/" /etc/lightdm/lightdm.conf
-                echo "  ✓ LightDM configured"
-                NEEDS_REBOOT=true
-            else
-                echo "  ✓ LightDM already configured"
-            fi
-        else
-            echo "  ℹ LightDM not found (normal for Raspberry Pi OS Lite)"
-        fi
-
-        # Check 3: .xinitrc
-        echo ""
-        echo "[3/5] Configuring X11 startup..."
-        if [ ! -f "$USER_HOME/.xinitrc" ] || ! grep -q "xset -dpms" "$USER_HOME/.xinitrc"; then
-            cat > "$USER_HOME/.xinitrc" <<'EOF'
+    # .xinitrc
+    if [ ! -f "$USER_HOME/.xinitrc" ] || ! grep -q "xset -dpms" "$USER_HOME/.xinitrc"; then
+        cat > "$USER_HOME/.xinitrc" <<'EOF'
 #!/bin/sh
-# Digital Signage X11 Startup Configuration
-
-# Disable power management features
-xset -dpms     # Disable DPMS (Energy Star) features
-xset s off     # Disable screen saver
-xset s noblank # Don't blank the video device
-
-# Hide mouse cursor after 0.1 seconds of inactivity
+xset -dpms
+xset s off
+xset s noblank
 unclutter -idle 0.1 -root &
-
-# Keep X11 running
 exec tail -f /dev/null
 EOF
-            chown "$ACTUAL_USER:$ACTUAL_USER" "$USER_HOME/.xinitrc"
-            chmod +x "$USER_HOME/.xinitrc"
-            echo "  ✓ X11 configuration created (~/.xinitrc)"
+        chown "$ACTUAL_USER:$ACTUAL_USER" "$USER_HOME/.xinitrc"
+        chmod +x "$USER_HOME/.xinitrc"
+        show_success "X11 configuration created"
+    fi
+
+    echo ""
+    if [ "$NEEDS_REBOOT" = true ]; then
+        echo -e "${YELLOW}IMPORTANT: Reboot required${NC}"
+        echo ""
+        read -p "Reboot now? (y/N): " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            echo "Rebooting in 3 seconds..."
+            sleep 3
+            reboot
         else
-            echo "  ✓ X11 already configured"
-        fi
-
-        # Check 4: Service display environment
-        echo ""
-        echo "[4/5] Updating service configuration..."
-        # Service file already uses start-with-display.sh which handles display detection
-        echo "  ✓ Service configured for display auto-detection"
-
-        # Check 5: Verify
-        echo ""
-        echo "[5/5] Verifying configuration..."
-        if [ "$NEEDS_REBOOT" = true ]; then
-            echo "  ⚠ Reboot required to apply changes"
-        else
-            echo "  ✓ System already configured for production mode"
-            # Check if X11 is running
-            if sudo -u "$ACTUAL_USER" DISPLAY=:0 xset q &>/dev/null; then
-                echo "  ✓ X11 is running - no reboot needed"
-                NEEDS_REBOOT=false
-            else
-                echo "  ⚠ X11 not running - reboot recommended"
-                NEEDS_REBOOT=true
-            fi
-        fi
-
-        echo ""
-        echo "=========================================="
-        echo "✓ PRODUCTION MODE configured"
-        echo "=========================================="
-        echo ""
-
-        # Smart reboot prompt
-        if [ "$NEEDS_REBOOT" = true ]; then
-            echo "IMPORTANT: A REBOOT IS REQUIRED"
-            echo ""
-            echo "After reboot:"
-            echo "  - System will auto-login as $ACTUAL_USER"
-            echo "  - X11 will start on HDMI display"
-            echo "  - Digital Signage client will start automatically"
-            echo ""
-            read -p "Reboot now? (y/N): " -n 1 -r
-            echo
-            if [[ $REPLY =~ ^[Yy]$ ]]; then
-                echo ""
-                echo "Rebooting in 3 seconds..."
-                sleep 3
-                reboot
-            else
-                echo ""
-                echo "Please reboot manually when ready:"
-                echo "  sudo reboot"
-                echo ""
-            fi
-        else
-            echo "✓ No reboot required - system already configured"
-            echo "  Service is running and ready"
-            echo ""
+            echo "Please reboot manually: sudo reboot"
         fi
     else
-        echo ""
-        echo "=========================================="
-        echo "✓ DEVELOPMENT MODE selected"
-        echo "=========================================="
-        echo ""
-        echo "The service is configured for headless operation:"
-        echo "  - Uses Xvfb virtual display (via start-with-display.sh)"
-        echo "  - No auto-login configured"
-        echo "  - No reboot required"
-        echo ""
-        echo "To enable production mode later, run:"
-        echo "  sudo $INSTALL_DIR/enable-autologin-x11.sh"
-        echo ""
+        show_success "No reboot required - system ready"
     fi
-
-    # Post-Installation Verification
-    echo ""
-    echo "=========================================="
-    echo "Installation Verification"
-    echo "=========================================="
-    echo ""
-
-    echo "Current Configuration:"
-    if sudo -u "$ACTUAL_USER" DISPLAY=:0 xset q &>/dev/null 2>&1; then
-        echo "  Display Mode: Real X11 on :0 (HDMI)"
-    elif pgrep -f "Xvfb :99" &>/dev/null; then
-        echo "  Display Mode: Virtual (Xvfb)"
-    else
-        echo "  Display Mode: Not running (will start on boot)"
-    fi
-
-    SERVICE_STATUS=$(systemctl is-active digitalsignage-client 2>/dev/null || echo "not running")
-    echo "  Service Status: $SERVICE_STATUS"
-    echo "  User: $ACTUAL_USER"
-    echo "  Installation: $INSTALL_DIR"
-    echo ""
-
-    # Show final configuration summary
-    echo ""
-    echo "========================================="
-    echo "Installation Complete!"
-    echo "========================================="
-    echo ""
-    echo "Installation Paths:"
-    echo "  - Installation directory: $INSTALL_DIR"
-    echo "  - Virtual environment: $VENV_DIR"
-    echo "  - Config directory: $CONFIG_DIR"
-    echo "  - Service file: /etc/systemd/system/digitalsignage-client.service"
-    echo ""
-    echo "Service Status: RUNNING"
-    echo ""
-    echo "Next Steps:"
-    echo "  1. Edit configuration: sudo nano $INSTALL_DIR/config.py"
-    echo "  2. Set server_host and server_port"
-    echo "  3. Set registration_token"
-    echo "  4. Restart service: sudo systemctl restart digitalsignage-client"
-    if [ "$DEPLOYMENT_MODE" = "1" ] && [ "$NEEDS_REBOOT" = true ]; then
-        echo "  5. Reboot system: sudo reboot"
-    fi
-    echo ""
-    echo "Useful Commands:"
-    echo "  View status:    sudo systemctl status digitalsignage-client"
-    echo "  View logs:      sudo journalctl -u digitalsignage-client -f"
-    echo "  Run diagnostic: sudo $INSTALL_DIR/diagnose.sh"
-    echo "  Test client:    sudo -u $ACTUAL_USER $VENV_DIR/bin/python3 $INSTALL_DIR/client.py --test"
-    echo "  Restart:        sudo systemctl restart digitalsignage-client"
-    echo "  Stop:           sudo systemctl stop digitalsignage-client"
-    echo ""
-    echo "Note: Python packages are installed in a virtual environment at $VENV_DIR"
-    echo "This avoids conflicts with system Python packages (Python 3.11+ requirement)."
-    echo "The venv uses --system-site-packages to access system packages:"
-    echo "  - PyQt5 (python3-pyqt5, python3-pyqt5.qtsvg, python3-pyqt5.qtmultimedia)"
-    echo "  - psutil (python3-psutil)"
-    echo ""
 else
-    echo "✗ WARNING: Service failed to start"
     echo ""
-    echo "========================================="
-    echo "Installation Complete (with warnings)"
-    echo "========================================="
-    echo ""
-    echo "The installation completed but the service failed to start."
-    echo ""
-    echo "Showing last 50 lines of logs:"
-    echo "------------------------------------------------------------------------"
-    journalctl -u digitalsignage-client -n 50 --no-pager || echo "No logs available"
-    echo "------------------------------------------------------------------------"
-    echo ""
-    echo ""
-    echo "========================================="
-    echo "Running Diagnostic Script"
-    echo "========================================="
-    echo ""
-    if [ -f "$INSTALL_DIR/diagnose.sh" ]; then
-        bash "$INSTALL_DIR/diagnose.sh"
-    else
-        echo "Diagnostic script not found"
-        echo ""
-        echo "Common issues:"
-        echo "  - Missing dependencies (check PyQt5 import above)"
-        echo "  - Configuration errors in config.py"
-        echo "  - Display server (X11) not available"
-        echo "  - Server host not reachable (expected on fresh install)"
-        echo ""
-        echo "Troubleshooting steps:"
-        echo "  1. Run test mode: sudo -u $ACTUAL_USER $VENV_DIR/bin/python3 $INSTALL_DIR/client.py --test"
-        echo "  2. Check environment: echo \$DISPLAY (should be :0)"
-        echo "  3. Verify X11 running: ps aux | grep X"
-        echo "  4. Check PyQt5: $VENV_DIR/bin/python3 -c 'import PyQt5'"
-    fi
-    echo ""
-    echo ""
-    echo "========================================="
-    echo "Next Steps"
-    echo "========================================="
-    echo ""
-    echo "1. Run the fix script to diagnose and fix common issues:"
-    echo "   sudo $INSTALL_DIR/fix-installation.sh"
-    echo ""
-    echo "2. Read the troubleshooting guide:"
-    echo "   cat $INSTALL_DIR/TROUBLESHOOTING.md"
-    echo ""
-    echo "3. After fixing issues, restart the service:"
-    echo "   sudo systemctl restart digitalsignage-client"
-    echo ""
-    echo "4. View detailed logs:"
-    echo "   sudo journalctl -u digitalsignage-client -n 100"
-    echo "   sudo cat /var/log/digitalsignage-client-startup.log"
-    echo ""
-    echo "Configuration:"
-    echo "  - Installation directory: $INSTALL_DIR"
-    echo "  - Virtual environment: $VENV_DIR"
-    echo "  - Config directory: $CONFIG_DIR"
-    echo ""
-    exit 1
+    show_info "DEVELOPMENT MODE selected"
+    echo "Service uses Xvfb virtual display (via start-with-display.sh)"
 fi
+
+# Final summary
+echo ""
+echo "════════════════════════════════════════════════════════════"
+echo -e "${GREEN}  INSTALLATION COMPLETE!${NC}"
+echo "════════════════════════════════════════════════════════════"
+echo ""
+echo "Installation Paths:"
+echo "  Installation: $INSTALL_DIR"
+echo "  Virtual env:  $VENV_DIR"
+echo "  Config:       $CONFIG_DIR"
+echo "  Service:      $SERVICE_FILE"
+echo ""
+echo "Next Steps:"
+echo "  1. Edit config:   sudo nano $INSTALL_DIR/config.py"
+echo "  2. Set server_host, server_port, registration_token"
+echo "  3. Restart:       sudo systemctl restart $SERVICE_NAME"
+if [ "$DEPLOYMENT_MODE" = "1" ] && [ "$NEEDS_REBOOT" = true ]; then
+    echo "  4. Reboot:        sudo reboot"
+fi
+echo ""
+echo "Useful Commands:"
+echo "  Status:       sudo systemctl status $SERVICE_NAME"
+echo "  Logs:         sudo journalctl -u $SERVICE_NAME -f"
+echo "  Restart:      sudo systemctl restart $SERVICE_NAME"
+echo "  Diagnose:     sudo $INSTALL_DIR/diagnose.sh"
+echo ""
