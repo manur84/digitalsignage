@@ -114,6 +114,13 @@ public partial class App : Application
 
                 // Register ViewModels
                 services.AddSingleton<MainViewModel>();
+
+                // Register new Sub-ViewModels (Refactored from MainViewModel)
+                services.AddSingleton<LayoutManagementViewModel>();
+                services.AddSingleton<ServerManagementViewModel>();
+                services.AddSingleton<DiagnosticsViewModel>();
+
+                // Existing ViewModels
                 services.AddTransient<DesignerViewModel>();
                 services.AddTransient<DeviceManagementViewModel>();
                 services.AddTransient<DataSourceViewModel>();
