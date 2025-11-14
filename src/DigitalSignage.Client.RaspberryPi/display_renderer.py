@@ -196,6 +196,7 @@ class DisplayRenderer(QWidget):
             # Set background (color and/or image)
             bg_color = layout.get('BackgroundColor', '#FFFFFF')
             bg_image = layout.get('BackgroundImage')
+            bg_image_data = layout.get('BackgroundImageData')  # Base64 from server
 
             try:
                 style = ""
@@ -204,8 +205,23 @@ class DisplayRenderer(QWidget):
                 if bg_color:
                     style += f"background-color: {bg_color};"
 
-                # Background image (if provided)
-                if bg_image and isinstance(bg_image, str):
+                # Background image - Priority 1: Base64 data from server
+                bg_pixmap = None
+                if bg_image_data:
+                    try:
+                        import base64
+                        image_bytes = base64.b64decode(bg_image_data)
+                        image = QImage()
+                        if image.loadFromData(image_bytes):
+                            bg_pixmap = QPixmap.fromImage(image)
+                            logger.debug(f"Background image loaded from Base64 data")
+                        else:
+                            logger.error("Failed to load background image from Base64")
+                    except Exception as e:
+                        logger.error(f"Failed to decode Base64 background image: {e}")
+
+                # Background image - Priority 2: File path (fallback)
+                if bg_pixmap is None and bg_image and isinstance(bg_image, str):
                     import os
                     if os.path.isfile(bg_image):
                         # Use absolute path with file:/// protocol for Qt
@@ -216,13 +232,30 @@ class DisplayRenderer(QWidget):
                         style += "background-repeat: no-repeat;"
                         style += "background-position: center;"
                         style += "background-size: cover;"  # Cover the entire widget
-                        logger.debug(f"Set background image: {bg_image}")
+                        logger.debug(f"Set background image from file: {bg_image}")
                     else:
                         logger.warning(f"Background image file not found: {bg_image}")
 
+                # If we have a pixmap from Base64, set it using palette
+                if bg_pixmap and not bg_pixmap.isNull():
+                    # Scale to widget size
+                    scaled_pixmap = bg_pixmap.scaled(
+                        self.width(), self.height(),
+                        Qt.KeepAspectRatioByExpanding,
+                        Qt.SmoothTransformation
+                    )
+
+                    # Set as background using palette
+                    from PyQt5.QtGui import QPalette, QBrush
+                    palette = self.palette()
+                    palette.setBrush(QPalette.Background, QBrush(scaled_pixmap))
+                    self.setPalette(palette)
+                    self.setAutoFillBackground(True)
+                    logger.debug("Background image set from Base64 data")
+
                 if style:
                     self.setStyleSheet(style)
-                else:
+                elif not bg_pixmap:
                     self.setStyleSheet("background-color: #FFFFFF;")
 
             except Exception as e:
@@ -458,43 +491,67 @@ class DisplayRenderer(QWidget):
             label = QLabel(self)
             label.setGeometry(x, y, width, height)
 
-            source = properties.get('Source', '')
-            if not source:
-                logger.warning("Image element has no source")
-                return label
+            pixmap = None
 
-            if not isinstance(source, str):
-                logger.warning(f"Image source is not a string: {type(source)}")
-                return label
+            # Priority 1: Check for embedded MediaData (Base64 from server)
+            media_data = properties.get('MediaData')
+            if media_data:
+                try:
+                    import base64
+                    # Decode Base64 to bytes
+                    image_bytes = base64.b64decode(media_data)
 
-            try:
-                import os
-                if not os.path.isfile(source):
-                    logger.warning(f"Image file not found: {source}")
-                    return label
+                    # Load from bytes
+                    image = QImage()
+                    if image.loadFromData(image_bytes):
+                        pixmap = QPixmap.fromImage(image)
+                        logger.debug(f"Image loaded from Base64 data ({len(media_data)} chars)")
+                    else:
+                        logger.error("Failed to load image from Base64 data")
+                except Exception as e:
+                    logger.error(f"Failed to decode Base64 image data: {e}")
 
-                pixmap = QPixmap(source)
-                if pixmap.isNull():
-                    logger.error(f"Failed to load image from {source}")
-                    return label
+            # Priority 2: Try loading from file path (fallback)
+            if pixmap is None:
+                source = properties.get('Source', '')
+                if source:
+                    if not isinstance(source, str):
+                        logger.warning(f"Image source is not a string: {type(source)}")
+                    else:
+                        try:
+                            import os
+                            if os.path.isfile(source):
+                                pixmap = QPixmap(source)
+                                if not pixmap.isNull():
+                                    logger.debug(f"Image loaded from file: {source}")
+                                else:
+                                    logger.error(f"Failed to load image from {source}")
+                            else:
+                                logger.warning(f"Image file not found: {source}")
+                        except Exception as e:
+                            logger.error(f"Failed to load image from file {source}: {e}")
 
-                fit = properties.get('Fit', 'contain')
+            # If we have a pixmap, scale it according to fit mode
+            if pixmap and not pixmap.isNull():
+                try:
+                    fit = properties.get('Fit', 'contain')
 
-                if fit == 'contain':
-                    pixmap = pixmap.scaled(width, height, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-                elif fit == 'cover':
-                    pixmap = pixmap.scaled(width, height, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
-                elif fit == 'fill':
-                    pixmap = pixmap.scaled(width, height, Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
-                else:
-                    logger.warning(f"Unknown fit mode: {fit}, using contain")
-                    pixmap = pixmap.scaled(width, height, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                    if fit == 'contain':
+                        pixmap = pixmap.scaled(width, height, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                    elif fit == 'cover':
+                        pixmap = pixmap.scaled(width, height, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
+                    elif fit == 'fill':
+                        pixmap = pixmap.scaled(width, height, Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
+                    else:
+                        logger.warning(f"Unknown fit mode: {fit}, using contain")
+                        pixmap = pixmap.scaled(width, height, Qt.KeepAspectRatio, Qt.SmoothTransformation)
 
-                label.setPixmap(pixmap)
-                logger.debug(f"Image loaded successfully: {source}")
-
-            except Exception as e:
-                logger.error(f"Failed to load or scale image {source}: {e}")
+                    label.setPixmap(pixmap)
+                    logger.debug("Image scaled and set to label")
+                except Exception as e:
+                    logger.error(f"Failed to scale image: {e}")
+            else:
+                logger.warning("No image data available (neither Base64 nor file path)")
 
             # Apply common styling (border, shadow, opacity, rotation, background)
             self.apply_common_styling(label, properties)

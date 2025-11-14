@@ -590,6 +590,9 @@ public class ClientService : IClientService
                 }
             }
 
+            // Embed media files (images) as Base64 for client transfer
+            await EmbedMediaFilesInLayoutAsync(layout, cancellationToken);
+
             // Create and send display update message
             var displayUpdateMessage = new DisplayUpdateMessage
             {
@@ -662,5 +665,154 @@ public class ClientService : IClientService
             _logger.LogError(ex, "Failed to send UPDATE_CONFIG to client {ClientId}", clientId);
             return false;
         }
+    }
+
+    /// <summary>
+    /// Embed media files (images) as Base64 in layout elements for client transfer
+    /// </summary>
+    private async Task EmbedMediaFilesInLayoutAsync(Layout layout, CancellationToken cancellationToken)
+    {
+        if (layout == null || layout.Elements == null || layout.Elements.Count == 0)
+            return;
+
+        try
+        {
+            // Get MediaService from DI
+            using var scope = _serviceProvider.CreateScope();
+            var mediaService = scope.ServiceProvider.GetService<IMediaService>();
+            if (mediaService == null)
+            {
+                _logger.LogWarning("MediaService not available, skipping media embedding");
+                return;
+            }
+
+            foreach (var element in layout.Elements)
+            {
+                try
+                {
+                    // Process Image elements
+                    if (element.Type == "image")
+                    {
+                        var source = element["Source"]?.ToString();
+                        if (!string.IsNullOrWhiteSpace(source))
+                        {
+                            // Check if it's a media library reference (GUID)
+                            if (Guid.TryParse(source, out var mediaId))
+                            {
+                                var media = await mediaService.GetMediaByIdAsync(mediaId.ToString(), cancellationToken);
+                                if (media != null && File.Exists(media.FilePath))
+                                {
+                                    var base64Data = await ConvertFileToBase64Async(media.FilePath, cancellationToken);
+                                    element["MediaData"] = base64Data;
+                                    element["MediaType"] = media.MimeType;
+                                    _logger.LogDebug("Embedded media {MediaId} ({Size} bytes) in element {ElementId}",
+                                        mediaId, base64Data.Length, element.Id);
+                                }
+                            }
+                            // Check if it's a file path
+                            else if (File.Exists(source))
+                            {
+                                var base64Data = await ConvertFileToBase64Async(source, cancellationToken);
+                                element["MediaData"] = base64Data;
+                                element["MediaType"] = GetMimeTypeFromExtension(source);
+                                _logger.LogDebug("Embedded file {FilePath} in element {ElementId}", source, element.Id);
+                            }
+                        }
+                    }
+
+                    // Process BackgroundImage in layout
+                    if (element.ContainsKey("BackgroundImage"))
+                    {
+                        var bgImage = element["BackgroundImage"]?.ToString();
+                        if (!string.IsNullOrWhiteSpace(bgImage))
+                        {
+                            if (Guid.TryParse(bgImage, out var mediaId))
+                            {
+                                var media = await mediaService.GetMediaByIdAsync(mediaId.ToString(), cancellationToken);
+                                if (media != null && File.Exists(media.FilePath))
+                                {
+                                    var base64Data = await ConvertFileToBase64Async(media.FilePath, cancellationToken);
+                                    element["BackgroundImageData"] = base64Data;
+                                    element["BackgroundImageType"] = media.MimeType;
+                                }
+                            }
+                            else if (File.Exists(bgImage))
+                            {
+                                var base64Data = await ConvertFileToBase64Async(bgImage, cancellationToken);
+                                element["BackgroundImageData"] = base64Data;
+                                element["BackgroundImageType"] = GetMimeTypeFromExtension(bgImage);
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to embed media for element {ElementId}, element will use fallback", element.Id);
+                }
+            }
+
+            // Also check layout-level BackgroundImage
+            if (layout.BackgroundImage != null)
+            {
+                var bgImage = layout.BackgroundImage.ToString();
+                if (!string.IsNullOrWhiteSpace(bgImage))
+                {
+                    try
+                    {
+                        if (Guid.TryParse(bgImage, out var mediaId))
+                        {
+                            var media = await mediaService.GetMediaByIdAsync(mediaId.ToString(), cancellationToken);
+                            if (media != null && File.Exists(media.FilePath))
+                            {
+                                var base64Data = await ConvertFileToBase64Async(media.FilePath, cancellationToken);
+                                layout["BackgroundImageData"] = base64Data;
+                                layout["BackgroundImageType"] = media.MimeType;
+                            }
+                        }
+                        else if (File.Exists(bgImage))
+                        {
+                            var base64Data = await ConvertFileToBase64Async(bgImage, cancellationToken);
+                            layout["BackgroundImageData"] = base64Data;
+                            layout["BackgroundImageType"] = GetMimeTypeFromExtension(bgImage);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to embed layout background image");
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to embed media files in layout");
+        }
+    }
+
+    /// <summary>
+    /// Convert a file to Base64 string
+    /// </summary>
+    private async Task<string> ConvertFileToBase64Async(string filePath, CancellationToken cancellationToken)
+    {
+        var bytes = await File.ReadAllBytesAsync(filePath, cancellationToken);
+        return Convert.ToBase64String(bytes);
+    }
+
+    /// <summary>
+    /// Get MIME type from file extension
+    /// </summary>
+    private string GetMimeTypeFromExtension(string filePath)
+    {
+        var extension = Path.GetExtension(filePath).ToLowerInvariant();
+        return extension switch
+        {
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".png" => "image/png",
+            ".gif" => "image/gif",
+            ".bmp" => "image/bmp",
+            ".webp" => "image/webp",
+            ".svg" => "image/svg+xml",
+            _ => "application/octet-stream"
+        };
     }
 }
