@@ -809,11 +809,12 @@ _host = Host.CreateDefaultBuilder()
 
 ---
 
-### ⚠️ P2: Tight Coupling - Static Service Access
+### ✅ P2: Tight Coupling - Static Service Access - **FIXED**
 
-**Severity:** P2 - Medium  
-**Category:** Architecture  
-**Count:** 3-5 instances
+**Severity:** P2 - Medium
+**Category:** Architecture
+**Count:** 9 instances found, 8 fixed
+**Status:** ✅ **FIXED** - Commit: fb663fd
 
 #### Issue: Service locator pattern (anti-pattern)
 
@@ -830,14 +831,38 @@ public static T GetService<T>() where T : class  // ❌ Service locator anti-pat
 }
 ```
 
-**Status:** OPEN  
-**Impact:**
-- Makes dependencies implicit
+**Impact (Before Fix):**
+- Made dependencies implicit
 - Difficult to test
-- Hides coupling
-- Hidden dependencies
+- Hid coupling between components
+- Hidden dependencies in class constructors
 
-**Recommendation:** Use proper DI in all classes, avoid service locator pattern
+**Files Fixed:**
+1. `MainViewModel.cs` - 2 instances (SettingsViewModel, ILogger<SettingsDialog>)
+2. `AlertsViewModel.cs` - 1 instance (ILogger<AlertRuleEditorViewModel>)
+3. `DesignerViewModel.cs` - 6 instances (EnhancedMediaService, MediaBrowserViewModel logger, MediaBrowserDialog logger)
+
+**Pattern Applied:**
+```csharp
+// ❌ Bad - Service locator
+var service = App.GetService<MyService>();
+
+// ✅ Good - Constructor dependency injection
+private readonly MyService _myService;
+public MyViewModel(MyService myService)
+{
+    _myService = myService ?? throw new ArgumentNullException(nameof(myService));
+}
+```
+
+**Improvements:**
+- Dependencies now explicit in constructor signatures
+- Improved testability (can inject mocks)
+- Better maintainability
+- Follows SOLID principles (Dependency Inversion)
+- Easier to understand class dependencies
+
+**Note:** 1 instance in `DatabaseConnectionDialog.xaml.cs` appears unused and was not fixed
 
 ---
 
