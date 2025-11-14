@@ -27,6 +27,7 @@
             <converters:FontStyleToBoolConverter x:Key="FontStyleToBoolConverter"/>
             <converters:BoolToVisibilityStringConverter x:Key="BoolToVisibilityStringConverter"/>
             <converters:BoolToOnOffStringConverter x:Key="BoolToOnOffStringConverter"/>
+            <converters:CountToVisibilityConverter x:Key="CountToVisibilityConverter"/>
 
             <!-- Global Styles -->
             <Style TargetType="Window">

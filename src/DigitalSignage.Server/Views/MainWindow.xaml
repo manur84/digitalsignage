@@ -1488,8 +1488,21 @@
                             </StackPanel>
                             <ListBox ItemsSource="{Binding SchedulingViewModel.Schedules}"
                                      SelectedItem="{Binding SchedulingViewModel.SelectedSchedule}"
-                                     DisplayMemberPath="Name"
-                                     Margin="8,0"/>
+                                     Margin="8,0">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Vertical" Margin="0,4">
+                                            <TextBlock FontWeight="SemiBold">
+                                                <Run Text="{Binding Name, Mode=OneWay}"/>
+                                            </TextBlock>
+                                            <TextBlock Text="{Binding StartTime, StringFormat='{}⏰ {0} - '}" FontSize="11" Foreground="#666">
+                                                <Run Text="{Binding EndTime, Mode=OneWay}"/>
+                                            </TextBlock>
+                                            <TextBlock Text="{Binding Priority, StringFormat='{}Priority: {0}'}" FontSize="10" Foreground="#999"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
                         </DockPanel>
                     </Border>
 
@@ -1554,12 +1567,42 @@
                                     </StackPanel>
                                 </Grid>
 
-                                <TextBlock Text="Days of Week:" Margin="0,12,0,4"/>
-                                <TextBox Text="{Binding SchedulingViewModel.SelectedSchedule.DaysOfWeek, UpdateSourceTrigger=PropertyChanged}"/>
-                                <TextBlock Text="Example: Monday,Tuesday,Wednesday or * for all days"
-                                          FontSize="11"
-                                          Foreground="#666666"
-                                          Margin="0,2,0,0"/>
+                                <!-- Days of Week Selection -->
+                                <TextBlock Text="Days of Week:" Margin="0,12,0,4" FontWeight="SemiBold"/>
+                                <CheckBox Content="All Days"
+                                         IsChecked="{Binding SchedulingViewModel.AllDays}"
+                                         FontWeight="Bold"
+                                         Margin="0,4,0,8"/>
+                                <WrapPanel Margin="0,0,0,0">
+                                    <CheckBox Content="Monday"
+                                             IsChecked="{Binding SchedulingViewModel.Monday}"
+                                             IsEnabled="{Binding SchedulingViewModel.AllDays, Converter={StaticResource InverseBooleanConverter}}"
+                                             Margin="0,0,16,4" MinWidth="80"/>
+                                    <CheckBox Content="Tuesday"
+                                             IsChecked="{Binding SchedulingViewModel.Tuesday}"
+                                             IsEnabled="{Binding SchedulingViewModel.AllDays, Converter={StaticResource InverseBooleanConverter}}"
+                                             Margin="0,0,16,4" MinWidth="80"/>
+                                    <CheckBox Content="Wednesday"
+                                             IsChecked="{Binding SchedulingViewModel.Wednesday}"
+                                             IsEnabled="{Binding SchedulingViewModel.AllDays, Converter={StaticResource InverseBooleanConverter}}"
+                                             Margin="0,0,16,4" MinWidth="80"/>
+                                    <CheckBox Content="Thursday"
+                                             IsChecked="{Binding SchedulingViewModel.Thursday}"
+                                             IsEnabled="{Binding SchedulingViewModel.AllDays, Converter={StaticResource InverseBooleanConverter}}"
+                                             Margin="0,0,16,4" MinWidth="80"/>
+                                    <CheckBox Content="Friday"
+                                             IsChecked="{Binding SchedulingViewModel.Friday}"
+                                             IsEnabled="{Binding SchedulingViewModel.AllDays, Converter={StaticResource InverseBooleanConverter}}"
+                                             Margin="0,0,16,4" MinWidth="80"/>
+                                    <CheckBox Content="Saturday"
+                                             IsChecked="{Binding SchedulingViewModel.Saturday}"
+                                             IsEnabled="{Binding SchedulingViewModel.AllDays, Converter={StaticResource InverseBooleanConverter}}"
+                                             Margin="0,0,16,4" MinWidth="80"/>
+                                    <CheckBox Content="Sunday"
+                                             IsChecked="{Binding SchedulingViewModel.Sunday}"
+                                             IsEnabled="{Binding SchedulingViewModel.AllDays, Converter={StaticResource InverseBooleanConverter}}"
+                                             Margin="0,0,16,4" MinWidth="80"/>
+                                </WrapPanel>
 
                                 <Grid Margin="0,12,0,0">
                                     <Grid.ColumnDefinitions>
@@ -1580,17 +1623,132 @@
                                     </StackPanel>
                                 </Grid>
 
-                                <TextBlock Text="Optional: Client/Group Targeting" FontWeight="SemiBold" Margin="0,16,0,8"/>
+                                <!-- Date Range (Optional) -->
+                                <TextBlock Text="Date Range (Optional):" Margin="0,16,0,4" FontWeight="SemiBold"/>
+                                <Grid Margin="0,0,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
 
-                                <TextBlock Text="Client ID (optional):" Margin="0,0,0,4"/>
-                                <TextBox Text="{Binding SchedulingViewModel.SelectedSchedule.ClientId, UpdateSourceTrigger=PropertyChanged}"/>
+                                    <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                        <TextBlock Text="Valid From:" Margin="0,0,0,4"/>
+                                        <DatePicker SelectedDate="{Binding SchedulingViewModel.ValidFrom}"/>
+                                    </StackPanel>
 
-                                <TextBlock Text="Client Group (optional):" Margin="0,12,0,4"/>
-                                <TextBox Text="{Binding SchedulingViewModel.SelectedSchedule.ClientGroup, UpdateSourceTrigger=PropertyChanged}"/>
-                                <TextBlock Text="Leave empty to apply to all clients"
+                                    <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                                        <TextBlock Text="Valid Until:" Margin="0,0,0,4"/>
+                                        <DatePicker SelectedDate="{Binding SchedulingViewModel.ValidUntil}"/>
+                                    </StackPanel>
+                                </Grid>
+                                <TextBlock Text="Leave empty for no date restrictions"
                                           FontSize="11"
                                           Foreground="#666666"
                                           Margin="0,2,0,0"/>
+
+                                <!-- Device Targeting (Optional) -->
+                                <TextBlock Text="Device Targeting (Optional):" FontWeight="SemiBold" Margin="0,16,0,4"/>
+                                <Grid Margin="0,0,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <ComboBox Grid.Column="0"
+                                             ItemsSource="{Binding SchedulingViewModel.AvailableDevices}"
+                                             SelectedItem="{Binding SchedulingViewModel.SelectedDevice}"
+                                             DisplayMemberPath="Name"
+                                             Margin="0,0,8,0"/>
+                                    <Button Grid.Column="1"
+                                           Content="Add Device"
+                                           Command="{Binding SchedulingViewModel.AddDeviceCommand}"
+                                           Padding="12,4"/>
+                                </Grid>
+
+                                <!-- Selected Devices List -->
+                                <ListBox ItemsSource="{Binding SchedulingViewModel.SelectedDevices}"
+                                        Height="80"
+                                        Margin="0,4,0,0"
+                                        BorderBrush="#CCCCCC"
+                                        BorderThickness="1">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="{Binding Name}" VerticalAlignment="Center"/>
+                                                <Button Grid.Column="1"
+                                                       Content="Remove"
+                                                       Command="{Binding DataContext.SchedulingViewModel.RemoveDeviceCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                       CommandParameter="{Binding}"
+                                                       Padding="6,2"
+                                                       Margin="4,0,0,0"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                                <TextBlock Text="Leave empty to apply to all devices"
+                                          FontSize="11"
+                                          Foreground="#666666"
+                                          Margin="0,2,0,0"/>
+
+                                <!-- Conflicts Warning -->
+                                <Border Background="#FFF3CD"
+                                       BorderBrush="#FFC107"
+                                       BorderThickness="1"
+                                       Padding="12"
+                                       Margin="0,12,0,0"
+                                       Visibility="{Binding SchedulingViewModel.ConflictingSchedules.Count, Converter={StaticResource CountToVisibilityConverter}}">
+                                    <StackPanel>
+                                        <TextBlock Text="⚠ Schedule Conflicts Detected"
+                                                  FontWeight="Bold"
+                                                  Foreground="#856404"
+                                                  Margin="0,0,0,8"/>
+                                        <TextBlock Text="{Binding SchedulingViewModel.ConflictingSchedules.Count, StringFormat='This schedule conflicts with {0} other schedule(s). Priority will determine which schedule is active.'}"
+                                                  Foreground="#856404"
+                                                  TextWrapping="Wrap"
+                                                  Margin="0,0,0,8"/>
+                                        <ItemsControl ItemsSource="{Binding SchedulingViewModel.ConflictingSchedules}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding Name, StringFormat='• {0}'}"
+                                                              Foreground="#856404"
+                                                              Margin="0,0,0,2"/>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Schedule Preview -->
+                                <Border Background="#E3F2FD"
+                                       BorderBrush="#2196F3"
+                                       BorderThickness="1"
+                                       Padding="12"
+                                       Margin="0,12,0,0"
+                                       Visibility="{Binding SchedulingViewModel.SchedulePreview.Count, Converter={StaticResource CountToVisibilityConverter}}">
+                                    <StackPanel>
+                                        <TextBlock Text="📅 Schedule Preview (Next 7 Days)"
+                                                  FontWeight="Bold"
+                                                  Foreground="#1976D2"
+                                                  Margin="0,0,0,8"/>
+                                        <ItemsControl ItemsSource="{Binding SchedulingViewModel.SchedulePreview}"
+                                                     MaxHeight="150"
+                                                     ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Foreground="#1976D2" Margin="0,0,0,4">
+                                                        <Run Text="{Binding Date, StringFormat='{}{0:ddd, MMM dd}', Mode=OneWay}"/>
+                                                        <Run Text=": "/>
+                                                        <Run Text="{Binding TimeRange, Mode=OneWay}"/>
+                                                    </TextBlock>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </Border>
 
                                 <!-- Status Message -->
                                 <TextBlock Text="{Binding SchedulingViewModel.StatusMessage}"
@@ -1599,18 +1757,36 @@
                                           Foreground="#2196F3"
                                           TextWrapping="Wrap"/>
 
-                                <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
-                                    <Button Content="Save Schedule"
+                                <StackPanel Orientation="Horizontal" Margin="0,16,0,0" FlowDirection="LeftToRight">
+                                    <Button Content="💾 Save Schedule"
                                             Command="{Binding SchedulingViewModel.SaveScheduleCommand}"
                                             Style="{StaticResource PrimaryButton}"
-                                            Margin="0,0,8,0"/>
-                                    <Button Content="Delete Schedule"
+                                            Margin="0,0,8,0"
+                                            Padding="12,6"/>
+                                    <Button Content="🗑 Delete"
                                             Command="{Binding SchedulingViewModel.DeleteScheduleCommand}"
                                             Style="{StaticResource SecondaryButton}"
-                                            Margin="0,0,8,0"/>
-                                    <Button Content="Test Now"
+                                            Margin="0,0,8,0"
+                                            Padding="12,6"/>
+                                    <Button Content="📋 Duplicate"
+                                            Command="{Binding SchedulingViewModel.DuplicateScheduleCommand}"
+                                            Style="{StaticResource SecondaryButton}"
+                                            Margin="0,0,8,0"
+                                            Padding="12,6"/>
+                                    <Button Content="🔄 Preview"
+                                            Command="{Binding SchedulingViewModel.GenerateSchedulePreviewCommand}"
+                                            Style="{StaticResource SecondaryButton}"
+                                            Margin="0,0,8,0"
+                                            Padding="12,6"/>
+                                    <Button Content="⚠ Check Conflicts"
+                                            Command="{Binding SchedulingViewModel.CheckConflictsCommand}"
+                                            Style="{StaticResource SecondaryButton}"
+                                            Margin="0,0,8,0"
+                                            Padding="12,6"/>
+                                    <Button Content="🧪 Test Now"
                                             Command="{Binding SchedulingViewModel.TestScheduleCommand}"
-                                            Margin="0,0,0,0"/>
+                                            Margin="0,0,0,0"
+                                            Padding="12,6"/>
                                 </StackPanel>
                             </StackPanel>
                         </StackPanel>
