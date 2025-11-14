@@ -355,6 +355,16 @@ if [ "$MODE" = "UPDATE" ]; then
 
     show_success "Copied $COPIED_COUNT files"
 
+    # Copy templates directory for web interface
+    if [ -d "$SCRIPT_DIR/templates" ]; then
+        mkdir -p "$INSTALL_DIR/templates"
+        cp -r "$SCRIPT_DIR/templates/"* "$INSTALL_DIR/templates/" 2>/dev/null && \
+            show_success "Web interface templates copied" || \
+            show_warning "Failed to copy templates directory"
+    else
+        show_warning "templates directory not found (web interface may not work)"
+    fi
+
     # Re-enable exit on error
     set -e
 
@@ -681,6 +691,16 @@ if [ ${#MISSING_FILES[@]} -gt 0 ]; then
 fi
 
 show_success "Copied $COPIED_COUNT files"
+
+# Copy templates directory for web interface
+if [ -d "$SCRIPT_DIR/templates" ]; then
+    mkdir -p "$INSTALL_DIR/templates"
+    cp -r "$SCRIPT_DIR/templates/"* "$INSTALL_DIR/templates/" 2>/dev/null && \
+        show_success "Web interface templates copied" || \
+        show_warning "Failed to copy templates directory"
+else
+    show_warning "templates directory not found (web interface may not work)"
+fi
 
 # Re-enable exit on error
 set -e
