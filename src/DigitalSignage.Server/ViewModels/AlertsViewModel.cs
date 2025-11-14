@@ -23,6 +23,7 @@ public partial class AlertsViewModel : ObservableObject, IDisposable
     private readonly AlertService _alertService;
     private readonly IDbContextFactory<DigitalSignageDbContext> _contextFactory;
     private readonly ILogger<AlertsViewModel> _logger;
+    private readonly ILogger<AlertRuleEditorViewModel> _alertRuleEditorLogger;
     private CancellationTokenSource? _pollingCts;
     private bool _disposed = false;
 
@@ -56,11 +57,13 @@ public partial class AlertsViewModel : ObservableObject, IDisposable
     public AlertsViewModel(
         AlertService alertService,
         IDbContextFactory<DigitalSignageDbContext> contextFactory,
-        ILogger<AlertsViewModel> logger)
+        ILogger<AlertsViewModel> logger,
+        ILogger<AlertRuleEditorViewModel> alertRuleEditorLogger)
     {
         _alertService = alertService ?? throw new ArgumentNullException(nameof(alertService));
         _contextFactory = contextFactory ?? throw new ArgumentNullException(nameof(contextFactory));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _alertRuleEditorLogger = alertRuleEditorLogger ?? throw new ArgumentNullException(nameof(alertRuleEditorLogger));
 
         // Initialize
         _ = LoadDataAsync();
@@ -233,9 +236,8 @@ public partial class AlertsViewModel : ObservableObject, IDisposable
     {
         try
         {
-            var logger = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions
-                .GetRequiredService<ILogger<AlertRuleEditorViewModel>>(App.GetServiceProvider());
-            var viewModel = new AlertRuleEditorViewModel(_contextFactory, logger);
+            // Use injected logger instead of service locator
+            var viewModel = new AlertRuleEditorViewModel(_contextFactory, _alertRuleEditorLogger);
             var dialog = new AlertRuleEditorDialog
             {
                 DataContext = viewModel,
@@ -272,9 +274,8 @@ public partial class AlertsViewModel : ObservableObject, IDisposable
 
         try
         {
-            var logger = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions
-                .GetRequiredService<ILogger<AlertRuleEditorViewModel>>(App.GetServiceProvider());
-            var viewModel = new AlertRuleEditorViewModel(_contextFactory, logger, SelectedAlertRule);
+            // Use injected logger instead of service locator
+            var viewModel = new AlertRuleEditorViewModel(_contextFactory, _alertRuleEditorLogger, SelectedAlertRule);
             var dialog = new AlertRuleEditorDialog
             {
                 DataContext = viewModel,

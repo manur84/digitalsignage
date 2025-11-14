@@ -13,6 +13,9 @@ public partial class DesignerViewModel : ObservableObject, IDisposable
 {
     private readonly ILayoutService _layoutService;
     private readonly ILogger<DesignerViewModel> _logger;
+    private readonly EnhancedMediaService _mediaService;
+    private readonly ILogger<MediaBrowserViewModel> _mediaBrowserViewModelLogger;
+    private readonly ILogger<Views.Dialogs.MediaBrowserDialog> _mediaBrowserDialogLogger;
     private bool _disposed = false;
 
     [ObservableProperty]
@@ -65,10 +68,18 @@ public partial class DesignerViewModel : ObservableObject, IDisposable
     public CommandHistory CommandHistory { get; } = new(maxHistorySize: 50);
     public SelectionService SelectionService { get; } = new();
 
-    public DesignerViewModel(ILayoutService layoutService, ILogger<DesignerViewModel> logger)
+    public DesignerViewModel(
+        ILayoutService layoutService,
+        ILogger<DesignerViewModel> logger,
+        EnhancedMediaService mediaService,
+        ILogger<MediaBrowserViewModel> mediaBrowserViewModelLogger,
+        ILogger<Views.Dialogs.MediaBrowserDialog> mediaBrowserDialogLogger)
     {
         _layoutService = layoutService ?? throw new ArgumentNullException(nameof(layoutService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _mediaService = mediaService ?? throw new ArgumentNullException(nameof(mediaService));
+        _mediaBrowserViewModelLogger = mediaBrowserViewModelLogger ?? throw new ArgumentNullException(nameof(mediaBrowserViewModelLogger));
+        _mediaBrowserDialogLogger = mediaBrowserDialogLogger ?? throw new ArgumentNullException(nameof(mediaBrowserDialogLogger));
 
         // Subscribe to command history changes
         CommandHistory.HistoryChanged += OnHistoryChanged;
@@ -376,16 +387,11 @@ public partial class DesignerViewModel : ObservableObject, IDisposable
 
         try
         {
-            // Get services from DI container
-            var mediaService = App.GetService<EnhancedMediaService>();
-            var viewModelLogger = App.GetService<Microsoft.Extensions.Logging.ILogger<MediaBrowserViewModel>>();
-            var dialogLogger = App.GetService<Microsoft.Extensions.Logging.ILogger<Views.Dialogs.MediaBrowserDialog>>();
-
-            // Create ViewModel
-            var viewModel = new MediaBrowserViewModel(mediaService, viewModelLogger);
+            // Use injected dependencies instead of service locator
+            var viewModel = new MediaBrowserViewModel(_mediaService, _mediaBrowserViewModelLogger);
 
             // Create and show dialog
-            var dialog = new Views.Dialogs.MediaBrowserDialog(viewModel, dialogLogger)
+            var dialog = new Views.Dialogs.MediaBrowserDialog(viewModel, _mediaBrowserDialogLogger)
             {
                 Owner = System.Windows.Application.Current.MainWindow
             };
@@ -1747,16 +1753,11 @@ public partial class DesignerViewModel : ObservableObject, IDisposable
         {
             _logger.LogInformation("Opening media browser for element: {ElementName}", element.Name);
 
-            // Get services from DI container
-            var mediaService = App.GetService<EnhancedMediaService>();
-            var viewModelLogger = App.GetService<Microsoft.Extensions.Logging.ILogger<MediaBrowserViewModel>>();
-            var dialogLogger = App.GetService<Microsoft.Extensions.Logging.ILogger<Views.Dialogs.MediaBrowserDialog>>();
-
-            // Create ViewModel
-            var viewModel = new MediaBrowserViewModel(mediaService, viewModelLogger);
+            // Use injected dependencies instead of service locator
+            var viewModel = new MediaBrowserViewModel(_mediaService, _mediaBrowserViewModelLogger);
 
             // Create and show dialog
-            var dialog = new Views.Dialogs.MediaBrowserDialog(viewModel, dialogLogger)
+            var dialog = new Views.Dialogs.MediaBrowserDialog(viewModel, _mediaBrowserDialogLogger)
             {
                 Owner = System.Windows.Application.Current.MainWindow
             };

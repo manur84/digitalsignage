@@ -14,6 +14,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
 {
     private readonly ILogger<MainViewModel> _logger;
     private readonly BackupService _backupService;
+    private readonly SettingsViewModel _settingsViewModel;
+    private readonly ILogger<Views.Dialogs.SettingsDialog> _settingsDialogLogger;
     private bool _disposed = false;
 
     // View Options
@@ -62,8 +64,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
         LogViewerViewModel logViewerViewModel,
         LiveLogsViewModel liveLogsViewModel,
         AlertsViewModel alertsViewModel,
+        SettingsViewModel settingsViewModel,
         BackupService backupService,
-        ILogger<MainViewModel> logger)
+        ILogger<MainViewModel> logger,
+        ILogger<Views.Dialogs.SettingsDialog> settingsDialogLogger)
     {
         // New Sub-ViewModels
         LayoutManagement = layoutManagementViewModel ?? throw new ArgumentNullException(nameof(layoutManagementViewModel));
@@ -81,8 +85,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
         LiveLogsViewModel = liveLogsViewModel ?? throw new ArgumentNullException(nameof(liveLogsViewModel));
         Alerts = alertsViewModel ?? throw new ArgumentNullException(nameof(alertsViewModel));
 
+        _settingsViewModel = settingsViewModel ?? throw new ArgumentNullException(nameof(settingsViewModel));
         _backupService = backupService ?? throw new ArgumentNullException(nameof(backupService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _settingsDialogLogger = settingsDialogLogger ?? throw new ArgumentNullException(nameof(settingsDialogLogger));
 
         // Subscribe to sub-ViewModel status changes to update unified StatusText
         LayoutManagement.PropertyChanged += (s, e) =>
@@ -192,9 +198,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
             _logger.LogInformation("Opening settings dialog");
             StatusText = "Opening settings...";
 
-            var viewModel = App.GetService<SettingsViewModel>();
-            var logger = App.GetService<Microsoft.Extensions.Logging.ILogger<Views.Dialogs.SettingsDialog>>();
-            var dialog = new Views.Dialogs.SettingsDialog(viewModel, logger)
+            // Use injected dependencies instead of service locator
+            var dialog = new Views.Dialogs.SettingsDialog(_settingsViewModel, _settingsDialogLogger)
             {
                 Owner = System.Windows.Application.Current.MainWindow
             };
