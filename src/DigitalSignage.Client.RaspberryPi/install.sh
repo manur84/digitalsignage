@@ -278,6 +278,7 @@ cp display_renderer.py "$INSTALL_DIR/"
 cp cache_manager.py "$INSTALL_DIR/"
 cp watchdog_monitor.py "$INSTALL_DIR/"
 cp status_screen.py "$INSTALL_DIR/"
+cp web_interface.py "$INSTALL_DIR/"
 cp start-with-display.sh "$INSTALL_DIR/"
 cp wait-for-x11.sh "$INSTALL_DIR/" 2>/dev/null || echo "Note: wait-for-x11.sh not found (optional)"
 cp remote_log_handler.py "$INSTALL_DIR/" 2>/dev/null || echo "Note: remote_log_handler.py not found (optional)"
@@ -344,6 +345,10 @@ fi
 
 if [ ! -f "$INSTALL_DIR/watchdog_monitor.py" ]; then
     MISSING_FILES+=("watchdog_monitor.py")
+fi
+
+if [ ! -f "$INSTALL_DIR/web_interface.py" ]; then
+    MISSING_FILES+=("web_interface.py")
 fi
 
 if [ ! -f "$INSTALL_DIR/start-with-display.sh" ]; then
@@ -446,12 +451,30 @@ echo "========================================="
 echo "Verifying Installation"
 echo "========================================="
 echo ""
-echo "Checking PyQt5 accessibility from virtual environment..."
+echo "Checking Python modules accessibility from virtual environment..."
+
+# Check PyQt5
 if "$VENV_DIR/bin/python3" -c "import PyQt5; from PyQt5.QtWidgets import QApplication; print('PyQt5 OK')" 2>/dev/null; then
     echo "✓ PyQt5 is accessible from virtual environment"
 else
     echo "✗ WARNING: PyQt5 not accessible from virtual environment"
     echo "  This may cause client startup issues"
+fi
+
+# Check Flask
+if "$VENV_DIR/bin/python3" -c "import flask; print('Flask OK')" 2>/dev/null; then
+    echo "✓ Flask is accessible"
+else
+    echo "✗ WARNING: Flask not accessible from virtual environment"
+    echo "  Web interface will not work"
+fi
+
+# Check python-socketio
+if "$VENV_DIR/bin/python3" -c "import socketio; print('socketio OK')" 2>/dev/null; then
+    echo "✓ python-socketio is accessible"
+else
+    echo "✗ WARNING: python-socketio not accessible from virtual environment"
+    echo "  This may cause connection issues"
 fi
 
 echo ""

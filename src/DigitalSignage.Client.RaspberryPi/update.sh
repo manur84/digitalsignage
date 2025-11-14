@@ -18,7 +18,7 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 # Stop service
-echo -e "${YELLOW}[1/6] Stopping digitalsignage-client service...${NC}"
+echo -e "${YELLOW}[1/7] Stopping digitalsignage-client service...${NC}"
 sudo systemctl stop digitalsignage-client
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✓ Service stopped${NC}"
@@ -29,7 +29,7 @@ fi
 echo ""
 
 # Pull latest changes
-echo -e "${YELLOW}[2/6] Pulling latest changes from git...${NC}"
+echo -e "${YELLOW}[2/7] Pulling latest changes from git...${NC}"
 cd /opt/digitalsignage-client
 
 # Show current branch
@@ -49,12 +49,32 @@ fi
 echo ""
 
 # Show what changed
-echo -e "${YELLOW}[3/6] Recent changes:${NC}"
+echo -e "${YELLOW}[3/7] Recent changes:${NC}"
 git log -3 --oneline
 echo ""
 
+# Update Python dependencies if requirements.txt changed
+echo -e "${YELLOW}[4/7] Checking for dependency updates...${NC}"
+if [ -f "requirements.txt" ]; then
+    if git diff HEAD@{1} HEAD --name-only 2>/dev/null | grep -q "requirements.txt"; then
+        echo "requirements.txt changed, updating dependencies..."
+        /opt/digitalsignage-client/venv/bin/pip install -r requirements.txt
+        if [ $? -eq 0 ]; then
+            echo -e "${GREEN}✓ Dependencies updated${NC}"
+        else
+            echo -e "${RED}✗ Failed to update dependencies${NC}"
+            echo "Please run manually: /opt/digitalsignage-client/venv/bin/pip install -r requirements.txt"
+        fi
+    else
+        echo "No dependency changes detected"
+    fi
+else
+    echo -e "${YELLOW}Warning: requirements.txt not found${NC}"
+fi
+echo ""
+
 # Update systemd service file
-echo -e "${YELLOW}[4/6] Updating systemd service...${NC}"
+echo -e "${YELLOW}[5/7] Updating systemd service...${NC}"
 
 # Detect the user who is running the service
 ACTUAL_USER="${SUDO_USER:-$USER}"
@@ -89,7 +109,7 @@ fi
 echo ""
 
 # Restart service
-echo -e "${YELLOW}[5/6] Starting digitalsignage-client service...${NC}"
+echo -e "${YELLOW}[6/7] Starting digitalsignage-client service...${NC}"
 sudo systemctl start digitalsignage-client
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✓ Service started${NC}"
@@ -103,7 +123,7 @@ echo ""
 sleep 3
 
 # Show status
-echo -e "${YELLOW}[6/6] Service status:${NC}"
+echo -e "${YELLOW}[7/7] Service status:${NC}"
 echo ""
 sudo systemctl status digitalsignage-client --no-pager -l
 echo ""
