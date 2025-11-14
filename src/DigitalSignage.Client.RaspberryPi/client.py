@@ -189,8 +189,16 @@ class DigitalSignageClient:
                 with self.message_lock:
                     self.pending_messages.append(message)
         except Exception as e:
-            # Don't log errors here to avoid recursion
-            pass
+            # Log to file to avoid recursion issues with send_message
+            try:
+                error_log_path = '/var/log/digitalsignage-errors.log'
+                with open(error_log_path, 'a') as f:
+                    from datetime import datetime
+                    f.write(f"{datetime.now().isoformat()}: send_message failed: {str(e)}\n")
+            except:
+                # Absolute fallback - write to stderr
+                import sys
+                print(f"CRITICAL: send_message failed: {e}", file=sys.stderr)
 
     def _flush_pending_messages(self):
         """Send any messages that were queued while disconnected"""

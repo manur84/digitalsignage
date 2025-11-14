@@ -18,12 +18,13 @@ namespace DigitalSignage.Server.ViewModels;
 /// <summary>
 /// ViewModel for the Alerts management panel
 /// </summary>
-public partial class AlertsViewModel : ObservableObject
+public partial class AlertsViewModel : ObservableObject, IDisposable
 {
     private readonly AlertService _alertService;
     private readonly IDbContextFactory<DigitalSignageDbContext> _contextFactory;
     private readonly ILogger<AlertsViewModel> _logger;
     private CancellationTokenSource? _pollingCts;
+    private bool _disposed = false;
 
     [ObservableProperty]
     private ObservableCollection<Alert> _alerts = new();
@@ -611,6 +612,35 @@ public partial class AlertsViewModel : ObservableObject
     partial void OnFilterTextChanged(string value)
     {
         _ = LoadAlertsAsync();
+    }
+
+    /// <summary>
+    /// Disposes resources used by this ViewModel
+    /// </summary>
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    /// <summary>
+    /// Disposes managed and unmanaged resources
+    /// </summary>
+    protected virtual void Dispose(bool disposing)
+    {
+        if (_disposed) return;
+
+        if (disposing)
+        {
+            // Stop polling task
+            _pollingCts?.Cancel();
+            _pollingCts?.Dispose();
+            _pollingCts = null;
+
+            _logger.LogInformation("AlertsViewModel disposed");
+        }
+
+        _disposed = true;
     }
 }
 

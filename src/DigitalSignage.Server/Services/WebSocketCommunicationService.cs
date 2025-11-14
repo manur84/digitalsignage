@@ -279,7 +279,7 @@ public class WebSocketCommunicationService : ICommunicationService
             {
                 // Use MemoryStream to accumulate data across multiple frames
                 using var messageStream = new MemoryStream();
-                WebSocketReceiveResult result;
+                WebSocketReceiveResult? result = null;
 
                 // Keep reading frames until we get the complete message (EndOfMessage = true)
                 do
@@ -287,6 +287,12 @@ public class WebSocketCommunicationService : ICommunicationService
                     result = await socket.ReceiveAsync(
                         new ArraySegment<byte>(buffer),
                         cancellationToken);
+
+                    if (result == null)
+                    {
+                        _logger.LogWarning("Received null WebSocketReceiveResult from client {ClientId}", clientId);
+                        break;
+                    }
 
                     if (result.MessageType == WebSocketMessageType.Close)
                     {
@@ -296,10 +302,10 @@ public class WebSocketCommunicationService : ICommunicationService
                     // Append this frame's data to the message stream
                     messageStream.Write(buffer, 0, result.Count);
 
-                } while (!result.EndOfMessage);
+                } while (result != null && !result.EndOfMessage);
 
-                // If client closed connection, break out of the loop
-                if (result.MessageType == WebSocketMessageType.Close)
+                // If client closed connection or result is null, break out of the loop
+                if (result == null || result.MessageType == WebSocketMessageType.Close)
                 {
                     break;
                 }

@@ -7,11 +7,12 @@ using System.Collections.ObjectModel;
 
 namespace DigitalSignage.Server.ViewModels;
 
-public partial class DeviceManagementViewModel : ObservableObject
+public partial class DeviceManagementViewModel : ObservableObject, IDisposable
 {
     private readonly IClientService _clientService;
     private readonly ILayoutService _layoutService;
     private readonly ILogger<DeviceManagementViewModel> _logger;
+    private bool _disposed = false;
 
     [ObservableProperty]
     private RaspberryPiClient? _selectedClient;
@@ -419,5 +420,34 @@ public partial class DeviceManagementViewModel : ObservableObject
         {
             await LoadClientsCommand.ExecuteAsync(null);
         });
+    }
+
+    /// <summary>
+    /// Disposes resources used by this ViewModel
+    /// </summary>
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    /// <summary>
+    /// Disposes managed and unmanaged resources
+    /// </summary>
+    protected virtual void Dispose(bool disposing)
+    {
+        if (_disposed) return;
+
+        if (disposing)
+        {
+            // Unregister event handlers
+            _clientService.ClientConnected -= OnClientConnected;
+            _clientService.ClientDisconnected -= OnClientDisconnected;
+            _clientService.ClientStatusChanged -= OnClientStatusChanged;
+
+            _logger.LogInformation("DeviceManagementViewModel disposed");
+        }
+
+        _disposed = true;
     }
 }

@@ -289,13 +289,26 @@ public class DatabaseInitializationService : IHostedService
     }
 
     /// <summary>
-    /// Hash password using SHA256 (Note: In production, use BCrypt or Argon2)
+    /// Hash password using BCrypt with workFactor 12 (recommended for production)
     /// </summary>
     private static string HashPassword(string password)
     {
-        using var sha256 = SHA256.Create();
-        var hashedBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
-        return Convert.ToBase64String(hashedBytes);
+        return BCrypt.Net.BCrypt.HashPassword(password, workFactor: 12);
+    }
+
+    /// <summary>
+    /// Verify password against BCrypt hash
+    /// </summary>
+    private static bool VerifyPassword(string password, string hash)
+    {
+        try
+        {
+            return BCrypt.Net.BCrypt.Verify(password, hash);
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     /// <summary>

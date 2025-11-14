@@ -18,7 +18,7 @@ public class ClientService : IClientService
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<ClientService> _logger;
     private bool _isInitialized = false;
-    private readonly object _initLock = new object();
+    private readonly SemaphoreSlim _initSemaphore = new(1, 1);
 
     /// <summary>
     /// Event raised when a client connects
@@ -88,25 +88,30 @@ public class ClientService : IClientService
     {
         if (_isInitialized) return;
 
-        lock (_initLock)
+        await _initSemaphore.WaitAsync();
+        try
         {
             if (_isInitialized) return;
+
+            using var scope = _serviceProvider.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<DigitalSignageDbContext>();
+
+            var dbClients = await dbContext.Clients.ToListAsync();
+
+            foreach (var client in dbClients)
+            {
+                // Mark all as offline on startup
+                client.Status = ClientStatus.Offline;
+                _clients[client.Id] = client;
+            }
+
             _isInitialized = true;
+            _logger.LogInformation("Loaded {Count} clients from database", dbClients.Count);
         }
-
-        using var scope = _serviceProvider.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<DigitalSignageDbContext>();
-
-        var dbClients = await dbContext.Clients.ToListAsync();
-
-        foreach (var client in dbClients)
+        finally
         {
-            // Mark all as offline on startup
-            client.Status = ClientStatus.Offline;
-            _clients[client.Id] = client;
+            _initSemaphore.Release();
         }
-
-        _logger.LogInformation("Loaded {Count} clients from database", dbClients.Count);
     }
 
     public Task<List<RaspberryPiClient>> GetAllClientsAsync(CancellationToken cancellationToken = default)

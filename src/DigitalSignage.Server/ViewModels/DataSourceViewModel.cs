@@ -226,6 +226,36 @@ public partial class DataSourceViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Validates SQL input to prevent injection attacks
+    /// </summary>
+    private bool ValidateSqlInput(string input, string fieldName)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+            return true;
+
+        // Dangerous keywords that could lead to SQL injection or data manipulation
+        var dangerousKeywords = new[]
+        {
+            "DROP", "DELETE", "INSERT", "UPDATE", "EXEC", "EXECUTE",
+            "--", "/*", "*/", ";--", "xp_", "sp_"
+        };
+
+        var upperInput = input.ToUpperInvariant();
+
+        foreach (var keyword in dangerousKeywords)
+        {
+            if (upperInput.Contains(keyword))
+            {
+                _logger.Warning("Dangerous SQL keyword '{Keyword}' detected in {Field}", keyword, fieldName);
+                TestResult = $"❌ Query contains potentially dangerous SQL keyword: {keyword}";
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     [RelayCommand]
     private void GenerateQuery()
     {
@@ -234,6 +264,16 @@ public partial class DataSourceViewModel : ObservableObject
             if (string.IsNullOrWhiteSpace(QueryTableName))
             {
                 GeneratedQuery = "-- Please enter a table name";
+                return;
+            }
+
+            // Validate all user inputs for SQL injection attempts
+            if (!ValidateSqlInput(QueryColumns, "Columns") ||
+                !ValidateSqlInput(QueryTableName, "Table Name") ||
+                !ValidateSqlInput(QueryWhereClause, "Where Clause") ||
+                !ValidateSqlInput(QueryOrderBy, "Order By"))
+            {
+                GeneratedQuery = "-- Query validation failed due to dangerous SQL patterns";
                 return;
             }
 
@@ -262,11 +302,11 @@ public partial class DataSourceViewModel : ObservableObject
             if (SelectedDataSource != null)
             {
                 SelectedDataSource.Query = query;
-                TestResult = "Query generated and applied to current data source";
+                TestResult = "✅ Query generated and applied to current data source";
             }
             else
             {
-                TestResult = "Query generated (no data source selected to apply)";
+                TestResult = "✅ Query generated (no data source selected to apply)";
             }
 
             _logger.Information("Generated SQL query for table: {TableName}", QueryTableName);
@@ -275,7 +315,7 @@ public partial class DataSourceViewModel : ObservableObject
         {
             _logger.Error(ex, "Failed to generate query");
             GeneratedQuery = $"-- Error: {ex.Message}";
-            TestResult = $"Error generating query: {ex.Message}";
+            TestResult = $"❌ Error generating query: {ex.Message}";
         }
     }
 
