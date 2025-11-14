@@ -1,9 +1,9 @@
 # Refactoring Plan: Digital Signage Management System
 
 **Date:** 2025-11-14 (Updated)
-**Status:** Phase 4/5 Complete
+**Status:** Phase 5/5 Complete - ALL TABS EXTRACTED ✅
 **Priority:** HIGH
-**Progress:** ~875 lines extracted from MainWindow.xaml (36% complete)
+**Progress:** ~1789 lines extracted from MainWindow.xaml (74% complete)
 
 ---
 
@@ -17,7 +17,7 @@ This document outlines the comprehensive refactoring strategy for the Digital Si
 
 | File | Lines | Priority | Status | Action Required |
 |------|-------|----------|--------|-----------------|
-| **MainWindow.xaml** | 2411→~1536 | 🔴 HIGH | Phase 4/5 (~36% done) | Split into 15-20 UserControls |
+| **MainWindow.xaml** | 2411→~622 | 🟢 LOW | Phase 5/5 COMPLETE ✅ (~74% done) | Integration phase pending |
 | **DesignerViewModel.cs** | 1262 | 🔴 HIGH | Pending | Extract services and commands |
 | **MainViewModel.cs** | 1075 | 🟡 MEDIUM | Acceptable | Optional: Extract command services |
 | **ClientService.cs** | 619 | 🟢 LOW | Excellent | No changes needed |
@@ -95,21 +95,29 @@ Views/DataSources/
 - Static data JSON editor
 - Connection test functionality
 
-#### Phase 5: Extract Remaining Tabs
-**Target:** Reduce MainWindow by ~600 lines
+#### Phase 5: Extract Remaining Tabs ✅ COMPLETE
+**Target:** Reduce MainWindow by ~914 lines
+**Status:** Complete (914 lines extracted)
 
 ```
 Views/
-├── Preview/
-│   └── PreviewTabControl.xaml
 ├── Scheduling/
-│   └── SchedulingTabControl.xaml
+│   └── SchedulingTabControl.xaml        (327 lines) ✅ COMPLETE
+├── Preview/
+│   └── PreviewTabControl.xaml           (132 lines) ✅ COMPLETE
 ├── MediaLibrary/
-│   └── MediaLibraryTabControl.xaml
+│   └── MediaLibraryTabControl.xaml      (242 lines) ✅ COMPLETE
 └── Logs/
-    ├── LogsTabControl.xaml
-    └── LiveLogsTabControl.xaml
+    ├── LogsTabControl.xaml               (113 lines) ✅ COMPLETE
+    └── LiveDebugLogsTabControl.xaml      (100 lines) ✅ COMPLETE
 ```
+
+**Completed:** Extracted all remaining tabs:
+- **SchedulingTabControl**: Time-based layout scheduling with days of week, date ranges, device targeting, conflict detection, and schedule preview
+- **PreviewTabControl**: Layout preview with test data sources and live rendering
+- **MediaLibraryTabControl**: Media library with upload, filtering, search, and media details panel
+- **LogsTabControl**: Client logs viewer with level filtering, client selection, auto-scroll, and export
+- **LiveDebugLogsTabControl**: Real-time server debug logs with dark theme and virtualization
 
 #### Phase 6: Final MainWindow
 **Target:** ~150-200 lines
