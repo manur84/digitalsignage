@@ -21,7 +21,7 @@ public class DataSourceRepository
 
     public async Task<List<DataSource>> GetAllAsync()
     {
-        using var context = await _contextFactory.CreateDbContextAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
         return await context.DataSources
             .OrderBy(ds => ds.Name)
             .ToListAsync();
@@ -29,14 +29,14 @@ public class DataSourceRepository
 
     public async Task<DataSource?> GetByIdAsync(string id)
     {
-        using var context = await _contextFactory.CreateDbContextAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
         return await context.DataSources
             .FirstOrDefaultAsync(ds => ds.Id == id);
     }
 
     public async Task<DataSource> AddAsync(DataSource dataSource)
     {
-        using var context = await _contextFactory.CreateDbContextAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
 
         // Ensure Id is set
         if (string.IsNullOrEmpty(dataSource.Id))
@@ -53,7 +53,7 @@ public class DataSourceRepository
 
     public async Task<DataSource> UpdateAsync(DataSource dataSource)
     {
-        using var context = await _contextFactory.CreateDbContextAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
 
         var existing = await context.DataSources.FirstOrDefaultAsync(ds => ds.Id == dataSource.Id);
         if (existing == null)
@@ -70,7 +70,7 @@ public class DataSourceRepository
 
     public async Task DeleteAsync(string id)
     {
-        using var context = await _contextFactory.CreateDbContextAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
 
         var dataSource = await context.DataSources.FirstOrDefaultAsync(ds => ds.Id == id);
         if (dataSource != null)

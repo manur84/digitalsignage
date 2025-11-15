@@ -12,6 +12,9 @@ public class AlignmentService
     /// </summary>
     public void AlignLeft(IEnumerable<DisplayElement> elements)
     {
+        if (elements == null)
+            throw new ArgumentNullException(nameof(elements));
+
         var elementList = elements.ToList();
         if (elementList.Count < 2) return;
 
@@ -27,6 +30,9 @@ public class AlignmentService
     /// </summary>
     public void AlignRight(IEnumerable<DisplayElement> elements)
     {
+        if (elements == null)
+            throw new ArgumentNullException(nameof(elements));
+
         var elementList = elements.ToList();
         if (elementList.Count < 2) return;
 
@@ -42,6 +48,9 @@ public class AlignmentService
     /// </summary>
     public void AlignTop(IEnumerable<DisplayElement> elements)
     {
+        if (elements == null)
+            throw new ArgumentNullException(nameof(elements));
+
         var elementList = elements.ToList();
         if (elementList.Count < 2) return;
 
@@ -57,6 +66,9 @@ public class AlignmentService
     /// </summary>
     public void AlignBottom(IEnumerable<DisplayElement> elements)
     {
+        if (elements == null)
+            throw new ArgumentNullException(nameof(elements));
+
         var elementList = elements.ToList();
         if (elementList.Count < 2) return;
 
@@ -72,6 +84,9 @@ public class AlignmentService
     /// </summary>
     public void CenterHorizontal(IEnumerable<DisplayElement> elements)
     {
+        if (elements == null)
+            throw new ArgumentNullException(nameof(elements));
+
         var elementList = elements.ToList();
         if (elementList.Count < 2) return;
 
@@ -90,6 +105,9 @@ public class AlignmentService
     /// </summary>
     public void CenterVertical(IEnumerable<DisplayElement> elements)
     {
+        if (elements == null)
+            throw new ArgumentNullException(nameof(elements));
+
         var elementList = elements.ToList();
         if (elementList.Count < 2) return;
 
@@ -108,6 +126,9 @@ public class AlignmentService
     /// </summary>
     public void CenterOnCanvas(DisplayElement element, double canvasWidth, double canvasHeight)
     {
+        if (element == null)
+            throw new ArgumentNullException(nameof(element));
+
         element.Position.X = (canvasWidth - element.Size.Width) / 2;
         element.Position.Y = (canvasHeight - element.Size.Height) / 2;
     }
@@ -117,6 +138,9 @@ public class AlignmentService
     /// </summary>
     public void DistributeHorizontal(IEnumerable<DisplayElement> elements)
     {
+        if (elements == null)
+            throw new ArgumentNullException(nameof(elements));
+
         var elementList = elements.OrderBy(e => e.Position.X).ToList();
         if (elementList.Count < 3) return;
 
@@ -141,6 +165,9 @@ public class AlignmentService
     /// </summary>
     public void DistributeVertical(IEnumerable<DisplayElement> elements)
     {
+        if (elements == null)
+            throw new ArgumentNullException(nameof(elements));
+
         var elementList = elements.OrderBy(e => e.Position.Y).ToList();
         if (elementList.Count < 3) return;
 

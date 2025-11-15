@@ -56,7 +56,11 @@ public class UISink : ILogEventSink
 
             // Dispatch to UI thread - check if already on UI thread first
             var dispatcher = System.Windows.Application.Current?.Dispatcher;
-            if (dispatcher == null) return;
+            if (dispatcher == null)
+            {
+                System.Diagnostics.Debug.WriteLine("UISink: Dispatcher is null, cannot log message to UI");
+                return;
+            }
 
             Action processMessages = () =>
             {

@@ -242,10 +242,20 @@ public class SelectionService : INotifyPropertyChanged
             return null;
         }
 
-        var minX = _selectedElements.Min(e => e.Position.X);
-        var minY = _selectedElements.Min(e => e.Position.Y);
-        var maxX = _selectedElements.Max(e => e.Position.X + e.Size.Width);
-        var maxY = _selectedElements.Max(e => e.Position.Y + e.Size.Height);
+        // Filter out elements with null Position or Size
+        var validElements = _selectedElements
+            .Where(e => e.Position != null && e.Size != null)
+            .ToList();
+
+        if (validElements.Count == 0)
+        {
+            return null;
+        }
+
+        var minX = validElements.Min(e => e.Position.X);
+        var minY = validElements.Min(e => e.Position.Y);
+        var maxX = validElements.Max(e => e.Position.X + e.Size.Width);
+        var maxY = validElements.Max(e => e.Position.Y + e.Size.Height);
 
         return (minX, minY, maxX - minX, maxY - minY);
     }
