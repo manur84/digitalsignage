@@ -982,7 +982,7 @@
 
             <!-- Modern Designer Tab -->
             <TabItem Header="Modern Designer">
-                <views:ModernDesignerView DataContext="{Binding Designer}"/>
+                <views:StandaloneDesignerView DataContext="{Binding StandaloneDesigner}"/>
             </TabItem>
 
             <!-- Devices Tab -->

@@ -43,6 +43,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     // Existing Sub-ViewModels
     public DesignerViewModel Designer { get; }
+    public StandaloneDesignerViewModel StandaloneDesigner { get; }
     public DeviceManagementViewModel DeviceManagement { get; }
     public PreviewViewModel PreviewViewModel { get; }
     public SchedulingViewModel SchedulingViewModel { get; }
@@ -61,6 +62,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         ServerManagementViewModel serverManagementViewModel,
         DiagnosticsViewModel diagnosticsViewModel,
         DesignerViewModel designerViewModel,
+        StandaloneDesignerViewModel standaloneDesignerViewModel,
         DeviceManagementViewModel deviceManagementViewModel,
         PreviewViewModel previewViewModel,
         SchedulingViewModel schedulingViewModel,
@@ -84,6 +86,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
         // Existing Sub-ViewModels
         Designer = designerViewModel ?? throw new ArgumentNullException(nameof(designerViewModel));
+        StandaloneDesigner = standaloneDesignerViewModel ?? throw new ArgumentNullException(nameof(standaloneDesignerViewModel));
         DeviceManagement = deviceManagementViewModel ?? throw new ArgumentNullException(nameof(deviceManagementViewModel));
         PreviewViewModel = previewViewModel ?? throw new ArgumentNullException(nameof(previewViewModel));
         SchedulingViewModel = schedulingViewModel ?? throw new ArgumentNullException(nameof(schedulingViewModel));
