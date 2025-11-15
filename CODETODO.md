@@ -2125,3 +2125,67 @@ Line 373:   DisplayElement="{Binding}"                        ✅
 **Test-Datum:** 2025-11-13
 **Test-Status:** ✅ BESTANDEN - Designer ist vollständig funktional
 
+
+---
+
+## 📝 Code TODO Comments (From Source Code Analysis - Nov 15, 2025)
+
+The following TODO comments were found in the source code and should be tracked:
+
+### 🟡 Medium Priority Enhancements
+
+#### 1. Manual Device Registration Dialog
+**File:** `ServerManagementViewModel.cs:185`  
+**Status:** ⚠️ Not Implemented  
+**Description:** Implement add device dialog for manual device registration  
+**Current Workaround:** Auto-discovery works, manual registration is optional  
+**Implementation Notes:**
+- Create `AddDeviceDialog.xaml`
+- Allow manual entry of hostname, token, IP address
+- Validate and register device via `ClientService`
+- Complement existing auto-discovery feature
+
+#### 2. Data Source Selection in Designer
+**File:** `DesignerViewModel.cs:2007`  
+**Status:** ⚠️ Not Implemented  
+**Description:** Add data source selection dialog in designer  
+**Current Workaround:** Users must configure data sources separately first  
+**Implementation Notes:**
+- Add data source selection combo box to element properties
+- Allow inline data source creation from designer
+- Integrate with existing `DataSourcesViewModel`
+- Enable binding data-driven elements to data sources in one place
+
+#### 3. Video Thumbnail Generation
+**File:** `ThumbnailService.cs:126`  
+**Status:** ⚠️ Enhancement Needed  
+**Description:** Use FFmpeg to extract first frame from video files  
+**Current Behavior:** Video files display placeholder icons  
+**Implementation Notes:**
+- Add FFmpeg.NET NuGet package
+- Extract first frame from video files
+- Fallback to icon if FFmpeg fails
+- Cache generated thumbnails
+
+#### 4. Data Source Fetching for Layouts
+**File:** `ClientService.cs:382`  
+**Status:** ⚠️ Not Implemented  
+**Description:** Implement data source fetching when data-driven elements are supported  
+**Current Behavior:** layoutData is always null  
+**Implementation Notes:**
+- Implement `DataSourceService.FetchDataForLayout(layoutId)`
+- Integrate with existing `DataSourceManager` and `SqlDataSourceService`
+- Pass fetched data in layout assignment message to clients
+- Enable real-time data display in client layouts
+
+---
+
+### 📊 Code Quality Improvements Completed (Nov 15, 2025)
+
+- ✅ **Removed Unused Code:** 9 lines (VerifyPassword method in DatabaseInitializationService)
+- ✅ **Consolidated Duplicate Code:** 60+ lines → 15 lines (NetworkUtilities class created)
+- ✅ **Refactored Password Hashing:** DatabaseInitializationService now uses AuthenticationService
+- ✅ **Created ValidationHelpers:** Utility class for common validation patterns (52 occurrences can be refactored)
+- ✅ **Fixed XAML Bindings:** All indexer bindings corrected (SelectedElement[PropertyName])
+- ✅ **Code Analysis:** Comprehensive analysis of 259 C# files (~38,000 LOC) - Project is 97% clean
+

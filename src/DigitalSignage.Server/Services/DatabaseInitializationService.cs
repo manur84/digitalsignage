@@ -38,6 +38,7 @@ public class DatabaseInitializationService : IHostedService
         {
             using var scope = _serviceProvider.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<DigitalSignageDbContext>();
+            var authService = scope.ServiceProvider.GetRequiredService<AuthenticationService>();
 
             // Verify database is ready
             var canConnect = await dbContext.Database.CanConnectAsync(cancellationToken);
@@ -50,7 +51,7 @@ public class DatabaseInitializationService : IHostedService
             _logger.Information("Database connection verified. Proceeding with seed data...");
 
             // Seed default data (users, templates, example layouts)
-            await SeedDefaultDataAsync(dbContext, cancellationToken);
+            await SeedDefaultDataAsync(dbContext, authService, cancellationToken);
 
             _logger.Information("==========================================================");
             _logger.Information("SEED DATA COMPLETED SUCCESSFULLY");
@@ -69,7 +70,7 @@ public class DatabaseInitializationService : IHostedService
         return Task.CompletedTask;
     }
 
-    private async Task SeedDefaultDataAsync(DigitalSignageDbContext dbContext, CancellationToken cancellationToken)
+    private async Task SeedDefaultDataAsync(DigitalSignageDbContext dbContext, AuthenticationService authService, CancellationToken cancellationToken)
     {
         _logger.Information("Checking for default data seeding...");
 
@@ -84,7 +85,7 @@ public class DatabaseInitializationService : IHostedService
                 Username = "admin",
                 Email = "admin@digitalsignage.local",
                 FullName = "System Administrator",
-                PasswordHash = HashPassword(defaultPassword),
+                PasswordHash = authService.HashPassword(defaultPassword),
                 Role = UserRole.Admin,
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow,
@@ -277,14 +278,6 @@ public class DatabaseInitializationService : IHostedService
         {
             _logger.Information("Layout templates already exist, skipping template creation");
         }
-    }
-
-    /// <summary>
-    /// Hash password using BCrypt with workFactor 12 (recommended for production)
-    /// </summary>
-    private static string HashPassword(string password)
-    {
-        return BCrypt.Net.BCrypt.HashPassword(password, workFactor: 12);
     }
 
     /// <summary>
