@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
@@ -96,6 +97,113 @@ public class DesignerItemControl : ContentControl
             $"Width={Width}, Height={Height}, " +
             $"ActualWidth={ActualWidth}, ActualHeight={ActualHeight}");
     }
+
+    #region Safe Parsing Helper Methods
+
+    /// <summary>
+    /// Safely parses a string/object to double with fallback to default value
+    /// Prevents FormatException when property values are empty strings, null, or invalid
+    /// </summary>
+    private static double TryParseDouble(object? value, double defaultValue)
+    {
+        if (value == null)
+            return defaultValue;
+
+        // If already a double, return it directly
+        if (value is double d)
+            return d;
+
+        // If it's an int or other numeric type, convert safely
+        if (value is int i)
+            return i;
+        if (value is float f)
+            return f;
+        if (value is decimal dec)
+            return (double)dec;
+
+        // Try parsing string representation
+        var str = value.ToString();
+        if (string.IsNullOrWhiteSpace(str))
+            return defaultValue;
+
+        if (double.TryParse(str, NumberStyles.Any, CultureInfo.InvariantCulture, out var result))
+            return result;
+
+        return defaultValue;
+    }
+
+    /// <summary>
+    /// Safely parses a string/object to int with fallback to default value
+    /// </summary>
+    private static int TryParseInt(object? value, int defaultValue)
+    {
+        if (value == null)
+            return defaultValue;
+
+        // If already an int, return it directly
+        if (value is int i)
+            return i;
+
+        // If it's a double, convert safely
+        if (value is double d)
+            return (int)Math.Round(d);
+        if (value is float f)
+            return (int)Math.Round(f);
+
+        // Try parsing string representation
+        var str = value.ToString();
+        if (string.IsNullOrWhiteSpace(str))
+            return defaultValue;
+
+        if (int.TryParse(str, NumberStyles.Integer, CultureInfo.InvariantCulture, out var result))
+            return result;
+
+        // Try parsing as double first, then convert to int
+        if (double.TryParse(str, NumberStyles.Any, CultureInfo.InvariantCulture, out var doubleResult))
+            return (int)Math.Round(doubleResult);
+
+        return defaultValue;
+    }
+
+    /// <summary>
+    /// Safely parses a hex color string to Color with fallback to default
+    /// </summary>
+    private static Color TryParseColor(object? value, Color defaultColor)
+    {
+        if (value == null)
+            return defaultColor;
+
+        var str = value.ToString();
+        if (string.IsNullOrWhiteSpace(str))
+            return defaultColor;
+
+        try
+        {
+            return (Color)ColorConverter.ConvertFromString(str);
+        }
+        catch
+        {
+            return defaultColor;
+        }
+    }
+
+    /// <summary>
+    /// Safely gets a property value from the Properties dictionary
+    /// Returns null if key doesn't exist or element is null
+    /// </summary>
+    private string? GetProperty(string key)
+    {
+        if (DisplayElement?.Properties == null)
+            return null;
+
+        if (!DisplayElement.Properties.ContainsKey(key))
+            return null;
+
+        var value = DisplayElement.Properties[key];
+        return value?.ToString();
+    }
+
+    #endregion
 
     private static void OnDisplayElementChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
@@ -266,7 +374,7 @@ public class DesignerItemControl : ContentControl
                 textBlock.Text = content?.ToString() ?? "Text";
 
             if (DisplayElement.Properties.TryGetValue("FontSize", out var fontSize))
-                textBlock.FontSize = Convert.ToDouble(fontSize);
+                textBlock.FontSize = TryParseDouble(fontSize, 24.0);
 
             if (DisplayElement.Properties.TryGetValue("FontFamily", out var fontFamily))
                 textBlock.FontFamily = new FontFamily(fontFamily?.ToString() ?? "Arial");
@@ -305,7 +413,7 @@ public class DesignerItemControl : ContentControl
             // Apply line height
             if (DisplayElement.Properties.TryGetValue("LineHeight", out var lineHeight))
             {
-                var lineHeightValue = Convert.ToDouble(lineHeight);
+                var lineHeightValue = TryParseDouble(lineHeight, 1.2);
                 if (lineHeightValue > 0)
                 {
                     textBlock.LineHeight = textBlock.FontSize * lineHeightValue;
@@ -315,7 +423,7 @@ public class DesignerItemControl : ContentControl
             // Apply letter spacing (WPF uses Typography.LetterSpacing in em units)
             if (DisplayElement.Properties.TryGetValue("LetterSpacing", out var letterSpacing))
             {
-                var letterSpacingValue = Convert.ToDouble(letterSpacing);
+                var letterSpacingValue = TryParseDouble(letterSpacing, 0.0);
                 // Convert pixels to em units (em = pixels / fontSize * 1000)
                 if (textBlock.FontSize > 0)
                 {
@@ -356,7 +464,7 @@ public class DesignerItemControl : ContentControl
             if (DisplayElement.Properties.TryGetValue("BorderColor", out var borderColor) &&
                 DisplayElement.Properties.TryGetValue("BorderThickness", out var borderThickness))
             {
-                var thickness = Convert.ToDouble(borderThickness);
+                var thickness = TryParseDouble(borderThickness, 0.0);
                 if (thickness > 0)
                 {
                     try
@@ -374,7 +482,7 @@ public class DesignerItemControl : ContentControl
 
             if (DisplayElement.Properties.TryGetValue("BorderRadius", out var borderRadius))
             {
-                border.CornerRadius = new CornerRadius(Convert.ToDouble(borderRadius));
+                border.CornerRadius = new CornerRadius(TryParseDouble(borderRadius, 0.0));
             }
         }
 
@@ -466,7 +574,7 @@ public class DesignerItemControl : ContentControl
                         // Apply opacity if specified
                         if (DisplayElement.Properties.TryGetValue("ImageOpacity", out var opacity))
                         {
-                            image.Opacity = Convert.ToDouble(opacity);
+                            image.Opacity = TryParseDouble(opacity, 1.0);
                         }
 
                         border.Child = image;
@@ -556,13 +664,14 @@ public class DesignerItemControl : ContentControl
 
             if (DisplayElement.Properties.TryGetValue("BorderThickness", out var borderThickness))
             {
-                rectangle.StrokeThickness = Convert.ToDouble(borderThickness);
+                rectangle.StrokeThickness = TryParseDouble(borderThickness, 2.0);
             }
 
             if (DisplayElement.Properties.TryGetValue("CornerRadius", out var cornerRadius))
             {
-                rectangle.RadiusX = Convert.ToDouble(cornerRadius);
-                rectangle.RadiusY = Convert.ToDouble(cornerRadius);
+                var radius = TryParseDouble(cornerRadius, 0.0);
+                rectangle.RadiusX = radius;
+                rectangle.RadiusY = radius;
             }
         }
 
@@ -612,7 +721,7 @@ public class DesignerItemControl : ContentControl
 
             if (DisplayElement.Properties.TryGetValue("BorderThickness", out var borderThickness))
             {
-                ellipse.StrokeThickness = Convert.ToDouble(borderThickness);
+                ellipse.StrokeThickness = TryParseDouble(borderThickness, 2.0);
             }
         }
 
@@ -654,7 +763,7 @@ public class DesignerItemControl : ContentControl
 
             // Apply font properties
             if (DisplayElement.Properties.TryGetValue("FontSize", out var fontSize))
-                textBlock.FontSize = Convert.ToDouble(fontSize);
+                textBlock.FontSize = TryParseDouble(fontSize, 24.0);
 
             if (DisplayElement.Properties.TryGetValue("FontFamily", out var fontFamily))
                 textBlock.FontFamily = new FontFamily(fontFamily?.ToString() ?? "Arial");

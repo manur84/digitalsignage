@@ -209,6 +209,9 @@ public partial class DesignerViewModel : ObservableObject, IDisposable
                             element.Position = new Position { X = 0, Y = 0 };
                         }
 
+                        // Subscribe to ZIndex changes for automatic layer updates
+                        element.PropertyChanged += OnElementZIndexChanged;
+
                         Elements.Add(element);
 
                         // Use Information instead of Debug so we can see it in logs
@@ -1991,7 +1994,38 @@ public partial class DesignerViewModel : ObservableObject, IDisposable
 
     private void OnElementsCollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
     {
+        // Subscribe/Unsubscribe to ZIndex changes for new/removed elements
+        if (e.NewItems != null)
+        {
+            foreach (DisplayElement element in e.NewItems)
+            {
+                element.PropertyChanged -= OnElementZIndexChanged; // Prevent double subscription
+                element.PropertyChanged += OnElementZIndexChanged;
+            }
+        }
+
+        if (e.OldItems != null)
+        {
+            foreach (DisplayElement element in e.OldItems)
+            {
+                element.PropertyChanged -= OnElementZIndexChanged;
+            }
+        }
+
         HasUnsavedChanges = true;
         UpdateLayers();
+    }
+
+    /// <summary>
+    /// Handles ZIndex property changes to automatically update the Layers panel
+    /// </summary>
+    private void OnElementZIndexChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(DisplayElement.ZIndex))
+        {
+            // Update layers when any element's ZIndex changes
+            UpdateLayers();
+            _logger.LogDebug("ZIndex changed for element, updating layers panel");
+        }
     }
 }
