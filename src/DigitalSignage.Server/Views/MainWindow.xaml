@@ -516,8 +516,8 @@
                             <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
                             <controls:DesignerCanvas x:Name="DesignerCanvas"
                                                     Background="White"
-                                                    Width="{Binding Designer.CurrentLayout.Resolution.Width}"
-                                                    Height="{Binding Designer.CurrentLayout.Resolution.Height}"
+                                                    Width="{Binding Designer.CurrentLayout.Resolution.Width, FallbackValue=1920}"
+                                                    Height="{Binding Designer.CurrentLayout.Resolution.Height, FallbackValue=1080}"
                                                     ShowGrid="{Binding Designer.ShowGrid}"
                                                     SnapToGrid="{Binding Designer.SnapToGrid}"
                                                     GridSize="{Binding Designer.GridSize}"
@@ -582,17 +582,15 @@
                                 <!-- Render all elements using DesignerItemControl (professional WYSIWYG rendering) -->
                                 <!-- CRITICAL FIX: ItemsControl MUST have explicit Width/Height when child of Canvas! -->
                                 <!-- Without size, ItemsControl renders at 0x0 and clips all children -->
-                                <!-- DIAGNOSTIC TEST: Hardcode size and add background to verify rendering -->
                                 <ItemsControl ItemsSource="{Binding Designer.Elements}"
-                                              Width="1920"
-                                              Height="1080"
-                                              Background="#10FFFF00">
+                                              Width="{Binding Designer.CurrentLayout.Resolution.Width, FallbackValue=1920}"
+                                              Height="{Binding Designer.CurrentLayout.Resolution.Height, FallbackValue=1080}">
                                     <!-- CRITICAL FIX: ItemsPanel MUST be Canvas for Canvas.Left/Top/ZIndex to work! -->
                                     <!-- CRITICAL FIX: Canvas MUST have explicit size or children won't render (0x0 clip bounds)! -->
-                                    <!-- DIAGNOSTIC TEST: Hardcode size to test if binding is the problem -->
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
-                                            <Canvas Width="1920" Height="1080" Background="#10FF0000"/>
+                                            <Canvas Width="{Binding DataContext.Designer.CurrentLayout.Resolution.Width, RelativeSource={RelativeSource AncestorType=controls:DesignerCanvas}, FallbackValue=1920}"
+                                                    Height="{Binding DataContext.Designer.CurrentLayout.Resolution.Height, RelativeSource={RelativeSource AncestorType=controls:DesignerCanvas}, FallbackValue=1080}"/>
                                         </ItemsPanelTemplate>
                                     </ItemsControl.ItemsPanel>
                                     <ItemsControl.ItemContainerStyle>
@@ -611,8 +609,6 @@
                                             <!-- FallbackValue=Visible ensures elements are visible if binding fails -->
                                             <!-- TargetNullValue=Visible handles null Visible property gracefully -->
                                             <Setter Property="Visibility" Value="{Binding Visible, Converter={StaticResource BoolToVisibilityConverter}, FallbackValue=Visible, TargetNullValue=Visible}"/>
-                                            <!-- DIAGNOSTIC TEST: Add visible background to ContentPresenter containers -->
-                                            <Setter Property="Background" Value="#4000FF00"/>
                                         </Style>
                                     </ItemsControl.ItemContainerStyle>
                                     <ItemsControl.ItemTemplate>
