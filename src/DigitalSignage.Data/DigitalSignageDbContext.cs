@@ -65,6 +65,11 @@ public class DigitalSignageDbContext : DbContext
             c => c.Aggregate(0, (a, v) => HashCode.Combine(a, v.Key.GetHashCode(), v.Value != null ? v.Value.GetHashCode() : 0)),
             c => new Dictionary<string, object>(c));
 
+        var stringListComparer = new ValueComparer<List<string>>(
+            (c1, c2) => (c1 == null && c2 == null) || (c1 != null && c2 != null && c1.SequenceEqual(c2)),
+            c => c.Aggregate(0, (a, v) => HashCode.Combine(a, v.GetHashCode())),
+            c => c.ToList());
+
         // Configure RaspberryPiClient
         modelBuilder.Entity<RaspberryPiClient>(entity =>
         {
@@ -144,9 +149,20 @@ public class DigitalSignageDbContext : DbContext
                 )
                 .Metadata.SetValueComparer(stringObjectDictComparer);
 
+            // Store Tags as JSON
+            entity.Property(e => e.Tags)
+                .HasConversion(
+                    v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
+                    v => System.Text.Json.JsonSerializer.Deserialize<List<string>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new List<string>()
+                )
+                .Metadata.SetValueComparer(stringListComparer);
+
+            entity.Property(e => e.Category).HasMaxLength(100);
+
             // Indexes
             entity.HasIndex(e => e.Name);
             entity.HasIndex(e => e.Created);
+            entity.HasIndex(e => e.Category);
         });
 
         // Configure DataSource (standalone)

@@ -29,6 +29,18 @@ public partial class LayoutSelectionViewModel : ObservableObject
     private string _searchText = string.Empty;
 
     [ObservableProperty]
+    private string? _selectedCategory;
+
+    [ObservableProperty]
+    private ObservableCollection<string> _availableCategories = new();
+
+    [ObservableProperty]
+    private ObservableCollection<string> _availableTags = new();
+
+    [ObservableProperty]
+    private string? _selectedTag;
+
+    [ObservableProperty]
     private bool _isLoading;
 
     [ObservableProperty]
@@ -79,6 +91,7 @@ public partial class LayoutSelectionViewModel : ObservableObject
             }
 
             FilterLayouts();
+            UpdateFilterOptions();
         }
         catch (Exception ex)
         {
@@ -97,9 +110,59 @@ public partial class LayoutSelectionViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Filter layouts based on search text
+    /// Update available categories and tags from loaded layouts
+    /// </summary>
+    private void UpdateFilterOptions()
+    {
+        // Update categories
+        AvailableCategories.Clear();
+        AvailableCategories.Add("(All)"); // Default option
+
+        var categories = Layouts
+            .Where(l => !string.IsNullOrWhiteSpace(l.Category))
+            .Select(l => l.Category!)
+            .Distinct()
+            .OrderBy(c => c);
+
+        foreach (var category in categories)
+        {
+            AvailableCategories.Add(category);
+        }
+
+        // Update tags
+        AvailableTags.Clear();
+        AvailableTags.Add("(All)"); // Default option
+
+        var tags = Layouts
+            .Where(l => l.Tags != null && l.Tags.Any())
+            .SelectMany(l => l.Tags)
+            .Distinct()
+            .OrderBy(t => t);
+
+        foreach (var tag in tags)
+        {
+            AvailableTags.Add(tag);
+        }
+
+        // Reset selections
+        SelectedCategory = "(All)";
+        SelectedTag = "(All)";
+    }
+
+    /// <summary>
+    /// Filter layouts based on search text, category, and tags
     /// </summary>
     partial void OnSearchTextChanged(string value)
+    {
+        FilterLayouts();
+    }
+
+    partial void OnSelectedCategoryChanged(string? value)
+    {
+        FilterLayouts();
+    }
+
+    partial void OnSelectedTagChanged(string? value)
     {
         FilterLayouts();
     }
@@ -108,24 +171,37 @@ public partial class LayoutSelectionViewModel : ObservableObject
     {
         FilteredLayouts.Clear();
 
-        if (string.IsNullOrWhiteSpace(SearchText))
+        var searchLower = SearchText?.ToLower() ?? string.Empty;
+        var hasSearch = !string.IsNullOrWhiteSpace(SearchText);
+        var hasCategory = !string.IsNullOrWhiteSpace(SelectedCategory) && SelectedCategory != "(All)";
+        var hasTag = !string.IsNullOrWhiteSpace(SelectedTag) && SelectedTag != "(All)";
+
+        foreach (var layout in Layouts)
         {
-            foreach (var layout in Layouts)
+            // Apply search filter
+            if (hasSearch)
             {
-                FilteredLayouts.Add(layout);
+                var matchesSearch = layout.Name.ToLower().Contains(searchLower) ||
+                                   (layout.Description?.ToLower().Contains(searchLower) ?? false);
+                if (!matchesSearch)
+                    continue;
             }
-        }
-        else
-        {
-            var searchLower = SearchText.ToLower();
-            foreach (var layout in Layouts)
+
+            // Apply category filter
+            if (hasCategory)
             {
-                if (layout.Name.ToLower().Contains(searchLower) ||
-                    (layout.Description?.ToLower().Contains(searchLower) ?? false))
-                {
-                    FilteredLayouts.Add(layout);
-                }
+                if (!string.Equals(layout.Category, SelectedCategory, StringComparison.OrdinalIgnoreCase))
+                    continue;
             }
+
+            // Apply tag filter
+            if (hasTag)
+            {
+                if (layout.Tags == null || !layout.Tags.Any(t => string.Equals(t, SelectedTag, StringComparison.OrdinalIgnoreCase)))
+                    continue;
+            }
+
+            FilteredLayouts.Add(layout);
         }
 
         StatusMessage = $"Showing {FilteredLayouts.Count} of {Layouts.Count} layouts";

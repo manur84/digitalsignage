@@ -23,9 +23,26 @@ public partial class NewLayoutViewModel : ObservableObject
     private string _backgroundColor = "#FFFFFF";
 
     [ObservableProperty]
+    private string? _category;
+
+    [ObservableProperty]
+    private string _tags = string.Empty;
+
+    [ObservableProperty]
     private ResolutionOption? _selectedResolution;
 
     public ObservableCollection<ResolutionOption> AvailableResolutions { get; } = new();
+
+    public ObservableCollection<string> PredefinedCategories { get; } = new()
+    {
+        "Marketing",
+        "Operations",
+        "Emergency",
+        "Information",
+        "Wayfinding",
+        "Menu",
+        "Welcome"
+    };
 
     /// <summary>
     /// Event raised when the dialog should close

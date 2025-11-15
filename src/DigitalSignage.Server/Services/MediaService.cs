@@ -1,5 +1,7 @@
 using System.IO;
 using Microsoft.Extensions.Logging;
+using System.Drawing;
+using System.Drawing.Imaging;
 
 namespace DigitalSignage.Server.Services;
 
@@ -9,6 +11,8 @@ public interface IMediaService
     Task<byte[]?> GetMediaAsync(string fileName);
     Task<bool> DeleteMediaAsync(string fileName);
     Task<List<string>> GetAllMediaFilesAsync();
+    Task<string?> GenerateThumbnailAsync(string fileName, int maxWidth = 200, int maxHeight = 200);
+    Task<byte[]?> GetThumbnailAsync(string fileName);
 }
 
 public class MediaService : IMediaService
@@ -176,5 +180,127 @@ public class MediaService : IMediaService
             _logger.LogError(ex, "Access denied while listing media files");
             return Task.FromResult(new List<string>());
         }
+    }
+
+    public async Task<string?> GenerateThumbnailAsync(string fileName, int maxWidth = 200, int maxHeight = 200)
+    {
+        if (string.IsNullOrWhiteSpace(fileName))
+        {
+            _logger.LogWarning("GenerateThumbnailAsync called with null or empty filename");
+            return null;
+        }
+
+        // Validate path traversal
+        if (fileName.Contains("..") || Path.GetFileName(fileName) != fileName)
+        {
+            _logger.LogWarning("Attempted path traversal attack with filename: {FileName}", fileName);
+            return null;
+        }
+
+        try
+        {
+            var filePath = Path.Combine(_mediaDirectory, fileName);
+            if (!File.Exists(filePath))
+            {
+                _logger.LogWarning("Source file not found for thumbnail generation: {FileName}", fileName);
+                return null;
+            }
+
+            // Check if it's an image file
+            var extension = Path.GetExtension(fileName).ToLowerInvariant();
+            var imageExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp" };
+            if (!imageExtensions.Contains(extension))
+            {
+                _logger.LogDebug("File {FileName} is not an image, skipping thumbnail generation", fileName);
+                return null;
+            }
+
+            // Generate thumbnail filename
+            var thumbnailFileName = $"thumb_{fileName}";
+            var thumbnailPath = Path.Combine(_mediaDirectory, thumbnailFileName);
+
+            // Check if thumbnail already exists
+            if (File.Exists(thumbnailPath))
+            {
+                _logger.LogDebug("Thumbnail already exists for {FileName}", fileName);
+                return thumbnailFileName;
+            }
+
+            // Load the image
+            using var originalImage = await Task.Run(() => Image.FromFile(filePath));
+
+            // Calculate thumbnail dimensions maintaining aspect ratio
+            var ratioX = (double)maxWidth / originalImage.Width;
+            var ratioY = (double)maxHeight / originalImage.Height;
+            var ratio = Math.Min(ratioX, ratioY);
+
+            var newWidth = (int)(originalImage.Width * ratio);
+            var newHeight = (int)(originalImage.Height * ratio);
+
+            // Create thumbnail
+            using var thumbnail = new Bitmap(newWidth, newHeight);
+            using (var graphics = Graphics.FromImage(thumbnail))
+            {
+                graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
+                graphics.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
+                graphics.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighQuality;
+
+                graphics.DrawImage(originalImage, 0, 0, newWidth, newHeight);
+            }
+
+            // Save thumbnail
+            await Task.Run(() => thumbnail.Save(thumbnailPath, ImageFormat.Jpeg));
+
+            _logger.LogInformation("Generated thumbnail for {FileName}: {ThumbnailFileName} ({Width}x{Height})",
+                fileName, thumbnailFileName, newWidth, newHeight);
+
+            return thumbnailFileName;
+        }
+        catch (OutOfMemoryException ex)
+        {
+            _logger.LogError(ex, "Out of memory while generating thumbnail for {FileName}", fileName);
+            return null;
+        }
+        catch (ArgumentException ex)
+        {
+            _logger.LogError(ex, "Invalid image format for {FileName}", fileName);
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error generating thumbnail for {FileName}", fileName);
+            return null;
+        }
+    }
+
+    public async Task<byte[]?> GetThumbnailAsync(string fileName)
+    {
+        if (string.IsNullOrWhiteSpace(fileName))
+        {
+            _logger.LogWarning("GetThumbnailAsync called with null or empty filename");
+            return null;
+        }
+
+        // Check if thumbnail exists
+        var thumbnailFileName = fileName.StartsWith("thumb_") ? fileName : $"thumb_{fileName}";
+        var thumbnailData = await GetMediaAsync(thumbnailFileName);
+
+        if (thumbnailData != null)
+        {
+            return thumbnailData;
+        }
+
+        // If thumbnail doesn't exist, try to generate it
+        _logger.LogDebug("Thumbnail not found for {FileName}, attempting to generate", fileName);
+        var generatedThumbFileName = await GenerateThumbnailAsync(fileName);
+
+        if (generatedThumbFileName != null)
+        {
+            return await GetMediaAsync(generatedThumbFileName);
+        }
+
+        _logger.LogDebug("Could not generate thumbnail for {FileName}", fileName);
+        return null;
     }
 }

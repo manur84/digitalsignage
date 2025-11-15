@@ -22,6 +22,16 @@ public class DisplayLayout
     /// List of SQL Data Source IDs linked to this layout (for datagrid elements)
     /// </summary>
     public List<Guid> LinkedDataSourceIds { get; set; } = new();
+
+    /// <summary>
+    /// Category for organizing layouts (e.g., "Marketing", "Operations", "Emergency")
+    /// </summary>
+    public string? Category { get; set; }
+
+    /// <summary>
+    /// Tags for better organization and filtering (comma-separated or as list)
+    /// </summary>
+    public List<string> Tags { get; set; } = new();
 }
 
 /// <summary>

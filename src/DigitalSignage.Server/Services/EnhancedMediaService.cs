@@ -349,4 +349,79 @@ public class EnhancedMediaService : IMediaService
         var hashBytes = sha256.ComputeHash(data);
         return BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
     }
+
+    public async Task<string?> GenerateThumbnailAsync(string fileName, int maxWidth = 200, int maxHeight = 200)
+    {
+        try
+        {
+            var filePath = Path.Combine(_mediaDirectory, fileName);
+            if (!File.Exists(filePath))
+            {
+                _logger.LogWarning("File not found for thumbnail generation: {FileName}", fileName);
+                return null;
+            }
+
+            // Use ThumbnailService to generate thumbnail
+            var thumbnailPath = await Task.Run(() => _thumbnailService.GenerateImageThumbnail(filePath, fileName));
+
+            if (thumbnailPath != null)
+            {
+                _logger.LogInformation("Generated thumbnail for {FileName}: {ThumbnailPath}", fileName, thumbnailPath);
+                return Path.GetFileName(thumbnailPath);
+            }
+
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to generate thumbnail for {FileName}", fileName);
+            return null;
+        }
+    }
+
+    public async Task<byte[]?> GetThumbnailAsync(string fileName)
+    {
+        try
+        {
+            // Check if thumbnail already exists for this file
+            var thumbnailPattern = $"thumb_{Path.GetFileNameWithoutExtension(fileName)}_*.jpg";
+            var thumbnailDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "DigitalSignage",
+                "Thumbnails");
+
+            if (Directory.Exists(thumbnailDir))
+            {
+                var thumbnailFiles = Directory.GetFiles(thumbnailDir, thumbnailPattern);
+                if (thumbnailFiles.Length > 0)
+                {
+                    // Return the most recent thumbnail
+                    var latestThumbnail = thumbnailFiles
+                        .Select(f => new FileInfo(f))
+                        .OrderByDescending(f => f.LastWriteTimeUtc)
+                        .First();
+
+                    return await File.ReadAllBytesAsync(latestThumbnail.FullName);
+                }
+            }
+
+            // If no thumbnail exists, try to generate one
+            var thumbnailFileName = await GenerateThumbnailAsync(fileName);
+            if (thumbnailFileName != null)
+            {
+                var thumbnailPath = Path.Combine(thumbnailDir, thumbnailFileName);
+                if (File.Exists(thumbnailPath))
+                {
+                    return await File.ReadAllBytesAsync(thumbnailPath);
+                }
+            }
+
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get thumbnail for {FileName}", fileName);
+            return null;
+        }
+    }
 }

@@ -85,6 +85,10 @@ public partial class LayoutManagementViewModel : ObservableObject, IDisposable
                         Orientation = newLayoutViewModel.SelectedResolution.Width > newLayoutViewModel.SelectedResolution.Height ? "landscape" : "portrait"
                     },
                     BackgroundColor = newLayoutViewModel.BackgroundColor,
+                    Category = newLayoutViewModel.Category,
+                    Tags = string.IsNullOrWhiteSpace(newLayoutViewModel.Tags)
+                        ? new List<string>()
+                        : newLayoutViewModel.Tags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList(),
                     Elements = new List<DisplayElement>(),
                     Created = DateTime.UtcNow,
                     Modified = DateTime.UtcNow
