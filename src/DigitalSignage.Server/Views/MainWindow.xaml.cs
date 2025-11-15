@@ -1,9 +1,11 @@
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Input;
 using DigitalSignage.Core.Models;
 // REMOVED: using DigitalSignage.Server.Behaviors; - ElementSelectionBehavior no longer used
+using DigitalSignage.Server.Controls;
 using DigitalSignage.Server.ViewModels;
 using Microsoft.Extensions.Logging;
 
@@ -21,6 +23,7 @@ public partial class MainWindow : Window
     private Point _dragStartPosition;
     private bool _isDragging;
     private DisplayElement? _draggingElement;
+    private AlignmentGuidesAdorner? _alignmentAdorner;
 
     public MainWindow(MainViewModel viewModel, ILogger<MainWindow>? logger = null)
     {
@@ -30,6 +33,9 @@ public partial class MainWindow : Window
 
         // REMOVED: Initialize element selection behavior - no longer needed
         // _selectionBehavior = new ElementSelectionBehavior(this, viewModel.Designer);
+
+        // Initialize AlignmentGuidesAdorner when window is loaded
+        Loaded += MainWindow_Loaded;
 
         _logger?.LogInformation("MainWindow initialized");
     }
@@ -141,6 +147,25 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
+    /// Initializes the AlignmentGuidesAdorner when the window is loaded
+    /// </summary>
+    private void MainWindow_Loaded(object sender, RoutedEventArgs e)
+    {
+        // Create and add AlignmentGuidesAdorner to DesignerCanvas
+        var adornerLayer = AdornerLayer.GetAdornerLayer(DesignerCanvas);
+        if (adornerLayer != null && _alignmentAdorner == null)
+        {
+            _alignmentAdorner = new AlignmentGuidesAdorner(DesignerCanvas);
+            adornerLayer.Add(_alignmentAdorner);
+            _logger?.LogInformation("AlignmentGuidesAdorner initialized successfully");
+        }
+        else
+        {
+            _logger?.LogWarning("Failed to initialize AlignmentGuidesAdorner - AdornerLayer is null");
+        }
+    }
+
+    /// <summary>
     /// Handles mouse left button down on designer elements
     /// </summary>
     private void Element_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -225,14 +250,39 @@ public partial class MainWindow : Window
             var newX = _draggingElement.Position.X + delta.X;
             var newY = _draggingElement.Position.Y + delta.Y;
 
-            // Snap to grid if enabled (NOT when Ctrl is pressed, as Ctrl is for multi-select)
-            if (ViewModel?.Designer?.SnapToGrid == true)
+            // Use Smart Guides for alignment snapping (unless Shift is pressed to disable)
+            bool useSmartGuides = !Keyboard.Modifiers.HasFlag(ModifierKeys.Shift);
+
+            if (_alignmentAdorner != null && useSmartGuides)
+            {
+                // Get bounds of other elements (excluding the ones being dragged)
+                var otherElements = ViewModel?.Designer?.CurrentLayout?.Elements?
+                    .Where(el => !elementsToMove.Contains(el))
+                    .Select(el => new Rect(el.Position.X, el.Position.Y, el.Size.Width, el.Size.Height))
+                    .ToList() ?? new List<Rect>();
+
+                // Get canvas bounds
+                var canvasWidth = ViewModel?.Designer?.CurrentLayout?.Resolution?.Width ?? 1920;
+                var canvasHeight = ViewModel?.Designer?.CurrentLayout?.Resolution?.Height ?? 1080;
+                var canvasBounds = new Rect(0, 0, canvasWidth, canvasHeight);
+
+                // Calculate bounds of moving element
+                var movingBounds = new Rect(newX, newY, _draggingElement.Size.Width, _draggingElement.Size.Height);
+
+                // Calculate snapped position with alignment guides
+                var snappedPoint = _alignmentAdorner.CalculateSnappedPosition(movingBounds, otherElements, canvasBounds);
+
+                // Adjust delta based on smart guide snapping
+                delta = new Vector(snappedPoint.X - _draggingElement.Position.X, snappedPoint.Y - _draggingElement.Position.Y);
+            }
+            // Fallback to grid snapping if smart guides are disabled but grid is enabled
+            else if (ViewModel?.Designer?.SnapToGrid == true)
             {
                 var gridSize = ViewModel.Designer.GridSize;
                 var snappedX = Math.Round(newX / gridSize) * gridSize;
                 var snappedY = Math.Round(newY / gridSize) * gridSize;
 
-                // Adjust delta based on snapping
+                // Adjust delta based on grid snapping
                 delta = new Vector(snappedX - _draggingElement.Position.X, snappedY - _draggingElement.Position.Y);
             }
 
@@ -270,6 +320,9 @@ public partial class MainWindow : Window
 
             _isDragging = false;
             _draggingElement = null;
+
+            // Clear alignment guides
+            _alignmentAdorner?.ClearGuides();
 
             if (sender is FrameworkElement element)
             {

@@ -160,7 +160,8 @@ public partial class App : Application
                 services.AddSingleton<ICommunicationService, WebSocketCommunicationService>();
                 services.AddSingleton<IDialogService, DialogService>();
 
-                // Register EnhancedMediaService for both interface and concrete type
+                // Register ThumbnailService and EnhancedMediaService for both interface and concrete type
+                services.AddSingleton<ThumbnailService>();
                 services.AddSingleton<EnhancedMediaService>();
                 services.AddSingleton<IMediaService>(sp => sp.GetRequiredService<EnhancedMediaService>());
 

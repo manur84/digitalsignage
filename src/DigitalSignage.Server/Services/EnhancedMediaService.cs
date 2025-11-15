@@ -16,6 +16,7 @@ public class EnhancedMediaService : IMediaService
     private readonly string _mediaDirectory;
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<EnhancedMediaService> _logger;
+    private readonly ThumbnailService _thumbnailService;
     private readonly HashSet<string> _allowedImageExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".svg"
@@ -36,9 +37,11 @@ public class EnhancedMediaService : IMediaService
 
     public EnhancedMediaService(
         IServiceProvider serviceProvider,
+        ThumbnailService thumbnailService,
         ILogger<EnhancedMediaService> logger)
     {
         _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+        _thumbnailService = thumbnailService ?? throw new ArgumentNullException(nameof(thumbnailService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
         _mediaDirectory = Path.Combine(
@@ -109,6 +112,32 @@ public class EnhancedMediaService : IMediaService
                 UploadedByUserId = 1, // TODO: Get from current user context
                 UploadedAt = DateTime.UtcNow
             };
+
+            // Generate thumbnail based on media type
+            string? thumbnailPath = null;
+            try
+            {
+                thumbnailPath = mediaType switch
+                {
+                    MediaType.Image => _thumbnailService.GenerateImageThumbnail(filePath, fileName),
+                    MediaType.Video => _thumbnailService.GenerateVideoThumbnail(filePath, fileName),
+                    MediaType.Document => _thumbnailService.GenerateDocumentThumbnail(filePath, fileName),
+                    _ => null
+                };
+
+                if (thumbnailPath != null)
+                {
+                    mediaFile.ThumbnailPath = thumbnailPath;
+                    _logger.LogInformation("Thumbnail generated for {FileName}: {ThumbnailPath}",
+                        uniqueFileName, thumbnailPath);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to generate thumbnail for {FileName}, continuing without thumbnail",
+                    fileName);
+                // Continue without thumbnail - not a critical error
+            }
 
             dbContext.MediaFiles.Add(mediaFile);
             await dbContext.SaveChangesAsync();
@@ -183,6 +212,12 @@ public class EnhancedMediaService : IMediaService
 
             if (mediaFile != null)
             {
+                // Delete thumbnail if it exists
+                if (!string.IsNullOrEmpty(mediaFile.ThumbnailPath))
+                {
+                    _thumbnailService.DeleteThumbnail(mediaFile.ThumbnailPath);
+                }
+
                 dbContext.MediaFiles.Remove(mediaFile);
                 await dbContext.SaveChangesAsync();
                 _logger.LogInformation("Media metadata deleted from database: {FileName}", fileName);
