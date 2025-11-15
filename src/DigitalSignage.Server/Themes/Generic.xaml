@@ -9,8 +9,14 @@
                 <ControlTemplate TargetType="{x:Type controls:DesignerItemControl}">
                     <Border Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}">
-                        <ContentPresenter />
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            Width="{TemplateBinding Width}"
+                            Height="{TemplateBinding Height}"
+                            HorizontalAlignment="{TemplateBinding HorizontalAlignment}"
+                            VerticalAlignment="{TemplateBinding VerticalAlignment}">
+                        <ContentPresenter HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch"
+                                        Content="{TemplateBinding Content}"/>
                     </Border>
                 </ControlTemplate>
             </Setter.Value>
