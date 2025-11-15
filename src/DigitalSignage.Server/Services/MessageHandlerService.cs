@@ -52,6 +52,9 @@ public class MessageHandlerService : BackgroundService
         // Subscribe to message events
         _communicationService.MessageReceived += OnMessageReceived;
 
+        // Subscribe to disconnect events to immediately mark clients offline
+        _communicationService.ClientDisconnected += OnClientDisconnected;
+
         // Keep the service running
         try
         {
@@ -75,6 +78,27 @@ public class MessageHandlerService : BackgroundService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error handling message from client {ClientId}", e.ClientId);
+        }
+    }
+
+    /// <summary>
+    /// Handle client disconnection - immediately mark client as offline
+    /// </summary>
+    private async void OnClientDisconnected(object? sender, ClientDisconnectedEventArgs e)
+    {
+        try
+        {
+            _logger.LogInformation("Client {ClientId} disconnected from WebSocket - marking as offline", e.ClientId);
+
+            await _clientService.UpdateClientStatusAsync(
+                e.ClientId,
+                ClientStatus.Offline);
+
+            _logger.LogInformation("Client {ClientId} status updated to Offline", e.ClientId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error handling disconnect for client {ClientId}", e.ClientId);
         }
     }
 
@@ -314,6 +338,7 @@ public class MessageHandlerService : BackgroundService
     {
         _logger.LogInformation("Message Handler Service stopping...");
         _communicationService.MessageReceived -= OnMessageReceived;
+        _communicationService.ClientDisconnected -= OnClientDisconnected;
         await base.StopAsync(cancellationToken);
     }
 }
