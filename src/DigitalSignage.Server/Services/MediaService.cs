@@ -2,17 +2,18 @@ using System.IO;
 using Microsoft.Extensions.Logging;
 using System.Drawing;
 using System.Drawing.Imaging;
+using DigitalSignage.Core.Models;
 
 namespace DigitalSignage.Server.Services;
 
 public interface IMediaService
 {
-    Task<string> SaveMediaAsync(byte[] data, string fileName);
-    Task<byte[]?> GetMediaAsync(string fileName);
-    Task<bool> DeleteMediaAsync(string fileName);
-    Task<List<string>> GetAllMediaFilesAsync();
-    Task<string?> GenerateThumbnailAsync(string fileName, int maxWidth = 200, int maxHeight = 200);
-    Task<byte[]?> GetThumbnailAsync(string fileName);
+    Task<Result<string>> SaveMediaAsync(byte[] data, string fileName, CancellationToken cancellationToken = default);
+    Task<Result<byte[]>> GetMediaAsync(string fileName, CancellationToken cancellationToken = default);
+    Task<Result> DeleteMediaAsync(string fileName, CancellationToken cancellationToken = default);
+    Task<Result<List<string>>> GetAllMediaFilesAsync(CancellationToken cancellationToken = default);
+    Task<Result<string>> GenerateThumbnailAsync(string fileName, int maxWidth = 200, int maxHeight = 200, CancellationToken cancellationToken = default);
+    Task<Result<byte[]>> GetThumbnailAsync(string fileName, CancellationToken cancellationToken = default);
 }
 
 public class MediaService : IMediaService
@@ -31,134 +32,159 @@ public class MediaService : IMediaService
         Directory.CreateDirectory(_mediaDirectory);
     }
 
-    public async Task<string> SaveMediaAsync(byte[] data, string fileName)
+    public async Task<Result<string>> SaveMediaAsync(byte[] data, string fileName, CancellationToken cancellationToken = default)
     {
-        if (data == null || data.Length == 0)
-        {
-            _logger.LogError("SaveMediaAsync called with null or empty data");
-            throw new ArgumentException("Data cannot be null or empty", nameof(data));
-        }
-
-        if (string.IsNullOrWhiteSpace(fileName))
-        {
-            _logger.LogError("SaveMediaAsync called with null or empty filename");
-            throw new ArgumentException("Filename cannot be empty", nameof(fileName));
-        }
-
-        // Validate path traversal
-        if (fileName.Contains("..") || Path.GetFileName(fileName) != fileName)
-        {
-            _logger.LogWarning("Attempted path traversal attack with filename: {FileName}", fileName);
-            throw new ArgumentException("Invalid filename", nameof(fileName));
-        }
-
         try
         {
+            if (data == null || data.Length == 0)
+            {
+                _logger.LogError("SaveMediaAsync called with null or empty data");
+                return Result<string>.Failure("Data cannot be null or empty");
+            }
+
+            if (string.IsNullOrWhiteSpace(fileName))
+            {
+                _logger.LogError("SaveMediaAsync called with null or empty filename");
+                return Result<string>.Failure("Filename cannot be empty");
+            }
+
+            // Validate path traversal
+            if (fileName.Contains("..") || Path.GetFileName(fileName) != fileName)
+            {
+                _logger.LogWarning("Attempted path traversal attack with filename: {FileName}", fileName);
+                return Result<string>.Failure("Invalid filename");
+            }
+
             var filePath = Path.Combine(_mediaDirectory, fileName);
-            await File.WriteAllBytesAsync(filePath, data);
+            await File.WriteAllBytesAsync(filePath, data, cancellationToken);
             _logger.LogDebug("Saved media file {FileName} ({Size} bytes)", fileName, data.Length);
-            return fileName;
+            return Result<string>.Success(fileName);
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning("Save media operation cancelled for {FileName}", fileName);
+            return Result<string>.Failure("Operation was cancelled");
         }
         catch (IOException ex)
         {
             _logger.LogError(ex, "I/O error while saving media file {FileName}", fileName);
-            throw new InvalidOperationException($"Failed to save media file {fileName}", ex);
+            return Result<string>.Failure($"Failed to save media file: {ex.Message}", ex);
         }
         catch (UnauthorizedAccessException ex)
         {
             _logger.LogError(ex, "Access denied while saving media file {FileName}", fileName);
-            throw new InvalidOperationException($"Access denied for media file {fileName}", ex);
+            return Result<string>.Failure($"Access denied: {ex.Message}", ex);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected error while saving media file {FileName}", fileName);
+            return Result<string>.Failure($"Failed to save media file: {ex.Message}", ex);
         }
     }
 
-    public async Task<byte[]?> GetMediaAsync(string fileName)
+    public async Task<Result<byte[]>> GetMediaAsync(string fileName, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(fileName))
-        {
-            _logger.LogWarning("GetMediaAsync called with null or empty filename");
-            return null;
-        }
-
-        // Validate path traversal
-        if (fileName.Contains("..") || Path.GetFileName(fileName) != fileName)
-        {
-            _logger.LogWarning("Attempted path traversal attack with filename: {FileName}", fileName);
-            return null;
-        }
-
         try
         {
+            if (string.IsNullOrWhiteSpace(fileName))
+            {
+                _logger.LogWarning("GetMediaAsync called with null or empty filename");
+                return Result<byte[]>.Failure("Filename cannot be empty");
+            }
+
+            // Validate path traversal
+            if (fileName.Contains("..") || Path.GetFileName(fileName) != fileName)
+            {
+                _logger.LogWarning("Attempted path traversal attack with filename: {FileName}", fileName);
+                return Result<byte[]>.Failure("Invalid filename");
+            }
+
             var filePath = Path.Combine(_mediaDirectory, fileName);
             if (!File.Exists(filePath))
             {
                 _logger.LogDebug("Media file not found: {FileName}", fileName);
-                return null;
+                return Result<byte[]>.Failure($"Media file '{fileName}' not found");
             }
 
-            var data = await File.ReadAllBytesAsync(filePath);
+            var data = await File.ReadAllBytesAsync(filePath, cancellationToken);
             _logger.LogDebug("Retrieved media file {FileName} ({Size} bytes)", fileName, data.Length);
-            return data;
+            return Result<byte[]>.Success(data);
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning("Get media operation cancelled for {FileName}", fileName);
+            return Result<byte[]>.Failure("Operation was cancelled");
         }
         catch (IOException ex)
         {
             _logger.LogError(ex, "I/O error while reading media file {FileName}", fileName);
-            return null;
+            return Result<byte[]>.Failure($"Failed to read media file: {ex.Message}", ex);
         }
         catch (UnauthorizedAccessException ex)
         {
             _logger.LogError(ex, "Access denied while reading media file {FileName}", fileName);
-            return null;
+            return Result<byte[]>.Failure($"Access denied: {ex.Message}", ex);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected error while reading media file {FileName}", fileName);
+            return Result<byte[]>.Failure($"Failed to read media file: {ex.Message}", ex);
         }
     }
 
-    public Task<bool> DeleteMediaAsync(string fileName)
+    public Task<Result> DeleteMediaAsync(string fileName, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(fileName))
-        {
-            _logger.LogWarning("DeleteMediaAsync called with null or empty filename");
-            return Task.FromResult(false);
-        }
-
-        // Validate path traversal
-        if (fileName.Contains("..") || Path.GetFileName(fileName) != fileName)
-        {
-            _logger.LogWarning("Attempted path traversal attack with filename: {FileName}", fileName);
-            return Task.FromResult(false);
-        }
-
         try
         {
+            if (string.IsNullOrWhiteSpace(fileName))
+            {
+                _logger.LogWarning("DeleteMediaAsync called with null or empty filename");
+                return Task.FromResult(Result.Failure("Filename cannot be empty"));
+            }
+
+            // Validate path traversal
+            if (fileName.Contains("..") || Path.GetFileName(fileName) != fileName)
+            {
+                _logger.LogWarning("Attempted path traversal attack with filename: {FileName}", fileName);
+                return Task.FromResult(Result.Failure("Invalid filename"));
+            }
+
             var filePath = Path.Combine(_mediaDirectory, fileName);
             if (File.Exists(filePath))
             {
                 File.Delete(filePath);
                 _logger.LogInformation("Deleted media file: {FileName}", fileName);
-                return Task.FromResult(true);
+                return Task.FromResult(Result.Success());
             }
 
             _logger.LogDebug("Media file not found for deletion: {FileName}", fileName);
-            return Task.FromResult(false);
+            return Task.FromResult(Result.Failure($"Media file '{fileName}' not found"));
         }
         catch (IOException ex)
         {
             _logger.LogError(ex, "I/O error while deleting media file {FileName}", fileName);
-            return Task.FromResult(false);
+            return Task.FromResult(Result.Failure($"Failed to delete media file: {ex.Message}", ex));
         }
         catch (UnauthorizedAccessException ex)
         {
             _logger.LogError(ex, "Access denied while deleting media file {FileName}", fileName);
-            return Task.FromResult(false);
+            return Task.FromResult(Result.Failure($"Access denied: {ex.Message}", ex));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected error while deleting media file {FileName}", fileName);
+            return Task.FromResult(Result.Failure($"Failed to delete media file: {ex.Message}", ex));
         }
     }
 
-    public Task<List<string>> GetAllMediaFilesAsync()
+    public Task<Result<List<string>>> GetAllMediaFilesAsync(CancellationToken cancellationToken = default)
     {
         try
         {
             if (!Directory.Exists(_mediaDirectory))
             {
                 _logger.LogWarning("Media directory does not exist: {Directory}", _mediaDirectory);
-                return Task.FromResult(new List<string>());
+                return Task.FromResult(Result<List<string>>.Success(new List<string>()));
             }
 
             var files = Directory.GetFiles(_mediaDirectory)
@@ -168,42 +194,47 @@ public class MediaService : IMediaService
                 .ToList();
 
             _logger.LogDebug("Found {Count} media files", files.Count);
-            return Task.FromResult(files);
+            return Task.FromResult(Result<List<string>>.Success(files));
         }
         catch (IOException ex)
         {
             _logger.LogError(ex, "I/O error while listing media files");
-            return Task.FromResult(new List<string>());
+            return Task.FromResult(Result<List<string>>.Failure($"Failed to list media files: {ex.Message}", ex));
         }
         catch (UnauthorizedAccessException ex)
         {
             _logger.LogError(ex, "Access denied while listing media files");
-            return Task.FromResult(new List<string>());
+            return Task.FromResult(Result<List<string>>.Failure($"Access denied: {ex.Message}", ex));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected error while listing media files");
+            return Task.FromResult(Result<List<string>>.Failure($"Failed to list media files: {ex.Message}", ex));
         }
     }
 
-    public async Task<string?> GenerateThumbnailAsync(string fileName, int maxWidth = 200, int maxHeight = 200)
+    public async Task<Result<string>> GenerateThumbnailAsync(string fileName, int maxWidth = 200, int maxHeight = 200, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(fileName))
-        {
-            _logger.LogWarning("GenerateThumbnailAsync called with null or empty filename");
-            return null;
-        }
-
-        // Validate path traversal
-        if (fileName.Contains("..") || Path.GetFileName(fileName) != fileName)
-        {
-            _logger.LogWarning("Attempted path traversal attack with filename: {FileName}", fileName);
-            return null;
-        }
-
         try
         {
+            if (string.IsNullOrWhiteSpace(fileName))
+            {
+                _logger.LogWarning("GenerateThumbnailAsync called with null or empty filename");
+                return Result<string>.Failure("Filename cannot be empty");
+            }
+
+            // Validate path traversal
+            if (fileName.Contains("..") || Path.GetFileName(fileName) != fileName)
+            {
+                _logger.LogWarning("Attempted path traversal attack with filename: {FileName}", fileName);
+                return Result<string>.Failure("Invalid filename");
+            }
+
             var filePath = Path.Combine(_mediaDirectory, fileName);
             if (!File.Exists(filePath))
             {
                 _logger.LogWarning("Source file not found for thumbnail generation: {FileName}", fileName);
-                return null;
+                return Result<string>.Failure($"Source file '{fileName}' not found");
             }
 
             // Check if it's an image file
@@ -212,7 +243,7 @@ public class MediaService : IMediaService
             if (!imageExtensions.Contains(extension))
             {
                 _logger.LogDebug("File {FileName} is not an image, skipping thumbnail generation", fileName);
-                return null;
+                return Result<string>.Failure($"File '{fileName}' is not an image");
             }
 
             // Generate thumbnail filename
@@ -223,11 +254,11 @@ public class MediaService : IMediaService
             if (File.Exists(thumbnailPath))
             {
                 _logger.LogDebug("Thumbnail already exists for {FileName}", fileName);
-                return thumbnailFileName;
+                return Result<string>.Success(thumbnailFileName);
             }
 
             // Load the image
-            using var originalImage = await Task.Run(() => Image.FromFile(filePath));
+            using var originalImage = await Task.Run(() => Image.FromFile(filePath), cancellationToken);
 
             // Calculate thumbnail dimensions maintaining aspect ratio
             var ratioX = (double)maxWidth / originalImage.Width;
@@ -250,57 +281,75 @@ public class MediaService : IMediaService
             }
 
             // Save thumbnail
-            await Task.Run(() => thumbnail.Save(thumbnailPath, ImageFormat.Jpeg));
+            await Task.Run(() => thumbnail.Save(thumbnailPath, ImageFormat.Jpeg), cancellationToken);
 
             _logger.LogInformation("Generated thumbnail for {FileName}: {ThumbnailFileName} ({Width}x{Height})",
                 fileName, thumbnailFileName, newWidth, newHeight);
 
-            return thumbnailFileName;
+            return Result<string>.Success(thumbnailFileName);
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning("Thumbnail generation cancelled for {FileName}", fileName);
+            return Result<string>.Failure("Operation was cancelled");
         }
         catch (OutOfMemoryException ex)
         {
             _logger.LogError(ex, "Out of memory while generating thumbnail for {FileName}", fileName);
-            return null;
+            return Result<string>.Failure($"Out of memory: {ex.Message}", ex);
         }
         catch (ArgumentException ex)
         {
             _logger.LogError(ex, "Invalid image format for {FileName}", fileName);
-            return null;
+            return Result<string>.Failure($"Invalid image format: {ex.Message}", ex);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error generating thumbnail for {FileName}", fileName);
-            return null;
+            return Result<string>.Failure($"Failed to generate thumbnail: {ex.Message}", ex);
         }
     }
 
-    public async Task<byte[]?> GetThumbnailAsync(string fileName)
+    public async Task<Result<byte[]>> GetThumbnailAsync(string fileName, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(fileName))
+        try
         {
-            _logger.LogWarning("GetThumbnailAsync called with null or empty filename");
-            return null;
+            if (string.IsNullOrWhiteSpace(fileName))
+            {
+                _logger.LogWarning("GetThumbnailAsync called with null or empty filename");
+                return Result<byte[]>.Failure("Filename cannot be empty");
+            }
+
+            // Check if thumbnail exists
+            var thumbnailFileName = fileName.StartsWith("thumb_") ? fileName : $"thumb_{fileName}";
+            var thumbnailDataResult = await GetMediaAsync(thumbnailFileName, cancellationToken);
+
+            if (thumbnailDataResult.IsSuccess)
+            {
+                return thumbnailDataResult;
+            }
+
+            // If thumbnail doesn't exist, try to generate it
+            _logger.LogDebug("Thumbnail not found for {FileName}, attempting to generate", fileName);
+            var generatedThumbFileNameResult = await GenerateThumbnailAsync(fileName, cancellationToken: cancellationToken);
+
+            if (generatedThumbFileNameResult.IsFailure)
+            {
+                _logger.LogDebug("Could not generate thumbnail for {FileName}: {ErrorMessage}", fileName, generatedThumbFileNameResult.ErrorMessage);
+                return Result<byte[]>.Failure($"Thumbnail not found and could not be generated: {generatedThumbFileNameResult.ErrorMessage}");
+            }
+
+            return await GetMediaAsync(generatedThumbFileNameResult.Value, cancellationToken);
         }
-
-        // Check if thumbnail exists
-        var thumbnailFileName = fileName.StartsWith("thumb_") ? fileName : $"thumb_{fileName}";
-        var thumbnailData = await GetMediaAsync(thumbnailFileName);
-
-        if (thumbnailData != null)
+        catch (OperationCanceledException)
         {
-            return thumbnailData;
+            _logger.LogWarning("Get thumbnail operation cancelled for {FileName}", fileName);
+            return Result<byte[]>.Failure("Operation was cancelled");
         }
-
-        // If thumbnail doesn't exist, try to generate it
-        _logger.LogDebug("Thumbnail not found for {FileName}, attempting to generate", fileName);
-        var generatedThumbFileName = await GenerateThumbnailAsync(fileName);
-
-        if (generatedThumbFileName != null)
+        catch (Exception ex)
         {
-            return await GetMediaAsync(generatedThumbFileName);
+            _logger.LogError(ex, "Unexpected error while getting thumbnail for {FileName}", fileName);
+            return Result<byte[]>.Failure($"Failed to get thumbnail: {ex.Message}", ex);
         }
-
-        _logger.LogDebug("Could not generate thumbnail for {FileName}", fileName);
-        return null;
     }
 }
