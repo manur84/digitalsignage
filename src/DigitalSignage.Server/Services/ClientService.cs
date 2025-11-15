@@ -20,6 +20,7 @@ public class ClientService : IClientService, IDisposable
     private readonly ILogger<ClientService> _logger;
     private bool _isInitialized = false;
     private readonly SemaphoreSlim _initSemaphore = new(1, 1);
+    private Task? _initializationTask;
     private bool _disposed = false;
 
     /// <summary>
@@ -54,8 +55,8 @@ public class ClientService : IClientService, IDisposable
         _dataSourceManager = dataSourceManager ?? throw new ArgumentNullException(nameof(dataSourceManager));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
-        // Load clients from database on startup with retry logic
-        _ = InitializeClientsWithRetryAsync();
+        // Track the initialization task instead of fire-and-forget
+        _initializationTask = InitializeClientsWithRetryAsync();
     }
 
     private async Task InitializeClientsWithRetryAsync()
@@ -121,6 +122,26 @@ public class ClientService : IClientService, IDisposable
         finally
         {
             _initSemaphore.Release();
+        }
+    }
+
+    /// <summary>
+    /// Ensures that client initialization has completed
+    /// </summary>
+    /// <returns>A task that completes when initialization is done</returns>
+    public async Task EnsureInitializedAsync()
+    {
+        if (_initializationTask != null)
+        {
+            try
+            {
+                await _initializationTask;
+                _logger.LogDebug("Client initialization completed successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Client initialization failed, but service will continue");
+            }
         }
     }
 
