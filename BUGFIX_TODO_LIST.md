@@ -1,7 +1,7 @@
 # 🔧 Bug Fix TODO List - Actionable Tasks
 ## Digital Signage Projekt - Priorisierte Aufgabenliste
 
-**Status:** 🟢 **3 von 67 Issues behoben** (4.5% Complete)
+**Status:** 🟢 **5 von 67 Issues behoben** (7.5% Complete)
 **Letzte Aktualisierung:** 2025-11-15
 
 ---
@@ -192,7 +192,7 @@ public async Task StopAsync(CancellationToken cancellationToken = default)
 **Datei:** `src/DigitalSignage.Server/ViewModels/AlertsViewModel.cs`
 **Priorität:** 🔴 CRITICAL
 **Aufwand:** 2h
-**Status:** ❌ TODO
+**Status:** ✅ DONE (2025-11-15)
 
 **Änderungen:**
 ```csharp
@@ -247,9 +247,17 @@ public async Task EnsureInitializedAsync()
 ```
 
 **Testplan:**
-- [ ] ViewModel erstellen → Alerts werden geladen
-- [ ] DB-Fehler simulieren → Fehlermeldung erscheint
-- [ ] Mehrfaches EnsureInitializedAsync() aufrufen → keine Exceptions
+- [x] ViewModel erstellen → Alerts werden geladen
+- [x] DB-Fehler simulieren → Fehlermeldung erscheint
+- [x] Mehrfaches EnsureInitializedAsync() aufrufen → keine Exceptions
+
+**Implementiert:**
+- ✅ InitializeAsync() mit Task Tracking
+- ✅ EnsureInitializedAsync() für externe Aufrufer
+- ✅ Error Handling mit UI-Fehlermeldung
+- ✅ Polling Task wird getrackt (_pollingTask)
+- ✅ StopPollingAsync() mit graceful shutdown (10s timeout)
+- ✅ Comprehensive logging für alle Fehler
 
 ---
 
