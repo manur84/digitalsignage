@@ -405,6 +405,8 @@ class DisplayRenderer(QWidget):
                 return self.create_table_element(x, y, width, height, properties, data)
             elif element_type == 'datagrid':
                 return self.create_datagrid_element(x, y, width, height, properties)
+            elif element_type == 'datasourcetext':
+                return self.create_datasourcetext_element(x, y, width, height, properties)
             else:
                 logger.warning(f"Unknown element type: {element_type}")
                 return None
@@ -1471,6 +1473,137 @@ class DisplayRenderer(QWidget):
 
         except Exception as e:
             logger.error(f"Failed to create DataGrid element: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return None
+
+    def create_datasourcetext_element(
+        self,
+        x: int, y: int,
+        width: int, height: int,
+        properties: Dict[str, Any]
+    ) -> Optional[QLabel]:
+        """
+        Create a DataSourceText element - displays SQL data using a template.
+        Properties expected:
+        - DataSourceId: GUID of the SQL data source
+        - Template: Scriban/Jinja2-like template string
+        - RowIndex: Which row to display (0 = first row)
+        - UpdateInterval: Seconds between updates
+        - FontFamily: Font family
+        - FontSize: Font size
+        - TextColor: Text color
+        - TextAlign: Text alignment (left/center/right)
+        """
+        try:
+            # Get data source ID
+            data_source_id = properties.get('DataSourceId')
+            if not data_source_id or data_source_id == '00000000-0000-0000-0000-000000000000':
+                logger.warning("DataSourceText element has no valid DataSourceId")
+                return None
+
+            # Convert GUID to string if needed
+            data_source_id_str = str(data_source_id)
+
+            # Get template
+            template = properties.get('Template', '{{Name}}')
+            row_index = int(properties.get('RowIndex', 0))
+
+            # Get cached data for this data source
+            cached_data = self.data_source_cache.get(data_source_id_str, [])
+
+            if not cached_data:
+                logger.warning(f"No data found for data source {data_source_id_str}")
+                rendered_text = "(No data available)"
+            else:
+                # Get the row at row_index (or first row if out of bounds)
+                if row_index >= 0 and row_index < len(cached_data):
+                    row_data = cached_data[row_index]
+                else:
+                    row_data = cached_data[0]
+                    logger.warning(f"RowIndex {row_index} out of bounds, using first row")
+
+                # Render template with simple string replacement
+                # We use Python string.format() style: {ColumnName}
+                rendered_text = template
+
+                try:
+                    # Replace Scriban-style {{Variable}} with Python-style {Variable}
+                    import re
+                    # Convert {{Variable}} to {Variable}
+                    python_template = re.sub(r'\{\{(\w+)\}\}', r'{\1}', template)
+
+                    # Also support simple conditionals (very basic)
+                    # For now, we'll just do simple variable replacement
+                    # Full Scriban support would require a template library
+
+                    # Replace variables
+                    rendered_text = python_template.format(**row_data)
+
+                    logger.debug(f"Rendered template: {rendered_text}")
+                except KeyError as e:
+                    logger.error(f"Template variable not found in data: {e}")
+                    rendered_text = f"(Template error: {e})"
+                except Exception as e:
+                    logger.error(f"Failed to render template: {e}")
+                    rendered_text = f"(Error: {e})"
+
+            # Create label
+            label = QLabel(self)
+            label.setGeometry(x, y, width, height)
+            label.setText(rendered_text)
+
+            # Set font
+            try:
+                font_family = properties.get('FontFamily', 'Arial')
+                font_size = properties.get('FontSize', 24)
+
+                # Validate font size
+                if not isinstance(font_size, (int, float)):
+                    logger.warning(f"Invalid font size: {font_size}, using default")
+                    font_size = 24
+
+                # Apply scaling to font size
+                scale_x = getattr(self, '_scale_x', 1.0)
+                scale_y = getattr(self, '_scale_y', 1.0)
+                scale_factor = (scale_x + scale_y) / 2.0
+                scaled_font_size = int(font_size * scale_factor)
+
+                font = QFont(font_family, scaled_font_size)
+                label.setFont(font)
+            except Exception as e:
+                logger.warning(f"Failed to set font properties: {e}")
+
+            # Set color
+            try:
+                text_color = properties.get('TextColor', '#000000')
+                label.setStyleSheet(f"color: {text_color};")
+            except Exception as e:
+                logger.warning(f"Failed to set text color: {e}")
+
+            # Set alignment
+            try:
+                text_align = properties.get('TextAlign', 'left')
+                alignment = Qt.AlignLeft | Qt.AlignTop
+
+                if text_align == 'center':
+                    alignment = Qt.AlignHCenter | Qt.AlignVCenter
+                elif text_align == 'right':
+                    alignment = Qt.AlignRight | Qt.AlignTop
+
+                label.setAlignment(alignment)
+            except Exception as e:
+                logger.warning(f"Failed to set text alignment: {e}")
+
+            # Word wrap
+            label.setWordWrap(True)
+
+            label.show()
+            logger.info(f"Created DataSourceText element with template: {template}")
+            return label
+
+        except Exception as e:
+            logger.error(f"Failed to create DataSourceText element: {e}")
             import traceback
             logger.error(traceback.format_exc())
             return None

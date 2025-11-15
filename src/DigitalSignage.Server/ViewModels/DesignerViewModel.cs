@@ -742,6 +742,86 @@ public partial class DesignerViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
+    private async Task AddDataSourceTextElementAsync()
+    {
+        try
+        {
+            _logger.LogInformation("=== Opening DataSourceText Properties Dialog ===");
+
+            // Create ViewModel with required dependencies
+            var viewModelLogger = _serviceProvider.GetRequiredService<ILogger<DataSourceTextPropertiesViewModel>>();
+            var viewModel = new DataSourceTextPropertiesViewModel(_dataSourceManager, viewModelLogger);
+
+            // Create and show dialog
+            var dialog = new Views.Dialogs.DataSourceTextPropertiesDialog(viewModel)
+            {
+                Owner = System.Windows.Application.Current.MainWindow
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                if (viewModel.SelectedDataSource == null)
+                {
+                    _logger.LogWarning("No data source selected for datasourcetext");
+                    return;
+                }
+
+                _logger.LogInformation("DataSourceText configured with data source: {DataSourceName}",
+                    viewModel.SelectedDataSource.Name);
+
+                var dataSourceTextElement = new DisplayElement
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    Type = "datasourcetext",
+                    Name = $"DataSourceText - {viewModel.SelectedDataSource.Name}",
+                    Position = new Position { X = 100, Y = 100 },
+                    Size = new Size { Width = 400, Height = 100 },
+                    ZIndex = Elements.Count
+                };
+
+                // Apply properties from dialog
+                viewModel.ApplyToElement(dataSourceTextElement);
+                dataSourceTextElement.InitializeDefaultProperties();
+
+                _logger.LogInformation("Position: ({X}, {Y})", dataSourceTextElement.Position.X, dataSourceTextElement.Position.Y);
+                _logger.LogInformation("Size: {Width}x{Height}", dataSourceTextElement.Size.Width, dataSourceTextElement.Size.Height);
+
+                // Add to layout
+                var command = new AddElementCommand(Elements, dataSourceTextElement);
+                CommandHistory.ExecuteCommand(command);
+
+                // Update linked data sources in layout
+                if (CurrentLayout != null)
+                {
+                    var dataSourceId = viewModel.SelectedDataSource.Id;
+                    if (!CurrentLayout.LinkedDataSourceIds.Contains(dataSourceId))
+                    {
+                        CurrentLayout.LinkedDataSourceIds.Add(dataSourceId);
+                        _logger.LogInformation("Added data source {Id} to layout's linked data sources", dataSourceId);
+                    }
+                }
+
+                _logger.LogInformation("DataSourceText element added. Total elements: {Count}", Elements.Count);
+
+                SelectedElement = dataSourceTextElement;
+                UpdateLayers();
+                _logger.LogInformation("=== DataSourceText Element Added Successfully ===");
+            }
+            else
+            {
+                _logger.LogInformation("DataSourceText creation cancelled");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error adding datasourcetext element");
+            await _dialogService.ShowErrorAsync(
+                $"Failed to add datasourcetext element:\n\n{ex.Message}",
+                "Error");
+        }
+    }
+
+    [RelayCommand]
     private void DeleteSelectedElement()
     {
         if (SelectedElement != null)

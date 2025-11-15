@@ -73,6 +73,13 @@
                             Padding="8">
                         <TextBlock Text="📊" FontSize="18"/>
                     </Button>
+                    <Button ToolTip="DataSource Text (SQL with Template)"
+                            Command="{Binding AddDataSourceTextElementCommand}"
+                            Style="{StaticResource SecondaryButton}"
+                            Margin="0,4"
+                            Padding="8">
+                        <TextBlock Text="🔗" FontSize="18"/>
+                    </Button>
                     <Button ToolTip="Date/Time"
                             Command="{Binding AddDateTimeElementCommand}"
                             Style="{StaticResource SecondaryButton}"
