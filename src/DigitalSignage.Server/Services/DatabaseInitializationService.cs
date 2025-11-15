@@ -38,25 +38,40 @@ public class DatabaseInitializationService : IHostedService
 
             try
             {
-                var pendingMigrations = await dbContext.Database.GetPendingMigrationsAsync(cancellationToken);
-                if (pendingMigrations.Any())
+                // Check if database exists
+                var canConnect = await dbContext.Database.CanConnectAsync(cancellationToken);
+                _logger.Information("Database connection status: {Status}", canConnect ? "Connected" : "Not found");
+
+                if (!canConnect)
                 {
-                    _logger.Information("Applying {Count} pending migrations: {Migrations}",
-                        pendingMigrations.Count(),
-                        string.Join(", ", pendingMigrations));
-
+                    _logger.Information("Database does not exist. Creating database...");
                     await dbContext.Database.MigrateAsync(cancellationToken);
-
-                    _logger.Information("Database migrations applied successfully");
+                    _logger.Information("Database created successfully");
                 }
                 else
                 {
-                    _logger.Information("Database is up to date - no pending migrations");
+                    var pendingMigrations = await dbContext.Database.GetPendingMigrationsAsync(cancellationToken);
+                    if (pendingMigrations.Any())
+                    {
+                        _logger.Information("Applying {Count} pending migrations: {Migrations}",
+                            pendingMigrations.Count(),
+                            string.Join(", ", pendingMigrations));
+
+                        await dbContext.Database.MigrateAsync(cancellationToken);
+
+                        _logger.Information("Database migrations applied successfully");
+                    }
+                    else
+                    {
+                        _logger.Information("Database is up to date - no pending migrations");
+                    }
                 }
             }
             catch (Exception migrationEx)
             {
                 _logger.Error(migrationEx, "Failed to apply database migrations");
+                _logger.Error("Migration error details: {Message}", migrationEx.Message);
+                _logger.Error("Stack trace: {StackTrace}", migrationEx.StackTrace);
                 throw; // Rethrow to prevent startup with broken database
             }
 
