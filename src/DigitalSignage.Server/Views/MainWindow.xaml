@@ -596,15 +596,12 @@
                                     </ItemsControl.ItemsPanel>
                                     <ItemsControl.ItemContainerStyle>
                                         <Style TargetType="ContentPresenter">
-                                            <!-- CRITICAL: Bind Canvas position to element Position properties -->
-                                            <Setter Property="Canvas.Left" Value="{Binding Position.X}"/>
-                                            <Setter Property="Canvas.Top" Value="{Binding Position.Y}"/>
-                                            <!-- CRITICAL: Bind Canvas.ZIndex for proper layer ordering -->
-                                            <Setter Property="Canvas.ZIndex" Value="{Binding ZIndex}"/>
-                                            <!-- CRITICAL FIX: ContentPresenter MUST have Width/Height for elements to render! -->
-                                            <!-- Without this, ActualWidth/ActualHeight are 0 and elements are invisible -->
-                                            <Setter Property="Width" Value="{Binding Size.Width}"/>
-                                            <Setter Property="Height" Value="{Binding Size.Height}"/>
+                                            <!-- DEBUG: HARDCODED values to test if bindings are the problem -->
+                                            <Setter Property="Canvas.Left" Value="50"/>
+                                            <Setter Property="Canvas.Top" Value="50"/>
+                                            <Setter Property="Canvas.ZIndex" Value="100"/>
+                                            <Setter Property="Width" Value="300"/>
+                                            <Setter Property="Height" Value="200"/>
                                         </Style>
                                     </ItemsControl.ItemContainerStyle>
                                     <ItemsControl.ItemTemplate>
