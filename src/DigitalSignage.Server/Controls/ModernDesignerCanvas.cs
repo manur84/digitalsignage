@@ -55,8 +55,8 @@ public class ModernDesignerCanvas : Canvas
 
     private const double RulerTickSize = 12.0;
     private const string ElementTypeDataFormat = "DesignerElementType";
-    private const double MinGridSize = 5.0;
-    private const double MaxGridSize = 100.0;
+    private const int MinGridSize = 5;
+    private const int MaxGridSize = 100;
 
     #endregion
 
