@@ -16,9 +16,12 @@ public class DesignerItemsControl : ItemsControl
 
         if (element is not FrameworkElement presenter)
         {
+            System.Diagnostics.Debug.WriteLine("[DesignerItemsControl] PrepareContainer: element is not FrameworkElement!");
             return;
         }
 
+        // CRITICAL: Bind container (ContentPresenter) to DisplayElement properties
+        // This positions and sizes the container on the Canvas
         Bind(presenter, FrameworkElement.WidthProperty, "Size.Width");
         Bind(presenter, FrameworkElement.HeightProperty, "Size.Height");
         Bind(presenter, Canvas.LeftProperty, "Position.X");
@@ -27,6 +30,18 @@ public class DesignerItemsControl : ItemsControl
 
         presenter.HorizontalAlignment = HorizontalAlignment.Left;
         presenter.VerticalAlignment = VerticalAlignment.Top;
+
+        // Diagnostic logging
+        if (item is DigitalSignage.Core.Models.DisplayElement displayElement)
+        {
+            System.Diagnostics.Debug.WriteLine(
+                $"[DesignerItemsControl] PrepareContainer: " +
+                $"Element='{displayElement.Name}', " +
+                $"Type={displayElement.Type}, " +
+                $"Pos=({displayElement.Position?.X ?? 0},{displayElement.Position?.Y ?? 0}), " +
+                $"Size=({displayElement.Size?.Width ?? 0}x{displayElement.Size?.Height ?? 0}), " +
+                $"ZIndex={displayElement.ZIndex}");
+        }
     }
 
     protected override void ClearContainerForItemOverride(DependencyObject element, object item)

@@ -517,16 +517,16 @@
                                                                Height="{Binding CurrentLayout.Resolution.Height}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
-                                            <Canvas Width="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                    Height="{Binding ActualHeight, RelativeSource={RelativeSource AncestorType=ItemsControl}}"/>
+                                            <!-- Canvas auto-sizes to parent, no explicit Width/Height needed -->
+                                            <Canvas />
                                         </ItemsPanelTemplate>
                                     </ItemsControl.ItemsPanel>
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
+                                            <!-- Width/Height removed: Container sizing handled by DesignerItemsControl.PrepareContainerForItemOverride -->
+                                            <!-- This prevents double binding conflict that causes rendering issues -->
                                             <controls:DesignerItemControl DisplayElement="{Binding}"
-                                                                         IsSelected="{Binding IsSelected}"
-                                                                         Width="{Binding Size.Width}"
-                                                                         Height="{Binding Size.Height}"/>
+                                                                         IsSelected="{Binding IsSelected}"/>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </controls:DesignerItemsControl>

@@ -62,9 +62,11 @@ public class DesignerItemControl : ContentControl
         // MouseMove += OnMouseMove;
         // MouseLeftButtonUp += OnMouseLeftButtonUp;
 
-        // CRITICAL: Set alignment and minimum size to ensure control is visible
-        HorizontalAlignment = HorizontalAlignment.Left;
-        VerticalAlignment = VerticalAlignment.Top;
+        // CRITICAL: Set alignment to STRETCH to fill the container (ContentPresenter)
+        // The container's size is bound to Size.Width/Height by DesignerItemsControl.PrepareContainerForItemOverride
+        // This control must stretch to fill that container to properly display content
+        HorizontalAlignment = HorizontalAlignment.Stretch;
+        VerticalAlignment = VerticalAlignment.Stretch;
         HorizontalContentAlignment = HorizontalAlignment.Stretch;
         VerticalContentAlignment = VerticalAlignment.Stretch;
         MinWidth = 10;
