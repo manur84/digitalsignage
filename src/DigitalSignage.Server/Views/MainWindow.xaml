@@ -618,44 +618,28 @@
                                             <Border Width="{Binding Size.Width}"
                                                     Height="{Binding Size.Height}"
                                                     Background="{Binding Type, Converter={StaticResource ElementTypeToBrushConverter}}"
-                                                    Tag="{Binding}"
                                                     Cursor="Hand"
                                                     MouseLeftButtonDown="Element_MouseLeftButtonDown"
                                                     MouseMove="Element_MouseMove"
                                                     MouseLeftButtonUp="Element_MouseLeftButtonUp">
-                                            <Border.BorderBrush>
-                                                <MultiBinding Converter="{StaticResource ElementSelectionBorderConverter}">
-                                                    <Binding Path="."/>
-                                                    <Binding Path="DataContext.Designer.SelectedElement" RelativeSource="{RelativeSource AncestorType=Window}"/>
-                                                </MultiBinding>
-                                            </Border.BorderBrush>
-                                            <Border.BorderThickness>
-                                                <MultiBinding Converter="{StaticResource ElementSelectionThicknessConverter}">
-                                                    <Binding Path="."/>
-                                                    <Binding Path="DataContext.Designer.SelectedElement" RelativeSource="{RelativeSource AncestorType=Window}"/>
-                                                </MultiBinding>
-                                            </Border.BorderThickness>
-                                                <Grid>
-                                                    <TextBlock Text="{Binding Properties[Content]}"
-                                                               Visibility="{Binding Type, Converter={StaticResource TextElementVisibilityConverter}}"
-                                                               Foreground="#111"
-                                                               FontSize="{Binding Properties[FontSize], TargetNullValue=28}"
-                                                               TextWrapping="Wrap"
-                                                               HorizontalAlignment="Center"
-                                                               VerticalAlignment="Center"
-                                                               Margin="6"/>
-                                                    <Border Background="#55000000"
-                                                            HorizontalAlignment="Left"
-                                                            VerticalAlignment="Top"
-                                                            CornerRadius="0,0,6,0"
-                                                            Padding="6,2">
-                                                        <TextBlock Text="{Binding Type, StringFormat='{}{0}'}"
-                                                                   Foreground="White"
-                                                                   FontSize="10"
-                                                                   FontWeight="SemiBold"
-                                                                   TextAlignment="Center"/>
-                                                    </Border>
-                                                </Grid>
+                                                <Border.BorderBrush>
+                                                    <MultiBinding Converter="{StaticResource ElementSelectionBorderConverter}">
+                                                        <Binding Path="."/>
+                                                        <Binding Path="DataContext.Designer.SelectedElement" RelativeSource="{RelativeSource AncestorType=Window}"/>
+                                                    </MultiBinding>
+                                                </Border.BorderBrush>
+                                                <Border.BorderThickness>
+                                                    <MultiBinding Converter="{StaticResource ElementSelectionThicknessConverter}">
+                                                        <Binding Path="."/>
+                                                        <Binding Path="DataContext.Designer.SelectedElement" RelativeSource="{RelativeSource AncestorType=Window}"/>
+                                                    </MultiBinding>
+                                                </Border.BorderThickness>
+                                                <controls:DesignerItemControl DisplayElement="{Binding}"
+                                                                              Width="{Binding Size.Width}"
+                                                                              Height="{Binding Size.Height}"
+                                                                              Background="Transparent"
+                                                                              BorderBrush="Transparent"
+                                                                              BorderThickness="0"/>
                                             </Border>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
