@@ -1,3 +1,4 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
@@ -390,11 +391,102 @@ public class DesignerItemControl : ContentControl
     {
         var border = new Border
         {
-            BorderBrush = Brushes.Gray,
-            BorderThickness = new Thickness(1),
-            Background = new SolidColorBrush(Color.FromRgb(240, 240, 240))
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Stretch,
+            Background = Brushes.Transparent
         };
 
+        // Try to load real image from properties
+        if (DisplayElement?.Properties != null)
+        {
+            // Check for ImageSource, MediaId, or Source property
+            string? imagePath = null;
+
+            if (DisplayElement.Properties.TryGetValue("ImageSource", out var imgSource))
+                imagePath = imgSource?.ToString();
+            else if (DisplayElement.Properties.TryGetValue("MediaId", out var mediaId))
+                imagePath = mediaId?.ToString();
+            else if (DisplayElement.Properties.TryGetValue("Source", out var source))
+                imagePath = source?.ToString();
+
+            if (!string.IsNullOrEmpty(imagePath))
+            {
+                try
+                {
+                    // Try to load image from file path or media directory
+                    var image = new Image
+                    {
+                        Stretch = Stretch.Uniform,
+                        HorizontalAlignment = HorizontalAlignment.Stretch,
+                        VerticalAlignment = VerticalAlignment.Stretch
+                    };
+
+                    // Get Stretch mode from properties
+                    if (DisplayElement.Properties.TryGetValue("Stretch", out var stretchMode))
+                    {
+                        image.Stretch = stretchMode?.ToString()?.ToLower() switch
+                        {
+                            "none" => Stretch.None,
+                            "fill" => Stretch.Fill,
+                            "uniform" => Stretch.Uniform,
+                            "uniformtofill" => Stretch.UniformToFill,
+                            _ => Stretch.Uniform
+                        };
+                    }
+
+                    var bitmap = new System.Windows.Media.Imaging.BitmapImage();
+                    bitmap.BeginInit();
+                    bitmap.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+
+                    // Check if path is absolute or relative
+                    if (File.Exists(imagePath))
+                    {
+                        bitmap.UriSource = new Uri(imagePath, UriKind.Absolute);
+                    }
+                    else
+                    {
+                        // Try in media directory
+                        var mediaPath = Path.Combine(
+                            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                            "DigitalSignage",
+                            "Media",
+                            imagePath);
+
+                        if (File.Exists(mediaPath))
+                        {
+                            bitmap.UriSource = new Uri(mediaPath, UriKind.Absolute);
+                        }
+                        else
+                        {
+                            // Path doesn't exist, show placeholder
+                            bitmap = null;
+                        }
+                    }
+
+                    if (bitmap != null)
+                    {
+                        bitmap.EndInit();
+                        image.Source = bitmap;
+
+                        // Apply opacity if specified
+                        if (DisplayElement.Properties.TryGetValue("ImageOpacity", out var opacity))
+                        {
+                            image.Opacity = Convert.ToDouble(opacity);
+                        }
+
+                        border.Child = image;
+                        return border;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Failed to load image from {imagePath}: {ex.Message}");
+                    // Fall through to placeholder
+                }
+            }
+        }
+
+        // Fallback: Show placeholder
         var stackPanel = new StackPanel
         {
             HorizontalAlignment = HorizontalAlignment.Center,
@@ -410,10 +502,11 @@ public class DesignerItemControl : ContentControl
 
         stackPanel.Children.Add(new TextBlock
         {
-            Text = "Image Element",
+            Text = "No Image",
             FontSize = 12,
             HorizontalAlignment = HorizontalAlignment.Center,
-            Margin = new Thickness(0, 8, 0, 0)
+            Margin = new Thickness(0, 8, 0, 0),
+            Foreground = Brushes.Gray
         });
 
         border.Child = stackPanel;
