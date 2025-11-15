@@ -223,6 +223,26 @@ public class ClientService : IClientService
                     // Remove old ID from cache
                     _clients.TryRemove(client.Id, out _);
 
+                    // Merge DeviceInfo from registration message with existing data
+                    var mergedDeviceInfo = existingClient.DeviceInfo ?? new DeviceInfo();
+                    if (registerMessage.DeviceInfo != null)
+                    {
+                        // Update all fields from registration message
+                        mergedDeviceInfo.Hostname = registerMessage.DeviceInfo.Hostname ?? mergedDeviceInfo.Hostname;
+                        mergedDeviceInfo.Model = registerMessage.DeviceInfo.Model ?? mergedDeviceInfo.Model;
+                        mergedDeviceInfo.OsVersion = registerMessage.DeviceInfo.OsVersion ?? mergedDeviceInfo.OsVersion;
+                        mergedDeviceInfo.ClientVersion = registerMessage.DeviceInfo.ClientVersion ?? mergedDeviceInfo.ClientVersion;
+                        mergedDeviceInfo.ScreenWidth = registerMessage.DeviceInfo.ScreenWidth;
+                        mergedDeviceInfo.ScreenHeight = registerMessage.DeviceInfo.ScreenHeight;
+                        mergedDeviceInfo.CpuTemperature = registerMessage.DeviceInfo.CpuTemperature;
+                        mergedDeviceInfo.CpuUsage = registerMessage.DeviceInfo.CpuUsage;
+                        mergedDeviceInfo.MemoryTotal = registerMessage.DeviceInfo.MemoryTotal;
+                        mergedDeviceInfo.MemoryUsed = registerMessage.DeviceInfo.MemoryUsed;
+                        mergedDeviceInfo.DiskTotal = registerMessage.DeviceInfo.DiskTotal;
+                        mergedDeviceInfo.DiskUsed = registerMessage.DeviceInfo.DiskUsed;
+                        mergedDeviceInfo.Uptime = registerMessage.DeviceInfo.Uptime;
+                    }
+
                     // Create new entity with new ID but same data
                     client = new RaspberryPiClient
                     {
@@ -235,7 +255,7 @@ public class ClientService : IClientService
                         RegisteredAt = existingClient.RegisteredAt,
                         LastSeen = DateTime.UtcNow,
                         Status = ClientStatus.Online,
-                        DeviceInfo = registerMessage.DeviceInfo ?? existingClient.DeviceInfo
+                        DeviceInfo = mergedDeviceInfo
                     };
 
                     dbContext.Clients.Add(client);
@@ -247,14 +267,35 @@ public class ClientService : IClientService
                     client.IpAddress = registerMessage.IpAddress ?? client.IpAddress;
                     client.LastSeen = DateTime.UtcNow;
                     client.Status = ClientStatus.Online;
-                    client.DeviceInfo = registerMessage.DeviceInfo ?? client.DeviceInfo;
+
+                    // Merge DeviceInfo - update from registration but preserve existing values if not provided
+                    if (registerMessage.DeviceInfo != null)
+                    {
+                        var deviceInfo = client.DeviceInfo ?? new DeviceInfo();
+                        deviceInfo.Hostname = registerMessage.DeviceInfo.Hostname ?? deviceInfo.Hostname;
+                        deviceInfo.Model = registerMessage.DeviceInfo.Model ?? deviceInfo.Model;
+                        deviceInfo.OsVersion = registerMessage.DeviceInfo.OsVersion ?? deviceInfo.OsVersion;
+                        deviceInfo.ClientVersion = registerMessage.DeviceInfo.ClientVersion ?? deviceInfo.ClientVersion;
+                        deviceInfo.ScreenWidth = registerMessage.DeviceInfo.ScreenWidth;
+                        deviceInfo.ScreenHeight = registerMessage.DeviceInfo.ScreenHeight;
+                        deviceInfo.CpuTemperature = registerMessage.DeviceInfo.CpuTemperature;
+                        deviceInfo.CpuUsage = registerMessage.DeviceInfo.CpuUsage;
+                        deviceInfo.MemoryTotal = registerMessage.DeviceInfo.MemoryTotal;
+                        deviceInfo.MemoryUsed = registerMessage.DeviceInfo.MemoryUsed;
+                        deviceInfo.DiskTotal = registerMessage.DeviceInfo.DiskTotal;
+                        deviceInfo.DiskUsed = registerMessage.DeviceInfo.DiskUsed;
+                        deviceInfo.Uptime = registerMessage.DeviceInfo.Uptime;
+                        client.DeviceInfo = deviceInfo;
+                    }
 
                     _logger.LogInformation("Re-registered existing client {ClientId} (MAC: {MacAddress})", client.Id, client.MacAddress);
                 }
             }
             else
             {
-                // Create new client
+                // Create new client - ensure DeviceInfo is properly populated
+                var deviceInfo = registerMessage.DeviceInfo ?? new DeviceInfo();
+
                 client = new RaspberryPiClient
                 {
                     Id = string.IsNullOrWhiteSpace(registerMessage.ClientId) ? Guid.NewGuid().ToString() : registerMessage.ClientId,
@@ -265,12 +306,12 @@ public class ClientService : IClientService
                     RegisteredAt = DateTime.UtcNow,
                     LastSeen = DateTime.UtcNow,
                     Status = ClientStatus.Online,
-                    DeviceInfo = registerMessage.DeviceInfo ?? new DeviceInfo()
+                    DeviceInfo = deviceInfo
                 };
 
                 dbContext.Clients.Add(client);
-                _logger.LogInformation("Registered new client {ClientId} (MAC: {MacAddress}) from {IpAddress}",
-                    client.Id, client.MacAddress, client.IpAddress);
+                _logger.LogInformation("Registered new client {ClientId} (MAC: {MacAddress}) from {IpAddress} - Hostname: {Hostname}, Resolution: {Width}x{Height}",
+                    client.Id, client.MacAddress, client.IpAddress, deviceInfo.Hostname, deviceInfo.ScreenWidth, deviceInfo.ScreenHeight);
             }
 
             // Save to database

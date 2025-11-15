@@ -81,7 +81,7 @@
                         </DataGridTextColumn.Binding>
                     </DataGridTextColumn>
                     <DataGridTextColumn Header="Last Seen" Binding="{Binding LastSeen, StringFormat='{}{0:dd.MM.yyyy HH:mm}'}" Width="120"/>
-                    <DataGridTextColumn Header="Assigned Layout" Binding="{Binding AssignedLayoutId}" Width="150"/>
+                    <DataGridTextColumn Header="Assigned Layout" Binding="{Binding AssignedLayoutName}" Width="150"/>
                     <DataGridTemplateColumn Header="Web Interface" Width="100">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>

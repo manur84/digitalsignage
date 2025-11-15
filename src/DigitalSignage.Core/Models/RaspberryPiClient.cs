@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace DigitalSignage.Core.Models;
 
 /// <summary>
@@ -18,6 +20,31 @@ public class RaspberryPiClient
     public string? AssignedLayoutId { get; set; }
     public List<Schedule> Schedules { get; set; } = new();
     public Dictionary<string, object> Metadata { get; set; } = new();
+
+    /// <summary>
+    /// Navigation property for the assigned layout (not mapped to database)
+    /// </summary>
+    [NotMapped]
+    public DisplayLayout? AssignedLayout { get; set; }
+
+    /// <summary>
+    /// Gets the assigned layout name for display purposes
+    /// </summary>
+    [NotMapped]
+    public string AssignedLayoutName
+    {
+        get
+        {
+            if (string.IsNullOrEmpty(AssignedLayoutId) || AssignedLayoutId == Guid.Empty.ToString())
+                return "Nicht zugewiesen";
+
+            if (AssignedLayout != null)
+                return AssignedLayout.Name;
+
+            // Fallback: show shortened GUID if layout not loaded
+            return AssignedLayoutId.Length > 8 ? AssignedLayoutId.Substring(0, 8) + "..." : AssignedLayoutId;
+        }
+    }
 }
 
 public enum ClientStatus

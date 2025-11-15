@@ -85,9 +85,20 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
         try
         {
             var clients = await _clientService.GetAllClientsAsync();
+
+            // Load all layouts to populate AssignedLayout navigation property
+            var layouts = await _layoutService.GetAllLayoutsAsync();
+            var layoutDict = layouts.ToDictionary(l => l.Id, l => l);
+
             Clients.Clear();
             foreach (var client in clients)
             {
+                // Populate AssignedLayout navigation property for display
+                if (!string.IsNullOrEmpty(client.AssignedLayoutId) && layoutDict.TryGetValue(client.AssignedLayoutId, out var layout))
+                {
+                    client.AssignedLayout = layout;
+                }
+
                 Clients.Add(client);
             }
             StatusMessage = $"Loaded {Clients.Count} client(s)";
