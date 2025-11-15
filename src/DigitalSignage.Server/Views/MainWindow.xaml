@@ -580,11 +580,6 @@
 
                                 <!-- Render all elements using DesignerItemControl (professional WYSIWYG rendering) -->
                                 <ItemsControl ItemsSource="{Binding Designer.Elements}">
-                                    <ItemsControl.ItemsPanel>
-                                        <ItemsPanelTemplate>
-                                            <Canvas Background="White"/>
-                                        </ItemsPanelTemplate>
-                                    </ItemsControl.ItemsPanel>
                                     <ItemsControl.ItemContainerStyle>
                                         <Style TargetType="ContentPresenter">
                                             <!-- CRITICAL: Bind Canvas position to element Position properties -->
