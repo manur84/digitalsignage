@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using DigitalSignage.Data;
 using DigitalSignage.Data.Entities;
 using DigitalSignage.Core.Models;
+using DigitalSignage.Core.Interfaces;
 using Serilog;
 using System.Security.Cryptography;
 using System.Text;
@@ -38,7 +39,7 @@ public class DatabaseInitializationService : IHostedService
         {
             using var scope = _serviceProvider.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<DigitalSignageDbContext>();
-            var authService = scope.ServiceProvider.GetRequiredService<AuthenticationService>();
+            var authService = scope.ServiceProvider.GetRequiredService<IAuthenticationService>();
 
             // Verify database is ready
             var canConnect = await dbContext.Database.CanConnectAsync(cancellationToken);
@@ -70,7 +71,7 @@ public class DatabaseInitializationService : IHostedService
         return Task.CompletedTask;
     }
 
-    private async Task SeedDefaultDataAsync(DigitalSignageDbContext dbContext, AuthenticationService authService, CancellationToken cancellationToken)
+    private async Task SeedDefaultDataAsync(DigitalSignageDbContext dbContext, IAuthenticationService authService, CancellationToken cancellationToken)
     {
         _logger.Information("Checking for default data seeding...");
 
