@@ -121,7 +121,7 @@ public partial class App : Application
                 services.AddSingleton<DiagnosticsViewModel>();
 
                 // Existing ViewModels
-                services.AddTransient<DesignerViewModel>();
+                services.AddSingleton<DesignerViewModel>(); // CRITICAL: Must be Singleton so MainViewModel and LayoutManagementViewModel share the SAME instance!
                 services.AddTransient<DeviceManagementViewModel>();
                 services.AddTransient<DiscoveredDevicesViewModel>();
                 services.AddTransient<DataSourceViewModel>();
