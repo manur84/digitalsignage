@@ -1,7 +1,8 @@
 <Application x:Class="DigitalSignage.Server.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:converters="clr-namespace:DigitalSignage.Server.Converters">
+             xmlns:converters="clr-namespace:DigitalSignage.Server.Converters"
+             ShutdownMode="OnMainWindowClose">
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>

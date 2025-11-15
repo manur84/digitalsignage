@@ -287,6 +287,10 @@ For detailed diagnostics, run:
 
             Log.Information("Creating main window...");
             var mainWindow = _host.Services.GetRequiredService<Views.MainWindow>();
+
+            // Set as application main window
+            MainWindow = mainWindow;
+
             mainWindow.WindowState = WindowState.Maximized;
             mainWindow.Show();
             mainWindow.Activate();
