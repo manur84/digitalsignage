@@ -56,19 +56,26 @@ public partial class DiagnosticsViewModel : ObservableObject, IDisposable
             {
                 // Test a simple query
                 var clients = await _clientService.GetAllClientsAsync();
-                var layouts = await _layoutService.GetAllLayoutsAsync();
+                var layoutsResult = await _layoutService.GetAllLayoutsAsync();
+
+                if (layoutsResult.IsFailure)
+                {
+                    _logger.LogError("Failed to load layouts during database test: {ErrorMessage}", layoutsResult.ErrorMessage);
+                    StatusText = $"Database test partial failure: {layoutsResult.ErrorMessage}";
+                    return;
+                }
 
                 var message = $"✅ Database Connection Successful!\n\n" +
                              $"Connection String:\n{connectionString}\n\n" +
                              $"Statistics:\n" +
                              $"• Clients: {clients.Count()}\n" +
-                             $"• Layouts: {layouts.Count()}\n" +
+                             $"• Layouts: {layoutsResult.Value.Count}\n" +
                              $"• Provider: {_dbContext.Database.ProviderName}";
 
                 await _dialogService.ShowInformationAsync(message, "Database Test Result");
 
                 StatusText = "Database test successful";
-                _logger.LogInformation("Database test successful: {ClientCount} clients, {LayoutCount} layouts", clients.Count(), layouts.Count());
+                _logger.LogInformation("Database test successful: {ClientCount} clients, {LayoutCount} layouts", clients.Count(), layoutsResult.Value.Count);
             }
             else
             {

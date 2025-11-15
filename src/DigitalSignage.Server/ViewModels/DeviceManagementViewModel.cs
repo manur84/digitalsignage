@@ -91,8 +91,16 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
             var clients = await _clientService.GetAllClientsAsync();
 
             // Load all layouts to populate AssignedLayout navigation property
-            var layouts = await _layoutService.GetAllLayoutsAsync();
-            var layoutDict = layouts.ToDictionary(l => l.Id, l => l);
+            var layoutsResult = await _layoutService.GetAllLayoutsAsync();
+            if (layoutsResult.IsFailure)
+            {
+                _logger.LogError("Failed to load layouts: {ErrorMessage}", layoutsResult.ErrorMessage);
+                // Continue without layouts - clients will still be displayed
+            }
+
+            var layoutDict = layoutsResult.IsSuccess
+                ? layoutsResult.Value.ToDictionary(l => l.Id, l => l)
+                : new Dictionary<string, DisplayLayout>();
 
             Clients.Clear();
             foreach (var client in clients)
@@ -135,7 +143,13 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
     {
         try
         {
-            var layouts = await _layoutService.GetAllLayoutsAsync();
+            var layoutsResult = await _layoutService.GetAllLayoutsAsync();
+            if (layoutsResult.IsFailure)
+            {
+                _logger.LogError("Failed to load layouts: {ErrorMessage}", layoutsResult.ErrorMessage);
+                return;
+            }
+
             AvailableLayouts.Clear();
 
             // Add "No Layout" option as first item
@@ -146,11 +160,11 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
                 Description = "Kein Layout zugewiesen"
             });
 
-            foreach (var layout in layouts)
+            foreach (var layout in layoutsResult.Value)
             {
                 AvailableLayouts.Add(layout);
             }
-            _logger.LogInformation("Refreshed {Count} available layouts (plus 'No Layout' option)", layouts.Count);
+            _logger.LogInformation("Refreshed {Count} available layouts (plus 'No Layout' option)", layoutsResult.Value.Count);
         }
         catch (Exception ex)
         {
