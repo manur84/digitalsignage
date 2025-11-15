@@ -22,7 +22,7 @@ public class ModernDesignerCanvas : Canvas
 
     // Grid visuals
     private DrawingVisual? _gridVisual;
-    private bool _gridNeedsUpdate = true;
+    // REMOVED: _gridNeedsUpdate field - grid is now drawn directly in OnRender
 
     // Rulers and cursor guides
     private DrawingVisual? _horizontalRulerVisual;
@@ -213,13 +213,15 @@ public class ModernDesignerCanvas : Canvas
     {
         base.OnRender(dc);
 
-        // Render grid using optimized visual
-        if (ShowGrid && _gridNeedsUpdate)
+        // CRITICAL FIX: Draw grid directly to the Canvas DrawingContext
+        // Don't use visual children as they don't render properly when Canvas contains ItemsControl
+        if (ShowGrid)
         {
-            UpdateGridVisual();
-            _gridNeedsUpdate = false;
+            DrawGrid(dc);
         }
 
+        // Note: Ruler visuals can continue to use visual children if needed
+        // but grid must be drawn directly for proper visibility
         if (_rulersNeedUpdate)
         {
             UpdateRulerVisuals();
@@ -589,7 +591,8 @@ public class ModernDesignerCanvas : Canvas
     {
         if (d is ModernDesignerCanvas canvas)
         {
-            canvas._gridNeedsUpdate = true;
+            // CRITICAL FIX: Just invalidate visual to trigger OnRender
+            // No need for _gridNeedsUpdate flag anymore since we draw directly
             canvas.InvalidateVisual();
         }
     }
@@ -610,7 +613,7 @@ public class ModernDesignerCanvas : Canvas
         {
             var transform = new ScaleTransform(canvas.ZoomLevel, canvas.ZoomLevel);
             canvas.LayoutTransform = transform;
-            canvas._gridNeedsUpdate = true;
+            // CRITICAL FIX: Just invalidate visual, no need for _gridNeedsUpdate flag
             canvas.InvalidateVisual();
         }
     }
@@ -621,7 +624,7 @@ public class ModernDesignerCanvas : Canvas
 
     private void OnSizeChanged(object sender, SizeChangedEventArgs e)
     {
-        _gridNeedsUpdate = true;
+        // CRITICAL FIX: Just invalidate visual, grid will be redrawn in OnRender
         _rulersNeedUpdate = true;
         InvalidateVisual();
     }

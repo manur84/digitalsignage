@@ -72,6 +72,7 @@ public class DesignerItemControl : ContentControl
         MinWidth = 10;
         MinHeight = 10;
 
+        // FIXED: Removed debug background/border - elements now render with proper appearance
         Background = Brushes.Transparent;
         BorderBrush = Brushes.Transparent;
         BorderThickness = new Thickness(0);
