@@ -86,7 +86,7 @@ public partial class DataSourceTextPropertiesViewModel : ObservableObject
     /// <summary>
     /// Loads available data sources from the manager
     /// </summary>
-    public async Task LoadDataSourcesAsync()
+    public Task LoadDataSourcesAsync()
     {
         try
         {
@@ -113,6 +113,8 @@ public partial class DataSourceTextPropertiesViewModel : ObservableObject
         {
             _logger.LogError(ex, "Failed to load data sources");
         }
+
+        return Task.CompletedTask;
     }
 
     /// <summary>

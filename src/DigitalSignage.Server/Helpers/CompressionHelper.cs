@@ -20,7 +20,7 @@ public static class CompressionHelper
     /// </summary>
     /// <param name="data">Data to compress</param>
     /// <returns>Compressed data</returns>
-    public static byte[] Compress(byte[] data)
+    public static byte[]? Compress(byte[]? data)
     {
         if (data == null || data.Length == 0)
             return data;
@@ -48,7 +48,7 @@ public static class CompressionHelper
             return Array.Empty<byte>();
 
         var bytes = Encoding.UTF8.GetBytes(text);
-        return Compress(bytes);
+        return Compress(bytes) ?? Array.Empty<byte>();
     }
 
     /// <summary>
@@ -56,7 +56,7 @@ public static class CompressionHelper
     /// </summary>
     /// <param name="compressedData">Compressed data</param>
     /// <returns>Decompressed data</returns>
-    public static byte[] Decompress(byte[] compressedData)
+    public static byte[]? Decompress(byte[]? compressedData)
     {
         if (compressedData == null || compressedData.Length == 0)
             return compressedData;
@@ -81,7 +81,7 @@ public static class CompressionHelper
             return string.Empty;
 
         var decompressed = Decompress(compressedData);
-        return Encoding.UTF8.GetString(decompressed);
+        return decompressed != null ? Encoding.UTF8.GetString(decompressed) : string.Empty;
     }
 
     /// <summary>

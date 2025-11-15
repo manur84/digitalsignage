@@ -126,7 +126,7 @@ public partial class DesignerViewModel : ObservableObject, IDisposable
     /// <summary>
     /// Creates a new layout with specified properties
     /// </summary>
-    public async Task CreateNewLayoutAsync(DisplayLayout layout)
+    public Task CreateNewLayoutAsync(DisplayLayout layout)
     {
         try
         {
@@ -142,6 +142,8 @@ public partial class DesignerViewModel : ObservableObject, IDisposable
         {
             _logger.LogError(ex, "Failed to create new layout");
         }
+
+        return Task.CompletedTask;
     }
 
     [RelayCommand]
@@ -933,7 +935,8 @@ public partial class DesignerViewModel : ObservableObject, IDisposable
                 fontSize,
                 System.Windows.Media.Brushes.Black,
                 new System.Windows.Media.NumberSubstitution(),
-                System.Windows.Media.TextFormattingMode.Display
+                System.Windows.Media.TextFormattingMode.Display,
+                System.Windows.Media.VisualTreeHelper.GetDpi(System.Windows.Application.Current.MainWindow).PixelsPerDip
             );
 
             // Add padding (10px on each side)
@@ -1484,7 +1487,6 @@ public partial class DesignerViewModel : ObservableObject, IDisposable
 
     #region Copy/Paste Commands
 
-    private DisplayElement? _clipboardElement;
     private List<DisplayElement>? _clipboardElements;
 
     /// <summary>

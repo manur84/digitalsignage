@@ -12,17 +12,12 @@ namespace DigitalSignage.Server.Controls;
 /// </summary>
 public class DesignerCanvas : Canvas
 {
-    private bool _showGrid = true;
-    private bool _snapToGrid = true;
-    private int _gridSize = 10;
     private Point? _selectionStartPoint;
     private Rectangle? _selectionRectangle;
 
     // Touch gesture support
     private Point? _touchStartPoint;
-    private double _initialPinchDistance;
     private double _initialZoom = 1.0;
-    private Point _lastPanPosition;
 
     public static readonly DependencyProperty ShowGridProperty =
         DependencyProperty.Register(
@@ -330,7 +325,7 @@ public class DesignerCanvas : Canvas
     /// <summary>
     /// Handles single touch down (alternative to mouse)
     /// </summary>
-    private void OnTouchDown(object sender, TouchEventArgs e)
+    private void OnTouchDown(object? sender, TouchEventArgs e)
     {
         if (e.TouchDevice.Captured == null)
         {
@@ -344,7 +339,7 @@ public class DesignerCanvas : Canvas
     /// <summary>
     /// Handles touch move (alternative to mouse)
     /// </summary>
-    private void OnTouchMove(object sender, TouchEventArgs e)
+    private void OnTouchMove(object? sender, TouchEventArgs e)
     {
         if (_touchStartPoint.HasValue && e.TouchDevice.Captured == this)
         {
@@ -358,7 +353,7 @@ public class DesignerCanvas : Canvas
     /// <summary>
     /// Handles touch up (alternative to mouse)
     /// </summary>
-    private void OnTouchUp(object sender, TouchEventArgs e)
+    private void OnTouchUp(object? sender, TouchEventArgs e)
     {
         if (_touchStartPoint.HasValue && e.TouchDevice.Captured == this)
         {

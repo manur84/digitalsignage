@@ -507,7 +507,7 @@ public partial class SqlDataSourcesViewModel : ObservableObject, IDisposable
             // Parse connection string (basic parsing)
             try
             {
-                var builder = new System.Data.SqlClient.SqlConnectionStringBuilder(SelectedDataSource.ConnectionString);
+                var builder = new Microsoft.Data.SqlClient.SqlConnectionStringBuilder(SelectedDataSource.ConnectionString);
                 var dataSource = builder.DataSource;
 
                 // Parse server and port

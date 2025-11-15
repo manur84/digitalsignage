@@ -292,7 +292,7 @@ public partial class SettingsViewModel : ObservableValidator
             var settings = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(json) ?? new Dictionary<string, JsonElement>();
 
             // Update Server Settings
-            var serverSettings = new Dictionary<string, object>
+            var serverSettings = new Dictionary<string, object?>
             {
                 ["Port"] = Port,
                 ["AutoSelectPort"] = AutoSelectPort,

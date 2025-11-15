@@ -298,7 +298,7 @@ public class MessageHandlerService : BackgroundService
         }
     }
 
-    private async Task HandleUpdateConfigResponseAsync(string clientId, Message message)
+    private Task HandleUpdateConfigResponseAsync(string clientId, Message message)
     {
         try
         {
@@ -321,6 +321,8 @@ public class MessageHandlerService : BackgroundService
         {
             _logger.LogError(ex, "Error handling UPDATE_CONFIG_RESPONSE message from client {ClientId}", clientId);
         }
+
+        return Task.CompletedTask;
     }
 
     private T? DeserializeMessage<T>(Message message) where T : Message

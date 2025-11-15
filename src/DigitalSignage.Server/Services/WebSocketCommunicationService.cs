@@ -147,7 +147,7 @@ public class WebSocketCommunicationService : ICommunicationService
                 _logger.LogWarning("Successfully started in localhost-only mode");
                 _logger.LogInformation("WebSocket endpoint: {Endpoint}", localhostPrefix);
 
-                _ = Task.Run(() => AcceptClientsAsync(_cancellationTokenSource.Token));
+                _ = Task.Run(() => AcceptClientsAsync(_cancellationTokenSource!.Token));
                 return;
             }
             catch
@@ -207,7 +207,7 @@ public class WebSocketCommunicationService : ICommunicationService
                 if (_enableCompression && CompressionHelper.ShouldCompress(bytes.Length))
                 {
                     var compressedBytes = CompressionHelper.Compress(bytes);
-                    if (compressedBytes.Length < bytes.Length) // Only use if actually smaller
+                    if (compressedBytes != null && compressedBytes.Length < bytes.Length) // Only use if actually smaller
                     {
                         dataToSend = compressedBytes;
                         compressed = true;
@@ -256,7 +256,7 @@ public class WebSocketCommunicationService : ICommunicationService
         if (_enableCompression && CompressionHelper.ShouldCompress(bytes.Length))
         {
             var compressedBytes = CompressionHelper.Compress(bytes);
-            if (compressedBytes.Length < bytes.Length)
+            if (compressedBytes != null && compressedBytes.Length < bytes.Length)
             {
                 dataToSend = compressedBytes;
                 messageType = WebSocketMessageType.Binary;

@@ -115,7 +115,7 @@ public partial class LayoutManagementViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
-    private async Task NewFromTemplate()
+    private Task NewFromTemplate()
     {
         try
         {
@@ -178,6 +178,8 @@ public partial class LayoutManagementViewModel : ObservableObject, IDisposable
             _logger.LogError(ex, "Failed to create layout from template");
             StatusText = $"Error: {ex.Message}";
         }
+
+        return Task.CompletedTask;
     }
 
     [RelayCommand]

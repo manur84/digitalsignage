@@ -19,7 +19,7 @@ public class EnumVisibilityConverter : IValueConverter
         var enumValue = value.ToString();
         var targetValues = parameter.ToString()?.Split(',').Select(s => s.Trim()).ToList();
 
-        if (targetValues != null && targetValues.Contains(enumValue))
+        if (targetValues != null && enumValue != null && targetValues.Contains(enumValue))
             return Visibility.Visible;
 
         return Visibility.Collapsed;

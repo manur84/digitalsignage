@@ -528,7 +528,7 @@ Common Solutions:
     {
         if (Current is App app)
         {
-            return app._host.Services.GetRequiredService<T>();
+            return app._host!.Services.GetRequiredService<T>();
         }
         throw new InvalidOperationException("Application is not initialized");
     }
@@ -537,7 +537,7 @@ Common Solutions:
     {
         if (Current is App app)
         {
-            return app._host.Services;
+            return app._host!.Services;
         }
         throw new InvalidOperationException("Application is not initialized");
     }

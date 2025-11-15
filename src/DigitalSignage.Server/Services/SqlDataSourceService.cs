@@ -3,7 +3,7 @@ using DigitalSignage.Core.Models;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 using System.Data;
-using System.Data.SqlClient;
+using Microsoft.Data.SqlClient;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
