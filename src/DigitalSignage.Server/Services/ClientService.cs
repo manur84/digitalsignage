@@ -123,9 +123,38 @@ public class ClientService : IClientService
         }
     }
 
-    public Task<List<RaspberryPiClient>> GetAllClientsAsync(CancellationToken cancellationToken = default)
+    public async Task<List<RaspberryPiClient>> GetAllClientsAsync(CancellationToken cancellationToken = default)
     {
-        return Task.FromResult(_clients.Values.ToList());
+        try
+        {
+            // Reload from database to get latest DeviceInfo including resolution
+            using var scope = _serviceProvider.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<DigitalSignageDbContext>();
+
+            var dbClients = await dbContext.Clients.ToListAsync(cancellationToken);
+
+            // Update in-memory cache with fresh data from database
+            foreach (var dbClient in dbClients)
+            {
+                if (!string.IsNullOrWhiteSpace(dbClient.Id))
+                {
+                    // Preserve online status from in-memory cache (reflects real-time connection state)
+                    if (_clients.TryGetValue(dbClient.Id, out var cachedClient))
+                    {
+                        dbClient.Status = cachedClient.Status;
+                    }
+
+                    _clients[dbClient.Id] = dbClient;
+                }
+            }
+
+            return dbClients;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to reload clients from database, returning cached data");
+            return _clients.Values.ToList();
+        }
     }
 
     public Task<RaspberryPiClient?> GetClientByIdAsync(string clientId, CancellationToken cancellationToken = default)
