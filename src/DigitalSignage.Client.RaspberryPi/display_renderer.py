@@ -198,15 +198,9 @@ class DisplayRenderer(QWidget):
             self.status_screen_manager.clear_status_screen()
 
         try:
-            # Clear existing elements
-            for element in self.elements:
-                try:
-                    element.deleteLater()
-                except Exception as e:
-                    logger.warning(f"Failed to delete element: {e}")
-            self.elements.clear()
+            # === COMPLETE CLEANUP OF OLD LAYOUT ===
 
-            # Stop and clear all datetime timers
+            # 1. Stop and clear ALL timers (datetime elements)
             if hasattr(self, '_datetime_timers'):
                 for timer in self._datetime_timers:
                     try:
@@ -215,6 +209,50 @@ class DisplayRenderer(QWidget):
                     except Exception as e:
                         logger.warning(f"Failed to stop datetime timer: {e}")
                 self._datetime_timers.clear()
+
+            # 2. Delete all tracked elements
+            for element in self.elements:
+                try:
+                    # Remove graphics effects (shadows) to free resources
+                    if element.graphicsEffect():
+                        element.setGraphicsEffect(None)
+
+                    # Hide first to prevent flicker
+                    element.hide()
+
+                    # Delete widget
+                    element.deleteLater()
+                except Exception as e:
+                    logger.warning(f"Failed to delete element: {e}")
+            self.elements.clear()
+
+            # 3. Find and delete any orphaned child widgets not in self.elements
+            # This catches widgets that may have been created but not tracked
+            orphaned_widgets = self.findChildren(QWidget)
+            for widget in orphaned_widgets:
+                # Skip status screen widgets
+                if hasattr(widget, 'objectName') and 'status_screen' in widget.objectName():
+                    continue
+                try:
+                    widget.hide()
+                    widget.deleteLater()
+                except Exception as e:
+                    logger.warning(f"Failed to delete orphaned widget: {e}")
+
+            # 4. Reset background to default (clear palette and stylesheet)
+            # Reset palette to clear any background images
+            from PyQt5.QtGui import QPalette
+            palette = QPalette()
+            self.setPalette(palette)
+            self.setAutoFillBackground(False)
+
+            # 5. Clear stylesheet to default (will be set again below)
+            self.setStyleSheet("background-color: white;")
+
+            # 6. Force immediate update to clear display
+            self.update()
+
+            logger.debug("Complete layout cleanup finished")
 
             # Set background (color and/or image)
             bg_color = layout.get('BackgroundColor', '#FFFFFF')
