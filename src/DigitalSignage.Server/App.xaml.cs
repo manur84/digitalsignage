@@ -175,6 +175,7 @@ public partial class App : Application
                 // SQL Data Source Services
                 services.AddSingleton<ISqlDataSourceService, SqlDataSourceService>();
                 services.AddSingleton<DataSourceManager>();
+                services.AddScoped<DataSourceRepository>();
 
                 // Register Background Services
                 services.AddHostedService<DataRefreshService>();
