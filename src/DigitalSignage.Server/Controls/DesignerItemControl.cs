@@ -374,6 +374,9 @@ public class DesignerItemControl : ContentControl
 
     private UIElement CreateTextElement()
     {
+        // Match Pi Client rendering exactly
+        // Pi Client: display_renderer.py:create_text_element() lines 487-596
+
         // Wrap TextBlock in a Border for proper sizing and background support
         var border = new Border
         {
@@ -384,24 +387,25 @@ public class DesignerItemControl : ContentControl
 
         var textBlock = new TextBlock
         {
-            TextWrapping = TextWrapping.Wrap,
-            VerticalAlignment = VerticalAlignment.Stretch,
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            Margin = new Thickness(5), // Add some padding
-            TextTrimming = TextTrimming.None // Ensure text is not trimmed
+            Margin = new Thickness(5), // Match Pi padding
+            TextTrimming = TextTrimming.None
         };
 
         if (DisplayElement?.Properties != null)
         {
+            // MATCH PI: Get text content - default empty string (Pi line 500)
             if (DisplayElement.Properties.TryGetValue("Content", out var content))
-                textBlock.Text = content?.ToString() ?? "Text";
+                textBlock.Text = content?.ToString() ?? "";
 
+            // MATCH PI: FontSize - default 16 (Pi line 517)
             if (DisplayElement.Properties.TryGetValue("FontSize", out var fontSize))
-                textBlock.FontSize = TryParseDouble(fontSize, 24.0);
+                textBlock.FontSize = TryParseDouble(fontSize, 16.0); // Pi default is 16, not 24
 
+            // MATCH PI: FontFamily - default Arial (Pi line 516)
             if (DisplayElement.Properties.TryGetValue("FontFamily", out var fontFamily))
                 textBlock.FontFamily = new FontFamily(fontFamily?.ToString() ?? "Arial");
 
+            // MATCH PI: Color - default #000000 (Pi line 555)
             if (DisplayElement.Properties.TryGetValue("Color", out var color))
             {
                 try
@@ -415,59 +419,81 @@ public class DesignerItemControl : ContentControl
                 }
             }
 
-            // Apply font weight (Bold)
+            // MATCH PI: FontWeight checking 'bold' string (Pi line 532-534)
             if (DisplayElement.Properties.TryGetValue("FontWeight", out var fontWeight))
             {
-                var weightStr = fontWeight?.ToString() ?? "Normal";
-                textBlock.FontWeight = weightStr.Equals("Bold", StringComparison.OrdinalIgnoreCase)
-                    ? FontWeights.Bold
-                    : FontWeights.Normal;
+                var weightStr = fontWeight?.ToString()?.ToLower() ?? "normal";
+                textBlock.FontWeight = weightStr == "bold" ? FontWeights.Bold : FontWeights.Normal;
             }
 
-            // Apply font style (Italic)
+            // MATCH PI: FontStyle checking 'italic' string (Pi line 536-538)
             if (DisplayElement.Properties.TryGetValue("FontStyle", out var fontStyle))
             {
-                var styleStr = fontStyle?.ToString() ?? "Normal";
-                textBlock.FontStyle = styleStr.Equals("Italic", StringComparison.OrdinalIgnoreCase)
-                    ? FontStyles.Italic
-                    : FontStyles.Normal;
+                var styleStr = fontStyle?.ToString()?.ToLower() ?? "normal";
+                textBlock.FontStyle = styleStr == "italic" ? FontStyles.Italic : FontStyles.Normal;
             }
 
-            // Apply line height
-            if (DisplayElement.Properties.TryGetValue("LineHeight", out var lineHeight))
+            // MATCH PI: Text decorations - check both individual properties (Pi lines 541-548)
+            var underline = false;
+            var strikethrough = false;
+
+            // Check TextDecoration_Underline property (Pi way)
+            if (DisplayElement.Properties.TryGetValue("TextDecoration_Underline", out var underlineProp))
             {
-                var lineHeightValue = TryParseDouble(lineHeight, 1.2);
-                if (lineHeightValue > 0)
-                {
-                    textBlock.LineHeight = textBlock.FontSize * lineHeightValue;
-                }
+                underline = underlineProp as bool? == true ||
+                           underlineProp?.ToString()?.ToLower() == "true";
             }
 
-            // Apply letter spacing (WPF uses Typography.LetterSpacing in em units)
-            if (DisplayElement.Properties.TryGetValue("LetterSpacing", out var letterSpacing))
+            // Check TextDecoration_Strikethrough property (Pi way)
+            if (DisplayElement.Properties.TryGetValue("TextDecoration_Strikethrough", out var strikethroughProp))
             {
-                var letterSpacingValue = TryParseDouble(letterSpacing, 0.0);
-                // Convert pixels to em units (em = pixels / fontSize * 1000)
-                if (textBlock.FontSize > 0)
-                {
-                    textBlock.FontStretch = System.Windows.FontStretches.Normal;
-                    // Note: WPF doesn't have direct letter-spacing, but we can use a workaround with FormattedText
-                    // For now, we'll document this limitation
-                }
+                strikethrough = strikethroughProp as bool? == true ||
+                               strikethroughProp?.ToString()?.ToLower() == "true";
             }
 
-            // Apply text decorations
-            if (DisplayElement.Properties.TryGetValue("TextDecoration", out var textDecoration))
+            if (underline)
+                textBlock.TextDecorations = TextDecorations.Underline;
+            else if (strikethrough)
+                textBlock.TextDecorations = TextDecorations.Strikethrough;
+
+            // MATCH PI: Text alignment (Pi lines 561-577)
+            if (DisplayElement.Properties.TryGetValue("TextAlign", out var textAlign))
             {
-                var decoration = textDecoration?.ToString()?.ToLower();
-                if (decoration == "underline" || (DisplayElement["Underline"] as bool? == true))
+                var align = textAlign?.ToString()?.ToLower() ?? "left";
+                textBlock.TextAlignment = align switch
                 {
-                    textBlock.TextDecorations = TextDecorations.Underline;
-                }
-                else if (decoration == "strikethrough" || (DisplayElement["Strikethrough"] as bool? == true))
+                    "center" => TextAlignment.Center,
+                    "right" => TextAlignment.Right,
+                    "justify" => TextAlignment.Justify,
+                    _ => TextAlignment.Left
+                };
+            }
+
+            // MATCH PI: Vertical alignment (Pi lines 569-576)
+            if (DisplayElement.Properties.TryGetValue("VerticalAlign", out var verticalAlign))
+            {
+                var valign = verticalAlign?.ToString()?.ToLower() ?? "top";
+                textBlock.VerticalAlignment = valign switch
                 {
-                    textBlock.TextDecorations = TextDecorations.Strikethrough;
-                }
+                    "middle" or "center" => VerticalAlignment.Center,
+                    "bottom" => VerticalAlignment.Bottom,
+                    _ => VerticalAlignment.Top
+                };
+            }
+            else
+            {
+                textBlock.VerticalAlignment = VerticalAlignment.Top; // Pi default
+            }
+
+            // MATCH PI: Word wrap - default true (Pi line 583-584)
+            if (DisplayElement.Properties.TryGetValue("WordWrap", out var wordWrap))
+            {
+                var wrap = wordWrap as bool? ?? true;
+                textBlock.TextWrapping = wrap ? TextWrapping.Wrap : TextWrapping.NoWrap;
+            }
+            else
+            {
+                textBlock.TextWrapping = TextWrapping.Wrap; // Pi default is true
             }
 
             // Apply border properties if present
@@ -515,6 +541,9 @@ public class DesignerItemControl : ContentControl
 
     private UIElement CreateImageElement()
     {
+        // Match Pi Client rendering exactly
+        // Pi Client: display_renderer.py:create_image_element() lines 597-677
+
         var border = new Border
         {
             HorizontalAlignment = HorizontalAlignment.Stretch,
@@ -525,30 +554,57 @@ public class DesignerItemControl : ContentControl
         // Try to load real image from properties
         if (DisplayElement?.Properties != null)
         {
-            // Check for ImageSource, MediaId, or Source property
+            // MATCH PI: Priority 1 - MediaData (Base64 from server) - Pi line 610-627
             string? imagePath = null;
+            bool isBase64 = false;
 
-            if (DisplayElement.Properties.TryGetValue("ImageSource", out var imgSource))
-                imagePath = imgSource?.ToString();
-            else if (DisplayElement.Properties.TryGetValue("MediaId", out var mediaId))
-                imagePath = mediaId?.ToString();
+            if (DisplayElement.Properties.TryGetValue("MediaData", out var mediaData))
+            {
+                // Base64 image data has highest priority like Pi
+                imagePath = mediaData?.ToString();
+                isBase64 = true;
+            }
+            // MATCH PI: Priority 2 - Source property (file path) - Pi line 630
             else if (DisplayElement.Properties.TryGetValue("Source", out var source))
+            {
                 imagePath = source?.ToString();
+            }
+            // Additional fallbacks for WPF compatibility
+            else if (DisplayElement.Properties.TryGetValue("ImageSource", out var imgSource))
+            {
+                imagePath = imgSource?.ToString();
+            }
+            else if (DisplayElement.Properties.TryGetValue("MediaId", out var mediaId))
+            {
+                imagePath = mediaId?.ToString();
+            }
 
             if (!string.IsNullOrEmpty(imagePath))
             {
                 try
                 {
-                    // Try to load image from file path or media directory
                     var image = new Image
                     {
-                        Stretch = Stretch.Uniform,
                         HorizontalAlignment = HorizontalAlignment.Stretch,
                         VerticalAlignment = VerticalAlignment.Stretch
                     };
 
-                    // Get Stretch mode from properties
-                    if (DisplayElement.Properties.TryGetValue("Stretch", out var stretchMode))
+                    // MATCH PI: Fit property mapping (Pi line 651-661)
+                    // Pi uses 'Fit' property with values: contain, cover, fill
+                    // WPF uses Stretch enum
+                    if (DisplayElement.Properties.TryGetValue("Fit", out var fitMode))
+                    {
+                        var fit = fitMode?.ToString()?.ToLower() ?? "contain";
+                        image.Stretch = fit switch
+                        {
+                            "contain" => Stretch.Uniform,        // Qt.KeepAspectRatio
+                            "cover" => Stretch.UniformToFill,    // Qt.KeepAspectRatioByExpanding
+                            "fill" => Stretch.Fill,              // Qt.IgnoreAspectRatio
+                            _ => Stretch.Uniform                 // Default to contain
+                        };
+                    }
+                    // Fallback to Stretch property if Fit not found
+                    else if (DisplayElement.Properties.TryGetValue("Stretch", out var stretchMode))
                     {
                         image.Stretch = stretchMode?.ToString()?.ToLower() switch
                         {
@@ -558,6 +614,11 @@ public class DesignerItemControl : ContentControl
                             "uniformtofill" => Stretch.UniformToFill,
                             _ => Stretch.Uniform
                         };
+                    }
+                    else
+                    {
+                        // MATCH PI: Default to contain/Uniform (Pi line 660)
+                        image.Stretch = Stretch.Uniform;
                     }
 
                     var bitmap = new System.Windows.Media.Imaging.BitmapImage();
@@ -646,12 +707,15 @@ public class DesignerItemControl : ContentControl
 
     private UIElement CreateRectangleElement()
     {
+        // Match Pi Client rendering exactly
+        // Pi Client: display_renderer.py:create_shape_element() lines 679-750
+
         var rectangle = new System.Windows.Shapes.Rectangle
         {
-            Fill = Brushes.LightBlue,
-            Stroke = Brushes.DarkBlue,
-            StrokeThickness = 2,
-            // CRITICAL: Make rectangle stretch to fill the control
+            // MATCH PI: Default colors (Pi lines 694-696, 699-704, 707-712)
+            Fill = new SolidColorBrush(Color.FromRgb(204, 204, 204)),  // Pi default: #CCCCCC
+            Stroke = new SolidColorBrush(Colors.Black),     // Pi default: #000000
+            StrokeThickness = 1,  // Pi default: 1
             HorizontalAlignment = HorizontalAlignment.Stretch,
             VerticalAlignment = VerticalAlignment.Stretch,
             Stretch = Stretch.Fill
@@ -659,40 +723,76 @@ public class DesignerItemControl : ContentControl
 
         if (DisplayElement?.Properties != null)
         {
+            // MATCH PI: FillColor with fallback to #CCCCCC (Pi lines 694-696)
             if (DisplayElement.Properties.TryGetValue("FillColor", out var fillColor))
             {
-                try
+                var colorStr = fillColor?.ToString();
+                if (!string.IsNullOrWhiteSpace(colorStr))
                 {
-                    rectangle.Fill = new SolidColorBrush(
-                        (Color)ColorConverter.ConvertFromString(fillColor?.ToString() ?? "#ADD8E6"));
-                }
-                catch
-                {
-                    rectangle.Fill = Brushes.LightBlue;
+                    try
+                    {
+                        rectangle.Fill = new SolidColorBrush(
+                            (Color)ColorConverter.ConvertFromString(colorStr));
+                    }
+                    catch
+                    {
+                        rectangle.Fill = new SolidColorBrush(Color.FromRgb(204, 204, 204)); // #CCCCCC
+                    }
                 }
             }
 
+            // MATCH PI: Check BorderColor first, then StrokeColor as fallback (Pi lines 698-704)
+            string? strokeColorStr = null;
             if (DisplayElement.Properties.TryGetValue("BorderColor", out var borderColor))
+            {
+                strokeColorStr = borderColor?.ToString();
+            }
+            else if (DisplayElement.Properties.TryGetValue("StrokeColor", out var strokeColor))
+            {
+                // Fallback to StrokeColor if BorderColor not found (Pi line 701-703)
+                strokeColorStr = strokeColor?.ToString();
+            }
+
+            if (!string.IsNullOrWhiteSpace(strokeColorStr))
             {
                 try
                 {
                     rectangle.Stroke = new SolidColorBrush(
-                        (Color)ColorConverter.ConvertFromString(borderColor?.ToString() ?? "#00008B"));
+                        (Color)ColorConverter.ConvertFromString(strokeColorStr));
                 }
                 catch
                 {
-                    rectangle.Stroke = Brushes.DarkBlue;
+                    rectangle.Stroke = new SolidColorBrush(Colors.Black); // #000000
                 }
             }
 
+            // MATCH PI: Check BorderThickness first, then StrokeWidth as fallback (Pi lines 706-712)
+            double strokeWidth = 1.0; // Pi default
             if (DisplayElement.Properties.TryGetValue("BorderThickness", out var borderThickness))
             {
-                rectangle.StrokeThickness = TryParseDouble(borderThickness, 2.0);
+                strokeWidth = TryParseDouble(borderThickness, 1.0);
             }
+            else if (DisplayElement.Properties.TryGetValue("StrokeWidth", out var strokeWidthProp))
+            {
+                // Fallback to StrokeWidth if BorderThickness not found (Pi line 709-711)
+                strokeWidth = TryParseDouble(strokeWidthProp, 1.0);
+            }
+            rectangle.StrokeThickness = strokeWidth;
 
+            // MATCH PI: Check CornerRadius first, then BorderRadius as fallback (Pi lines 720-732)
+            double radius = 0.0; // Pi default
             if (DisplayElement.Properties.TryGetValue("CornerRadius", out var cornerRadius))
             {
-                var radius = TryParseDouble(cornerRadius, 0.0);
+                radius = TryParseDouble(cornerRadius, 0.0);
+            }
+            else if (DisplayElement.Properties.TryGetValue("BorderRadius", out var borderRadius))
+            {
+                // Fallback to BorderRadius if CornerRadius not found (Pi line 723-725)
+                radius = TryParseDouble(borderRadius, 0.0);
+            }
+
+            if (radius > 0)
+            {
                 rectangle.RadiusX = radius;
                 rectangle.RadiusY = radius;
             }
@@ -703,12 +803,16 @@ public class DesignerItemControl : ContentControl
 
     private UIElement CreateCircleElement()
     {
+        // Match Pi Client rendering exactly
+        // Pi Client uses same shape rendering for circle/ellipse
+        // Pi Client: display_renderer.py:create_shape_element() with shape_type='circle'
+
         var ellipse = new System.Windows.Shapes.Ellipse
         {
-            Fill = Brushes.Gold,
-            Stroke = Brushes.Orange,
-            StrokeThickness = 2,
-            // CRITICAL: Make ellipse stretch to fill the control
+            // MATCH PI: Same defaults as rectangle (Pi uses ShapeWidget with same defaults)
+            Fill = new SolidColorBrush(Color.FromRgb(204, 204, 204)),  // Pi default: #CCCCCC
+            Stroke = new SolidColorBrush(Colors.Black),     // Pi default: #000000
+            StrokeThickness = 1,  // Pi default: 1
             HorizontalAlignment = HorizontalAlignment.Stretch,
             VerticalAlignment = VerticalAlignment.Stretch,
             Stretch = Stretch.Fill
@@ -716,36 +820,61 @@ public class DesignerItemControl : ContentControl
 
         if (DisplayElement?.Properties != null)
         {
+            // MATCH PI: FillColor with fallback to #CCCCCC (same as rectangle)
             if (DisplayElement.Properties.TryGetValue("FillColor", out var fillColor))
             {
-                try
+                var colorStr = fillColor?.ToString();
+                if (!string.IsNullOrWhiteSpace(colorStr))
                 {
-                    ellipse.Fill = new SolidColorBrush(
-                        (Color)ColorConverter.ConvertFromString(fillColor?.ToString() ?? "#FFD700"));
-                }
-                catch
-                {
-                    ellipse.Fill = Brushes.Gold;
+                    try
+                    {
+                        ellipse.Fill = new SolidColorBrush(
+                            (Color)ColorConverter.ConvertFromString(colorStr));
+                    }
+                    catch
+                    {
+                        ellipse.Fill = new SolidColorBrush(Color.FromRgb(204, 204, 204)); // #CCCCCC
+                    }
                 }
             }
 
+            // MATCH PI: Check BorderColor first, then StrokeColor as fallback
+            string? strokeColorStr = null;
             if (DisplayElement.Properties.TryGetValue("BorderColor", out var borderColor))
+            {
+                strokeColorStr = borderColor?.ToString();
+            }
+            else if (DisplayElement.Properties.TryGetValue("StrokeColor", out var strokeColor))
+            {
+                // Fallback to StrokeColor if BorderColor not found
+                strokeColorStr = strokeColor?.ToString();
+            }
+
+            if (!string.IsNullOrWhiteSpace(strokeColorStr))
             {
                 try
                 {
                     ellipse.Stroke = new SolidColorBrush(
-                        (Color)ColorConverter.ConvertFromString(borderColor?.ToString() ?? "#FFA500"));
+                        (Color)ColorConverter.ConvertFromString(strokeColorStr));
                 }
                 catch
                 {
-                    ellipse.Stroke = Brushes.Orange;
+                    ellipse.Stroke = new SolidColorBrush(Colors.Black); // #000000
                 }
             }
 
+            // MATCH PI: Check BorderThickness first, then StrokeWidth as fallback
+            double strokeWidth = 1.0; // Pi default
             if (DisplayElement.Properties.TryGetValue("BorderThickness", out var borderThickness))
             {
-                ellipse.StrokeThickness = TryParseDouble(borderThickness, 2.0);
+                strokeWidth = TryParseDouble(borderThickness, 1.0);
             }
+            else if (DisplayElement.Properties.TryGetValue("StrokeWidth", out var strokeWidthProp))
+            {
+                // Fallback to StrokeWidth if BorderThickness not found
+                strokeWidth = TryParseDouble(strokeWidthProp, 1.0);
+            }
+            ellipse.StrokeThickness = strokeWidth;
         }
 
         return ellipse;
