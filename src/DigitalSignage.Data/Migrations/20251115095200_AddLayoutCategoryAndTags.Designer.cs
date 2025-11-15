@@ -3,6 +3,7 @@ using System;
 using DigitalSignage.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace DigitalSignage.Data.Migrations
 {
     [DbContext(typeof(DigitalSignageDbContext))]
-    partial class DigitalSignageDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251115095200_AddLayoutCategoryAndTags")]
+    partial class AddLayoutCategoryAndTags
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "9.0.0");

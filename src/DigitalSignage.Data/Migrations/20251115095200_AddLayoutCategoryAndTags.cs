@@ -4,10 +4,8 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace DigitalSignage.Data.Migrations
 {
-    /// <summary>
-    /// Migration to add Category and Tags fields to DisplayLayout
-    /// </summary>
-    public partial class AddLayoutCategoriesAndTags : Migration
+    /// <inheritdoc />
+    public partial class AddLayoutCategoryAndTags : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
