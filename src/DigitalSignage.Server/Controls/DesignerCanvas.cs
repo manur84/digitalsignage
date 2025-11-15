@@ -69,6 +69,26 @@ public class DesignerCanvas : Canvas
         ClipToBounds = false;  // DIAGNOSTIC: Changed to false to test clipping issue
         Focusable = true;
 
+        // DIAGNOSTIC: Log when canvas is loaded
+        Loaded += (s, e) =>
+        {
+            System.Diagnostics.Debug.WriteLine($"[DIAGNOSTIC] DesignerCanvas.Loaded: Children.Count={Children.Count}");
+            for (int i = 0; i < Children.Count; i++)
+            {
+                var child = Children[i];
+                System.Diagnostics.Debug.WriteLine($"  Child[{i}]: Type={child.GetType().Name}, IsVisible={child.IsVisible}");
+
+                // If child is ItemsControl, check its items
+                if (child is System.Windows.Controls.ItemsControl itemsControl)
+                {
+                    System.Diagnostics.Debug.WriteLine($"    ItemsControl.Items.Count={itemsControl.Items.Count}");
+                    System.Diagnostics.Debug.WriteLine($"    ItemsControl.ActualWidth={itemsControl.ActualWidth}");
+                    System.Diagnostics.Debug.WriteLine($"    ItemsControl.ActualHeight={itemsControl.ActualHeight}");
+                    System.Diagnostics.Debug.WriteLine($"    ItemsControl.Visibility={itemsControl.Visibility}");
+                }
+            }
+        };
+
         // Mouse events
         MouseLeftButtonDown += OnMouseLeftButtonDown;
         MouseMove += OnMouseMove;
@@ -100,6 +120,19 @@ public class DesignerCanvas : Canvas
         // }
 
         System.Diagnostics.Debug.WriteLine($"[DIAGNOSTIC] DesignerCanvas.OnRender: Children.Count={Children.Count}, ActualWidth={ActualWidth}, ActualHeight={ActualHeight}");
+
+        // Check if ItemsControl exists as child
+        foreach (var child in Children)
+        {
+            if (child is System.Windows.Controls.ItemsControl itemsControl)
+            {
+                System.Diagnostics.Debug.WriteLine($"  [FOUND] ItemsControl in OnRender: Items.Count={itemsControl.Items.Count}, Visibility={itemsControl.Visibility}");
+
+                // Check visual children of ItemsControl
+                int visualChildCount = System.Windows.Media.VisualTreeHelper.GetChildrenCount(itemsControl);
+                System.Diagnostics.Debug.WriteLine($"  ItemsControl has {visualChildCount} visual children");
+            }
+        }
     }
 
     private void DrawGrid(DrawingContext dc)
