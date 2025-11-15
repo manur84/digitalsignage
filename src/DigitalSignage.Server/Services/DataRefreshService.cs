@@ -2,7 +2,6 @@ using DigitalSignage.Core.Interfaces;
 using DigitalSignage.Core.Models;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using System.Collections.Concurrent;
 
 namespace DigitalSignage.Server.Services;
 
@@ -14,7 +13,6 @@ public class DataRefreshService : BackgroundService
     private readonly ITemplateService _templateService;
     private readonly ICommunicationService _communicationService;
     private readonly ILogger<DataRefreshService> _logger;
-    private readonly ConcurrentDictionary<string, Timer> _refreshTimers = new();
 
     public DataRefreshService(
         IClientService clientService,
@@ -198,15 +196,5 @@ public class DataRefreshService : BackgroundService
         {
             _logger.LogError(ex, "Failed to refresh data for client {ClientId}", clientId);
         }
-    }
-
-    public override void Dispose()
-    {
-        foreach (var timer in _refreshTimers.Values)
-        {
-            timer?.Dispose();
-        }
-        _refreshTimers.Clear();
-        base.Dispose();
     }
 }

@@ -2,6 +2,7 @@ using DigitalSignage.Data;
 using DigitalSignage.Data.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using System.Collections.Concurrent;
 using System.Text.Json;
 
 namespace DigitalSignage.Server.Services;
@@ -13,7 +14,7 @@ public class AlertService
 {
     private readonly IDbContextFactory<DigitalSignageDbContext> _contextFactory;
     private readonly ILogger<AlertService> _logger;
-    private readonly Dictionary<int, DateTime> _lastTriggerTimes = new();
+    private readonly ConcurrentDictionary<int, DateTime> _lastTriggerTimes = new();
 
     public AlertService(
         IDbContextFactory<DigitalSignageDbContext> contextFactory,
@@ -395,12 +396,13 @@ public class AlertService
 
         try
         {
-            var doc = JsonDocument.Parse(configJson);
+            using var doc = JsonDocument.Parse(configJson);
             var dict = new Dictionary<string, JsonElement>();
 
             foreach (var prop in doc.RootElement.EnumerateObject())
             {
-                dict[prop.Name] = prop.Value;
+                // Clone the JsonElement to use outside the using block
+                dict[prop.Name] = prop.Value.Clone();
             }
 
             return dict;

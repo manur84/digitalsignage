@@ -387,17 +387,20 @@ public class AuthenticationService : IAuthenticationService
 
     public string HashPassword(string password)
     {
-        // Note: In production, use BCrypt or Argon2!
-        // This is a simple implementation for demonstration
-        using var sha256 = SHA256.Create();
-        var hashedBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
-        return Convert.ToBase64String(hashedBytes);
+        // Use BCrypt with work factor 12 for secure password hashing
+        return BCrypt.Net.BCrypt.HashPassword(password, workFactor: 12);
     }
 
     public bool VerifyPassword(string password, string hash)
     {
-        var passwordHash = HashPassword(password);
-        return passwordHash == hash;
+        try
+        {
+            return BCrypt.Net.BCrypt.Verify(password, hash);
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private static string HashApiKey(string apiKey)

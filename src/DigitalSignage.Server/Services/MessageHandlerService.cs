@@ -68,17 +68,21 @@ public class MessageHandlerService : BackgroundService
         _logger.LogInformation("Message Handler Service stopped");
     }
 
-    // Event handler must be async void, but immediately delegates to async Task method
-    private async void OnMessageReceived(object? sender, MessageReceivedEventArgs e)
+    // Event handler queues work on background thread to avoid async void
+    private void OnMessageReceived(object? sender, MessageReceivedEventArgs e)
     {
-        try
+        // Queue work and handle async on background thread
+        _ = Task.Run(async () =>
         {
-            await HandleMessageAsync(e.ClientId, e.Message);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error handling message from client {ClientId}", e.ClientId);
-        }
+            try
+            {
+                await HandleMessageAsync(e.ClientId, e.Message);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error handling message from client {ClientId}", e.ClientId);
+            }
+        });
     }
 
     /// <summary>

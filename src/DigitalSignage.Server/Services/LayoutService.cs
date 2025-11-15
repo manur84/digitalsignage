@@ -52,7 +52,7 @@ public class LayoutService : ILayoutService
         return Task.FromResult(layout);
     }
 
-    public Task<DisplayLayout> CreateLayoutAsync(DisplayLayout layout, CancellationToken cancellationToken = default)
+    public async Task<DisplayLayout> CreateLayoutAsync(DisplayLayout layout, CancellationToken cancellationToken = default)
     {
         if (layout == null)
         {
@@ -71,10 +71,10 @@ public class LayoutService : ILayoutService
             layout.Modified = DateTime.UtcNow;
 
             _layouts[layout.Id] = layout;
-            SaveLayoutToDisk(layout);
+            await SaveLayoutToDiskAsync(layout, cancellationToken);
 
             _logger.LogInformation("Created layout {LayoutId} with name {LayoutName}", layout.Id, layout.Name);
-            return Task.FromResult(layout);
+            return layout;
         }
         catch (Exception ex)
         {
@@ -83,7 +83,7 @@ public class LayoutService : ILayoutService
         }
     }
 
-    public Task<DisplayLayout> UpdateLayoutAsync(DisplayLayout layout, CancellationToken cancellationToken = default)
+    public async Task<DisplayLayout> UpdateLayoutAsync(DisplayLayout layout, CancellationToken cancellationToken = default)
     {
         if (layout == null)
         {
@@ -104,10 +104,10 @@ public class LayoutService : ILayoutService
         {
             layout.Modified = DateTime.UtcNow;
             _layouts[layout.Id] = layout;
-            SaveLayoutToDisk(layout);
+            await SaveLayoutToDiskAsync(layout, cancellationToken);
 
             _logger.LogInformation("Updated layout {LayoutId}", layout.Id);
-            return Task.FromResult(layout);
+            return layout;
         }
         catch (Exception ex)
         {
@@ -206,14 +206,14 @@ public class LayoutService : ILayoutService
         }
     }
 
-    private void SaveLayoutToDisk(DisplayLayout layout)
+    private async Task SaveLayoutToDiskAsync(DisplayLayout layout, CancellationToken cancellationToken = default)
     {
-        _fileLock.Wait();
+        await _fileLock.WaitAsync(cancellationToken);
         try
         {
             var filePath = GetLayoutFilePath(layout.Id);
             var json = JsonConvert.SerializeObject(layout, Formatting.Indented);
-            File.WriteAllText(filePath, json);
+            await File.WriteAllTextAsync(filePath, json, cancellationToken);
             _logger.LogDebug("Saved layout {LayoutId} to {FilePath}", layout.Id, filePath);
         }
         catch (Exception ex)

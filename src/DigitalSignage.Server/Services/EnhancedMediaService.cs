@@ -135,29 +135,27 @@ public class EnhancedMediaService : IMediaService
                 return null;
             }
 
-            // Update access statistics in database
-            _ = Task.Run(async () =>
+            // Update access statistics in database - await properly
+            try
             {
-                try
-                {
-                    using var scope = _serviceProvider.CreateScope();
-                    var dbContext = scope.ServiceProvider.GetRequiredService<DigitalSignageDbContext>();
+                using var scope = _serviceProvider.CreateScope();
+                var dbContext = scope.ServiceProvider.GetRequiredService<DigitalSignageDbContext>();
 
-                    var mediaFile = await dbContext.MediaFiles
-                        .FirstOrDefaultAsync(m => m.FileName == fileName);
+                var mediaFile = await dbContext.MediaFiles
+                    .FirstOrDefaultAsync(m => m.FileName == fileName);
 
-                    if (mediaFile != null)
-                    {
-                        mediaFile.LastAccessedAt = DateTime.UtcNow;
-                        mediaFile.AccessCount++;
-                        await dbContext.SaveChangesAsync();
-                    }
-                }
-                catch (Exception ex)
+                if (mediaFile != null)
                 {
-                    _logger.LogWarning(ex, "Failed to update media access statistics for {FileName}", fileName);
+                    mediaFile.LastAccessedAt = DateTime.UtcNow;
+                    mediaFile.AccessCount++;
+                    await dbContext.SaveChangesAsync();
                 }
-            });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to update media access statistics for {FileName}", fileName);
+                // Continue with file retrieval even if statistics update fails
+            }
 
             var data = await File.ReadAllBytesAsync(filePath);
             _logger.LogDebug("Media file retrieved: {FileName} ({Size} bytes)", fileName, data.Length);

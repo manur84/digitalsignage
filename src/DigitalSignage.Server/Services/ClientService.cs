@@ -391,31 +391,28 @@ public class ClientService : IClientService
                 }
             }
 
-            // Update in database (async, don't block)
-            _ = Task.Run(async () =>
+            // Update in database - await instead of fire-and-forget
+            try
             {
-                try
-                {
-                    using var scope = _serviceProvider.CreateScope();
-                    var dbContext = scope.ServiceProvider.GetRequiredService<DigitalSignageDbContext>();
+                using var scope = _serviceProvider.CreateScope();
+                var dbContext = scope.ServiceProvider.GetRequiredService<DigitalSignageDbContext>();
 
-                    var dbClient = await dbContext.Clients.FindAsync(new object[] { clientId }, cancellationToken);
-                    if (dbClient != null)
-                    {
-                        dbClient.Status = status;
-                        dbClient.LastSeen = DateTime.UtcNow;
-                        if (deviceInfo != null)
-                        {
-                            dbClient.DeviceInfo = deviceInfo;
-                        }
-                        await dbContext.SaveChangesAsync(cancellationToken);
-                    }
-                }
-                catch (Exception ex)
+                var dbClient = await dbContext.Clients.FindAsync(new object[] { clientId }, cancellationToken);
+                if (dbClient != null)
                 {
-                    _logger.LogWarning(ex, "Failed to update client {ClientId} status in database", clientId);
+                    dbClient.Status = status;
+                    dbClient.LastSeen = DateTime.UtcNow;
+                    if (deviceInfo != null)
+                    {
+                        dbClient.DeviceInfo = deviceInfo;
+                    }
+                    await dbContext.SaveChangesAsync(cancellationToken);
                 }
-            }, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to update client {ClientId} status in database", clientId);
+            }
         }
         else
         {
