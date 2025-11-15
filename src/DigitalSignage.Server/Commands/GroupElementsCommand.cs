@@ -1,4 +1,5 @@
 using DigitalSignage.Core.Models;
+using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 
 namespace DigitalSignage.Server.Commands;
@@ -11,7 +12,7 @@ public class GroupElementsCommand : IUndoableCommand
     private readonly ObservableCollection<DisplayElement> _elements;
     private readonly List<DisplayElement> _selectedElements;
     private readonly DisplayElement _groupElement;
-    private readonly Dictionary<DisplayElement, int> _originalIndices = new();
+    private readonly ConcurrentDictionary<DisplayElement, int> _originalIndices = new();
 
     public string Description => $"Group {_selectedElements.Count} elements";
 

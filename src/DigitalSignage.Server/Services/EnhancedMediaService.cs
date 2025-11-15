@@ -109,7 +109,9 @@ public class EnhancedMediaService : IMediaService
                 MimeType = GetMimeType(extension),
                 FileSizeBytes = data.Length,
                 Hash = hash,
-                UploadedByUserId = 1, // TODO: Get from current user context
+                // Single-user mode: All media uploads use User ID 1 (Administrator)
+                // Multi-user authentication is not currently implemented
+                UploadedByUserId = 1,
                 UploadedAt = DateTime.UtcNow
             };
 

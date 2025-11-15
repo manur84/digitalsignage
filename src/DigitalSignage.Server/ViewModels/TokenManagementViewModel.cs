@@ -163,8 +163,9 @@ public partial class TokenManagementViewModel : ObservableObject
         {
             _logger.LogInformation("Creating new registration token: {Description}", NewTokenDescription);
 
-            // Get or create default user (ID = 1)
-            // TODO: Replace with actual logged-in user ID when authentication is implemented
+            // Single-user mode: All tokens are created by User ID 1 (Administrator)
+            // Multi-user authentication is not currently implemented
+            // When authentication is added, this should use the current logged-in user's ID
             int userId = 1;
 
             await using var context = await _contextFactory.CreateDbContextAsync();
