@@ -581,9 +581,11 @@
                                 <!-- Render all elements using DesignerItemControl (professional WYSIWYG rendering) -->
                                 <ItemsControl ItemsSource="{Binding Designer.Elements}">
                                     <!-- CRITICAL FIX: ItemsPanel MUST be Canvas for Canvas.Left/Top/ZIndex to work! -->
+                                    <!-- CRITICAL FIX: Canvas MUST have explicit size or children won't render (0x0 clip bounds)! -->
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
-                                            <Canvas/>
+                                            <Canvas Width="{Binding DataContext.Designer.CurrentLayout.Resolution.Width, RelativeSource={RelativeSource AncestorType=controls:DesignerCanvas}}"
+                                                    Height="{Binding DataContext.Designer.CurrentLayout.Resolution.Height, RelativeSource={RelativeSource AncestorType=controls:DesignerCanvas}}"/>
                                         </ItemsPanelTemplate>
                                     </ItemsControl.ItemsPanel>
                                     <ItemsControl.ItemContainerStyle>
