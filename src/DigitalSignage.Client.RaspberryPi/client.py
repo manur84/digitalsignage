@@ -1021,9 +1021,15 @@ class DigitalSignageClient:
                         self.reconnection_in_progress = False
                         self.offline_mode = False
 
-                        # Don't show status screen here - let the registration response handler
-                        # determine whether to show "No Layout Assigned" after 10 seconds
-                        # This prevents duplicate status screens
+                        # CRITICAL FIX: Clear status screen immediately upon successful connection
+                        # This prevents the "Reconnecting..." status from staying visible
+                        # when the client has successfully reconnected
+                        if self.display_renderer and self.display_renderer.status_screen_manager.is_showing_status:
+                            logger.info("Clearing reconnection status screen after successful connection")
+                            self.display_renderer.status_screen_manager.clear_status_screen()
+
+                        # The registration response handler will show "No Layout Assigned" after 10 seconds
+                        # if no layout is received, OR render the assigned layout if one is sent
 
                         return
 
@@ -1229,9 +1235,14 @@ class DigitalSignageClient:
         self.watchdog.notify_status("Connected to server")
         self.watchdog.notify_ready()
 
-        # Don't show "waiting for layout" screen here - it will be shown by the
-        # scheduled task in handle_registration_response if no layout is received
-        # This prevents the flicker of showing two different status screens
+        # CRITICAL FIX: Clear connection status screen after initial successful connection
+        # This prevents the "Connecting..." status from staying visible
+        if self.display_renderer and self.display_renderer.status_screen_manager.is_showing_status:
+            logger.info("Clearing initial connection status screen after successful connection")
+            self.display_renderer.status_screen_manager.clear_status_screen()
+
+        # The registration response handler will show "No Layout Assigned" after 10 seconds
+        # if no layout is received, OR render the assigned layout if one is sent
 
         # Keep the asyncio loop running
         try:

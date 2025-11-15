@@ -242,7 +242,7 @@ class StatusScreen(QWidget):
         self.animated_widgets.append(spinner)
 
         # Main text with animated dots
-        title_label = AnimatedDotsLabel("Connecting to Server", self)
+        title_label = AnimatedDotsLabel("Verbindung wird hergestellt", self)
         title_label.setStyleSheet(f"color: {self.COLOR_TEXT_PRIMARY}; font-size: {self.title_font_size}pt; font-weight: bold;")
         title_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(title_label)
@@ -254,8 +254,8 @@ class StatusScreen(QWidget):
         server_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(server_label)
 
-        # Attempt counter
-        attempt_label = QLabel(f"Attempt {attempt} of {max_attempts}", self)
+        # Attempt counter - German, no "of X" display (just show attempt number)
+        attempt_label = QLabel(f"Verbindungsversuch {attempt}", self)
         attempt_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: {self.body_font_size}pt;")
         attempt_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(attempt_label)
@@ -264,7 +264,7 @@ class StatusScreen(QWidget):
 
         self.setLayout(layout)
         self.update()
-        logger.info(f"Status screen: Connecting (attempt {attempt}/{max_attempts})")
+        logger.info(f"Status screen: Connecting (attempt {attempt})")
 
     def show_waiting_for_layout(self, client_id: str, server_url: str):
         """Show 'Waiting for Layout...' screen after successful connection"""
@@ -278,8 +278,8 @@ class StatusScreen(QWidget):
         checkmark_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(checkmark_label)
 
-        # Connection success
-        connected_label = QLabel("Connected to Digital Signage Server", self)
+        # Connection success - German
+        connected_label = QLabel("Verbunden mit Digital Signage Server", self)
         connected_label.setStyleSheet(f"color: {self.COLOR_SUCCESS}; font-size: {self.subtitle_font_size}pt; font-weight: bold;")
         connected_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(connected_label)
@@ -302,8 +302,8 @@ class StatusScreen(QWidget):
         # Spacer
         layout.addSpacing(self.large_spacing)
 
-        # Waiting message with animated dots
-        waiting_label = AnimatedDotsLabel("Waiting for layout assignment", self)
+        # Waiting message with animated dots - German
+        waiting_label = AnimatedDotsLabel("Warte auf Layout-Zuweisung", self)
         waiting_label.setStyleSheet(f"color: {self.COLOR_WARNING}; font-size: {self.subtitle_font_size}pt;")
         waiting_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(waiting_label)
@@ -559,8 +559,8 @@ class StatusScreen(QWidget):
         layout.addWidget(spinner_container)
         self.animated_widgets.append(spinner)
 
-        # Title with animated dots
-        title_label = AnimatedDotsLabel("Reconnecting to Server", self)
+        # Title with animated dots - German
+        title_label = AnimatedDotsLabel("Verbindung wird wiederhergestellt", self)
         title_label.setStyleSheet(f"color: {self.COLOR_PRIMARY}; font-size: {self.title_font_size}pt; font-weight: bold;")
         title_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(title_label)
@@ -576,14 +576,14 @@ class StatusScreen(QWidget):
         # Spacer
         layout.addSpacing(self.spacing)
 
-        # Retry info
-        retry_label = QLabel(f"Retry in {retry_in} seconds", self)
+        # Retry info - German
+        retry_label = QLabel(f"Nächster Versuch in {retry_in} Sekunden", self)
         retry_label.setStyleSheet(f"color: {self.COLOR_WARNING}; font-size: {self.subtitle_font_size}pt; font-weight: bold;")
         retry_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(retry_label)
 
-        # Attempt counter
-        attempt_label = QLabel(f"Attempt #{attempt}", self)
+        # Attempt counter - German, just show attempt number (no maximum)
+        attempt_label = QLabel(f"Verbindungsversuch {attempt}", self)
         attempt_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: {self.body_font_size}pt;")
         attempt_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(attempt_label)
