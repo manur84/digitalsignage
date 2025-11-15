@@ -75,7 +75,7 @@ public class LayoutServiceTests
         var retrieved = await _layoutService.GetLayoutByIdAsync(created.Id);
 
         // Assert
-        deleted.Should().BeTrue();
+        deleted.IsSuccess.Should().BeTrue();
         retrieved.Should().BeNull();
     }
 

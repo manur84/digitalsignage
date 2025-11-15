@@ -116,35 +116,45 @@ public class LayoutService : ILayoutService
         }
     }
 
-    public Task<bool> DeleteLayoutAsync(string layoutId, CancellationToken cancellationToken = default)
+    public async Task<Result> DeleteLayoutAsync(string layoutId, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(layoutId))
         {
             _logger.LogWarning("DeleteLayoutAsync called with null or empty layoutId");
-            return Task.FromResult(false);
+            return Result.Failure("Layout ID cannot be empty.");
         }
 
         try
         {
-            if (_layouts.TryRemove(layoutId, out _))
+            if (!_layouts.TryRemove(layoutId, out var removedLayout))
             {
-                var filePath = GetLayoutFilePath(layoutId);
+                _logger.LogWarning("Layout {LayoutId} not found for deletion", layoutId);
+                return Result.Failure($"Layout '{layoutId}' was not found.");
+            }
+
+            var filePath = GetLayoutFilePath(layoutId);
+            await _fileLock.WaitAsync(cancellationToken);
+            try
+            {
                 if (File.Exists(filePath))
                 {
                     File.Delete(filePath);
+                    _logger.LogInformation("Deleted layout file {FilePath}", filePath);
                 }
-
-                _logger.LogInformation("Deleted layout {LayoutId}", layoutId);
-                return Task.FromResult(true);
+            }
+            finally
+            {
+                _fileLock.Release();
             }
 
-            _logger.LogWarning("Layout {LayoutId} not found for deletion", layoutId);
-            return Task.FromResult(false);
+            _logger.LogInformation("Deleted layout {LayoutId}", layoutId);
+            var name = string.IsNullOrWhiteSpace(removedLayout?.Name) ? layoutId : removedLayout!.Name;
+            return Result.Success($"Layout '{name}' deleted successfully.");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to delete layout {LayoutId}", layoutId);
-            throw;
+            return Result.Failure($"Failed to delete layout: {ex.Message}");
         }
     }
 

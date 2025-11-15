@@ -440,9 +440,9 @@ public partial class LayoutSelectionViewModel : ObservableObject
                 var layoutId = SelectedLayout.Id;
                 var layoutName = SelectedLayout.Name;
 
-                var success = await _layoutService.DeleteLayoutAsync(layoutId);
+                var deleteResult = await _layoutService.DeleteLayoutAsync(layoutId);
 
-                if (success)
+                if (deleteResult.IsSuccess)
                 {
                     _logger.LogInformation("Layout deleted successfully: {LayoutName}", layoutName);
 
@@ -459,7 +459,7 @@ public partial class LayoutSelectionViewModel : ObservableObject
                     SelectedLayout = null;
 
                     MessageBox.Show(
-                        $"Layout '{layoutName}' deleted successfully.",
+                        deleteResult.Message,
                         "Success",
                         MessageBoxButton.OK,
                         MessageBoxImage.Information);
@@ -468,7 +468,7 @@ public partial class LayoutSelectionViewModel : ObservableObject
                 {
                     _logger.LogWarning("Failed to delete layout: {LayoutName}", layoutName);
                     MessageBox.Show(
-                        $"Failed to delete layout '{layoutName}'.",
+                        deleteResult.Error ?? $"Failed to delete layout '{layoutName}'.",
                         "Error",
                         MessageBoxButton.OK,
                         MessageBoxImage.Error);
