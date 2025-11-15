@@ -311,7 +311,12 @@ public class DesignerItemControl : ContentControl
         Width = DisplayElement.Size.Width;
         Height = DisplayElement.Size.Height;
 
-        // Set ZIndex (Position is handled by XAML binding in ItemContainerStyle)
+        // CRITICAL FIX: Set Canvas position directly (XAML bindings don't work with nested objects!)
+        // ItemContainerStyle bindings to Position.X fail because Position is a separate object instance
+        Canvas.SetLeft(this, DisplayElement.Position.X);
+        Canvas.SetTop(this, DisplayElement.Position.Y);
+
+        // Set ZIndex
         Panel.SetZIndex(this, DisplayElement.ZIndex);
 
         // Apply visual effects (rotation, shadow, opacity)
