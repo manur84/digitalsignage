@@ -13,6 +13,7 @@ public partial class SettingsDialog : Window
     private readonly SettingsViewModel _viewModel;
     private readonly ILogger<SettingsDialog> _logger;
     private readonly IDialogService _dialogService;
+    private bool _isClosing = false;
 
     /// <summary>
     /// Constructor for Settings Dialog
@@ -51,20 +52,37 @@ public partial class SettingsDialog : Window
     /// </summary>
     private async void OnWindowClosing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
+        // Prevent re-entry if already processing a close request
+        if (_isClosing)
+        {
+            return;
+        }
+
         // Cancel the close first, then check if we can actually close
         e.Cancel = true;
+        _isClosing = true;
 
-        if (await _viewModel.CanClose())
+        try
         {
-            _logger.LogInformation("Settings dialog closed");
-            // Remove the event handler to avoid recursion
-            Closing -= OnWindowClosing;
-            // Now actually close the window
-            Close();
+            if (await _viewModel.CanClose())
+            {
+                _logger.LogInformation("Settings dialog closed");
+                // Remove the event handler to avoid recursion
+                Closing -= OnWindowClosing;
+                // Set DialogResult to trigger close (safer than calling Close())
+                DialogResult = true;
+            }
+            else
+            {
+                _logger.LogInformation("Settings dialog close cancelled due to unsaved changes");
+                _isClosing = false; // Reset flag so user can try again
+            }
         }
-        else
+        catch (Exception ex)
         {
-            _logger.LogInformation("Settings dialog close cancelled due to unsaved changes");
+            _logger.LogError(ex, "Error during window closing");
+            _isClosing = false;
+            throw;
         }
     }
 
@@ -86,7 +104,8 @@ public partial class SettingsDialog : Window
         }
 
         _logger.LogInformation("Settings dialog cancelled");
+        // Remove event handler before closing
+        Closing -= OnWindowClosing;
         DialogResult = false;
-        Close();
     }
 }
