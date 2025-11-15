@@ -33,6 +33,9 @@
         <local:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
         <local:BoolToVisibilityStringConverter x:Key="BoolToVisibilityStringConverter"/>
         <local:BoolToOnOffStringConverter x:Key="BoolToOnOffStringConverter"/>
+        <views:ElementTypeToBrushConverter x:Key="ElementTypeToBrushConverter"/>
+        <views:ElementSelectionBorderConverter x:Key="ElementSelectionBorderConverter"/>
+        <views:ElementSelectionThicknessConverter x:Key="ElementSelectionThicknessConverter"/>
     </Window.Resources>
 
     <!-- Keyboard Shortcuts -->
@@ -593,27 +596,50 @@
                                                    ScaleY="{Binding Designer.ZoomLevel}"/>
                                 </controls:DesignerCanvas.LayoutTransform>
 
-                                <controls:DesignerItemsControl ItemsSource="{Binding Designer.Elements}"
-                                                               Width="{Binding Designer.CurrentLayout.Resolution.Width, FallbackValue=1920}"
-                                                               Height="{Binding Designer.CurrentLayout.Resolution.Height, FallbackValue=1080}">
+                                <ItemsControl ItemsSource="{Binding Designer.Elements}"
+                                              Width="{Binding Designer.CurrentLayout.Resolution.Width, FallbackValue=1920}"
+                                              Height="{Binding Designer.CurrentLayout.Resolution.Height, FallbackValue=1080}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
                                             <Canvas Width="{Binding DataContext.Designer.CurrentLayout.Resolution.Width, RelativeSource={RelativeSource AncestorType=controls:DesignerCanvas}, FallbackValue=1920}"
                                                     Height="{Binding DataContext.Designer.CurrentLayout.Resolution.Height, RelativeSource={RelativeSource AncestorType=controls:DesignerCanvas}, FallbackValue=1080}"/>
                                         </ItemsPanelTemplate>
                                     </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemContainerStyle>
+                                        <Style TargetType="ContentPresenter">
+                                            <Setter Property="Canvas.Left" Value="{Binding Position.X}"/>
+                                            <Setter Property="Canvas.Top" Value="{Binding Position.Y}"/>
+                                            <Setter Property="Panel.ZIndex" Value="{Binding ZIndex}"/>
+                                            <Setter Property="Width" Value="{Binding Size.Width}"/>
+                                            <Setter Property="Height" Value="{Binding Size.Height}"/>
+                                        </Style>
+                                    </ItemsControl.ItemContainerStyle>
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <controls:DesignerItemControl DisplayElement="{Binding}"
-                                                                          IsSelected="{Binding IsSelected}"
-                                                                          Tag="{Binding}"
-                                                                          Cursor="Hand"
-                                                                          MouseLeftButtonDown="Element_MouseLeftButtonDown"
-                                                                          MouseMove="Element_MouseMove"
-                                                                          MouseLeftButtonUp="Element_MouseLeftButtonUp"/>
+                                            <Border Background="{Binding Type, Converter={StaticResource ElementTypeToBrushConverter}}"
+                                                    Tag="{Binding}"
+                                                    Cursor="Hand"
+                                                    MouseLeftButtonDown="Element_MouseLeftButtonDown"
+                                                    MouseMove="Element_MouseMove"
+                                                    MouseLeftButtonUp="Element_MouseLeftButtonUp">
+                                                <Border.BorderBrush>
+                                                    <MultiBinding Converter="{StaticResource ElementSelectionBorderConverter}">
+                                                        <Binding Path="."/>
+                                                        <Binding Path="DataContext.Designer.SelectedElement" RelativeSource="{RelativeSource AncestorType=Window}"/>
+                                                    </MultiBinding>
+                                                </Border.BorderBrush>
+                                                <Border.BorderThickness>
+                                                    <MultiBinding Converter="{StaticResource ElementSelectionThicknessConverter}">
+                                                        <Binding Path="."/>
+                                                        <Binding Path="DataContext.Designer.SelectedElement" RelativeSource="{RelativeSource AncestorType=Window}"/>
+                                                    </MultiBinding>
+                                                </Border.BorderThickness>
+                                                <controls:DesignerItemControl DisplayElement="{Binding}"
+                                                                              IsSelected="{Binding IsSelected}"/>
+                                            </Border>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
-                                </controls:DesignerItemsControl>
+                                </ItemsControl>
                             </controls:DesignerCanvas>
                         </ScrollViewer>
                         </DockPanel>
