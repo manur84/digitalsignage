@@ -576,7 +576,7 @@
                                                    ScaleY="{Binding Designer.ZoomLevel}"/>
                                 </controls:DesignerCanvas.LayoutTransform>
 
-                                <!-- Render all elements from Designer.Elements - ULTRA SIMPLE GUARANTEED VISIBLE TEMPLATE -->
+                                <!-- Render all elements using DesignerItemControl (professional WYSIWYG rendering) -->
                                 <ItemsControl ItemsSource="{Binding Designer.Elements}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
@@ -585,174 +585,20 @@
                                     </ItemsControl.ItemsPanel>
                                     <ItemsControl.ItemContainerStyle>
                                         <Style TargetType="ContentPresenter">
-                                            <Setter Property="Canvas.Left" Value="{Binding Position.X}"/>
-                                            <Setter Property="Canvas.Top" Value="{Binding Position.Y}"/>
-                                            <Setter Property="Canvas.ZIndex" Value="{Binding ZIndex}"/>
-                                            <Setter Property="Width" Value="{Binding Size.Width}"/>
-                                            <Setter Property="Height" Value="{Binding Size.Height}"/>
+                                            <!-- Position set by DesignerItemControl internally -->
                                         </Style>
                                     </ItemsControl.ItemContainerStyle>
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <!-- PROFESSIONAL CANVAS ELEMENT - Renders exactly as it appears on display -->
-                                            <Grid x:Name="ElementContainer"
-                                                  Width="{Binding Size.Width}"
-                                                  Height="{Binding Size.Height}"
-                                                  MinWidth="10"
-                                                  MinHeight="10"
-                                                  Background="Red"
-                                                  Cursor="Hand"
-                                                  MouseLeftButtonDown="Element_MouseLeftButtonDown"
-                                                  MouseMove="Element_MouseMove"
-                                                  MouseLeftButtonUp="Element_MouseLeftButtonUp"
-                                                  Tag="{Binding}"
-                                                  Visibility="{Binding Visible, Converter={StaticResource BoolToVisibilityConverter}, FallbackValue=Visible}">
-
-                                                <!-- ACTUAL ELEMENT RENDERING (what shows on display) -->
-                                                <Grid x:Name="ElementContent">
-
-                                                    <!-- TEXT ELEMENT -->
-                                                    <Border Background="Transparent"
-                                                            Visibility="{Binding Type, Converter={StaticResource TypeEqualsConverter}, ConverterParameter=text}">
-                                                        <TextBlock Text="{Binding [Content], FallbackValue='Sample Text'}"
-                                                                   FontFamily="{Binding [FontFamily], FallbackValue=Arial}"
-                                                                   FontSize="{Binding [FontSize], FallbackValue=24}"
-                                                                   Foreground="{Binding [Color], FallbackValue=Black}"
-                                                                   TextWrapping="Wrap"
-                                                                   HorizontalAlignment="Left"
-                                                                   VerticalAlignment="Top"
-                                                                   Padding="5"/>
-                                                    </Border>
-
-                                                    <!-- RECTANGLE ELEMENT -->
-                                                    <Rectangle Fill="{Binding [FillColor], FallbackValue=#FFADD8E6}"
-                                                               Stroke="{Binding [BorderColor], FallbackValue=#FF0000FF}"
-                                                               StrokeThickness="{Binding [BorderThickness], FallbackValue=2}"
-                                                               RadiusX="{Binding [CornerRadius], FallbackValue=0}"
-                                                               RadiusY="{Binding [CornerRadius], FallbackValue=0}"
-                                                               Visibility="{Binding Type, Converter={StaticResource TypeEqualsConverter}, ConverterParameter=rectangle}"/>
-
-                                                    <!-- CIRCLE ELEMENT -->
-                                                    <Ellipse Fill="{Binding [FillColor], FallbackValue=#FFFFD700}"
-                                                             Stroke="{Binding [BorderColor], FallbackValue=#FFFFA500}"
-                                                             StrokeThickness="{Binding [BorderThickness], FallbackValue=2}"
-                                                             Visibility="{Binding Type, Converter={StaticResource TypeEqualsConverter}, ConverterParameter=circle}"/>
-
-                                                    <!-- IMAGE ELEMENT -->
-                                                    <Grid Visibility="{Binding Type, Converter={StaticResource TypeEqualsConverter}, ConverterParameter=image}">
-                                                        <!-- Placeholder background -->
-                                                        <Rectangle Fill="#FFF5F5F5" Stroke="#FFCCCCCC" StrokeThickness="1" StrokeDashArray="4 2"/>
-                                                        <!-- Icon -->
-                                                        <TextBlock Text="🖼️" FontSize="48"
-                                                                   HorizontalAlignment="Center"
-                                                                   VerticalAlignment="Center"
-                                                                   Foreground="#FFCCCCCC"
-                                                                   Opacity="0.5"/>
-                                                        <!-- Filename at bottom -->
-                                                        <TextBlock Text="{Binding [Source], FallbackValue='No image'}"
-                                                                   FontSize="9"
-                                                                   HorizontalAlignment="Center"
-                                                                   VerticalAlignment="Bottom"
-                                                                   Margin="5"
-                                                                   Foreground="#FF999999"
-                                                                   TextTrimming="CharacterEllipsis"/>
-                                                    </Grid>
-
-                                                    <!-- QR CODE ELEMENT -->
-                                                    <Grid Visibility="{Binding Type, Converter={StaticResource TypeEqualsConverter}, ConverterParameter=qrcode}">
-                                                        <Rectangle Fill="White" Stroke="#FF333333" StrokeThickness="1"/>
-                                                        <TextBlock Text="QR" FontSize="32" FontWeight="Bold"
-                                                                   HorizontalAlignment="Center"
-                                                                   VerticalAlignment="Center"
-                                                                   Foreground="#FF333333"/>
-                                                    </Grid>
-
-                                                    <!-- TABLE ELEMENT -->
-                                                    <Grid Visibility="{Binding Type, Converter={StaticResource TypeEqualsConverter}, ConverterParameter=table}">
-                                                        <Rectangle Fill="#FFFAFAFA" Stroke="#FF2196F3" StrokeThickness="1"/>
-                                                        <TextBlock Text="📊" FontSize="32"
-                                                                   HorizontalAlignment="Center"
-                                                                   VerticalAlignment="Center"
-                                                                   Foreground="#FF2196F3"/>
-                                                    </Grid>
-
-                                                    <!-- DATETIME ELEMENT -->
-                                                    <Grid Visibility="{Binding Type, Converter={StaticResource TypeEqualsConverter}, ConverterParameter=datetime}">
-                                                        <Rectangle Fill="Transparent"/>
-                                                        <TextBlock FontSize="20" FontWeight="SemiBold"
-                                                                   HorizontalAlignment="Center"
-                                                                   VerticalAlignment="Center"
-                                                                   Foreground="{Binding [Color], FallbackValue=Black}">
-                                                            <Run Text="13.11.2025"/>
-                                                            <LineBreak/>
-                                                            <Run Text="14:30" FontSize="16"/>
-                                                        </TextBlock>
-                                                    </Grid>
-
-                                                </Grid>
-
-                                                <!-- SELECTION OVERLAY (only visible when selected) -->
-                                                <Grid x:Name="SelectionOverlay" Visibility="Collapsed" IsHitTestVisible="False">
-
-                                                    <!-- Selection Border (thin blue dashed line like Photoshop) -->
-                                                    <Rectangle Stroke="#FF007ACC"
-                                                               StrokeThickness="1.5"
-                                                               StrokeDashArray="4 2"
-                                                               Fill="Transparent"/>
-
-                                                    <!-- Resize Handles (8 small squares) -->
-                                                    <!-- Top-Left -->
-                                                    <Rectangle Width="6" Height="6" Fill="White" Stroke="#FF007ACC" StrokeThickness="1"
-                                                               HorizontalAlignment="Left" VerticalAlignment="Top" Margin="-3,-3,0,0"/>
-
-                                                    <!-- Top-Center -->
-                                                    <Rectangle Width="6" Height="6" Fill="White" Stroke="#FF007ACC" StrokeThickness="1"
-                                                               HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,-3,0,0"/>
-
-                                                    <!-- Top-Right -->
-                                                    <Rectangle Width="6" Height="6" Fill="White" Stroke="#FF007ACC" StrokeThickness="1"
-                                                               HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-3,-3,0"/>
-
-                                                    <!-- Middle-Left -->
-                                                    <Rectangle Width="6" Height="6" Fill="White" Stroke="#FF007ACC" StrokeThickness="1"
-                                                               HorizontalAlignment="Left" VerticalAlignment="Center" Margin="-3,0,0,0"/>
-
-                                                    <!-- Middle-Right -->
-                                                    <Rectangle Width="6" Height="6" Fill="White" Stroke="#FF007ACC" StrokeThickness="1"
-                                                               HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,-3,0"/>
-
-                                                    <!-- Bottom-Left -->
-                                                    <Rectangle Width="6" Height="6" Fill="White" Stroke="#FF007ACC" StrokeThickness="1"
-                                                               HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="-3,0,0,-3"/>
-
-                                                    <!-- Bottom-Center -->
-                                                    <Rectangle Width="6" Height="6" Fill="White" Stroke="#FF007ACC" StrokeThickness="1"
-                                                               HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,-3"/>
-
-                                                    <!-- Bottom-Right -->
-                                                    <Rectangle Width="6" Height="6" Fill="White" Stroke="#FF007ACC" StrokeThickness="1"
-                                                               HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-3,-3"/>
-
-                                                </Grid>
-
-                                                <!-- Trigger to show/hide selection overlay -->
-                                                <Grid.Style>
-                                                    <Style TargetType="Grid">
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                                                                <Setter Property="Panel.ZIndex" Value="999"/>
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </Grid.Style>
-
-                                            </Grid>
-
-                                            <DataTemplate.Triggers>
-                                                <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                                                    <Setter TargetName="SelectionOverlay" Property="Visibility" Value="Visible"/>
-                                                </DataTrigger>
-                                            </DataTemplate.Triggers>
+                                            <!-- Use DesignerItemControl for professional rendering -->
+                                            <controls:DesignerItemControl
+                                                DisplayElement="{Binding}"
+                                                IsSelected="{Binding IsSelected}"
+                                                Tag="{Binding}"
+                                                Cursor="Hand"
+                                                MouseLeftButtonDown="Element_MouseLeftButtonDown"
+                                                MouseMove="Element_MouseMove"
+                                                MouseLeftButtonUp="Element_MouseLeftButtonUp"/>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
