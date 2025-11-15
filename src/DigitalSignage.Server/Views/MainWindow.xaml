@@ -588,7 +588,14 @@
                                                     Height="{Binding DataContext.Designer.CurrentLayout.Resolution.Height, RelativeSource={RelativeSource AncestorType=controls:DesignerCanvas}}"/>
                                         </ItemsPanelTemplate>
                                     </ItemsControl.ItemsPanel>
-                                    <!-- REMOVE ItemContainerStyle - positioning is done in DesignerItemControl itself -->
+                                    <ItemsControl.ItemContainerStyle>
+                                        <Style TargetType="ContentPresenter">
+                                            <!-- Width/Height MUST be set here for ContentPresenter to allocate space -->
+                                            <Setter Property="Width" Value="{Binding Size.Width}"/>
+                                            <Setter Property="Height" Value="{Binding Size.Height}"/>
+                                            <!-- Canvas.Left/Top/ZIndex are set in DesignerItemControl.Loaded event -->
+                                        </Style>
+                                    </ItemsControl.ItemContainerStyle>
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <controls:DesignerItemControl
