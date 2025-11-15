@@ -15,10 +15,6 @@
     <Window.Resources>
         <local:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
         <local:AlertRuleTypeToStringConverter x:Key="AlertRuleTypeToStringConverter"/>
-
-        <!-- Edit Mode Title Converter -->
-        <local:BoolToStringConverter x:Key="EditModeTitleConverter" TrueValue="Edit Alert Rule" FalseValue="Create Alert Rule"/>
-
         <local:EnumVisibilityConverter x:Key="EnumVisibilityConverter"/>
 
         <!-- Primary Button Style -->
