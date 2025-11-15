@@ -4,6 +4,7 @@ using DigitalSignage.Core.Interfaces;
 using DigitalSignage.Core.Models;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using System.Collections.Concurrent;
 
 namespace DigitalSignage.Server.Services;
 
@@ -27,6 +28,7 @@ public class MessageHandlerService : BackgroundService
     private readonly IClientService _clientService;
     private readonly LogStorageService _logStorageService;
     private readonly ILogger<MessageHandlerService> _logger;
+    private readonly ConcurrentDictionary<Guid, Task> _messageHandlerTasks = new();
 
     /// <summary>
     /// Event raised when a screenshot is received from a client
@@ -71,8 +73,11 @@ public class MessageHandlerService : BackgroundService
     // Event handler queues work on background thread to avoid async void
     private void OnMessageReceived(object? sender, MessageReceivedEventArgs e)
     {
-        // Queue work and handle async on background thread
-        _ = Task.Run(async () =>
+        // Generate unique task ID
+        var taskId = Guid.NewGuid();
+
+        // Track the message handling task
+        var handlerTask = Task.Run(async () =>
         {
             try
             {
@@ -82,28 +87,49 @@ public class MessageHandlerService : BackgroundService
             {
                 _logger.LogError(ex, "Error handling message from client {ClientId}", e.ClientId);
             }
+            finally
+            {
+                // Remove from tracking when complete
+                _messageHandlerTasks.TryRemove(taskId, out _);
+            }
         });
+
+        _messageHandlerTasks[taskId] = handlerTask;
     }
 
     /// <summary>
     /// Handle client disconnection - immediately mark client as offline
     /// </summary>
-    private async void OnClientDisconnected(object? sender, ClientDisconnectedEventArgs e)
+    private void OnClientDisconnected(object? sender, ClientDisconnectedEventArgs e)
     {
-        try
-        {
-            _logger.LogInformation("Client {ClientId} disconnected from WebSocket - marking as offline", e.ClientId);
+        // Generate unique task ID
+        var taskId = Guid.NewGuid();
 
-            await _clientService.UpdateClientStatusAsync(
-                e.ClientId,
-                ClientStatus.Offline);
-
-            _logger.LogInformation("Client {ClientId} status updated to Offline", e.ClientId);
-        }
-        catch (Exception ex)
+        // Track the disconnect handling task
+        var handlerTask = Task.Run(async () =>
         {
-            _logger.LogError(ex, "Error handling disconnect for client {ClientId}", e.ClientId);
-        }
+            try
+            {
+                _logger.LogInformation("Client {ClientId} disconnected from WebSocket - marking as offline", e.ClientId);
+
+                await _clientService.UpdateClientStatusAsync(
+                    e.ClientId,
+                    ClientStatus.Offline);
+
+                _logger.LogInformation("Client {ClientId} status updated to Offline", e.ClientId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error handling disconnect for client {ClientId}", e.ClientId);
+            }
+            finally
+            {
+                // Remove from tracking when complete
+                _messageHandlerTasks.TryRemove(taskId, out _);
+            }
+        });
+
+        _messageHandlerTasks[taskId] = handlerTask;
     }
 
     private async Task HandleMessageAsync(string clientId, Message message)
@@ -343,8 +369,35 @@ public class MessageHandlerService : BackgroundService
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
         _logger.LogInformation("Message Handler Service stopping...");
+
+        // 1. Unsubscribe from events to stop receiving new messages
         _communicationService.MessageReceived -= OnMessageReceived;
         _communicationService.ClientDisconnected -= OnClientDisconnected;
+
+        // 2. Wait for all pending message handler tasks to complete (with 10s timeout)
+        var pendingTasks = _messageHandlerTasks.Values.ToArray();
+        if (pendingTasks.Length > 0)
+        {
+            try
+            {
+                _logger.LogInformation("Waiting for {Count} message handler tasks to complete", pendingTasks.Length);
+                await Task.WhenAll(pendingTasks).WaitAsync(TimeSpan.FromSeconds(10));
+                _logger.LogInformation("All message handler tasks completed gracefully");
+            }
+            catch (TimeoutException)
+            {
+                _logger.LogWarning("{Count} message handler tasks did not complete within timeout", pendingTasks.Length);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error waiting for message handler tasks to complete");
+            }
+        }
+
+        // 3. Clear the task dictionary
+        _messageHandlerTasks.Clear();
+
         await base.StopAsync(cancellationToken);
+        _logger.LogInformation("Message Handler Service stopped");
     }
 }
