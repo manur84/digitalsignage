@@ -279,9 +279,7 @@ public class DesignerItemControl : ContentControl
 
     private void OnPositionChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        // Position updates are handled automatically by XAML binding in ItemContainerStyle
-        // Canvas.Left and Canvas.Top are bound to Position.X and Position.Y
-        // No manual updates needed - PropertyChanged notifications trigger binding updates
+        UpdateCanvasPosition();
     }
 
     private void OnSizeChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -335,6 +333,8 @@ public class DesignerItemControl : ContentControl
             Height = DisplayElement.Size.Height;
         }
 
+        UpdateCanvasPosition();
+
         // Apply visual effects (rotation, shadow, opacity)
         ApplyVisualEffects();
 
@@ -350,6 +350,16 @@ public class DesignerItemControl : ContentControl
             $"IsVisible={IsVisible}, Visibility={Visibility}, Opacity={Opacity}, " +
             $"Background={Background}, BorderBrush={BorderBrush}, BorderThickness={BorderThickness}, " +
             $"Content={Content?.GetType().Name}");
+    }
+
+    private void UpdateCanvasPosition()
+    {
+        if (DisplayElement?.Position == null)
+            return;
+
+        Canvas.SetLeft(this, DisplayElement.Position.X);
+        Canvas.SetTop(this, DisplayElement.Position.Y);
+        Panel.SetZIndex(this, DisplayElement.ZIndex);
     }
 
     private UIElement CreateContentForElement()
