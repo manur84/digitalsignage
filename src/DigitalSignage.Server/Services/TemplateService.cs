@@ -19,21 +19,7 @@ public class TemplateService : ITemplateService
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
         // Configure default template context
-        _defaultContext = new TemplateContext
-        {
-            // Enable member renaming (e.g., snake_case to PascalCase)
-            MemberRenamer = member => member.Name,
-            // Enable strict mode for better error messages
-            StrictVariables = false // Allow undefined variables
-        };
-
-        // Register custom functions if needed
-        var scriptObject = new ScriptObject();
-
-        // Add utility functions
-        scriptObject.Import(typeof(TemplateFunctions));
-
-        _defaultContext.PushGlobal(scriptObject);
+        _defaultContext = CreateTemplateContext();
     }
 
     public async Task<string> ProcessTemplateAsync(
@@ -68,16 +54,7 @@ public class TemplateService : ITemplateService
             }
 
             // Create context for this render
-            var context = new TemplateContext
-            {
-                MemberRenamer = member => member.Name,
-                StrictVariables = false
-            };
-
-            // Add utility functions
-            var functionsObject = new ScriptObject();
-            functionsObject.Import(typeof(TemplateFunctions));
-            context.PushGlobal(functionsObject);
+            var context = CreateTemplateContext();
 
             // Add data to context
             var dataObject = new ScriptObject();
@@ -153,6 +130,27 @@ public class TemplateService : ITemplateService
             _logger.LogError(ex, "Exception during template validation");
             return false;
         }
+    }
+
+    /// <summary>
+    /// Creates a new template context with default configuration and utility functions
+    /// </summary>
+    private TemplateContext CreateTemplateContext()
+    {
+        var context = new TemplateContext
+        {
+            // Enable member renaming (e.g., snake_case to PascalCase)
+            MemberRenamer = member => member.Name,
+            // Allow undefined variables (non-strict mode)
+            StrictVariables = false
+        };
+
+        // Add utility functions
+        var scriptObject = new ScriptObject();
+        scriptObject.Import(typeof(TemplateFunctions));
+        context.PushGlobal(scriptObject);
+
+        return context;
     }
 }
 

@@ -170,14 +170,18 @@ public class LogStorageService
     public LogStatistics GetStatistics()
     {
         var allLogs = _allLogs.ToArray();
+
+        // Use GroupBy for single-pass counting instead of multiple Count() calls
+        var levelCounts = allLogs.GroupBy(l => l.Level).ToDictionary(g => g.Key, g => g.Count());
+
         return new LogStatistics
         {
             TotalLogs = allLogs.Length,
-            DebugCount = allLogs.Count(l => l.Level == Core.Models.LogLevel.Debug),
-            InfoCount = allLogs.Count(l => l.Level == Core.Models.LogLevel.Info),
-            WarningCount = allLogs.Count(l => l.Level == Core.Models.LogLevel.Warning),
-            ErrorCount = allLogs.Count(l => l.Level == Core.Models.LogLevel.Error),
-            CriticalCount = allLogs.Count(l => l.Level == Core.Models.LogLevel.Critical),
+            DebugCount = levelCounts.GetValueOrDefault(Core.Models.LogLevel.Debug, 0),
+            InfoCount = levelCounts.GetValueOrDefault(Core.Models.LogLevel.Info, 0),
+            WarningCount = levelCounts.GetValueOrDefault(Core.Models.LogLevel.Warning, 0),
+            ErrorCount = levelCounts.GetValueOrDefault(Core.Models.LogLevel.Error, 0),
+            CriticalCount = levelCounts.GetValueOrDefault(Core.Models.LogLevel.Critical, 0),
             ClientCount = _clientLogs.Count,
             OldestLog = allLogs.Any() ? allLogs.Min(l => l.Timestamp) : (DateTime?)null,
             NewestLog = allLogs.Any() ? allLogs.Max(l => l.Timestamp) : (DateTime?)null
