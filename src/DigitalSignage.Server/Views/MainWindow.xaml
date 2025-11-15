@@ -579,33 +579,18 @@
                                 </controls:DesignerCanvas.LayoutTransform>
 
                                 <!-- Render all elements using DesignerItemControl -->
-                                <ItemsControl ItemsSource="{Binding Designer.Elements}"
-                                              Width="{Binding Designer.CurrentLayout.Resolution.Width}"
-                                              Height="{Binding Designer.CurrentLayout.Resolution.Height}">
+                                <controls:DesignerItemsControl ItemsSource="{Binding Designer.Elements}"
+                                                               Width="{Binding Designer.CurrentLayout.Resolution.Width}"
+                                                               Height="{Binding Designer.CurrentLayout.Resolution.Height}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
                                             <Canvas Width="{Binding DataContext.Designer.CurrentLayout.Resolution.Width, RelativeSource={RelativeSource AncestorType=controls:DesignerCanvas}}"
                                                     Height="{Binding DataContext.Designer.CurrentLayout.Resolution.Height, RelativeSource={RelativeSource AncestorType=controls:DesignerCanvas}}"/>
                                         </ItemsPanelTemplate>
                                     </ItemsControl.ItemsPanel>
-                                    <ItemsControl.ItemContainerStyle>
-                                        <Style TargetType="ContentPresenter">
-                                            <!-- Bind through Content because the container DataContext is the parent ViewModel -->
-                                            <Setter Property="Width"
-                                                    Value="{Binding Content.Size.Width, RelativeSource={RelativeSource Self}}"/>
-                                            <Setter Property="Height"
-                                                    Value="{Binding Content.Size.Height, RelativeSource={RelativeSource Self}}"/>
-                                            <Setter Property="Canvas.Left"
-                                                    Value="{Binding Content.Position.X, RelativeSource={RelativeSource Self}}"/>
-                                            <Setter Property="Canvas.Top"
-                                                    Value="{Binding Content.Position.Y, RelativeSource={RelativeSource Self}}"/>
-                                            <Setter Property="Panel.ZIndex"
-                                                    Value="{Binding Content.ZIndex, RelativeSource={RelativeSource Self}}"/>
-                                        </Style>
-                                    </ItemsControl.ItemContainerStyle>
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <!-- Bind size here; the container style handles Canvas.Left/Top/ZIndex -->
+                                            <!-- Width/Height bindings keep DesignerItemControl content sized -->
                                             <controls:DesignerItemControl
                                                 DisplayElement="{Binding}"
                                                 IsSelected="{Binding IsSelected}"
@@ -618,7 +603,7 @@
                                                 MouseLeftButtonUp="Element_MouseLeftButtonUp"/>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
-                                </ItemsControl>
+                                </controls:DesignerItemsControl>
                             </controls:DesignerCanvas>
                         </ScrollViewer>
                         </DockPanel>
