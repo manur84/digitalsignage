@@ -1,5 +1,6 @@
 using DigitalSignage.Core.Interfaces;
 using DigitalSignage.Core.Models;
+using DigitalSignage.Core.Exceptions;
 using DigitalSignage.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -145,12 +146,12 @@ public class ClientService : IClientService, IDisposable
         }
     }
 
-    public async Task<List<RaspberryPiClient>> GetAllClientsAsync(CancellationToken cancellationToken = default)
+    public async Task<Result<List<RaspberryPiClient>>> GetAllClientsAsync(CancellationToken cancellationToken = default)
     {
-        ThrowIfDisposed();
-
         try
         {
+            ThrowIfDisposed();
+
             // Reload from database to get latest DeviceInfo including resolution
             using var scope = _serviceProvider.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<DigitalSignageDbContext>();
@@ -172,44 +173,76 @@ public class ClientService : IClientService, IDisposable
                 }
             }
 
-            return dbClients;
+            return Result<List<RaspberryPiClient>>.Success(dbClients);
+        }
+        catch (ObjectDisposedException ex)
+        {
+            _logger.LogError(ex, "ClientService has been disposed");
+            return Result<List<RaspberryPiClient>>.Failure("Service is no longer available", ex);
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning("Get all clients operation cancelled");
+            return Result<List<RaspberryPiClient>>.Failure("Operation was cancelled");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to reload clients from database, returning cached data");
-            return _clients.Values.ToList();
+            // Return cached data as success with warning logged
+            var cachedClients = _clients.Values.ToList();
+            return Result<List<RaspberryPiClient>>.Success(cachedClients);
         }
     }
 
-    public Task<RaspberryPiClient?> GetClientByIdAsync(string clientId, CancellationToken cancellationToken = default)
+    public Task<Result<RaspberryPiClient>> GetClientByIdAsync(string clientId, CancellationToken cancellationToken = default)
     {
-        ThrowIfDisposed();
-
-        if (string.IsNullOrWhiteSpace(clientId))
+        try
         {
-            _logger.LogWarning("GetClientByIdAsync called with null or empty clientId");
-            return Task.FromResult<RaspberryPiClient?>(null);
-        }
+            ThrowIfDisposed();
 
-        _clients.TryGetValue(clientId, out var client);
-        return Task.FromResult(client);
+            if (string.IsNullOrWhiteSpace(clientId))
+            {
+                _logger.LogWarning("GetClientByIdAsync called with null or empty clientId");
+                return Task.FromResult(Result<RaspberryPiClient>.Failure("Client ID cannot be empty"));
+            }
+
+            if (_clients.TryGetValue(clientId, out var client))
+            {
+                return Task.FromResult(Result<RaspberryPiClient>.Success(client));
+            }
+
+            _logger.LogWarning("Client {ClientId} not found", clientId);
+            return Task.FromResult(Result<RaspberryPiClient>.Failure($"Client '{clientId}' not found"));
+        }
+        catch (ObjectDisposedException ex)
+        {
+            _logger.LogError(ex, "ClientService has been disposed");
+            return Task.FromResult(Result<RaspberryPiClient>.Failure("Service is no longer available", ex));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get client {ClientId}", clientId);
+            return Task.FromResult(Result<RaspberryPiClient>.Failure($"Failed to retrieve client: {ex.Message}", ex));
+        }
     }
 
-    public async Task<RaspberryPiClient> RegisterClientAsync(
+    public async Task<Result<RaspberryPiClient>> RegisterClientAsync(
         RegisterMessage registerMessage,
         CancellationToken cancellationToken = default)
     {
-        ThrowIfDisposed();
-
-        if (registerMessage == null)
+        try
         {
-            throw new ArgumentNullException(nameof(registerMessage));
-        }
+            ThrowIfDisposed();
 
-        if (string.IsNullOrWhiteSpace(registerMessage.MacAddress))
-        {
-            throw new ArgumentException("MAC address is required for registration", nameof(registerMessage));
-        }
+            if (registerMessage == null)
+            {
+                return Result<RaspberryPiClient>.Failure("Registration message cannot be null");
+            }
+
+            if (string.IsNullOrWhiteSpace(registerMessage.MacAddress))
+            {
+                return Result<RaspberryPiClient>.Failure("MAC address is required for registration");
+            }
 
         try
         {
