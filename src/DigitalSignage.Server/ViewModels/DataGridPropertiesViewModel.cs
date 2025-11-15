@@ -94,7 +94,14 @@ public partial class DataGridPropertiesViewModel : ObservableObject
 
             AvailableDataSources.Clear();
 
-            var dataSources = _dataSourceManager.GetActiveDataSources();
+            var dataSourcesResult = _dataSourceManager.GetActiveDataSources();
+            if (dataSourcesResult.IsFailure)
+            {
+                _logger.LogError("Failed to load data sources: {ErrorMessage}", dataSourcesResult.ErrorMessage);
+                return Task.CompletedTask;
+            }
+
+            var dataSources = dataSourcesResult.Value;
 
             foreach (var ds in dataSources)
             {
@@ -150,7 +157,16 @@ public partial class DataGridPropertiesViewModel : ObservableObject
 
         try
         {
-            var cachedData = _dataSourceManager.GetCachedData(SelectedDataSource.Id);
+            var cachedDataResult = _dataSourceManager.GetCachedData(SelectedDataSource.Id);
+
+            if (cachedDataResult.IsFailure)
+            {
+                _logger.LogError("Failed to load cached data for {Name}: {ErrorMessage}",
+                    SelectedDataSource.Name, cachedDataResult.ErrorMessage);
+                return;
+            }
+
+            var cachedData = cachedDataResult.Value;
 
             if (cachedData != null && cachedData.Count > 0)
             {
@@ -192,10 +208,15 @@ public partial class DataGridPropertiesViewModel : ObservableObject
             var dataSourceId = element.GetProperty<Guid>("DataSourceId", Guid.Empty);
             if (dataSourceId != Guid.Empty)
             {
-                var dataSource = _dataSourceManager.GetDataSource(dataSourceId);
-                if (dataSource != null)
+                var dataSourceResult = _dataSourceManager.GetDataSource(dataSourceId);
+                if (dataSourceResult.IsSuccess)
                 {
-                    SelectedDataSource = dataSource;
+                    SelectedDataSource = dataSourceResult.Value;
+                }
+                else
+                {
+                    _logger.LogWarning("Failed to load data source {DataSourceId}: {ErrorMessage}",
+                        dataSourceId, dataSourceResult.ErrorMessage);
                 }
             }
 

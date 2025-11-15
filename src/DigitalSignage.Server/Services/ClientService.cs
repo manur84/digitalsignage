@@ -1,5 +1,6 @@
 using DigitalSignage.Core.Interfaces;
 using DigitalSignage.Core.Models;
+using DigitalSignage.Core.Exceptions;
 using DigitalSignage.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -8,7 +9,7 @@ using System.Collections.Concurrent;
 
 namespace DigitalSignage.Server.Services;
 
-public class ClientService : IClientService
+public class ClientService : IClientService, IDisposable
 {
     private readonly ConcurrentDictionary<string, RaspberryPiClient> _clients = new();
     private readonly ICommunicationService _communicationService;
@@ -20,6 +21,8 @@ public class ClientService : IClientService
     private readonly ILogger<ClientService> _logger;
     private bool _isInitialized = false;
     private readonly SemaphoreSlim _initSemaphore = new(1, 1);
+    private Task? _initializationTask;
+    private bool _disposed = false;
 
     /// <summary>
     /// Event raised when a client connects
@@ -53,8 +56,8 @@ public class ClientService : IClientService
         _dataSourceManager = dataSourceManager ?? throw new ArgumentNullException(nameof(dataSourceManager));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
-        // Load clients from database on startup with retry logic
-        _ = InitializeClientsWithRetryAsync();
+        // Track the initialization task instead of fire-and-forget
+        _initializationTask = InitializeClientsWithRetryAsync();
     }
 
     private async Task InitializeClientsWithRetryAsync()
@@ -123,10 +126,32 @@ public class ClientService : IClientService
         }
     }
 
-    public async Task<List<RaspberryPiClient>> GetAllClientsAsync(CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Ensures that client initialization has completed
+    /// </summary>
+    /// <returns>A task that completes when initialization is done</returns>
+    public async Task EnsureInitializedAsync()
+    {
+        if (_initializationTask != null)
+        {
+            try
+            {
+                await _initializationTask;
+                _logger.LogDebug("Client initialization completed successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Client initialization failed, but service will continue");
+            }
+        }
+    }
+
+    public async Task<Result<List<RaspberryPiClient>>> GetAllClientsAsync(CancellationToken cancellationToken = default)
     {
         try
         {
+            ThrowIfDisposed();
+
             // Reload from database to get latest DeviceInfo including resolution
             using var scope = _serviceProvider.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<DigitalSignageDbContext>();
@@ -148,43 +173,77 @@ public class ClientService : IClientService
                 }
             }
 
-            return dbClients;
+            return Result<List<RaspberryPiClient>>.Success(dbClients);
+        }
+        catch (ObjectDisposedException ex)
+        {
+            _logger.LogError(ex, "ClientService has been disposed");
+            return Result<List<RaspberryPiClient>>.Failure("Service is no longer available", ex);
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning("Get all clients operation cancelled");
+            return Result<List<RaspberryPiClient>>.Failure("Operation was cancelled");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to reload clients from database, returning cached data");
-            return _clients.Values.ToList();
+            // Return cached data as success with warning logged
+            var cachedClients = _clients.Values.ToList();
+            return Result<List<RaspberryPiClient>>.Success(cachedClients);
         }
     }
 
-    public Task<RaspberryPiClient?> GetClientByIdAsync(string clientId, CancellationToken cancellationToken = default)
+    public Task<Result<RaspberryPiClient>> GetClientByIdAsync(string clientId, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(clientId))
+        try
         {
-            _logger.LogWarning("GetClientByIdAsync called with null or empty clientId");
-            return Task.FromResult<RaspberryPiClient?>(null);
-        }
+            ThrowIfDisposed();
 
-        _clients.TryGetValue(clientId, out var client);
-        return Task.FromResult(client);
+            if (string.IsNullOrWhiteSpace(clientId))
+            {
+                _logger.LogWarning("GetClientByIdAsync called with null or empty clientId");
+                return Task.FromResult(Result<RaspberryPiClient>.Failure("Client ID cannot be empty"));
+            }
+
+            if (_clients.TryGetValue(clientId, out var client))
+            {
+                return Task.FromResult(Result<RaspberryPiClient>.Success(client));
+            }
+
+            _logger.LogWarning("Client {ClientId} not found", clientId);
+            return Task.FromResult(Result<RaspberryPiClient>.Failure($"Client '{clientId}' not found"));
+        }
+        catch (ObjectDisposedException ex)
+        {
+            _logger.LogError(ex, "ClientService has been disposed");
+            return Task.FromResult(Result<RaspberryPiClient>.Failure("Service is no longer available", ex));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get client {ClientId}", clientId);
+            return Task.FromResult(Result<RaspberryPiClient>.Failure($"Failed to retrieve client: {ex.Message}", ex));
+        }
     }
 
-    public async Task<RaspberryPiClient> RegisterClientAsync(
+    public async Task<Result<RaspberryPiClient>> RegisterClientAsync(
         RegisterMessage registerMessage,
         CancellationToken cancellationToken = default)
     {
-        if (registerMessage == null)
-        {
-            throw new ArgumentNullException(nameof(registerMessage));
-        }
-
-        if (string.IsNullOrWhiteSpace(registerMessage.MacAddress))
-        {
-            throw new ArgumentException("MAC address is required for registration", nameof(registerMessage));
-        }
-
         try
         {
+            ThrowIfDisposed();
+
+            if (registerMessage == null)
+            {
+                return Result<RaspberryPiClient>.Failure("Registration message cannot be null");
+            }
+
+            if (string.IsNullOrWhiteSpace(registerMessage.MacAddress))
+            {
+                return Result<RaspberryPiClient>.Failure("MAC address is required for registration");
+            }
+
             using var scope = _serviceProvider.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<DigitalSignageDbContext>();
             var authService = scope.ServiceProvider.GetRequiredService<IAuthenticationService>();
@@ -206,7 +265,7 @@ public class ClientService : IClientService
                 {
                     _logger.LogWarning("Registration failed for MAC {MacAddress}: {Error}",
                         registerMessage.MacAddress, validationResult.ErrorMessage);
-                    throw new UnauthorizedAccessException(validationResult.ErrorMessage ?? "Invalid registration token");
+                    return Result<RaspberryPiClient>.Failure(validationResult.ErrorMessage ?? "Invalid registration token");
                 }
 
                 assignedGroup = validationResult.AutoAssignGroup;
@@ -376,17 +435,8 @@ public class ClientService : IClientService
                 try
                 {
                     var layoutResult = await _layoutService.GetLayoutByIdAsync(client.AssignedLayoutId, cancellationToken);
-                    if (!layoutResult.IsSuccess || layoutResult.Value == null)
+                    if (layoutResult.IsSuccess)
                     {
-                        _logger.LogWarning(
-                            "Client {ClientId} has assigned layout {LayoutId} but layout could not be loaded: {Error}",
-                            client.Id,
-                            client.AssignedLayoutId,
-                            layoutResult.ErrorMessage);
-                    }
-                    else
-                    {
-                        var layout = layoutResult.Value;
                         // Fetch data for data-driven elements
                         // TODO: Implement data source fetching when data-driven elements are supported
                         Dictionary<string, object>? layoutData = null;
@@ -394,13 +444,18 @@ public class ClientService : IClientService
                         // Send DISPLAY_UPDATE message
                         var displayUpdate = new DisplayUpdateMessage
                         {
-                            Layout = layout,
+                            Layout = layoutResult.Value,
                             Data = layoutData
                         };
 
                         await _communicationService.SendMessageAsync(client.Id, displayUpdate, cancellationToken);
                         _logger.LogInformation("Successfully sent assigned layout {LayoutId} to reconnected client {ClientId}",
-                            layout.Id, client.Id);
+                            layoutResult.Value.Id, client.Id);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Client {ClientId} has assigned layout {LayoutId} but layout not found in database",
+                            client.Id, client.AssignedLayoutId);
                     }
                 }
                 catch (Exception ex)
@@ -417,17 +472,22 @@ public class ClientService : IClientService
             ClientConnected?.Invoke(this, client.Id);
             _logger.LogDebug("Raised ClientConnected event for {ClientId}", client.Id);
 
-            return client;
+            return Result<RaspberryPiClient>.Success(client);
         }
-        catch (UnauthorizedAccessException)
+        catch (ObjectDisposedException ex)
         {
-            // Re-throw authentication errors
-            throw;
+            _logger.LogError(ex, "ClientService has been disposed");
+            return Result<RaspberryPiClient>.Failure("Service is no longer available", ex);
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning("Client registration cancelled for MAC {MacAddress}", registerMessage?.MacAddress);
+            return Result<RaspberryPiClient>.Failure("Operation was cancelled");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to register client from MAC {MacAddress}", registerMessage.MacAddress);
-            throw;
+            _logger.LogError(ex, "Failed to register client from MAC {MacAddress}", registerMessage?.MacAddress);
+            return Result<RaspberryPiClient>.Failure($"Failed to register client: {ex.Message}", ex);
         }
     }
 
@@ -437,43 +497,50 @@ public class ClientService : IClientService
         DeviceInfo? deviceInfo = null,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(clientId))
+        try
         {
-            _logger.LogWarning("UpdateClientStatusAsync called with null or empty clientId");
-            return Result.Failure("Client ID cannot be empty.");
-        }
+            ThrowIfDisposed();
+
+            if (string.IsNullOrWhiteSpace(clientId))
+            {
+                _logger.LogWarning("UpdateClientStatusAsync called with null or empty clientId");
+                return Result.Failure("Client ID cannot be empty");
+            }
 
         if (_clients.TryGetValue(clientId, out var client))
         {
+            var oldStatus = client.Status;
+            client.Status = status;
+            client.LastSeen = DateTime.UtcNow;
+            if (deviceInfo != null)
+            {
+                client.DeviceInfo = deviceInfo;
+            }
+
+            _logger.LogDebug("Updated client {ClientId} status to {Status}", clientId, status);
+
+            // Raise events if status changed
+            if (oldStatus != status)
+            {
+                ClientStatusChanged?.Invoke(this, clientId);
+                _logger.LogDebug("Raised ClientStatusChanged event for {ClientId}: {OldStatus} -> {NewStatus}", clientId, oldStatus, status);
+
+                // Raise specific connect/disconnect events
+                if (status == ClientStatus.Online && oldStatus == ClientStatus.Offline)
+                {
+                    ClientConnected?.Invoke(this, clientId);
+                    _logger.LogDebug("Raised ClientConnected event for {ClientId}", clientId);
+                }
+                else if (status == ClientStatus.Offline && oldStatus == ClientStatus.Online)
+                {
+                    ClientDisconnected?.Invoke(this, clientId);
+                    _logger.LogDebug("Raised ClientDisconnected event for {ClientId}", clientId);
+                }
+            }
+
+            // Update in database - await instead of fire-and-forget
             try
             {
-                var oldStatus = client.Status;
-                client.Status = status;
-                client.LastSeen = DateTime.UtcNow;
-                if (deviceInfo != null)
-                {
-                    client.DeviceInfo = deviceInfo;
-                }
-
-                _logger.LogDebug("Updated client {ClientId} status to {Status}", clientId, status);
-
-                if (oldStatus != status)
-                {
-                    ClientStatusChanged?.Invoke(this, clientId);
-                    _logger.LogDebug("Raised ClientStatusChanged event for {ClientId}: {OldStatus} -> {NewStatus}", clientId, oldStatus, status);
-
-                    if (status == ClientStatus.Online && oldStatus == ClientStatus.Offline)
-                    {
-                        ClientConnected?.Invoke(this, clientId);
-                        _logger.LogDebug("Raised ClientConnected event for {ClientId}", clientId);
-                    }
-                    else if (status == ClientStatus.Offline && oldStatus == ClientStatus.Online)
-                    {
-                        ClientDisconnected?.Invoke(this, clientId);
-                        _logger.LogDebug("Raised ClientDisconnected event for {ClientId}", clientId);
-                    }
-                }
-
                 using var scope = _serviceProvider.CreateScope();
                 var dbContext = scope.ServiceProvider.GetRequiredService<DigitalSignageDbContext>();
 
@@ -488,17 +555,36 @@ public class ClientService : IClientService
                     }
                     await dbContext.SaveChangesAsync(cancellationToken);
                 }
-
-                return Result.Success($"Client {clientId} status updated to {status}.");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to update client {ClientId} status in database", clientId);
-                return Result.Failure($"Failed to update client status: {ex.Message}");
+                // Don't fail the whole operation if DB update fails - in-memory cache is updated
             }
+
+            return Result.Success();
         }
-        _logger.LogWarning("Client {ClientId} not found for status update", clientId);
-        return Result.Failure($"Client '{clientId}' not found.");
+        else
+        {
+            _logger.LogWarning("Client {ClientId} not found for status update", clientId);
+            return Result.Failure($"Client '{clientId}' not found");
+        }
+        }
+        catch (ObjectDisposedException ex)
+        {
+            _logger.LogError(ex, "ClientService has been disposed");
+            return Result.Failure("Service is no longer available", ex);
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning("Update client status operation cancelled for {ClientId}", clientId);
+            return Result.Failure("Operation was cancelled");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to update client {ClientId} status", clientId);
+            return Result.Failure($"Failed to update client status: {ex.Message}", ex);
+        }
     }
 
     public async Task<Result> SendCommandAsync(
@@ -507,40 +593,52 @@ public class ClientService : IClientService
         Dictionary<string, object>? parameters = null,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(clientId))
-        {
-            _logger.LogWarning("SendCommandAsync called with null or empty clientId");
-            return Result.Failure("Client ID cannot be empty.");
-        }
-
-        if (string.IsNullOrWhiteSpace(command))
-        {
-            _logger.LogWarning("SendCommandAsync called with null or empty command");
-            return Result.Failure("Command cannot be empty.");
-        }
-
-        if (!_clients.ContainsKey(clientId))
-        {
-            _logger.LogWarning("Client {ClientId} not found for command {Command}", clientId, command);
-            return Result.Failure($"Client '{clientId}' not found.");
-        }
-
-        var commandMessage = new CommandMessage
-        {
-            Command = command,
-            Parameters = parameters
-        };
-
         try
         {
+            ThrowIfDisposed();
+
+            if (string.IsNullOrWhiteSpace(clientId))
+            {
+                _logger.LogWarning("SendCommandAsync called with null or empty clientId");
+                return Result.Failure("Client ID cannot be empty");
+            }
+
+            if (string.IsNullOrWhiteSpace(command))
+            {
+                _logger.LogWarning("SendCommandAsync called with null or empty command");
+                return Result.Failure("Command cannot be empty");
+            }
+
+            if (!_clients.ContainsKey(clientId))
+            {
+                _logger.LogWarning("Client {ClientId} not found for command {Command}", clientId, command);
+                return Result.Failure($"Client '{clientId}' not found");
+            }
+
+            var commandMessage = new CommandMessage
+            {
+                Command = command,
+                Parameters = parameters
+            };
+
             await _communicationService.SendMessageAsync(clientId, commandMessage, cancellationToken);
             _logger.LogInformation("Sent command {Command} to client {ClientId}", command, clientId);
-            return Result.Success($"Command '{command}' sent to client {clientId}.");
+            return Result.Success();
+        }
+        catch (ObjectDisposedException ex)
+        {
+            _logger.LogError(ex, "ClientService has been disposed");
+            return Result.Failure("Service is no longer available", ex);
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning("Send command operation cancelled for client {ClientId}", clientId);
+            return Result.Failure("Operation was cancelled");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to send command {Command} to client {ClientId}", command, clientId);
-            return Result.Failure($"Failed to send command: {ex.Message}");
+            return Result.Failure($"Failed to send command: {ex.Message}", ex);
         }
     }
 
@@ -549,17 +647,21 @@ public class ClientService : IClientService
         string layoutId,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(clientId))
+        try
         {
-            _logger.LogWarning("AssignLayoutAsync called with null or empty clientId");
-            return Result.Failure("Client ID cannot be empty.");
-        }
+            ThrowIfDisposed();
 
-        if (string.IsNullOrWhiteSpace(layoutId))
-        {
-            _logger.LogWarning("AssignLayoutAsync called with null or empty layoutId");
-            return Result.Failure("Layout ID cannot be empty.");
-        }
+            if (string.IsNullOrWhiteSpace(clientId))
+            {
+                _logger.LogWarning("AssignLayoutAsync called with null or empty clientId");
+                return Result.Failure("Client ID cannot be empty");
+            }
+
+            if (string.IsNullOrWhiteSpace(layoutId))
+            {
+                _logger.LogWarning("AssignLayoutAsync called with null or empty layoutId");
+                return Result.Failure("Layout ID cannot be empty");
+            }
 
         if (_clients.TryGetValue(clientId, out var client))
         {
@@ -585,20 +687,30 @@ public class ClientService : IClientService
             }
 
             // Send layout update to client
-            var layoutSent = await SendLayoutToClientAsync(clientId, layoutId, cancellationToken);
-            if (layoutSent)
-            {
-                return Result.Success($"Layout '{layoutId}' assigned to client {clientId}.");
-            }
-
-            return Result.Failure("Failed to send layout to client.");
+            return await SendLayoutToClientAsync(clientId, layoutId, cancellationToken);
         }
 
         _logger.LogWarning("Client {ClientId} not found for layout assignment", clientId);
-        return Result.Failure($"Client '{clientId}' not found.");
+        return Result.Failure($"Client '{clientId}' not found");
     }
+    catch (ObjectDisposedException ex)
+    {
+        _logger.LogError(ex, "ClientService has been disposed");
+        return Result.Failure("Service is no longer available", ex);
+    }
+    catch (OperationCanceledException)
+    {
+        _logger.LogWarning("Layout assignment cancelled for client {ClientId}", clientId);
+        return Result.Failure("Operation was cancelled");
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Failed to assign layout {LayoutId} to client {ClientId}", layoutId, clientId);
+        return Result.Failure($"Failed to assign layout: {ex.Message}", ex);
+    }
+}
 
-    private async Task<bool> SendLayoutToClientAsync(
+    private async Task<Result> SendLayoutToClientAsync(
         string clientId,
         string layoutId,
         CancellationToken cancellationToken = default)
@@ -607,12 +719,10 @@ public class ClientService : IClientService
         {
             // Load layout
             var layoutResult = await _layoutService.GetLayoutByIdAsync(layoutId, cancellationToken);
-            if (!layoutResult.IsSuccess || layoutResult.Value == null)
+            if (layoutResult.IsFailure)
             {
-                _logger.LogError("Layout {LayoutId} could not be loaded: {Error}",
-                    layoutId,
-                    layoutResult.ErrorMessage);
-                return false;
+                _logger.LogError("Layout {LayoutId} not found: {ErrorMessage}", layoutId, layoutResult.ErrorMessage);
+                return Result.Failure($"Layout '{layoutId}' not found: {layoutResult.ErrorMessage}");
             }
 
             var layout = layoutResult.Value;
@@ -690,26 +800,42 @@ public class ClientService : IClientService
 
                 foreach (var dsId in layout.LinkedDataSourceIds)
                 {
-                    var dataSource = _dataSourceManager.GetDataSource(dsId);
-                    if (dataSource != null && dataSource.IsActive)
+                    var dataSourceResult = _dataSourceManager.GetDataSource(dsId);
+                    if (!dataSourceResult.IsSuccess || dataSourceResult.Value == null)
                     {
-                        var cachedData = _dataSourceManager.GetCachedData(dsId) ?? new List<Dictionary<string, object>>();
-
-                        linkedDataSources.Add(new LayoutDataSourceInfo
-                        {
-                            DataSourceId = dataSource.Id,
-                            Name = dataSource.Name,
-                            Columns = dataSource.SelectedColumns,
-                            InitialData = cachedData
-                        });
-
-                        _logger.LogDebug("Included data source {Name} with {RowCount} rows",
-                            dataSource.Name, cachedData.Count);
+                        _logger.LogWarning("Data source {DataSourceId} not available: {Error}",
+                            dsId, dataSourceResult.ErrorMessage);
+                        continue;
                     }
-                    else
+
+                    var dataSource = dataSourceResult.Value;
+                    if (!dataSource.IsActive)
                     {
-                        _logger.LogWarning("Data source {DataSourceId} not found or inactive", dsId);
+                        _logger.LogWarning("Data source {DataSourceId} is inactive", dsId);
+                        continue;
                     }
+
+                    var cachedDataResult = _dataSourceManager.GetCachedData(dsId);
+                    var cachedData = cachedDataResult.IsSuccess && cachedDataResult.Value != null
+                        ? cachedDataResult.Value
+                        : new List<Dictionary<string, object>>();
+
+                    if (!cachedDataResult.IsSuccess)
+                    {
+                        _logger.LogWarning("Failed to read cached data for data source {Id}: {Error}",
+                            dsId, cachedDataResult.ErrorMessage);
+                    }
+
+                    linkedDataSources.Add(new LayoutDataSourceInfo
+                    {
+                        DataSourceId = dataSource.Id,
+                        Name = dataSource.Name,
+                        Columns = dataSource.SelectedColumns,
+                        InitialData = cachedData
+                    });
+
+                    _logger.LogDebug("Included data source {Name} with {RowCount} rows",
+                        dataSource.Name, cachedData.Count);
                 }
             }
 
@@ -742,31 +868,71 @@ public class ClientService : IClientService
                     layoutId, layout.DataSources?.Count ?? 0, clientId);
             }
 
-            return true;
+            return Result.Success();
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to send layout update to client {ClientId}", clientId);
-            return false;
+            return Result.Failure($"Failed to send layout to client: {ex.Message}", ex);
         }
     }
 
-    public Task<Result> RemoveClientAsync(string clientId, CancellationToken cancellationToken = default)
+    public async Task<Result> RemoveClientAsync(string clientId, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(clientId))
+        try
         {
-            _logger.LogWarning("RemoveClientAsync called with null or empty clientId");
-            return Task.FromResult(Result.Failure("Client ID cannot be empty."));
-        }
+            ThrowIfDisposed();
 
-        if (_clients.TryRemove(clientId, out _))
+            if (string.IsNullOrWhiteSpace(clientId))
+            {
+                _logger.LogWarning("RemoveClientAsync called with null or empty clientId");
+                return Result.Failure("Client ID cannot be empty");
+            }
+
+            if (_clients.TryRemove(clientId, out _))
+            {
+                _logger.LogInformation("Removed client {ClientId}", clientId);
+
+                // Remove from database
+                try
+                {
+                    using var scope = _serviceProvider.CreateScope();
+                    var dbContext = scope.ServiceProvider.GetRequiredService<DigitalSignageDbContext>();
+
+                    var dbClient = await dbContext.Clients.FindAsync(new object[] { clientId }, cancellationToken);
+                    if (dbClient != null)
+                    {
+                        dbContext.Clients.Remove(dbClient);
+                        await dbContext.SaveChangesAsync(cancellationToken);
+                        _logger.LogInformation("Removed client {ClientId} from database", clientId);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to remove client {ClientId} from database", clientId);
+                }
+
+                return Result.Success();
+            }
+
+            _logger.LogWarning("Client {ClientId} not found for removal", clientId);
+            return Result.Failure($"Client '{clientId}' not found");
+        }
+        catch (ObjectDisposedException ex)
         {
-            _logger.LogInformation("Removed client {ClientId}", clientId);
-            return Task.FromResult(Result.Success($"Client '{clientId}' removed."));
+            _logger.LogError(ex, "ClientService has been disposed");
+            return Result.Failure("Service is no longer available", ex);
         }
-
-        _logger.LogWarning("Client {ClientId} not found for removal", clientId);
-        return Task.FromResult(Result.Failure($"Client '{clientId}' not found."));
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning("Client removal cancelled for {ClientId}", clientId);
+            return Result.Failure("Operation was cancelled");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to remove client {ClientId}", clientId);
+            return Result.Failure($"Failed to remove client: {ex.Message}", ex);
+        }
     }
 
     public async Task<Result> UpdateClientConfigAsync(
@@ -774,35 +940,47 @@ public class ClientService : IClientService
         UpdateConfigMessage config,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(clientId))
-        {
-            _logger.LogWarning("UpdateClientConfigAsync called with null or empty clientId");
-            return Result.Failure("Client ID cannot be empty.");
-        }
-
-        if (config == null)
-        {
-            _logger.LogWarning("UpdateClientConfigAsync called with null config");
-            return Result.Failure("Configuration payload cannot be null.");
-        }
-
-        if (!_clients.ContainsKey(clientId))
-        {
-            _logger.LogWarning("Client {ClientId} not found for config update", clientId);
-            return Result.Failure($"Client '{clientId}' not found.");
-        }
-
         try
         {
+            ThrowIfDisposed();
+
+            if (string.IsNullOrWhiteSpace(clientId))
+            {
+                _logger.LogWarning("UpdateClientConfigAsync called with null or empty clientId");
+                return Result.Failure("Client ID cannot be empty");
+            }
+
+            if (config == null)
+            {
+                _logger.LogWarning("UpdateClientConfigAsync called with null config");
+                return Result.Failure("Configuration cannot be null");
+            }
+
+            if (!_clients.ContainsKey(clientId))
+            {
+                _logger.LogWarning("Client {ClientId} not found for config update", clientId);
+                return Result.Failure($"Client '{clientId}' not found");
+            }
+
             await _communicationService.SendMessageAsync(clientId, config, cancellationToken);
             _logger.LogInformation("Sent UPDATE_CONFIG to client {ClientId} (Host: {Host}, Port: {Port})",
                 clientId, config.ServerHost, config.ServerPort);
-            return Result.Success($"Configuration updated on client {clientId}.");
+            return Result.Success();
+        }
+        catch (ObjectDisposedException ex)
+        {
+            _logger.LogError(ex, "ClientService has been disposed");
+            return Result.Failure("Service is no longer available", ex);
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning("Config update cancelled for client {ClientId}", clientId);
+            return Result.Failure("Operation was cancelled");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to send UPDATE_CONFIG to client {ClientId}", clientId);
-            return Result.Failure($"Failed to send configuration: {ex.Message}");
+            return Result.Failure($"Failed to update client configuration: {ex.Message}", ex);
         }
     }
 
@@ -847,10 +1025,10 @@ public class ClientService : IClientService
                 _logger.LogDebug("Attempting to load media file: {FileName} for element {ElementId}", fileName, element.Id);
 
                 // Try to load media file from disk
-                var imageData = await mediaService.GetMediaAsync(fileName);
-
-                if (imageData != null && imageData.Length > 0)
+                var imageResult = await mediaService.GetMediaAsync(fileName);
+                if (imageResult.IsSuccess && imageResult.Value != null && imageResult.Value.Length > 0)
                 {
+                    var imageData = imageResult.Value;
                     // Embed as Base64 (use "MediaData" to match client expectations)
                     var base64 = Convert.ToBase64String(imageData);
                     element.SetProperty("MediaData", base64);
@@ -862,8 +1040,11 @@ public class ClientService : IClientService
                 else
                 {
                     errorCount++;
-                    _logger.LogWarning("✗ Media file not found: {FileName} for element {ElementId} (Source: {Source})",
-                        fileName, element.Id, source);
+                    _logger.LogWarning("✗ Media file not found or failed to load: {FileName} for element {ElementId} (Source: {Source}). Error: {Error}",
+                        fileName,
+                        element.Id,
+                        source,
+                        imageResult.ErrorMessage);
                 }
             }
             catch (Exception ex)
@@ -882,5 +1063,44 @@ public class ClientService : IClientService
         {
             _logger.LogDebug("No image elements found in layout {LayoutId}", layout.Id);
         }
+    }
+
+    /// <summary>
+    /// Throws ObjectDisposedException if service has been disposed
+    /// </summary>
+    private void ThrowIfDisposed()
+    {
+        if (_disposed)
+        {
+            throw new ObjectDisposedException(nameof(ClientService));
+        }
+    }
+
+    /// <summary>
+    /// Disposes managed resources
+    /// </summary>
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    /// <summary>
+    /// Disposes managed and unmanaged resources
+    /// </summary>
+    /// <param name="disposing">True if disposing managed resources</param>
+    protected virtual void Dispose(bool disposing)
+    {
+        if (_disposed)
+            return;
+
+        if (disposing)
+        {
+            // Dispose managed resources
+            _initSemaphore?.Dispose();
+            _logger.LogInformation("ClientService disposed");
+        }
+
+        _disposed = true;
     }
 }

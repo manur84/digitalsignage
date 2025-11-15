@@ -77,8 +77,14 @@ public class ClientDataUpdateService : IHostedService, IDisposable
                 layouts.Count, e.DataSourceId);
 
             // Find all clients with these layouts
-            var allClients = await _clientService.GetAllClientsAsync();
-            var affectedClients = allClients.Where(client =>
+            var clientsResult = await _clientService.GetAllClientsAsync();
+            if (clientsResult.IsFailure || clientsResult.Value == null || clientsResult.Value.Count == 0)
+            {
+                _logger.LogDebug("No clients registered when processing data source {DataSourceId}", e.DataSourceId);
+                return;
+            }
+
+            var affectedClients = clientsResult.Value.Where(client =>
                 client.AssignedLayoutId != null &&
                 layouts.Any(layout => layout.Id == client.AssignedLayoutId))
                 .ToList();

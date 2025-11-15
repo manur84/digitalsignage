@@ -62,9 +62,14 @@ public class DataRefreshService : BackgroundService
     {
         try
         {
-            var clients = await _clientService.GetAllClientsAsync(cancellationToken);
+            var clientsResult = await _clientService.GetAllClientsAsync(cancellationToken);
+            if (clientsResult.IsFailure || clientsResult.Value == null || clientsResult.Value.Count == 0)
+            {
+                _logger.LogDebug("No clients available for data refresh: {Error}", clientsResult.ErrorMessage);
+                return;
+            }
 
-            foreach (var client in clients)
+            foreach (var client in clientsResult.Value)
             {
                 if (client.Status != ClientStatus.Online || string.IsNullOrWhiteSpace(client.AssignedLayoutId))
                 {

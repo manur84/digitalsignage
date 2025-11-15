@@ -37,7 +37,7 @@ public class DataSourceManager : IDisposable
     /// <summary>
     /// Initializes the manager by loading all data sources and starting active ones
     /// </summary>
-    public async Task InitializeAsync()
+    public async Task<Result> InitializeAsync()
     {
         try
         {
@@ -49,82 +49,117 @@ public class DataSourceManager : IDisposable
             {
                 if (dataSource.IsActive)
                 {
-                    await ActivateDataSourceAsync(dataSource);
+                    var activateResult = await ActivateDataSourceAsync(dataSource);
+                    if (activateResult.IsFailure)
+                    {
+                        _logger.LogWarning("Failed to activate data source {Name}: {ErrorMessage}",
+                            dataSource.Name, activateResult.ErrorMessage);
+                        // Continue with other data sources
+                    }
                 }
             }
 
             _logger.LogInformation("DataSourceManager initialized with {Count} active data sources",
                 _activeDataSources.Count);
+
+            return Result.Success();
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to initialize DataSourceManager: {Message}", ex.Message);
-            throw;
+            return Result.Failure($"Failed to initialize: {ex.Message}", ex);
         }
     }
 
     /// <summary>
     /// Activates a data source (fetches initial data and starts periodic refresh)
     /// </summary>
-    public async Task ActivateDataSourceAsync(SqlDataSource dataSource)
+    public async Task<Result> ActivateDataSourceAsync(SqlDataSource dataSource)
     {
-        if (dataSource == null)
-            throw new ArgumentNullException(nameof(dataSource));
-
         try
         {
+            if (dataSource == null)
+            {
+                _logger.LogWarning("ActivateDataSourceAsync called with null dataSource");
+                return Result.Failure("Data source cannot be null");
+            }
+
             // Add to active sources
             _activeDataSources[dataSource.Id] = dataSource;
 
             // Fetch initial data
-            await RefreshDataSourceAsync(dataSource.Id);
+            var refreshResult = await RefreshDataSourceAsync(dataSource.Id);
+            if (refreshResult.IsFailure)
+            {
+                _logger.LogWarning("Failed to fetch initial data for {Name}: {ErrorMessage}",
+                    dataSource.Name, refreshResult.ErrorMessage);
+                // Continue anyway - periodic refresh will retry
+            }
 
             // Start periodic refresh
             _sqlDataSourceService.StartPeriodicRefresh(dataSource);
 
             _logger.LogInformation("Activated data source {Name} (ID: {Id})", dataSource.Name, dataSource.Id);
+            return Result.Success();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to activate data source {Name}: {Message}", dataSource.Name, ex.Message);
-            throw;
+            _logger.LogError(ex, "Failed to activate data source {Name}: {Message}", dataSource?.Name, ex.Message);
+            return Result.Failure($"Failed to activate data source: {ex.Message}", ex);
         }
     }
 
     /// <summary>
     /// Deactivates a data source (stops refresh and removes from active sources)
     /// </summary>
-    public void DeactivateDataSource(Guid dataSourceId)
+    public Result DeactivateDataSource(Guid dataSourceId)
     {
         try
         {
+            if (dataSourceId == Guid.Empty)
+            {
+                _logger.LogWarning("DeactivateDataSource called with empty GUID");
+                return Result.Failure("Data source ID cannot be empty");
+            }
+
             _sqlDataSourceService.StopPeriodicRefresh(dataSourceId);
 
             if (_activeDataSources.TryRemove(dataSourceId, out var dataSource))
             {
                 _dataHashCache.TryRemove(dataSourceId, out _);
                 _logger.LogInformation("Deactivated data source {Name} (ID: {Id})", dataSource.Name, dataSource.Id);
+                return Result.Success();
             }
+
+            _logger.LogWarning("Data source {Id} not found for deactivation", dataSourceId);
+            return Result.Failure($"Data source '{dataSourceId}' not found");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to deactivate data source {Id}: {Message}", dataSourceId, ex.Message);
+            return Result.Failure($"Failed to deactivate data source: {ex.Message}", ex);
         }
     }
 
     /// <summary>
     /// Refreshes data for a specific data source
     /// </summary>
-    public async Task RefreshDataSourceAsync(Guid dataSourceId)
+    public async Task<Result> RefreshDataSourceAsync(Guid dataSourceId)
     {
-        if (!_activeDataSources.TryGetValue(dataSourceId, out var dataSource))
-        {
-            _logger.LogWarning("Attempted to refresh inactive data source {Id}", dataSourceId);
-            return;
-        }
-
         try
         {
+            if (dataSourceId == Guid.Empty)
+            {
+                _logger.LogWarning("RefreshDataSourceAsync called with empty GUID");
+                return Result.Failure("Data source ID cannot be empty");
+            }
+
+            if (!_activeDataSources.TryGetValue(dataSourceId, out var dataSource))
+            {
+                _logger.LogWarning("Attempted to refresh inactive data source {Id}", dataSourceId);
+                return Result.Failure($"Data source '{dataSourceId}' is not active");
+            }
+
             // Fetch new data
             var newData = await _sqlDataSourceService.FetchDataAsync(dataSource);
 
@@ -159,51 +194,113 @@ public class DataSourceManager : IDisposable
             {
                 _logger.LogDebug("Data source {Name} refreshed but data unchanged", dataSource.Name);
             }
+
+            return Result.Success();
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to refresh data source {Id}: {Message}", dataSourceId, ex.Message);
+            return Result.Failure($"Failed to refresh data source: {ex.Message}", ex);
         }
     }
 
     /// <summary>
     /// Gets cached data for a specific data source
     /// </summary>
-    public List<Dictionary<string, object>>? GetCachedData(Guid dataSourceId)
+    public Result<List<Dictionary<string, object>>> GetCachedData(Guid dataSourceId)
     {
-        if (_activeDataSources.TryGetValue(dataSourceId, out var dataSource))
+        try
         {
-            return dataSource.CachedData;
-        }
+            if (dataSourceId == Guid.Empty)
+            {
+                _logger.LogWarning("GetCachedData called with empty GUID");
+                return Result<List<Dictionary<string, object>>>.Failure("Data source ID cannot be empty");
+            }
 
-        return null;
+            if (_activeDataSources.TryGetValue(dataSourceId, out var dataSource))
+            {
+                var data = dataSource.CachedData ?? new List<Dictionary<string, object>>();
+                return Result<List<Dictionary<string, object>>>.Success(data);
+            }
+
+            _logger.LogDebug("Data source {Id} not found in active sources", dataSourceId);
+            return Result<List<Dictionary<string, object>>>.Failure($"Data source '{dataSourceId}' not found");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting cached data for {Id}", dataSourceId);
+            return Result<List<Dictionary<string, object>>>.Failure($"Failed to get cached data: {ex.Message}", ex);
+        }
     }
 
     /// <summary>
     /// Gets a data source by ID
     /// </summary>
-    public SqlDataSource? GetDataSource(Guid dataSourceId)
+    public Result<SqlDataSource> GetDataSource(Guid dataSourceId)
     {
-        _activeDataSources.TryGetValue(dataSourceId, out var dataSource);
-        return dataSource;
+        try
+        {
+            if (dataSourceId == Guid.Empty)
+            {
+                _logger.LogWarning("GetDataSource called with empty GUID");
+                return Result<SqlDataSource>.Failure("Data source ID cannot be empty");
+            }
+
+            if (_activeDataSources.TryGetValue(dataSourceId, out var dataSource))
+            {
+                return Result<SqlDataSource>.Success(dataSource);
+            }
+
+            _logger.LogDebug("Data source {Id} not found in active sources", dataSourceId);
+            return Result<SqlDataSource>.Failure($"Data source '{dataSourceId}' not found");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting data source {Id}", dataSourceId);
+            return Result<SqlDataSource>.Failure($"Failed to get data source: {ex.Message}", ex);
+        }
     }
 
     /// <summary>
     /// Gets all active data sources
     /// </summary>
-    public List<SqlDataSource> GetActiveDataSources()
+    public Result<List<SqlDataSource>> GetActiveDataSources()
     {
-        return _activeDataSources.Values.ToList();
+        try
+        {
+            var dataSources = _activeDataSources.Values.ToList();
+            return Result<List<SqlDataSource>>.Success(dataSources);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting active data sources");
+            return Result<List<SqlDataSource>>.Failure($"Failed to get active data sources: {ex.Message}", ex);
+        }
     }
 
     /// <summary>
     /// Gets data sources linked to a specific layout
     /// </summary>
-    public List<SqlDataSource> GetDataSourcesForLayout(Guid layoutId)
+    public Result<List<SqlDataSource>> GetDataSourcesForLayout(Guid layoutId)
     {
-        // This would require layout-to-datasource mapping in the future
-        // For now, return empty list
-        return new List<SqlDataSource>();
+        try
+        {
+            if (layoutId == Guid.Empty)
+            {
+                _logger.LogWarning("GetDataSourcesForLayout called with empty GUID");
+                return Result<List<SqlDataSource>>.Failure("Layout ID cannot be empty");
+            }
+
+            // This would require layout-to-datasource mapping in the future
+            // For now, return empty list
+            _logger.LogDebug("Getting data sources for layout {LayoutId} (feature not yet implemented)", layoutId);
+            return Result<List<SqlDataSource>>.Success(new List<SqlDataSource>());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting data sources for layout {LayoutId}", layoutId);
+            return Result<List<SqlDataSource>>.Failure($"Failed to get data sources for layout: {ex.Message}", ex);
+        }
     }
 
     /// <summary>

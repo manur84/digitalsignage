@@ -62,7 +62,15 @@ public class HeartbeatMonitoringService : BackgroundService
     {
         try
         {
-            var clients = await _clientService.GetAllClientsAsync(cancellationToken);
+            var clientsResult = await _clientService.GetAllClientsAsync(cancellationToken);
+            if (clientsResult.IsFailure || clientsResult.Value == null || clientsResult.Value.Count == 0)
+            {
+                _logger.LogDebug("No clients registered for heartbeat monitoring: {Error}",
+                    clientsResult.ErrorMessage);
+                return;
+            }
+
+            var clients = clientsResult.Value;
             var now = DateTime.UtcNow;
             var offlineCount = 0;
             var onlineCount = 0;

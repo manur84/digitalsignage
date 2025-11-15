@@ -259,18 +259,27 @@ public partial class DiscoveredDevicesViewModel : ObservableObject, IDisposable
                             : null
                     };
 
-                    var registeredClient = await _clientService.RegisterClientAsync(registerMessage);
+                    var registerResult = await _clientService.RegisterClientAsync(registerMessage);
+
+                    if (registerResult.IsFailure)
+                    {
+                        _logger.LogError("Failed to register device: {ErrorMessage}", registerResult.ErrorMessage);
+                        MessageBox.Show($"Failed to register device: {registerResult.ErrorMessage}",
+                            "Registration Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                        return;
+                    }
+
+                    var registeredClient = registerResult.Value;
 
                     // Update client properties that couldn't be set in RegisterMessage
-                    var statusResult = await _clientService.UpdateClientStatusAsync(
+                    var updateStatusResult = await _clientService.UpdateClientStatusAsync(
                         registeredClient.Id,
                         ClientStatus.Offline,
                         registeredClient.DeviceInfo);
 
-                    if (!statusResult.IsSuccess)
+                    if (updateStatusResult.IsFailure)
                     {
-                        _logger.LogWarning("Failed to set registered client {ClientId} offline: {Error}",
-                            registeredClient.Id, statusResult.Error);
+                        _logger.LogWarning("Failed to update client status: {ErrorMessage}", updateStatusResult.ErrorMessage);
                     }
 
                     // Remove from discovered devices

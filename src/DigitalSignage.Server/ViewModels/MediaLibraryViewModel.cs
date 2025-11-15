@@ -176,9 +176,16 @@ public partial class MediaLibraryViewModel : ObservableObject
                         var fileData = await File.ReadAllBytesAsync(filePath);
                         var fileName = Path.GetFileName(filePath);
 
-                        await _mediaService.SaveMediaAsync(fileData, fileName);
-                        uploadedCount++;
+                        var saveResult = await _mediaService.SaveMediaAsync(fileData, fileName);
 
+                        if (saveResult.IsFailure)
+                        {
+                            _logger.LogError("Failed to upload file {FilePath}: {ErrorMessage}", filePath, saveResult.ErrorMessage);
+                            failedCount++;
+                            continue;
+                        }
+
+                        uploadedCount++;
                         _logger.LogInformation("Uploaded media file: {FileName}", fileName);
                     }
                     catch (Exception ex)
@@ -225,7 +232,14 @@ public partial class MediaLibraryViewModel : ObservableObject
                 IsLoading = true;
                 StatusMessage = $"Deleting {SelectedMedia.OriginalFileName}...";
 
-                await _mediaService.DeleteMediaAsync(SelectedMedia.FileName);
+                var deleteResult = await _mediaService.DeleteMediaAsync(SelectedMedia.FileName);
+
+                if (deleteResult.IsFailure)
+                {
+                    _logger.LogError("Failed to delete media file {FileName}: {ErrorMessage}", SelectedMedia.OriginalFileName, deleteResult.ErrorMessage);
+                    StatusMessage = $"Error deleting media: {deleteResult.ErrorMessage}";
+                    return;
+                }
 
                 StatusMessage = $"Deleted {SelectedMedia.OriginalFileName}";
                 _logger.LogInformation("Deleted media file: {FileName}", SelectedMedia.OriginalFileName);

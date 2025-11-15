@@ -1,4 +1,5 @@
 using DigitalSignage.Core.Interfaces;
+using DigitalSignage.Core.Models;
 using DigitalSignage.Data;
 using DigitalSignage.Server.Configuration;
 using Microsoft.EntityFrameworkCore;
@@ -148,11 +149,22 @@ public class SystemDiagnosticsService
             info.ListeningUrl = $"{protocol}://+:{_serverSettings.Port}{_serverSettings.EndpointPath}";
 
             // Check if server is running (based on having active clients)
-            var clients = await _clientService.GetAllClientsAsync();
-            info.IsRunning = clients.Any();
-            info.ActiveConnections = clients.Count(c => c.Status == Core.Models.ClientStatus.Online);
-            info.Status = info.IsRunning ? HealthStatus.Healthy : HealthStatus.Warning;
-            info.Message = info.IsRunning ? "Server is running" : "No active connections";
+            var clientsResult = await _clientService.GetAllClientsAsync();
+            if (!clientsResult.IsSuccess || clientsResult.Value == null)
+            {
+                info.IsRunning = false;
+                info.ActiveConnections = 0;
+                info.Status = HealthStatus.Warning;
+                info.Message = $"Unable to determine client connections: {clientsResult.ErrorMessage}";
+            }
+            else
+            {
+                var clients = clientsResult.Value;
+                info.IsRunning = clients.Any();
+                info.ActiveConnections = clients.Count(c => c.Status == Core.Models.ClientStatus.Online);
+                info.Status = info.IsRunning ? HealthStatus.Healthy : HealthStatus.Warning;
+                info.Message = info.IsRunning ? "Server is running" : "No active connections";
+            }
 
             // Get uptime (approximation based on process)
             var currentProcess = Process.GetCurrentProcess();
@@ -309,9 +321,17 @@ public class SystemDiagnosticsService
 
         try
         {
-            var clients = await _clientService.GetAllClientsAsync();
+            var clientsResult = await _clientService.GetAllClientsAsync();
+            var clients = clientsResult.IsSuccess && clientsResult.Value != null
+                ? clientsResult.Value
+                : new List<RaspberryPiClient>();
 
-            info.TotalClients = clients.Count();
+            if (!clientsResult.IsSuccess)
+            {
+                _logger.LogWarning("Unable to fetch clients for statistics: {Error}", clientsResult.ErrorMessage);
+            }
+
+            info.TotalClients = clients.Count;
             info.OnlineClients = clients.Count(c => c.Status == Core.Models.ClientStatus.Online);
             info.OfflineClients = clients.Count(c => c.Status == Core.Models.ClientStatus.Offline);
             info.DisconnectedClients = clients.Count(c => c.Status == Core.Models.ClientStatus.Disconnected);

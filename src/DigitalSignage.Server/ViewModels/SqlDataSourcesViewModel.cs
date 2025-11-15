@@ -643,14 +643,33 @@ public partial class SqlDataSourcesViewModel : ObservableObject, IDisposable
             if (SelectedDataSource.IsActive)
             {
                 // Activate in manager
-                await _dataSourceManager.ActivateDataSourceAsync(SelectedDataSource);
-                StatusMessage = $"Activated data source '{SelectedDataSource.Name}'";
+                var activateResult = await _dataSourceManager.ActivateDataSourceAsync(SelectedDataSource);
+                if (activateResult.IsSuccess)
+                {
+                    StatusMessage = $"Activated data source '{SelectedDataSource.Name}'";
+                }
+                else
+                {
+                    _logger.LogError("Failed to activate data source: {ErrorMessage}", activateResult.ErrorMessage);
+                    StatusMessage = $"Error activating: {activateResult.ErrorMessage}";
+                    // Revert the IsActive flag since activation failed
+                    SelectedDataSource.IsActive = false;
+                    await _sqlDataSourceService.SaveDataSourceAsync(SelectedDataSource);
+                }
             }
             else
             {
                 // Deactivate in manager
-                _dataSourceManager.DeactivateDataSource(SelectedDataSource.Id);
-                StatusMessage = $"Deactivated data source '{SelectedDataSource.Name}'";
+                var deactivateResult = _dataSourceManager.DeactivateDataSource(SelectedDataSource.Id);
+                if (deactivateResult.IsSuccess)
+                {
+                    StatusMessage = $"Deactivated data source '{SelectedDataSource.Name}'";
+                }
+                else
+                {
+                    _logger.LogError("Failed to deactivate data source: {ErrorMessage}", deactivateResult.ErrorMessage);
+                    StatusMessage = $"Error deactivating: {deactivateResult.ErrorMessage}";
+                }
             }
 
             _logger.LogInformation("Toggled active state for data source {Name} to {Active}",
