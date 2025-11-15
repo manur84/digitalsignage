@@ -46,11 +46,8 @@
                      SelectionMode="Single"
                      Margin="12,0">
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="150"/>
+                    <DataGridTextColumn Header="Name" Binding="{Binding DeviceInfo.Hostname}" Width="150"/>
                     <DataGridTextColumn Header="IP Address" Binding="{Binding IpAddress}" Width="120"/>
-                    <DataGridTextColumn Header="MAC Address" Binding="{Binding MacAddress}" Width="140"/>
-                    <DataGridTextColumn Header="Group" Binding="{Binding Group}" Width="100"/>
-                    <DataGridTextColumn Header="Location" Binding="{Binding Location}" Width="120"/>
                     <DataGridTemplateColumn Header="Status" Width="100">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
@@ -75,7 +72,25 @@
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
+                    <DataGridTextColumn Header="Resolution" Width="100">
+                        <DataGridTextColumn.Binding>
+                            <MultiBinding StringFormat="{}{0}x{1}">
+                                <Binding Path="DeviceInfo.ScreenWidth"/>
+                                <Binding Path="DeviceInfo.ScreenHeight"/>
+                            </MultiBinding>
+                        </DataGridTextColumn.Binding>
+                    </DataGridTextColumn>
                     <DataGridTextColumn Header="Last Seen" Binding="{Binding LastSeen, StringFormat='{}{0:dd.MM.yyyy HH:mm}'}" Width="120"/>
+                    <DataGridTextColumn Header="Assigned Layout" Binding="{Binding AssignedLayoutId}" Width="150"/>
+                    <DataGridTemplateColumn Header="Web Interface" Width="100">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Button Content="Open"
+                                        Command="{Binding DataContext.OpenWebInterfaceCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                        Padding="8,4"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
                 </DataGrid.Columns>
             </DataGrid>
 

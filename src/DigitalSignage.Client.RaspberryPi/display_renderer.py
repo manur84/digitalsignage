@@ -50,8 +50,10 @@ class ShapeWidget(QWidget):
     def set_fill_color(self, color: str):
         """Set fill color from hex string"""
         try:
-            self.fill_color = QColor(color)
-            self.update()  # Trigger repaint
+            new_color = QColor(color)
+            if new_color != self.fill_color:  # Only update if color actually changed
+                self.fill_color = new_color
+                self.update()  # Trigger repaint
         except Exception as e:
             logger.warning(f"Invalid fill color {color}: {e}")
             self.fill_color = QColor('#CCCCCC')
@@ -59,8 +61,10 @@ class ShapeWidget(QWidget):
     def set_stroke_color(self, color: str):
         """Set stroke color from hex string"""
         try:
-            self.stroke_color = QColor(color)
-            self.update()  # Trigger repaint
+            new_color = QColor(color)
+            if new_color != self.stroke_color:  # Only update if color actually changed
+                self.stroke_color = new_color
+                self.update()  # Trigger repaint
         except Exception as e:
             logger.warning(f"Invalid stroke color {color}: {e}")
             self.stroke_color = QColor('#000000')
@@ -68,43 +72,36 @@ class ShapeWidget(QWidget):
     def set_stroke_width(self, width: int):
         """Set stroke width"""
         try:
-            self.stroke_width = max(0, int(width))
-            self.update()  # Trigger repaint
+            new_width = max(0, int(width))
+            if new_width != self.stroke_width:  # Only update if width actually changed
+                self.stroke_width = new_width
+                self.update()  # Trigger repaint
         except (ValueError, TypeError):
             self.stroke_width = 1
 
     def set_corner_radius(self, radius: float):
         """Set corner radius for rectangles"""
         try:
-            self.corner_radius = max(0, float(radius))
-            self.update()  # Trigger repaint
+            new_radius = max(0, float(radius))
+            if new_radius != self.corner_radius:  # Only update if radius actually changed
+                self.corner_radius = new_radius
+                self.update()  # Trigger repaint
         except (ValueError, TypeError):
             self.corner_radius = 0
 
     def paintEvent(self, event):
         """Custom paint event to draw shapes"""
-        logger.info(f"=== ShapeWidget.paintEvent CALLED ===")
-        logger.info(f"Shape type: {self.shape_type}")
-        logger.info(f"Fill color: {self.fill_color.name()}")
-        logger.info(f"Stroke color: {self.stroke_color.name()}")
-        logger.info(f"Stroke width: {self.stroke_width}")
-        logger.info(f"Corner radius: {self.corner_radius}")
-        logger.info(f"Widget rect: {self.rect()}")
-        logger.info(f"Widget size: {self.size()}")
-
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
 
         # Set brush (fill)
         brush = QBrush(self.fill_color)
         painter.setBrush(brush)
-        logger.info(f"Brush set: {brush.color().name()}")
 
         # Set pen (stroke)
         pen = QPen(self.stroke_color)
         pen.setWidth(self.stroke_width)
         painter.setPen(pen)
-        logger.info(f"Pen set: color={pen.color().name()}, width={pen.width()}")
 
         # Get widget dimensions
         rect = self.rect()
@@ -113,7 +110,6 @@ class ShapeWidget(QWidget):
         if self.stroke_width > 0:
             margin = self.stroke_width // 2
             rect = rect.adjusted(margin, margin, -margin, -margin)
-            logger.info(f"Adjusted rect for stroke: {rect}")
 
         # Draw based on shape type
         if self.shape_type == 'circle':
@@ -122,25 +118,20 @@ class ShapeWidget(QWidget):
             # Center the circle
             x = rect.x() + (rect.width() - size) // 2
             y = rect.y() + (rect.height() - size) // 2
-            logger.info(f"Drawing circle at ({x}, {y}) with size {size}")
             painter.drawEllipse(x, y, size, size)
 
         elif self.shape_type == 'ellipse':
             # Ellipse: fill the entire rect
-            logger.info(f"Drawing ellipse in rect {rect}")
             painter.drawEllipse(rect)
 
         elif self.shape_type == 'rectangle':
             # Rectangle with optional rounded corners
             if self.corner_radius > 0:
-                logger.info(f"Drawing rounded rectangle in {rect} with radius {self.corner_radius}")
                 painter.drawRoundedRect(rect, self.corner_radius, self.corner_radius)
             else:
-                logger.info(f"Drawing rectangle in {rect}")
                 painter.drawRect(rect)
 
         painter.end()
-        logger.info(f"=== paintEvent COMPLETED ===\n")
 
 
 class DisplayRenderer(QWidget):
@@ -679,30 +670,15 @@ class DisplayRenderer(QWidget):
     ) -> Optional[QWidget]:
         """Create a shape element (rectangle, circle, or ellipse)"""
         try:
-            logger.info(f"=== CREATE SHAPE ELEMENT DEBUG ===")
-            logger.info(f"Shape type: {shape_type}")
-            logger.info(f"Position: ({x}, {y})")
-            logger.info(f"Size: {width}x{height}")
-            logger.info(f"Properties dict: {properties}")
-            logger.info(f"Properties keys: {list(properties.keys())}")
-
             # Create ShapeWidget with proper shape type
             widget = ShapeWidget(self, shape_type=shape_type)
             widget.setGeometry(x, y, width, height)
-
-            logger.info(f"Widget created: {widget}")
-            logger.info(f"Widget geometry: {widget.geometry()}")
-            logger.info(f"Widget size: {widget.size()}")
-            logger.info(f"Widget visible: {widget.isVisible()}")
 
             # Get colors and stroke from properties
             # CRITICAL FIX: Check EACH property explicitly to handle None vs missing
             fill_color = properties.get('FillColor')
             if fill_color is None:
                 fill_color = '#CCCCCC'
-                logger.warning(f"FillColor not found in properties, using default: {fill_color}")
-            else:
-                logger.info(f"FillColor from properties: {fill_color}")
 
             # Check for BorderColor (server sends this, NOT StrokeColor)
             stroke_color = properties.get('BorderColor')
@@ -711,11 +687,6 @@ class DisplayRenderer(QWidget):
                 stroke_color = properties.get('StrokeColor')
                 if stroke_color is None:
                     stroke_color = '#000000'
-                    logger.warning(f"Neither BorderColor nor StrokeColor found, using default: {stroke_color}")
-                else:
-                    logger.info(f"StrokeColor from properties: {stroke_color}")
-            else:
-                logger.info(f"BorderColor from properties: {stroke_color}")
 
             # Check for BorderThickness (server sends this, NOT StrokeWidth)
             stroke_width = properties.get('BorderThickness')
@@ -724,20 +695,10 @@ class DisplayRenderer(QWidget):
                 stroke_width = properties.get('StrokeWidth')
                 if stroke_width is None:
                     stroke_width = 1
-                    logger.warning(f"Neither BorderThickness nor StrokeWidth found, using default: {stroke_width}")
-                else:
-                    logger.info(f"StrokeWidth from properties: {stroke_width}")
-            else:
-                logger.info(f"BorderThickness from properties: {stroke_width}")
 
             # Apply shape properties
-            logger.info(f"Setting fill_color: {fill_color}")
             widget.set_fill_color(fill_color)
-
-            logger.info(f"Setting stroke_color: {stroke_color}")
             widget.set_stroke_color(stroke_color)
-
-            logger.info(f"Setting stroke_width: {stroke_width}")
             widget.set_stroke_width(stroke_width)
 
             # Apply corner radius for rectangles (support both property names)
@@ -747,16 +708,10 @@ class DisplayRenderer(QWidget):
                     corner_radius = properties.get('BorderRadius')
                     if corner_radius is None:
                         corner_radius = 0
-                        logger.info(f"No CornerRadius or BorderRadius, using 0")
-                    else:
-                        logger.info(f"BorderRadius from properties: {corner_radius}")
-                else:
-                    logger.info(f"CornerRadius from properties: {corner_radius}")
 
                 try:
                     corner_radius_float = float(corner_radius)
                     widget.set_corner_radius(corner_radius_float)
-                    logger.info(f"Set corner_radius: {corner_radius_float}")
                 except (ValueError, TypeError) as e:
                     logger.warning(f"Failed to convert corner_radius '{corner_radius}' to float: {e}, using 0")
                     widget.set_corner_radius(0)
@@ -766,23 +721,10 @@ class DisplayRenderer(QWidget):
             widget.setEnabled(True)
             widget.show()
 
-            logger.info(f"Widget after show(): visible={widget.isVisible()}, enabled={widget.isEnabled()}")
-
             # Apply common styling (shadow, opacity, rotation)
             # Note: We don't use background-color/border from apply_common_styling
             # since ShapeWidget handles these via paintEvent
             self.apply_common_styling(widget, properties, skip_border=True)
-
-            logger.info(f"=== SHAPE CREATED SUCCESSFULLY ===")
-            logger.info(f"Final widget state:")
-            logger.info(f"  - Shape type: {shape_type}")
-            logger.info(f"  - Fill color: {widget.fill_color.name()}")
-            logger.info(f"  - Stroke color: {widget.stroke_color.name()}")
-            logger.info(f"  - Stroke width: {widget.stroke_width}")
-            logger.info(f"  - Geometry: {widget.geometry()}")
-            logger.info(f"  - Visible: {widget.isVisible()}")
-            logger.info(f"  - Parent: {widget.parent()}")
-            logger.info(f"=================================")
 
             return widget
 

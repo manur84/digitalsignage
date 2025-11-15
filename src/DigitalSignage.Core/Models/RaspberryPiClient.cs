@@ -36,6 +36,7 @@ public enum ClientStatus
 /// </summary>
 public class DeviceInfo
 {
+    public string Hostname { get; set; } = string.Empty;
     public string Model { get; set; } = string.Empty;
     public string OsVersion { get; set; } = string.Empty;
     public string ClientVersion { get; set; } = string.Empty;

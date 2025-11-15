@@ -4,6 +4,7 @@ using DigitalSignage.Core.Interfaces;
 using DigitalSignage.Core.Models;
 using Microsoft.Extensions.Logging;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 
 namespace DigitalSignage.Server.ViewModels;
 
@@ -364,6 +365,37 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
         {
             StatusMessage = $"Failed to update configuration for {SelectedClient.Name}: {ex.Message}";
             _logger.LogError(ex, "Failed to update configuration for client {ClientId}", SelectedClient.Id);
+        }
+    }
+
+    [RelayCommand]
+    private void OpenWebInterface(RaspberryPiClient? client)
+    {
+        if (client == null || string.IsNullOrEmpty(client.IpAddress)) return;
+
+        try
+        {
+            var url = $"http://{client.IpAddress}:5000";
+
+            var psi = new ProcessStartInfo
+            {
+                FileName = url,
+                UseShellExecute = true
+            };
+
+            Process.Start(psi);
+
+            var hostname = !string.IsNullOrEmpty(client.DeviceInfo.Hostname)
+                ? client.DeviceInfo.Hostname
+                : client.Name;
+            StatusMessage = $"Opened web interface for {hostname}";
+            _logger.LogInformation("Opened web interface for client {ClientId} at {Url}", client.Id, url);
+        }
+        catch (Exception ex)
+        {
+            var hostname = client.DeviceInfo?.Hostname ?? client.Name;
+            StatusMessage = $"Failed to open web interface for {hostname}: {ex.Message}";
+            _logger.LogError(ex, "Failed to open web interface for client {ClientId}", client.Id);
         }
     }
 
