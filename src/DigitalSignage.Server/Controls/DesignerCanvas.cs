@@ -541,6 +541,7 @@ public class DesignerCanvas : Canvas
                 if (viewModel != null)
                 {
                     // Call the command to add element at specific position
+                    // Note: The command name is AddElementAtPositionCommand (the Async suffix is dropped when generating commands)
                     var parameter = (elementType, dropPosition.X, dropPosition.Y);
                     if (viewModel.AddElementAtPositionCommand?.CanExecute(parameter) == true)
                     {
