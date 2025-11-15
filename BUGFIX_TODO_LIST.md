@@ -1,7 +1,7 @@
 # 🔧 Bug Fix TODO List - Actionable Tasks
 ## Digital Signage Projekt - Priorisierte Aufgabenliste
 
-**Status:** 🟢 **1 von 67 Issues behoben** (1.5% Complete)
+**Status:** 🟢 **2 von 67 Issues behoben** (3% Complete)
 **Letzte Aktualisierung:** 2025-11-15
 
 ---
@@ -74,7 +74,7 @@ public class LayoutService : ILayoutService, IDisposable
 **Datei:** `src/DigitalSignage.Server/Services/ClientService.cs`
 **Priorität:** 🔴 CRITICAL
 **Aufwand:** 30min
-**Status:** ❌ TODO
+**Status:** ✅ DONE (2025-11-15)
 
 **Änderungen:**
 ```csharp
@@ -104,8 +104,15 @@ public class ClientService : IClientService, IDisposable
 ```
 
 **Testplan:**
-- [ ] Service mit DI Container testen
-- [ ] Scope-Disposal testen
+- [x] Service mit DI Container testen
+- [x] Scope-Disposal testen
+
+**Implementiert:**
+- ✅ IDisposable Interface hinzugefügt
+- ✅ Dispose-Pattern korrekt implementiert
+- ✅ ThrowIfDisposed() zu allen 8 public methods hinzugefügt
+- ✅ _initSemaphore wird in Dispose() korrekt disposed
+- ✅ Logging bei Disposal vorhanden
 
 ---
 

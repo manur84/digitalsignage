@@ -8,7 +8,7 @@ using System.Collections.Concurrent;
 
 namespace DigitalSignage.Server.Services;
 
-public class ClientService : IClientService
+public class ClientService : IClientService, IDisposable
 {
     private readonly ConcurrentDictionary<string, RaspberryPiClient> _clients = new();
     private readonly ICommunicationService _communicationService;
@@ -20,6 +20,7 @@ public class ClientService : IClientService
     private readonly ILogger<ClientService> _logger;
     private bool _isInitialized = false;
     private readonly SemaphoreSlim _initSemaphore = new(1, 1);
+    private bool _disposed = false;
 
     /// <summary>
     /// Event raised when a client connects
@@ -125,6 +126,8 @@ public class ClientService : IClientService
 
     public async Task<List<RaspberryPiClient>> GetAllClientsAsync(CancellationToken cancellationToken = default)
     {
+        ThrowIfDisposed();
+
         try
         {
             // Reload from database to get latest DeviceInfo including resolution
@@ -159,6 +162,8 @@ public class ClientService : IClientService
 
     public Task<RaspberryPiClient?> GetClientByIdAsync(string clientId, CancellationToken cancellationToken = default)
     {
+        ThrowIfDisposed();
+
         if (string.IsNullOrWhiteSpace(clientId))
         {
             _logger.LogWarning("GetClientByIdAsync called with null or empty clientId");
@@ -173,6 +178,8 @@ public class ClientService : IClientService
         RegisterMessage registerMessage,
         CancellationToken cancellationToken = default)
     {
+        ThrowIfDisposed();
+
         if (registerMessage == null)
         {
             throw new ArgumentNullException(nameof(registerMessage));
@@ -433,6 +440,8 @@ public class ClientService : IClientService
         DeviceInfo? deviceInfo = null,
         CancellationToken cancellationToken = default)
     {
+        ThrowIfDisposed();
+
         if (string.IsNullOrWhiteSpace(clientId))
         {
             _logger.LogWarning("UpdateClientStatusAsync called with null or empty clientId");
@@ -505,6 +514,8 @@ public class ClientService : IClientService
         Dictionary<string, object>? parameters = null,
         CancellationToken cancellationToken = default)
     {
+        ThrowIfDisposed();
+
         if (string.IsNullOrWhiteSpace(clientId))
         {
             _logger.LogWarning("SendCommandAsync called with null or empty clientId");
@@ -547,6 +558,8 @@ public class ClientService : IClientService
         string layoutId,
         CancellationToken cancellationToken = default)
     {
+        ThrowIfDisposed();
+
         if (string.IsNullOrWhiteSpace(clientId))
         {
             _logger.LogWarning("AssignLayoutAsync called with null or empty clientId");
@@ -741,6 +754,8 @@ public class ClientService : IClientService
 
     public Task<bool> RemoveClientAsync(string clientId, CancellationToken cancellationToken = default)
     {
+        ThrowIfDisposed();
+
         if (string.IsNullOrWhiteSpace(clientId))
         {
             _logger.LogWarning("RemoveClientAsync called with null or empty clientId");
@@ -762,6 +777,8 @@ public class ClientService : IClientService
         UpdateConfigMessage config,
         CancellationToken cancellationToken = default)
     {
+        ThrowIfDisposed();
+
         if (string.IsNullOrWhiteSpace(clientId))
         {
             _logger.LogWarning("UpdateClientConfigAsync called with null or empty clientId");
@@ -870,5 +887,44 @@ public class ClientService : IClientService
         {
             _logger.LogDebug("No image elements found in layout {LayoutId}", layout.Id);
         }
+    }
+
+    /// <summary>
+    /// Throws ObjectDisposedException if service has been disposed
+    /// </summary>
+    private void ThrowIfDisposed()
+    {
+        if (_disposed)
+        {
+            throw new ObjectDisposedException(nameof(ClientService));
+        }
+    }
+
+    /// <summary>
+    /// Disposes managed resources
+    /// </summary>
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    /// <summary>
+    /// Disposes managed and unmanaged resources
+    /// </summary>
+    /// <param name="disposing">True if disposing managed resources</param>
+    protected virtual void Dispose(bool disposing)
+    {
+        if (_disposed)
+            return;
+
+        if (disposing)
+        {
+            // Dispose managed resources
+            _initSemaphore?.Dispose();
+            _logger.LogInformation("ClientService disposed");
+        }
+
+        _disposed = true;
     }
 }
