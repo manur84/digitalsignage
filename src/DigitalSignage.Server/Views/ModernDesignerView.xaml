@@ -10,6 +10,55 @@
              mc:Ignorable="d"
              d:DesignHeight="800" d:DesignWidth="1400">
 
+    <!-- Keyboard Shortcuts -->
+    <UserControl.InputBindings>
+        <!-- File Operations -->
+        <KeyBinding Command="{Binding CreateNewLayoutCommand}" Key="N" Modifiers="Ctrl"/>
+        <KeyBinding Command="{Binding OpenLayoutCommand}" Key="O" Modifiers="Ctrl"/>
+        <KeyBinding Command="{Binding SaveLayoutCommand}" Key="S" Modifiers="Ctrl"/>
+
+        <!-- Edit Operations -->
+        <KeyBinding Command="{Binding UndoCommand}" Key="Z" Modifiers="Ctrl"/>
+        <KeyBinding Command="{Binding RedoCommand}" Key="Y" Modifiers="Ctrl"/>
+        <KeyBinding Command="{Binding CutCommand}" Key="X" Modifiers="Ctrl"/>
+        <KeyBinding Command="{Binding CopyCommand}" Key="C" Modifiers="Ctrl"/>
+        <KeyBinding Command="{Binding PasteCommand}" Key="V" Modifiers="Ctrl"/>
+        <KeyBinding Command="{Binding DuplicateSelectedCommand}" Key="D" Modifiers="Ctrl"/>
+        <KeyBinding Command="{Binding DeleteSelectedElementCommand}" Key="Delete"/>
+
+        <!-- Selection -->
+        <KeyBinding Command="{Binding SelectAllCommand}" Key="A" Modifiers="Ctrl"/>
+        <KeyBinding Command="{Binding ClearSelectionCommand}" Key="Escape"/>
+
+        <!-- Zoom -->
+        <KeyBinding Command="{Binding ZoomInCommand}" Key="OemPlus" Modifiers="Ctrl"/>
+        <KeyBinding Command="{Binding ZoomOutCommand}" Key="OemMinus" Modifiers="Ctrl"/>
+        <KeyBinding Command="{Binding ZoomToFitCommand}" Key="D0" Modifiers="Ctrl"/>
+
+        <!-- Z-Order -->
+        <KeyBinding Command="{Binding BringToFrontCommand}" Key="OemCloseBrackets" Modifiers="Ctrl+Shift"/>
+        <KeyBinding Command="{Binding BringForwardCommand}" Key="OemCloseBrackets" Modifiers="Ctrl"/>
+        <KeyBinding Command="{Binding SendBackwardCommand}" Key="OemOpenBrackets" Modifiers="Ctrl"/>
+        <KeyBinding Command="{Binding SendToBackCommand}" Key="OemOpenBrackets" Modifiers="Ctrl+Shift"/>
+
+        <!-- Group/Ungroup -->
+        <KeyBinding Command="{Binding GroupSelectedCommand}" Key="G" Modifiers="Ctrl"/>
+        <KeyBinding Command="{Binding UngroupSelectedCommand}" Key="G" Modifiers="Ctrl+Shift"/>
+
+        <!-- Movement (Arrow Keys) -->
+        <KeyBinding Command="{Binding MoveLeftCommand}" Key="Left"/>
+        <KeyBinding Command="{Binding MoveRightCommand}" Key="Right"/>
+        <KeyBinding Command="{Binding MoveUpCommand}" Key="Up"/>
+        <KeyBinding Command="{Binding MoveDownCommand}" Key="Down"/>
+        <KeyBinding Command="{Binding MoveLeftCommand}" CommandParameter="True" Key="Left" Modifiers="Shift"/>
+        <KeyBinding Command="{Binding MoveRightCommand}" CommandParameter="True" Key="Right" Modifiers="Shift"/>
+        <KeyBinding Command="{Binding MoveUpCommand}" CommandParameter="True" Key="Up" Modifiers="Shift"/>
+        <KeyBinding Command="{Binding MoveDownCommand}" CommandParameter="True" Key="Down" Modifiers="Shift"/>
+
+        <!-- Properties -->
+        <KeyBinding Command="{Binding ShowPropertiesCommand}" Key="Enter" Modifiers="Alt"/>
+    </UserControl.InputBindings>
+
     <UserControl.Resources>
         <!-- Modern Color Scheme -->
         <SolidColorBrush x:Key="PrimaryBrush" Color="#0078D4"/>
@@ -21,6 +70,7 @@
         <!-- Converters -->
         <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
         <converters:NullToVisibilityConverter x:Key="NullToVisibilityConverter"/>
+        <converters:ElementTypeToVisibilityConverter x:Key="TypeToVisibilityConverter"/>
 
         <!-- Modern Button Style -->
         <Style x:Key="ModernToolButton" TargetType="Button">
@@ -224,6 +274,30 @@
                                         <TextBlock Text="Table" FontSize="10" Margin="0,2,0,0"/>
                                     </StackPanel>
                                 </Button>
+                                <Button Style="{StaticResource ModernToolButton}"
+                                        Command="{Binding AddDateTimeElementCommand}"
+                                        ToolTip="Add DateTime">
+                                    <StackPanel>
+                                        <TextBlock Text="🕐" FontSize="20" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="DateTime" FontSize="10" Margin="0,2,0,0"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource ModernToolButton}"
+                                        Command="{Binding AddDataGridElementCommand}"
+                                        ToolTip="Add DataGrid">
+                                    <StackPanel>
+                                        <TextBlock Text="⊞" FontSize="20" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="DataGrid" FontSize="10" Margin="0,2,0,0"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource ModernToolButton}"
+                                        Command="{Binding AddDataSourceTextElementCommand}"
+                                        ToolTip="Add Data Source">
+                                    <StackPanel>
+                                        <TextBlock Text="🔗" FontSize="20" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="Data" FontSize="10" Margin="0,2,0,0"/>
+                                    </StackPanel>
+                                </Button>
                             </StackPanel>
                         </StackPanel>
                     </Border>
@@ -280,6 +354,114 @@
                                     <StackPanel>
                                         <TextBlock Text="⬇" FontSize="20" HorizontalAlignment="Center"/>
                                         <TextBlock Text="Bottom" FontSize="10" Margin="0,2,0,0"/>
+                                    </StackPanel>
+                                </Button>
+                                <Rectangle Width="1" Fill="#D0D0D0" Margin="4,8"/>
+                                <Button Style="{StaticResource ModernToolButton}"
+                                        Command="{Binding DistributeHorizontalCommand}"
+                                        ToolTip="Distribute Horizontally">
+                                    <StackPanel>
+                                        <TextBlock Text="⬌" FontSize="20" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="Distribute H" FontSize="10" Margin="0,2,0,0"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource ModernToolButton}"
+                                        Command="{Binding DistributeVerticalCommand}"
+                                        ToolTip="Distribute Vertically">
+                                    <StackPanel>
+                                        <TextBlock Text="⬍" FontSize="20" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="Distribute V" FontSize="10" Margin="0,2,0,0"/>
+                                    </StackPanel>
+                                </Button>
+                                <Rectangle Width="1" Fill="#D0D0D0" Margin="4,8"/>
+                                <Button Style="{StaticResource ModernToolButton}"
+                                        Command="{Binding BringToFrontCommand}"
+                                        ToolTip="Bring to Front">
+                                    <StackPanel>
+                                        <TextBlock Text="⬆" FontSize="20" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="Front" FontSize="10" Margin="0,2,0,0"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource ModernToolButton}"
+                                        Command="{Binding BringForwardCommand}"
+                                        ToolTip="Bring Forward">
+                                    <StackPanel>
+                                        <TextBlock Text="↑" FontSize="20" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="Forward" FontSize="10" Margin="0,2,0,0"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource ModernToolButton}"
+                                        Command="{Binding SendBackwardCommand}"
+                                        ToolTip="Send Backward">
+                                    <StackPanel>
+                                        <TextBlock Text="↓" FontSize="20" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="Backward" FontSize="10" Margin="0,2,0,0"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource ModernToolButton}"
+                                        Command="{Binding SendToBackCommand}"
+                                        ToolTip="Send to Back">
+                                    <StackPanel>
+                                        <TextBlock Text="⬇" FontSize="20" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="Back" FontSize="10" Margin="0,2,0,0"/>
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Transform Group -->
+                    <Border BorderBrush="#D0D0D0" BorderThickness="0,0,1,0" Padding="8,4">
+                        <StackPanel>
+                            <TextBlock Text="TRANSFORM" FontSize="10" Foreground="#666666" FontWeight="SemiBold" Margin="4,2"/>
+                            <StackPanel Orientation="Horizontal">
+                                <Button Style="{StaticResource ModernToolButton}"
+                                        Command="{Binding FlipHorizontalCommand}"
+                                        ToolTip="Flip Horizontal">
+                                    <StackPanel>
+                                        <TextBlock Text="⇆" FontSize="20" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="Flip H" FontSize="10" Margin="0,2,0,0"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource ModernToolButton}"
+                                        Command="{Binding FlipVerticalCommand}"
+                                        ToolTip="Flip Vertical">
+                                    <StackPanel>
+                                        <TextBlock Text="⇅" FontSize="20" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="Flip V" FontSize="10" Margin="0,2,0,0"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource ModernToolButton}"
+                                        Command="{Binding Rotate90CWCommand}"
+                                        ToolTip="Rotate 90° Clockwise">
+                                    <StackPanel>
+                                        <TextBlock Text="↻" FontSize="20" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="90° CW" FontSize="10" Margin="0,2,0,0"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource ModernToolButton}"
+                                        Command="{Binding Rotate90CCWCommand}"
+                                        ToolTip="Rotate 90° Counter-Clockwise">
+                                    <StackPanel>
+                                        <TextBlock Text="↺" FontSize="20" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="90° CCW" FontSize="10" Margin="0,2,0,0"/>
+                                    </StackPanel>
+                                </Button>
+                                <Rectangle Width="1" Fill="#D0D0D0" Margin="4,8"/>
+                                <Button Style="{StaticResource ModernToolButton}"
+                                        Command="{Binding GroupSelectedCommand}"
+                                        ToolTip="Group Selected (Ctrl+G)">
+                                    <StackPanel>
+                                        <TextBlock Text="⊕" FontSize="20" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="Group" FontSize="10" Margin="0,2,0,0"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource ModernToolButton}"
+                                        Command="{Binding UngroupSelectedCommand}"
+                                        ToolTip="Ungroup Selected (Ctrl+Shift+G)">
+                                    <StackPanel>
+                                        <TextBlock Text="⊖" FontSize="20" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="Ungroup" FontSize="10" Margin="0,2,0,0"/>
                                     </StackPanel>
                                 </Button>
                             </StackPanel>
@@ -423,6 +605,30 @@
                                 ToolTip="Table Tool - Click to add or drag to position">
                             <TextBlock Text="⊞" FontSize="24"/>
                         </Button>
+
+                        <Button Style="{StaticResource ToolIconButton}"
+                                behaviors:ToolboxDragBehavior.IsDragEnabled="True"
+                                behaviors:ToolboxDragBehavior.ElementType="datetime"
+                                Command="{Binding AddDateTimeElementCommand}"
+                                ToolTip="DateTime Tool - Click to add or drag to position">
+                            <TextBlock Text="🕐" FontSize="22"/>
+                        </Button>
+
+                        <Button Style="{StaticResource ToolIconButton}"
+                                behaviors:ToolboxDragBehavior.IsDragEnabled="True"
+                                behaviors:ToolboxDragBehavior.ElementType="datagrid"
+                                Command="{Binding AddDataGridElementCommand}"
+                                ToolTip="DataGrid Tool - Click to add or drag to position">
+                            <TextBlock Text="▣" FontSize="24"/>
+                        </Button>
+
+                        <Button Style="{StaticResource ToolIconButton}"
+                                behaviors:ToolboxDragBehavior.IsDragEnabled="True"
+                                behaviors:ToolboxDragBehavior.ElementType="datasource"
+                                Command="{Binding AddDataSourceTextElementCommand}"
+                                ToolTip="Data Source Tool - Click to add or drag to position">
+                            <TextBlock Text="🔗" FontSize="22"/>
+                        </Button>
                     </StackPanel>
                 </ScrollViewer>
             </Border>
@@ -490,6 +696,72 @@
             <!-- Canvas Area -->
             <Border Grid.Column="4" Background="#E8E8E8">
                 <Grid>
+                    <!-- Context Menu for Canvas -->
+                    <Grid.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem Header="_Cut" Command="{Binding CutCommand}" InputGestureText="Ctrl+X">
+                                <MenuItem.Icon>
+                                    <TextBlock Text="✂" FontSize="14"/>
+                                </MenuItem.Icon>
+                            </MenuItem>
+                            <MenuItem Header="_Copy" Command="{Binding CopyCommand}" InputGestureText="Ctrl+C">
+                                <MenuItem.Icon>
+                                    <TextBlock Text="📋" FontSize="14"/>
+                                </MenuItem.Icon>
+                            </MenuItem>
+                            <MenuItem Header="_Paste" Command="{Binding PasteCommand}" InputGestureText="Ctrl+V">
+                                <MenuItem.Icon>
+                                    <TextBlock Text="📌" FontSize="14"/>
+                                </MenuItem.Icon>
+                            </MenuItem>
+                            <Separator/>
+                            <MenuItem Header="_Duplicate" Command="{Binding DuplicateSelectedCommand}" InputGestureText="Ctrl+D">
+                                <MenuItem.Icon>
+                                    <TextBlock Text="⊕" FontSize="14"/>
+                                </MenuItem.Icon>
+                            </MenuItem>
+                            <MenuItem Header="Delete" Command="{Binding DeleteSelectedElementCommand}" InputGestureText="Del">
+                                <MenuItem.Icon>
+                                    <TextBlock Text="🗑" FontSize="14"/>
+                                </MenuItem.Icon>
+                            </MenuItem>
+                            <Separator/>
+                            <MenuItem Header="Select _All" Command="{Binding SelectAllCommand}" InputGestureText="Ctrl+A"/>
+                            <MenuItem Header="Clear Selection" Command="{Binding ClearSelectionCommand}" InputGestureText="Esc"/>
+                            <Separator/>
+                            <MenuItem Header="Order">
+                                <MenuItem Header="Bring to _Front" Command="{Binding BringToFrontCommand}" InputGestureText="Ctrl+Shift+]"/>
+                                <MenuItem Header="Bring Forward" Command="{Binding BringForwardCommand}" InputGestureText="Ctrl+]"/>
+                                <MenuItem Header="Send Backward" Command="{Binding SendBackwardCommand}" InputGestureText="Ctrl+["/>
+                                <MenuItem Header="Send to _Back" Command="{Binding SendToBackCommand}" InputGestureText="Ctrl+Shift+["/>
+                            </MenuItem>
+                            <MenuItem Header="Align">
+                                <MenuItem Header="Align _Left" Command="{Binding AlignLeftCommand}"/>
+                                <MenuItem Header="Align _Center" Command="{Binding CenterHorizontalCommand}"/>
+                                <MenuItem Header="Align _Right" Command="{Binding AlignRightCommand}"/>
+                                <Separator/>
+                                <MenuItem Header="Align _Top" Command="{Binding AlignTopCommand}"/>
+                                <MenuItem Header="Align _Middle" Command="{Binding CenterVerticalCommand}"/>
+                                <MenuItem Header="Align _Bottom" Command="{Binding AlignBottomCommand}"/>
+                                <Separator/>
+                                <MenuItem Header="Distribute _Horizontally" Command="{Binding DistributeHorizontalCommand}"/>
+                                <MenuItem Header="Distribute _Vertically" Command="{Binding DistributeVerticalCommand}"/>
+                            </MenuItem>
+                            <MenuItem Header="Transform">
+                                <MenuItem Header="Flip _Horizontal" Command="{Binding FlipHorizontalCommand}"/>
+                                <MenuItem Header="Flip _Vertical" Command="{Binding FlipVerticalCommand}"/>
+                                <Separator/>
+                                <MenuItem Header="Rotate 90° Clockwise" Command="{Binding Rotate90CWCommand}"/>
+                                <MenuItem Header="Rotate 90° Counter-Clockwise" Command="{Binding Rotate90CCWCommand}"/>
+                            </MenuItem>
+                            <Separator/>
+                            <MenuItem Header="_Group" Command="{Binding GroupSelectedCommand}" InputGestureText="Ctrl+G"/>
+                            <MenuItem Header="_Ungroup" Command="{Binding UngroupSelectedCommand}" InputGestureText="Ctrl+Shift+G"/>
+                            <Separator/>
+                            <MenuItem Header="Properties..." Command="{Binding ShowPropertiesCommand}" InputGestureText="Alt+Enter"/>
+                        </ContextMenu>
+                    </Grid.ContextMenu>
+
                     <!-- Canvas Container with Zoom -->
                     <ScrollViewer HorizontalScrollBarVisibility="Auto"
                                   VerticalScrollBarVisibility="Auto"
@@ -684,6 +956,81 @@
                                                  Text="{Binding SelectedElement.Opacity, FallbackValue=1, StringFormat=F2, UpdateSourceTrigger=PropertyChanged}"
                                                  Padding="4" BorderThickness="1"/>
                                     </Grid>
+
+                                    <TextBlock Text="Z-Index" FontWeight="SemiBold" Margin="0,8,0,2"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBox Grid.Column="0"
+                                                 Text="{Binding SelectedElement.ZIndex, UpdateSourceTrigger=PropertyChanged}"
+                                                 Padding="4" BorderThickness="1"/>
+                                        <Button Grid.Column="1" Content="↑" Width="30" Margin="4,0,0,0"
+                                                Command="{Binding BringForwardCommand}"
+                                                ToolTip="Bring Forward"/>
+                                        <Button Grid.Column="2" Content="↓" Width="30" Margin="4,0,0,0"
+                                                Command="{Binding SendBackwardCommand}"
+                                                ToolTip="Send Backward"/>
+                                    </Grid>
+
+                                    <!-- Lock/Unlock -->
+                                    <CheckBox Content="Lock Element" Margin="0,8,0,0"
+                                              IsChecked="{Binding SelectedElement.IsLocked, FallbackValue=False}"
+                                              ToolTip="Lock element to prevent accidental changes"/>
+
+                                    <!-- Visibility -->
+                                    <CheckBox Content="Visible" Margin="0,8,0,0"
+                                              IsChecked="{Binding SelectedElement.Visible, FallbackValue=True}"
+                                              ToolTip="Show or hide element"/>
+                                </StackPanel>
+                            </Expander>
+
+                            <!-- Text Properties (when text element selected) -->
+                            <Expander Header="Text Properties" IsExpanded="True" Margin="0,8,0,0"
+                                      Visibility="{Binding SelectedElement.Type, Converter={StaticResource TypeToVisibilityConverter}, ConverterParameter=text}">
+                                <StackPanel Margin="8,4">
+                                    <TextBlock Text="Text Content" FontWeight="SemiBold" Margin="0,4,0,2"/>
+                                    <TextBox Text="{Binding SelectedElement[Text], UpdateSourceTrigger=PropertyChanged}"
+                                             AcceptsReturn="True" TextWrapping="Wrap"
+                                             MinHeight="60" MaxHeight="120"
+                                             Padding="4" BorderThickness="1"
+                                             VerticalScrollBarVisibility="Auto"/>
+
+                                    <TextBlock Text="Font" FontWeight="SemiBold" Margin="0,8,0,2"/>
+                                    <ComboBox ItemsSource="{x:Static Fonts.SystemFontFamilies}"
+                                              SelectedValue="{Binding SelectedElement[FontFamily]}">
+                                        <ComboBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding}" FontFamily="{Binding}"/>
+                                            </DataTemplate>
+                                        </ComboBox.ItemTemplate>
+                                    </ComboBox>
+
+                                    <TextBlock Text="Font Size" FontWeight="SemiBold" Margin="0,8,0,2"/>
+                                    <TextBox Text="{Binding SelectedElement[FontSize], UpdateSourceTrigger=PropertyChanged}"
+                                             Padding="4" BorderThickness="1"/>
+
+                                    <TextBlock Text="Text Color" FontWeight="SemiBold" Margin="0,8,0,2"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBox Grid.Column="0"
+                                                 Text="{Binding SelectedElement[TextColor], UpdateSourceTrigger=PropertyChanged}"
+                                                 Padding="4" BorderThickness="1"/>
+                                        <Button Grid.Column="1" Content="..." Width="30" Margin="4,0,0,0"
+                                                ToolTip="Choose Color"/>
+                                    </Grid>
+
+                                    <CheckBox Content="Bold" Margin="0,8,0,0"
+                                              IsChecked="{Binding SelectedElement[IsBold], FallbackValue=False}"/>
+                                    <CheckBox Content="Italic" Margin="0,4,0,0"
+                                              IsChecked="{Binding SelectedElement[IsItalic], FallbackValue=False}"/>
+                                    <CheckBox Content="Underline" Margin="0,4,0,0"
+                                              IsChecked="{Binding SelectedElement[IsUnderline], FallbackValue=False}"/>
                                 </StackPanel>
                             </Expander>
                         </StackPanel>
