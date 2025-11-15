@@ -181,7 +181,7 @@ public partial class LayoutManagementViewModel : ObservableObject, IDisposable
     {
         try
         {
-            _logger.LogInformation("Opening layout selection dialog");
+            _logger.LogInformation("=== OPEN LAYOUT COMMAND STARTED ===");
             StatusText = "Select a layout to open...";
 
             // Create the layout selection view model
@@ -190,31 +190,47 @@ public partial class LayoutManagementViewModel : ObservableObject, IDisposable
                 Microsoft.Extensions.Logging.LoggerFactory.Create(builder => builder.AddConsole())
                     .CreateLogger<LayoutSelectionViewModel>());
 
+            _logger.LogInformation("Created LayoutSelectionViewModel, showing dialog...");
+
             // Create and show the dialog
             var dialog = new LayoutSelectionDialog(layoutSelectionViewModel);
             var result = dialog.ShowDialog();
 
+            _logger.LogInformation("Dialog closed with result: {Result}", result);
+            _logger.LogInformation("Selected layout: {LayoutName}", layoutSelectionViewModel.SelectedLayout?.Name ?? "NULL");
+
             if (result == true && layoutSelectionViewModel.SelectedLayout != null)
             {
                 var selectedLayout = layoutSelectionViewModel.SelectedLayout;
-                _logger.LogInformation("Loading layout: {LayoutName}", selectedLayout.Name);
+                _logger.LogInformation("✅ Layout selected: {LayoutName} (ID: {LayoutId})", selectedLayout.Name, selectedLayout.Id);
+                _logger.LogInformation("   Elements count: {Count}", selectedLayout.Elements?.Count ?? 0);
+                _logger.LogInformation("   Resolution: {W}x{H}", selectedLayout.Resolution?.Width ?? 0, selectedLayout.Resolution?.Height ?? 0);
 
-                // Load the selected layout into Designer
+                // CRITICAL: Load the selected layout into Designer
+                _logger.LogInformation("🔄 Calling Designer.LoadLayoutAsync()...");
                 await _designer.LoadLayoutAsync(selectedLayout);
+
+                _logger.LogInformation("✅ Designer.LoadLayoutAsync() completed");
+                _logger.LogInformation("   Designer.Elements.Count = {Count}", _designer.Elements.Count);
+                _logger.LogInformation("   Designer.CurrentLayout = {LayoutName}", _designer.CurrentLayout?.Name ?? "NULL");
+
+                // Update CurrentLayout
                 CurrentLayout = selectedLayout;
+                _logger.LogInformation("✅ CurrentLayout updated to: {LayoutName}", CurrentLayout.Name);
 
                 StatusText = $"Loaded layout: {selectedLayout.Name}";
-                _logger.LogInformation("Successfully loaded layout");
+                _logger.LogInformation("=== OPEN LAYOUT COMMAND COMPLETED SUCCESSFULLY ===");
             }
             else
             {
                 StatusText = "Layout selection cancelled";
-                _logger.LogInformation("Layout selection cancelled by user");
+                _logger.LogInformation("Layout selection cancelled by user (result={Result}, selectedLayout={IsNull})",
+                    result, layoutSelectionViewModel.SelectedLayout == null ? "NULL" : "NOT NULL");
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to open layout");
+            _logger.LogError(ex, "❌ FAILED TO OPEN LAYOUT");
             StatusText = $"Error: {ex.Message}";
         }
     }
