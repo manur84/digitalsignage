@@ -517,7 +517,8 @@
                                                                Height="{Binding CurrentLayout.Resolution.Height}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
-                                            <Canvas/>
+                                            <Canvas Width="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    Height="{Binding ActualHeight, RelativeSource={RelativeSource AncestorType=ItemsControl}}"/>
                                         </ItemsPanelTemplate>
                                     </ItemsControl.ItemsPanel>
                                     <ItemsControl.ItemTemplate>
