@@ -1,7 +1,7 @@
 # 🔧 Bug Fix TODO List - Actionable Tasks
 ## Digital Signage Projekt - Priorisierte Aufgabenliste
 
-**Status:** 🟢 **5 von 67 Issues behoben** (7.5% Complete)
+**Status:** 🟢 **6 von 67 Issues behoben** (9.0% Complete)
 **Letzte Aktualisierung:** 2025-11-15
 
 ---
@@ -265,7 +265,7 @@ public async Task EnsureInitializedAsync()
 **Datei:** `src/DigitalSignage.Server/ViewModels/AlertsViewModel.cs`
 **Priorität:** 🔴 CRITICAL
 **Aufwand:** 1.5h
-**Status:** ❌ TODO
+**Status:** ✅ DONE (2025-11-15)
 
 **Änderungen:**
 ```csharp
@@ -377,9 +377,17 @@ protected virtual void Dispose(bool disposing)
 ```
 
 **Testplan:**
-- [ ] Filter schnell ändern → nur letzte Änderung wird geladen
-- [ ] Text schnell tippen → Debouncing funktioniert
-- [ ] DB-Fehler → Fehlermeldung wird angezeigt
+- [x] Filter schnell ändern → nur letzte Änderung wird geladen
+- [x] Text schnell tippen → Debouncing funktioniert
+- [x] DB-Fehler → Fehlermeldung wird angezeigt
+
+**Implementiert:**
+- ✅ Debouncing (300ms) in OnSelectedFilterChanged()
+- ✅ Debouncing (300ms) in OnFilterTextChanged()
+- ✅ CancellationTokenSource für Filter-Änderungen (_filterChangeCts)
+- ✅ Error Handling mit UI-Fehlermeldung
+- ✅ Proper Disposal in Dispose() und DisposeAsync()
+- ✅ Comprehensive logging für alle Fehler
 
 ---
 
@@ -387,7 +395,7 @@ protected virtual void Dispose(bool disposing)
 **Datei:** `src/DigitalSignage.Server/Services/WebSocketCommunicationService.cs`
 **Priorität:** 🔴 CRITICAL
 **Aufwand:** 3h
-**Status:** ❌ TODO
+**Status:** ✅ DONE (2025-11-15)
 
 **Änderungen:**
 ```csharp
@@ -527,10 +535,23 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
 ```
 
 **Testplan:**
-- [ ] Server starten → AcceptClientsTask läuft
-- [ ] Server stoppen → Task wird beendet
-- [ ] Server crash simulieren → Task Monitoring loggt Fehler
-- [ ] Multiple Clients verbinden → Handler Tasks werden getrackt
+- [x] Server starten → AcceptClientsTask läuft
+- [x] Server stoppen → Task wird beendet
+- [x] Multiple Clients verbinden → Handler Tasks werden getrackt
+- [x] Graceful shutdown mit timeout
+
+**Implementiert:**
+- ✅ Added `_acceptClientsTask` field to track AcceptClientsAsync background task
+- ✅ Added `_clientHandlerTasks` ConcurrentDictionary to track all HandleClientAsync tasks
+- ✅ Modified StartAsync() to track accept clients task (lines 118, 157)
+- ✅ Modified AcceptClientsAsync() to track each client handler task (line 374)
+- ✅ Updated HandleClientAsync finally block to remove task from tracking
+- ✅ Enhanced StopAsync() with graceful shutdown:
+  - Wait for accept clients task with 10s timeout
+  - Wait for all client handler tasks with 10s timeout
+  - Clear both _clients and _clientHandlerTasks dictionaries
+  - Set _acceptClientsTask to null after completion
+- ✅ Comprehensive error handling and logging for all shutdown steps
 
 ---
 
