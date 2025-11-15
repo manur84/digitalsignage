@@ -585,75 +585,6 @@ namespace DigitalSignage.Data.Migrations
                     b.ToTable("LayoutSchedules");
                 });
 
-            modelBuilder.Entity("DigitalSignage.Data.Entities.LayoutTemplate", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("BackgroundColor")
-                        .HasMaxLength(20)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("BackgroundImage")
-                        .HasMaxLength(500)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Category")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<int?>("CreatedByUserId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasMaxLength(1000)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("ElementsJson")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<bool>("IsBuiltIn")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("IsPublic")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime?>("LastUsedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("ThumbnailPath")
-                        .HasMaxLength(500)
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("UsageCount")
-                        .HasColumnType("INTEGER");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Category");
-
-                    b.HasIndex("CreatedAt");
-
-                    b.HasIndex("CreatedByUserId");
-
-                    b.HasIndex("IsBuiltIn");
-
-                    b.HasIndex("Name");
-
-                    b.ToTable("LayoutTemplates");
-                });
-
             modelBuilder.Entity("DigitalSignage.Data.Entities.MediaFile", b =>
                 {
                     b.Property<int>("Id")
@@ -940,44 +871,6 @@ namespace DigitalSignage.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("CreatedByUser");
-                });
-
-            modelBuilder.Entity("DigitalSignage.Data.Entities.LayoutTemplate", b =>
-                {
-                    b.HasOne("DigitalSignage.Data.Entities.User", "CreatedByUser")
-                        .WithMany()
-                        .HasForeignKey("CreatedByUserId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.OwnsOne("DigitalSignage.Core.Models.Resolution", "Resolution", b1 =>
-                        {
-                            b1.Property<int>("LayoutTemplateId")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<int>("Height")
-                                .HasColumnType("INTEGER");
-
-                            b1.Property<string>("Orientation")
-                                .IsRequired()
-                                .HasColumnType("TEXT");
-
-                            b1.Property<int>("Width")
-                                .HasColumnType("INTEGER");
-
-                            b1.HasKey("LayoutTemplateId");
-
-                            b1.ToTable("LayoutTemplates");
-
-                            b1.ToJson("Resolution");
-
-                            b1.WithOwner()
-                                .HasForeignKey("LayoutTemplateId");
-                        });
-
-                    b.Navigation("CreatedByUser");
-
-                    b.Navigation("Resolution")
-                        .IsRequired();
                 });
 
             modelBuilder.Entity("DigitalSignage.Data.Entities.MediaFile", b =>
