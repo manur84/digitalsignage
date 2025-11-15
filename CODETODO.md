@@ -544,14 +544,25 @@ Comprehensive implementation status based on project analysis (Updated: 2025-11-
   - ✅ Automatic fallback on connection loss
   - ✅ Cache metadata and statistics
 
-- ❌ 🟡 **TTL for Cache Entries**
-  - Cache aging and automatic cleanup
+- ✅ 🟡 **TTL for Cache Entries** (2025-11-15)
+  - ✅ TTL support in cache_manager.py
+  - ✅ expires_at field in layouts and layout_data tables
+  - ✅ Automatic cleanup of expired entries
+  - ✅ Optional TTL parameter in save_layout()
+  - ✅ Expiration checking in get_current_layout()
+  - ✅ cleanup_expired_entries() method
 
 - ❌ 🟡 **Differential Updates**
   - Transfer only changed data
   - Delta compression
 
-- ❌ 🟡 **gzip Compression** for WebSocket messages
+- ✅ 🟡 **gzip Compression for WebSocket messages** (2025-11-15)
+  - ✅ CompressionHelper with gzip compression/decompression
+  - ✅ Automatic compression for messages >1KB
+  - ✅ Server-side compression in WebSocketCommunicationService
+  - ✅ Client-side decompression in Python client
+  - ✅ Binary message type for compressed data
+  - ✅ Compression ratio logging and statistics
 
 ---
 
@@ -565,9 +576,13 @@ Comprehensive implementation status based on project analysis (Updated: 2025-11-
   - ❌ 🟢 Evaluate CEF (Chromium Embedded Framework)
   - ❌ 🟢 Check Electron alternative
 
-- ❌ 🟡 **Anti-Burn-In Protection**
-  - Pixel-shifting algorithm
-  - Screensaver after inactivity
+- ✅ 🟡 **Anti-Burn-In Protection** (2025-11-15)
+  - ✅ Pixel-shifting algorithm (random offset every 5 minutes)
+  - ✅ Screensaver after configurable inactivity period
+  - ✅ Animated gradient screensaver widget
+  - ✅ Activity tracking from WebSocket messages
+  - ✅ Configurable intervals and shift distances
+  - ✅ Configuration options in config.py
 
 #### System Integration
 - ✅ **systemd Service**
@@ -755,9 +770,13 @@ Comprehensive implementation status based on project analysis (Updated: 2025-11-
 - ✅ **SQL Injection Protection** (parameterization)
 - ✅ **Input Validation** (recently added)
 
-- ❌ 🟡 **Rate Limiting**
-  - Brute-force protection
-  - API request limits
+- ✅ 🟡 **Rate Limiting** (2025-11-15)
+  - ✅ RateLimitingService with configurable limits
+  - ✅ Per-minute and per-hour request limits
+  - ✅ Automatic blocking with exponential backoff
+  - ✅ Integration with AuthenticationService
+  - ✅ API key and username-based rate limiting
+  - ✅ Statistics and monitoring support
 
 ---
 

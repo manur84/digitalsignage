@@ -48,6 +48,7 @@ try:
     logger.info("Testing standard library imports...")
     import json
     import asyncio
+    import gzip
     from datetime import datetime
     from typing import Optional, Dict, Any
     from pathlib import Path
@@ -101,6 +102,7 @@ except ImportError as e:
 try:
     logger.info("Testing local module imports...")
     from display_renderer import DisplayRenderer
+    from burn_in_protection import BurnInProtection
     from device_manager import DeviceManager
     from cache_manager import CacheManager
     from watchdog_monitor import WatchdogMonitor
@@ -130,6 +132,7 @@ class DigitalSignageClient:
         self.cache_manager = CacheManager()
         self.watchdog = WatchdogMonitor(enable=True)
         self.display_renderer: Optional[DisplayRenderer] = None
+        self.burn_in_protection: Optional[BurnInProtection] = None
         self.current_layout: Optional[Dict[str, Any]] = None
         self.connected = False
         self.offline_mode = False
@@ -235,7 +238,26 @@ class DigitalSignageClient:
     def on_message(self, ws, message):
         """WebSocket message received"""
         try:
-            data = json.loads(message)
+            # Check if message is binary (compressed)
+            if isinstance(message, bytes):
+                # Check for gzip header (0x1F 0x8B)
+                if len(message) >= 2 and message[0] == 0x1F and message[1] == 0x8B:
+                    # Decompress gzip data
+                    try:
+                        decompressed = gzip.decompress(message)
+                        message_str = decompressed.decode('utf-8')
+                        logger.debug(f"Decompressed message: {len(message)} → {len(decompressed)} bytes")
+                    except Exception as e:
+                        logger.error(f"Failed to decompress message: {e}")
+                        return
+                else:
+                    # Binary but not compressed, decode as UTF-8
+                    message_str = message.decode('utf-8')
+            else:
+                # Text message
+                message_str = message
+
+            data = json.loads(message_str)
             # Schedule message handling in asyncio loop
             future = asyncio.run_coroutine_threadsafe(
                 self.handle_message(data),
@@ -441,6 +463,10 @@ class DigitalSignageClient:
             message_type = data.get("Type")
 
             logger.info(f"Received message: {message_type}")
+
+            # Report activity to burn-in protection
+            if self.burn_in_protection:
+                self.burn_in_protection.report_activity()
 
             if message_type == "REGISTRATION_RESPONSE":
                 await self.handle_registration_response(data)
@@ -1384,6 +1410,20 @@ def main():
         # Create display renderer
         client.display_renderer = DisplayRenderer(fullscreen=config.fullscreen)
         client.display_renderer.show()
+
+        # Initialize burn-in protection if enabled
+        if config.burn_in_protection_enabled:
+            logger.info("Initializing anti-burn-in protection...")
+            client.burn_in_protection = BurnInProtection(
+                widget=client.display_renderer,
+                enabled=True,
+                pixel_shift_interval=config.burn_in_pixel_shift_interval,
+                pixel_shift_max=config.burn_in_pixel_shift_max,
+                screensaver_timeout=config.burn_in_screensaver_timeout
+            )
+            logger.info("Anti-burn-in protection initialized")
+        else:
+            logger.info("Anti-burn-in protection disabled in configuration")
 
         # CRITICAL FIX: Force window to front after creation (especially important after boot)
         # Problem: PyQt5 window may be created but not visible on HDMI after reboot

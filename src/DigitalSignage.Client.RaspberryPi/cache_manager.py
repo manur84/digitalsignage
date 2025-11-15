@@ -9,7 +9,7 @@ import sqlite3
 import logging
 from pathlib import Path
 from typing import Optional, Dict, Any, Tuple, List
-from datetime import datetime
+from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +54,7 @@ class CacheManager:
                     name TEXT,
                     layout_json TEXT NOT NULL,
                     cached_at TEXT NOT NULL,
+                    expires_at TEXT,
                     is_current INTEGER DEFAULT 0
                 )
             """)
@@ -65,6 +66,7 @@ class CacheManager:
                     data_source_id TEXT NOT NULL,
                     data_json TEXT NOT NULL,
                     cached_at TEXT NOT NULL,
+                    expires_at TEXT,
                     PRIMARY KEY (layout_id, data_source_id)
                 )
             """)
@@ -90,7 +92,8 @@ class CacheManager:
         self,
         layout: Dict[str, Any],
         layout_data: Optional[Dict[str, Any]] = None,
-        set_current: bool = True
+        set_current: bool = True,
+        ttl_seconds: Optional[int] = None
     ) -> bool:
         """
         Save layout and data to cache
@@ -99,6 +102,7 @@ class CacheManager:
             layout: Layout dictionary
             layout_data: Layout data dictionary (data source ID -> data)
             set_current: Mark this layout as the current active layout
+            ttl_seconds: Time-to-live in seconds (None = never expire)
 
         Returns:
             True if successful, False otherwise
@@ -117,6 +121,12 @@ class CacheManager:
             layout_json = json.dumps(layout)
             cached_at = datetime.utcnow().isoformat()
 
+            # Calculate expiration time if TTL is provided
+            expires_at = None
+            if ttl_seconds is not None and ttl_seconds > 0:
+                expires_at = (datetime.utcnow() + timedelta(seconds=ttl_seconds)).isoformat()
+                logger.debug(f"Cache entry will expire at {expires_at} (TTL: {ttl_seconds}s)")
+
             conn = sqlite3.connect(str(self.db_path))
             cursor = conn.cursor()
 
@@ -126,9 +136,9 @@ class CacheManager:
 
             # Insert or replace layout
             cursor.execute("""
-                INSERT OR REPLACE INTO layouts (id, name, layout_json, cached_at, is_current)
-                VALUES (?, ?, ?, ?, ?)
-            """, (layout_id, layout_name, layout_json, cached_at, 1 if set_current else 0))
+                INSERT OR REPLACE INTO layouts (id, name, layout_json, cached_at, expires_at, is_current)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (layout_id, layout_name, layout_json, cached_at, expires_at, 1 if set_current else 0))
 
             # Save layout data if provided
             if layout_data:
@@ -136,9 +146,9 @@ class CacheManager:
                     try:
                         data_json = json.dumps(data)
                         cursor.execute("""
-                            INSERT OR REPLACE INTO layout_data (layout_id, data_source_id, data_json, cached_at)
-                            VALUES (?, ?, ?, ?)
-                        """, (layout_id, data_source_id, data_json, cached_at))
+                            INSERT OR REPLACE INTO layout_data (layout_id, data_source_id, data_json, cached_at, expires_at)
+                            VALUES (?, ?, ?, ?, ?)
+                        """, (layout_id, data_source_id, data_json, cached_at, expires_at))
                     except Exception as e:
                         logger.warning(f"Failed to cache data for source {data_source_id}: {e}")
 
@@ -152,25 +162,71 @@ class CacheManager:
             logger.error(f"Failed to save layout to cache: {e}", exc_info=True)
             return False
 
-    def get_current_layout(self) -> Optional[Tuple[Dict[str, Any], Dict[str, Any]]]:
+    def cleanup_expired_entries(self) -> int:
         """
-        Get the current active layout and its data from cache
+        Remove expired cache entries based on TTL
 
         Returns:
-            Tuple of (layout, layout_data) or None if no cached layout exists
+            Number of entries removed
         """
         try:
             conn = sqlite3.connect(str(self.db_path))
             cursor = conn.cursor()
 
-            # Get current layout
+            now = datetime.utcnow().isoformat()
+
+            # Remove expired layouts
+            cursor.execute("""
+                DELETE FROM layouts
+                WHERE expires_at IS NOT NULL AND expires_at < ?
+            """, (now,))
+            expired_layouts = cursor.rowcount
+
+            # Remove expired layout data
+            cursor.execute("""
+                DELETE FROM layout_data
+                WHERE expires_at IS NOT NULL AND expires_at < ?
+            """, (now,))
+            expired_data = cursor.rowcount
+
+            conn.commit()
+            conn.close()
+
+            total_expired = expired_layouts + expired_data
+            if total_expired > 0:
+                logger.info(f"Cleaned up {expired_layouts} expired layouts and {expired_data} expired data entries")
+
+            return total_expired
+
+        except Exception as e:
+            logger.error(f"Failed to cleanup expired entries: {e}", exc_info=True)
+            return 0
+
+    def get_current_layout(self) -> Optional[Tuple[Dict[str, Any], Dict[str, Any]]]:
+        """
+        Get the current active layout and its data from cache
+        Automatically removes expired entries before retrieval
+
+        Returns:
+            Tuple of (layout, layout_data) or None if no cached layout exists
+        """
+        try:
+            # Cleanup expired entries first
+            self.cleanup_expired_entries()
+
+            conn = sqlite3.connect(str(self.db_path))
+            cursor = conn.cursor()
+
+            # Get current layout (not expired)
+            now = datetime.utcnow().isoformat()
             cursor.execute("""
                 SELECT id, layout_json, cached_at
                 FROM layouts
                 WHERE is_current = 1
+                  AND (expires_at IS NULL OR expires_at > ?)
                 ORDER BY cached_at DESC
                 LIMIT 1
-            """)
+            """, (now,))
 
             row = cursor.fetchone()
             if not row:

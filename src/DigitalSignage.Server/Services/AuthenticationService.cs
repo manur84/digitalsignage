@@ -15,11 +15,13 @@ public class AuthenticationService : IAuthenticationService
 {
     private readonly DigitalSignageDbContext _dbContext;
     private readonly ILogger _logger;
+    private readonly RateLimitingService? _rateLimitingService;
 
-    public AuthenticationService(DigitalSignageDbContext dbContext)
+    public AuthenticationService(DigitalSignageDbContext dbContext, RateLimitingService? rateLimitingService = null)
     {
         _dbContext = dbContext;
         _logger = Log.ForContext<AuthenticationService>();
+        _rateLimitingService = rateLimitingService;
     }
 
     public async Task<AuthenticationResult> AuthenticateAsync(
@@ -29,6 +31,17 @@ public class AuthenticationService : IAuthenticationService
     {
         try
         {
+            // Check rate limiting for username
+            if (_rateLimitingService != null && !_rateLimitingService.IsRequestAllowed($"auth_user:{username}"))
+            {
+                _logger.Warning("Authentication rate limit exceeded for user {Username}", username);
+                return new AuthenticationResult
+                {
+                    Success = false,
+                    ErrorMessage = "Too many authentication attempts. Please try again later."
+                };
+            }
+
             var user = await _dbContext.Users
                 .FirstOrDefaultAsync(u => u.Username == username && u.IsActive, cancellationToken);
 
@@ -83,7 +96,17 @@ public class AuthenticationService : IAuthenticationService
     {
         try
         {
+            // Check rate limiting for API key (use hash as identifier to prevent log spam)
             var keyHash = HashApiKey(apiKey);
+            if (_rateLimitingService != null && !_rateLimitingService.IsRequestAllowed($"api_key:{keyHash[..12]}"))
+            {
+                _logger.Warning("API key validation rate limit exceeded");
+                return new ApiKeyValidationResult
+                {
+                    IsValid = false,
+                    ErrorMessage = "Too many API requests. Please try again later."
+                };
+            }
 
             var apiKeyEntity = await _dbContext.ApiKeys
                 .Include(ak => ak.User)

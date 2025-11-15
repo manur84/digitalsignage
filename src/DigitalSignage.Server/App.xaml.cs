@@ -174,6 +174,7 @@ public partial class App : Application
                 services.AddSingleton<NetworkScannerService>();
                 services.AddSingleton<SystemDiagnosticsService>();
                 services.AddSingleton<ThemeService>();
+                services.AddSingleton<RateLimitingService>();
 
                 // SQL Data Source Services
                 services.AddSingleton<ISqlDataSourceService, SqlDataSourceService>();

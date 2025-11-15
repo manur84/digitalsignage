@@ -7,6 +7,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Collections.Concurrent;
 using System.IO;
+using System.IO.Compression;
 using System.Net;
 using System.Net.Sockets;
 using System.Net.WebSockets;
@@ -21,6 +22,7 @@ public class WebSocketCommunicationService : ICommunicationService
     private readonly ServerSettings _settings;
     private HttpListener? _httpListener;
     private CancellationTokenSource? _cancellationTokenSource;
+    private bool _enableCompression = true; // Enable gzip compression for large messages
 
     // CRITICAL FIX: JSON serializer settings to prevent string truncation
     // Problem: Default Newtonsoft.Json settings were truncating hex color values (#ADD8E6 → #ADD8)
@@ -198,13 +200,37 @@ public class WebSocketCommunicationService : ICommunicationService
 
                 var json = JsonConvert.SerializeObject(message, _jsonSettings);
                 var bytes = Encoding.UTF8.GetBytes(json);
+
+                // Apply compression if enabled and message is large enough
+                byte[] dataToSend = bytes;
+                bool compressed = false;
+                if (_enableCompression && CompressionHelper.ShouldCompress(bytes.Length))
+                {
+                    var compressedBytes = CompressionHelper.Compress(bytes);
+                    if (compressedBytes.Length < bytes.Length) // Only use if actually smaller
+                    {
+                        dataToSend = compressedBytes;
+                        compressed = true;
+                        _logger.LogDebug(
+                            "Compressed message: {OriginalSize} → {CompressedSize} bytes ({Ratio:P1})",
+                            bytes.Length,
+                            compressedBytes.Length,
+                            CompressionHelper.CalculateCompressionRatio(bytes.Length, compressedBytes.Length));
+                    }
+                }
+
+                // Use Binary message type if compressed, Text if not
+                var messageType = compressed ? WebSocketMessageType.Binary : WebSocketMessageType.Text;
+
                 await socket.SendAsync(
-                    new ArraySegment<byte>(bytes),
-                    WebSocketMessageType.Text,
+                    new ArraySegment<byte>(dataToSend),
+                    messageType,
                     true,
                     cancellationToken);
 
-                _logger.LogDebug("Sent {MessageType} to client {ClientId}", message.Type, clientId);
+                _logger.LogDebug(
+                    "Sent {MessageType} to client {ClientId} ({Size} bytes, compressed: {Compressed})",
+                    message.Type, clientId, dataToSend.Length, compressed);
             }
             catch (Exception ex)
             {
@@ -223,10 +249,29 @@ public class WebSocketCommunicationService : ICommunicationService
         var json = JsonConvert.SerializeObject(message, _jsonSettings);
         var bytes = Encoding.UTF8.GetBytes(json);
 
+        // Apply compression if enabled and message is large enough
+        byte[] dataToSend = bytes;
+        WebSocketMessageType messageType = WebSocketMessageType.Text;
+
+        if (_enableCompression && CompressionHelper.ShouldCompress(bytes.Length))
+        {
+            var compressedBytes = CompressionHelper.Compress(bytes);
+            if (compressedBytes.Length < bytes.Length)
+            {
+                dataToSend = compressedBytes;
+                messageType = WebSocketMessageType.Binary;
+                _logger.LogDebug(
+                    "Broadcast compressed: {OriginalSize} → {CompressedSize} bytes ({Ratio:P1})",
+                    bytes.Length,
+                    compressedBytes.Length,
+                    CompressionHelper.CalculateCompressionRatio(bytes.Length, compressedBytes.Length));
+            }
+        }
+
         var tasks = _clients.Values.Select(socket =>
             socket.SendAsync(
-                new ArraySegment<byte>(bytes),
-                WebSocketMessageType.Text,
+                new ArraySegment<byte>(dataToSend),
+                messageType,
                 true,
                 cancellationToken));
 

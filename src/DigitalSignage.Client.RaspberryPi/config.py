@@ -30,6 +30,12 @@ class Config:
     remote_logging_batch_interval: float = 5.0  # Batch interval in seconds
     show_cached_layout_on_disconnect: bool = True  # Show cached layout when disconnected (True) or show reconnect status (False)
 
+    # Anti-Burn-In Protection
+    burn_in_protection_enabled: bool = True  # Enable anti-burn-in protection
+    burn_in_pixel_shift_interval: int = 300  # Pixel shift interval in seconds (5 minutes)
+    burn_in_pixel_shift_max: int = 5  # Maximum pixel shift distance
+    burn_in_screensaver_timeout: int = 3600  # Screensaver timeout in seconds (1 hour)
+
     def get_server_url(self) -> str:
         """Get the full server URL based on SSL configuration including endpoint path"""
         protocol = "https" if self.use_ssl else "http"
@@ -72,7 +78,11 @@ class Config:
                     'remote_logging_level': 'INFO',
                     'remote_logging_batch_size': 50,
                     'remote_logging_batch_interval': 5.0,
-                    'show_cached_layout_on_disconnect': True
+                    'show_cached_layout_on_disconnect': True,
+                    'burn_in_protection_enabled': True,
+                    'burn_in_pixel_shift_interval': 300,
+                    'burn_in_pixel_shift_max': 5,
+                    'burn_in_screensaver_timeout': 3600
                 }
 
                 # Merge defaults with loaded data (loaded data takes precedence)
