@@ -609,15 +609,31 @@
                                     </ItemsControl.ItemContainerStyle>
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <!-- Use DesignerItemControl for professional rendering -->
-                                            <controls:DesignerItemControl
+                                            <!-- DEBUG: Wrapped in visible border to see if elements are rendering -->
+                                            <Border Background="Yellow"
+                                                    BorderBrush="Blue"
+                                                    BorderThickness="2"
+                                                    Width="{Binding Size.Width}"
+                                                    Height="{Binding Size.Height}">
+                                                <StackPanel>
+                                                    <TextBlock Text="{Binding Name}"
+                                                               Foreground="Black"
+                                                               FontWeight="Bold"
+                                                               FontSize="16"/>
+                                                    <TextBlock Text="{Binding Type}"
+                                                               Foreground="DarkBlue"
+                                                               FontSize="12"/>
+                                                </StackPanel>
+                                            </Border>
+                                            <!-- Original DesignerItemControl (commented out for debug) -->
+                                            <!--<controls:DesignerItemControl
                                                 DisplayElement="{Binding}"
                                                 IsSelected="{Binding IsSelected}"
                                                 Tag="{Binding}"
                                                 Cursor="Hand"
                                                 MouseLeftButtonDown="Element_MouseLeftButtonDown"
                                                 MouseMove="Element_MouseMove"
-                                                MouseLeftButtonUp="Element_MouseLeftButtonUp"/>
+                                                MouseLeftButtonUp="Element_MouseLeftButtonUp"/>-->
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
