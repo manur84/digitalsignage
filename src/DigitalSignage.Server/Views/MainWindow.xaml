@@ -580,6 +580,12 @@
 
                                 <!-- Render all elements using DesignerItemControl (professional WYSIWYG rendering) -->
                                 <ItemsControl ItemsSource="{Binding Designer.Elements}">
+                                    <!-- CRITICAL FIX: ItemsPanel MUST be Canvas for Canvas.Left/Top/ZIndex to work! -->
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <Canvas/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
                                     <ItemsControl.ItemContainerStyle>
                                         <Style TargetType="ContentPresenter">
                                             <!-- CRITICAL: Bind Canvas position to element Position properties -->
