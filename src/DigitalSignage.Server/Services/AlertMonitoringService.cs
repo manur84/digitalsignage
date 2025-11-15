@@ -24,6 +24,11 @@ public class AlertMonitoringService : BackgroundService
     {
         _logger.LogInformation("Alert Monitoring Service started");
 
+        // Wait for database initialization to complete
+        _logger.LogInformation("Waiting 15 seconds for database initialization...");
+        await Task.Delay(TimeSpan.FromSeconds(15), stoppingToken);
+        _logger.LogInformation("Starting alert monitoring");
+
         while (!stoppingToken.IsCancellationRequested)
         {
             try

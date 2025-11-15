@@ -28,8 +28,10 @@ public class HeartbeatMonitoringService : BackgroundService
         _logger.LogInformation("Heartbeat Monitoring Service starting with {Interval}s check interval and {Timeout}s timeout",
             _checkInterval.TotalSeconds, _heartbeatTimeout.TotalSeconds);
 
-        // Wait a bit for the application to fully start
-        await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
+        // Wait for database initialization to complete
+        _logger.LogInformation("Waiting 15 seconds for database initialization...");
+        await Task.Delay(TimeSpan.FromSeconds(15), stoppingToken);
+        _logger.LogInformation("Starting heartbeat monitoring");
 
         while (!stoppingToken.IsCancellationRequested)
         {

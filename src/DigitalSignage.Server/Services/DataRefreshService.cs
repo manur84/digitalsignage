@@ -36,6 +36,11 @@ public class DataRefreshService : BackgroundService
     {
         _logger.LogInformation("DataRefreshService started");
 
+        // Wait for database initialization to complete
+        _logger.LogInformation("Waiting 15 seconds for database initialization...");
+        await Task.Delay(TimeSpan.FromSeconds(15), stoppingToken);
+        _logger.LogInformation("Starting data refresh monitoring");
+
         // Main loop to check for clients that need data refresh
         while (!stoppingToken.IsCancellationRequested)
         {
