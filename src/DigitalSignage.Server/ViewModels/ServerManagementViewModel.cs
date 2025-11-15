@@ -193,10 +193,17 @@ public partial class ServerManagementViewModel : ObservableObject, IDisposable
 
         try
         {
-            await _clientService.RemoveClientAsync(SelectedClient.Id);
-            Clients.Remove(SelectedClient);
-            StatusText = $"Removed client: {SelectedClient.Name}";
-            SelectedClient = null;
+            var result = await _clientService.RemoveClientAsync(SelectedClient.Id);
+            if (result.IsSuccess)
+            {
+                Clients.Remove(SelectedClient);
+                StatusText = $"Removed client: {SelectedClient.Name}";
+                SelectedClient = null;
+            }
+            else
+            {
+                StatusText = $"Failed to remove client: {result.Error}";
+            }
         }
         catch (Exception ex)
         {

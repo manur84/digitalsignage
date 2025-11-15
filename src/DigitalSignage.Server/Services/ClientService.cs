@@ -427,7 +427,7 @@ public class ClientService : IClientService
         }
     }
 
-    public async Task UpdateClientStatusAsync(
+    public async Task<Result> UpdateClientStatusAsync(
         string clientId,
         ClientStatus status,
         DeviceInfo? deviceInfo = null,
@@ -436,43 +436,40 @@ public class ClientService : IClientService
         if (string.IsNullOrWhiteSpace(clientId))
         {
             _logger.LogWarning("UpdateClientStatusAsync called with null or empty clientId");
-            return;
+            return Result.Failure("Client ID cannot be empty.");
         }
 
         if (_clients.TryGetValue(clientId, out var client))
         {
-            var oldStatus = client.Status;
-            client.Status = status;
-            client.LastSeen = DateTime.UtcNow;
-            if (deviceInfo != null)
-            {
-                client.DeviceInfo = deviceInfo;
-            }
-
-            _logger.LogDebug("Updated client {ClientId} status to {Status}", clientId, status);
-
-            // Raise events if status changed
-            if (oldStatus != status)
-            {
-                ClientStatusChanged?.Invoke(this, clientId);
-                _logger.LogDebug("Raised ClientStatusChanged event for {ClientId}: {OldStatus} -> {NewStatus}", clientId, oldStatus, status);
-
-                // Raise specific connect/disconnect events
-                if (status == ClientStatus.Online && oldStatus == ClientStatus.Offline)
-                {
-                    ClientConnected?.Invoke(this, clientId);
-                    _logger.LogDebug("Raised ClientConnected event for {ClientId}", clientId);
-                }
-                else if (status == ClientStatus.Offline && oldStatus == ClientStatus.Online)
-                {
-                    ClientDisconnected?.Invoke(this, clientId);
-                    _logger.LogDebug("Raised ClientDisconnected event for {ClientId}", clientId);
-                }
-            }
-
-            // Update in database - await instead of fire-and-forget
             try
             {
+                var oldStatus = client.Status;
+                client.Status = status;
+                client.LastSeen = DateTime.UtcNow;
+                if (deviceInfo != null)
+                {
+                    client.DeviceInfo = deviceInfo;
+                }
+
+                _logger.LogDebug("Updated client {ClientId} status to {Status}", clientId, status);
+
+                if (oldStatus != status)
+                {
+                    ClientStatusChanged?.Invoke(this, clientId);
+                    _logger.LogDebug("Raised ClientStatusChanged event for {ClientId}: {OldStatus} -> {NewStatus}", clientId, oldStatus, status);
+
+                    if (status == ClientStatus.Online && oldStatus == ClientStatus.Offline)
+                    {
+                        ClientConnected?.Invoke(this, clientId);
+                        _logger.LogDebug("Raised ClientConnected event for {ClientId}", clientId);
+                    }
+                    else if (status == ClientStatus.Offline && oldStatus == ClientStatus.Online)
+                    {
+                        ClientDisconnected?.Invoke(this, clientId);
+                        _logger.LogDebug("Raised ClientDisconnected event for {ClientId}", clientId);
+                    }
+                }
+
                 using var scope = _serviceProvider.CreateScope();
                 var dbContext = scope.ServiceProvider.GetRequiredService<DigitalSignageDbContext>();
 
@@ -487,19 +484,20 @@ public class ClientService : IClientService
                     }
                     await dbContext.SaveChangesAsync(cancellationToken);
                 }
+
+                return Result.Success($"Client {clientId} status updated to {status}.");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to update client {ClientId} status in database", clientId);
+                return Result.Failure($"Failed to update client status: {ex.Message}");
             }
         }
-        else
-        {
-            _logger.LogWarning("Client {ClientId} not found for status update", clientId);
-        }
+        _logger.LogWarning("Client {ClientId} not found for status update", clientId);
+        return Result.Failure($"Client '{clientId}' not found.");
     }
 
-    public async Task<bool> SendCommandAsync(
+    public async Task<Result> SendCommandAsync(
         string clientId,
         string command,
         Dictionary<string, object>? parameters = null,
@@ -508,19 +506,19 @@ public class ClientService : IClientService
         if (string.IsNullOrWhiteSpace(clientId))
         {
             _logger.LogWarning("SendCommandAsync called with null or empty clientId");
-            return false;
+            return Result.Failure("Client ID cannot be empty.");
         }
 
         if (string.IsNullOrWhiteSpace(command))
         {
             _logger.LogWarning("SendCommandAsync called with null or empty command");
-            return false;
+            return Result.Failure("Command cannot be empty.");
         }
 
         if (!_clients.ContainsKey(clientId))
         {
             _logger.LogWarning("Client {ClientId} not found for command {Command}", clientId, command);
-            return false;
+            return Result.Failure($"Client '{clientId}' not found.");
         }
 
         var commandMessage = new CommandMessage
@@ -533,16 +531,16 @@ public class ClientService : IClientService
         {
             await _communicationService.SendMessageAsync(clientId, commandMessage, cancellationToken);
             _logger.LogInformation("Sent command {Command} to client {ClientId}", command, clientId);
-            return true;
+            return Result.Success($"Command '{command}' sent to client {clientId}.");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to send command {Command} to client {ClientId}", command, clientId);
-            return false;
+            return Result.Failure($"Failed to send command: {ex.Message}");
         }
     }
 
-    public async Task<bool> AssignLayoutAsync(
+    public async Task<Result> AssignLayoutAsync(
         string clientId,
         string layoutId,
         CancellationToken cancellationToken = default)
@@ -550,13 +548,13 @@ public class ClientService : IClientService
         if (string.IsNullOrWhiteSpace(clientId))
         {
             _logger.LogWarning("AssignLayoutAsync called with null or empty clientId");
-            return false;
+            return Result.Failure("Client ID cannot be empty.");
         }
 
         if (string.IsNullOrWhiteSpace(layoutId))
         {
             _logger.LogWarning("AssignLayoutAsync called with null or empty layoutId");
-            return false;
+            return Result.Failure("Layout ID cannot be empty.");
         }
 
         if (_clients.TryGetValue(clientId, out var client))
@@ -583,11 +581,17 @@ public class ClientService : IClientService
             }
 
             // Send layout update to client
-            return await SendLayoutToClientAsync(clientId, layoutId, cancellationToken);
+            var layoutSent = await SendLayoutToClientAsync(clientId, layoutId, cancellationToken);
+            if (layoutSent)
+            {
+                return Result.Success($"Layout '{layoutId}' assigned to client {clientId}.");
+            }
+
+            return Result.Failure("Failed to send layout to client.");
         }
 
         _logger.LogWarning("Client {ClientId} not found for layout assignment", clientId);
-        return false;
+        return Result.Failure($"Client '{clientId}' not found.");
     }
 
     private async Task<bool> SendLayoutToClientAsync(
@@ -739,25 +743,25 @@ public class ClientService : IClientService
         }
     }
 
-    public Task<bool> RemoveClientAsync(string clientId, CancellationToken cancellationToken = default)
+    public Task<Result> RemoveClientAsync(string clientId, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(clientId))
         {
             _logger.LogWarning("RemoveClientAsync called with null or empty clientId");
-            return Task.FromResult(false);
+            return Task.FromResult(Result.Failure("Client ID cannot be empty."));
         }
 
         if (_clients.TryRemove(clientId, out _))
         {
             _logger.LogInformation("Removed client {ClientId}", clientId);
-            return Task.FromResult(true);
+            return Task.FromResult(Result.Success($"Client '{clientId}' removed."));
         }
 
         _logger.LogWarning("Client {ClientId} not found for removal", clientId);
-        return Task.FromResult(false);
+        return Task.FromResult(Result.Failure($"Client '{clientId}' not found."));
     }
 
-    public async Task<bool> UpdateClientConfigAsync(
+    public async Task<Result> UpdateClientConfigAsync(
         string clientId,
         UpdateConfigMessage config,
         CancellationToken cancellationToken = default)
@@ -765,19 +769,19 @@ public class ClientService : IClientService
         if (string.IsNullOrWhiteSpace(clientId))
         {
             _logger.LogWarning("UpdateClientConfigAsync called with null or empty clientId");
-            return false;
+            return Result.Failure("Client ID cannot be empty.");
         }
 
         if (config == null)
         {
             _logger.LogWarning("UpdateClientConfigAsync called with null config");
-            return false;
+            return Result.Failure("Configuration payload cannot be null.");
         }
 
         if (!_clients.ContainsKey(clientId))
         {
             _logger.LogWarning("Client {ClientId} not found for config update", clientId);
-            return false;
+            return Result.Failure($"Client '{clientId}' not found.");
         }
 
         try
@@ -785,12 +789,12 @@ public class ClientService : IClientService
             await _communicationService.SendMessageAsync(clientId, config, cancellationToken);
             _logger.LogInformation("Sent UPDATE_CONFIG to client {ClientId} (Host: {Host}, Port: {Port})",
                 clientId, config.ServerHost, config.ServerPort);
-            return true;
+            return Result.Success($"Configuration updated on client {clientId}.");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to send UPDATE_CONFIG to client {ClientId}", clientId);
-            return false;
+            return Result.Failure($"Failed to send configuration: {ex.Message}");
         }
     }
 

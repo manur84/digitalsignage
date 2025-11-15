@@ -262,10 +262,16 @@ public partial class DiscoveredDevicesViewModel : ObservableObject, IDisposable
                     var registeredClient = await _clientService.RegisterClientAsync(registerMessage);
 
                     // Update client properties that couldn't be set in RegisterMessage
-                    await _clientService.UpdateClientStatusAsync(
+                    var statusResult = await _clientService.UpdateClientStatusAsync(
                         registeredClient.Id,
                         ClientStatus.Offline,
                         registeredClient.DeviceInfo);
+
+                    if (!statusResult.IsSuccess)
+                    {
+                        _logger.LogWarning("Failed to set registered client {ClientId} offline: {Error}",
+                            registeredClient.Id, statusResult.Error);
+                    }
 
                     // Remove from discovered devices
                     _scannerService.RemoveDiscoveredDevice(SelectedDiscoveredDevice.IpAddress);

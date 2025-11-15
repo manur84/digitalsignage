@@ -94,11 +94,19 @@ public class MessageHandlerService : BackgroundService
         {
             _logger.LogInformation("Client {ClientId} disconnected from WebSocket - marking as offline", e.ClientId);
 
-            await _clientService.UpdateClientStatusAsync(
+            var result = await _clientService.UpdateClientStatusAsync(
                 e.ClientId,
                 ClientStatus.Offline);
 
-            _logger.LogInformation("Client {ClientId} status updated to Offline", e.ClientId);
+            if (result.IsSuccess)
+            {
+                _logger.LogInformation("Client {ClientId} status updated to Offline", e.ClientId);
+            }
+            else
+            {
+                _logger.LogWarning("Failed to update status for disconnected client {ClientId}: {Error}",
+                    e.ClientId, result.Error);
+            }
         }
         catch (Exception ex)
         {
@@ -166,12 +174,20 @@ public class MessageHandlerService : BackgroundService
             var heartbeatMessage = DeserializeMessage<HeartbeatMessage>(message);
             if (heartbeatMessage != null)
             {
-                await _clientService.UpdateClientStatusAsync(
+                var result = await _clientService.UpdateClientStatusAsync(
                     heartbeatMessage.ClientId,
                     heartbeatMessage.Status,
                     heartbeatMessage.DeviceInfo);
 
-                _logger.LogDebug("Heartbeat received from client {ClientId}", heartbeatMessage.ClientId);
+                if (result.IsSuccess)
+                {
+                    _logger.LogDebug("Heartbeat received from client {ClientId}", heartbeatMessage.ClientId);
+                }
+                else
+                {
+                    _logger.LogWarning("Failed to update heartbeat status for {ClientId}: {Error}",
+                        heartbeatMessage.ClientId, result.Error);
+                }
             }
         }
         catch (Exception ex)
@@ -187,10 +203,16 @@ public class MessageHandlerService : BackgroundService
             var statusMessage = DeserializeMessage<StatusReportMessage>(message);
             if (statusMessage != null)
             {
-                await _clientService.UpdateClientStatusAsync(
+                var result = await _clientService.UpdateClientStatusAsync(
                     statusMessage.ClientId,
                     statusMessage.Status,
                     statusMessage.DeviceInfo);
+
+                if (!result.IsSuccess)
+                {
+                    _logger.LogWarning("Failed to update status report for {ClientId}: {Error}",
+                        statusMessage.ClientId, result.Error);
+                }
 
                 if (!string.IsNullOrEmpty(statusMessage.ErrorMessage))
                 {

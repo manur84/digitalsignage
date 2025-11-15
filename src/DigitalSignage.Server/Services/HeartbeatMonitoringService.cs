@@ -84,10 +84,16 @@ public class HeartbeatMonitoringService : BackgroundService
                     _logger.LogWarning("Client {ClientId} timed out (last seen {TimeSinceLastSeen:F1}s ago), marking as offline",
                         client.Id, timeSinceLastSeen.TotalSeconds);
 
-                    await _clientService.UpdateClientStatusAsync(
+                    var result = await _clientService.UpdateClientStatusAsync(
                         client.Id,
                         ClientStatus.Offline,
                         cancellationToken: cancellationToken);
+
+                    if (!result.IsSuccess)
+                    {
+                        _logger.LogWarning("Failed to mark client {ClientId} offline: {Error}",
+                            client.Id, result.Error);
+                    }
 
                     offlineCount++;
                 }
