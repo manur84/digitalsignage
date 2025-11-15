@@ -10,7 +10,7 @@
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
         <converters:InverseBooleanConverter x:Key="InverseBool"/>
-        <converters:BoolToVisibilityConverter x:Key="InverseBoolToVis"/>
+        <converters:InverseBoolToVisibilityConverter x:Key="InverseBoolToVis"/>
     </UserControl.Resources>
 
     <Grid>
@@ -108,6 +108,7 @@
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
 
                             <TextBlock Grid.Row="0" Text="1. Database Connection" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,12"/>
@@ -129,9 +130,9 @@
 
                                     <!-- Auth Type -->
                                     <TextBlock Text="Authentication:" Margin="0,0,0,4"/>
-                                    <ComboBox SelectedValue="{Binding AuthType}" Margin="0,0,0,12">
-                                        <ComboBoxItem Content="Windows Authentication" Tag="WindowsAuthentication"/>
-                                        <ComboBoxItem Content="SQL Server Authentication" Tag="SqlServerAuthentication"/>
+                                    <ComboBox x:Name="AuthTypeComboBox" SelectedIndex="0" SelectionChanged="AuthTypeComboBox_SelectionChanged" Margin="0,0,0,12">
+                                        <ComboBoxItem Content="Windows Authentication"/>
+                                        <ComboBoxItem Content="SQL Server Authentication"/>
                                     </ComboBox>
                                 </StackPanel>
 
@@ -141,18 +142,25 @@
                                     <TextBox Text="{Binding Port, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,12"/>
 
                                     <!-- Username (conditional) -->
-                                    <TextBlock Text="Username:" Margin="0,0,0,4"/>
-                                    <TextBox Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,12"/>
+                                    <TextBlock Text="Username:" Margin="0,0,0,4"
+                                               IsEnabled="{Binding ElementName=AuthTypeComboBox, Path=SelectedIndex}"/>
+                                    <TextBox x:Name="UsernameTextBox" Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}"
+                                             Margin="0,0,0,12"/>
 
                                     <!-- Password (conditional) -->
-                                    <TextBlock Text="Password:" Margin="0,0,0,4"/>
-                                    <PasswordBox x:Name="PasswordBox" Margin="0,0,0,12"/>
+                                    <TextBlock Text="Password:" Margin="0,0,0,4"
+                                               IsEnabled="{Binding ElementName=AuthTypeComboBox, Path=SelectedIndex}"/>
+                                    <PasswordBox x:Name="PasswordBox" PasswordChanged="PasswordBox_PasswordChanged"
+                                                 Margin="0,0,0,12"/>
                                 </StackPanel>
                             </Grid>
 
                             <!-- Connection Status & Buttons -->
-                            <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,12,0,0" HorizontalAlignment="Right">
+                            <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,12,0,0" HorizontalAlignment="Right">
                                 <TextBlock Text="{Binding ConnectionStatus}" VerticalAlignment="Center" Margin="0,0,12,0" FontWeight="SemiBold"/>
+                                <Button Content="Test Connection" Command="{Binding TestConnectionCommand}"
+                                        IsEnabled="{Binding IsConnecting, Converter={StaticResource InverseBool}}"
+                                        Style="{StaticResource SecondaryButton}" Padding="16,6" Margin="0,0,8,0"/>
                                 <Button Content="Connect" Command="{Binding ConnectCommand}"
                                         IsEnabled="{Binding IsConnecting, Converter={StaticResource InverseBool}}"
                                         Visibility="{Binding IsConnected, Converter={StaticResource InverseBoolToVis}}"

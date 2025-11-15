@@ -136,6 +136,87 @@ public partial class SqlDataSourcesViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>
+    /// Tests the SQL Server connection without connecting
+    /// </summary>
+    [RelayCommand]
+    private async Task TestConnectionAsync()
+    {
+        try
+        {
+            IsConnecting = true;
+            ConnectionStatus = "Testing...";
+            StatusMessage = "Testing SQL Server connection...";
+
+            // Validate inputs
+            if (string.IsNullOrWhiteSpace(Server) || string.IsNullOrWhiteSpace(Database))
+            {
+                MessageBox.Show("Please enter server and database name", "Validation Error",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                ConnectionStatus = "Test failed - missing info";
+                return;
+            }
+
+            if (AuthType == SqlAuthenticationType.SqlServerAuthentication &&
+                string.IsNullOrWhiteSpace(Username))
+            {
+                MessageBox.Show("Please enter username for SQL Server authentication", "Validation Error",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                ConnectionStatus = "Test failed - missing username";
+                return;
+            }
+
+            // Build connection config
+            var serverWithPort = Port == 1433 ? Server : $"{Server},{Port}";
+            var config = new SqlConnectionConfig
+            {
+                Server = serverWithPort,
+                Database = Database,
+                IntegratedSecurity = (AuthType == SqlAuthenticationType.WindowsAuthentication),
+                Username = Username,
+                Password = Password,
+                ConnectionTimeout = 15,
+                Encrypt = true,
+                TrustServerCertificate = true
+            };
+
+            // Build connection string
+            var connectionString = config.ToConnectionString();
+
+            // Test connection
+            var success = await _sqlDataSourceService.TestConnectionAsync(connectionString);
+
+            if (success)
+            {
+                ConnectionStatus = "Test successful!";
+                StatusMessage = $"Successfully connected to {Server}\\{Database}";
+                MessageBox.Show($"Connection test successful!\n\nServer: {Server}\nDatabase: {Database}",
+                    "Test Successful", MessageBoxButton.OK, MessageBoxImage.Information);
+
+                _logger.LogInformation("Connection test successful: {Server}\\{Database}", Server, Database);
+            }
+            else
+            {
+                ConnectionStatus = "Test failed";
+                StatusMessage = "Connection test failed - check credentials and network";
+                MessageBox.Show("Connection test failed.\n\nPlease verify:\n• Server name and port\n• Database name\n• Credentials\n• Network connectivity\n• Firewall settings",
+                    "Test Failed", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error testing SQL Server connection");
+            ConnectionStatus = "Test error";
+            StatusMessage = $"Error: {ex.Message}";
+            MessageBox.Show($"Connection test error:\n\n{ex.Message}", "Error",
+                MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        finally
+        {
+            IsConnecting = false;
+        }
+    }
+
+    /// <summary>
     /// Connects to the SQL Server
     /// </summary>
     [RelayCommand]
@@ -449,6 +530,7 @@ public partial class SqlDataSourcesViewModel : ObservableObject, IDisposable
                 Database = builder.InitialCatalog;
                 AuthType = builder.IntegratedSecurity ? SqlAuthenticationType.WindowsAuthentication : SqlAuthenticationType.SqlServerAuthentication;
                 Username = builder.UserID;
+                Password = builder.Password;
             }
             catch (Exception ex)
             {
