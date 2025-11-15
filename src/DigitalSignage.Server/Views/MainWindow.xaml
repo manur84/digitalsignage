@@ -593,7 +593,10 @@
                                             <!-- Width/Height MUST be set here for ContentPresenter to allocate space -->
                                             <Setter Property="Width" Value="{Binding Size.Width}"/>
                                             <Setter Property="Height" Value="{Binding Size.Height}"/>
-                                            <!-- Canvas.Left/Top/ZIndex are set in DesignerItemControl.Loaded event -->
+                                            <!-- Canvas position properties MUST be set here on ContentPresenter -->
+                                            <Setter Property="Canvas.Left" Value="{Binding Position.X}"/>
+                                            <Setter Property="Canvas.Top" Value="{Binding Position.Y}"/>
+                                            <Setter Property="Panel.ZIndex" Value="{Binding ZIndex}"/>
                                         </Style>
                                     </ItemsControl.ItemContainerStyle>
                                     <ItemsControl.ItemTemplate>

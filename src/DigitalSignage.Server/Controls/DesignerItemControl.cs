@@ -73,21 +73,9 @@ public class DesignerItemControl : ContentControl
         // Make control transparent by default so content is visible
         Background = Brushes.Transparent;
 
+        // Canvas position (Canvas.Left/Top/ZIndex) is now handled by XAML data binding
+        // in MainWindow.xaml ItemContainerStyle. This is the correct WPF approach.
         System.Diagnostics.Debug.WriteLine("DesignerItemControl: Constructor called");
-        Loaded += (s, e) =>
-        {
-            System.Diagnostics.Debug.WriteLine($"DesignerItemControl: Loaded event fired for element '{DisplayElement?.Name ?? "null"}'");
-
-            // CRITICAL: Set Canvas position on the ContentPresenter parent (not on this control!)
-            // ItemsControl wraps each item in a ContentPresenter, which is the actual Canvas child
-            if (DisplayElement != null && Parent is FrameworkElement parent)
-            {
-                Canvas.SetLeft(parent, DisplayElement.Position.X);
-                Canvas.SetTop(parent, DisplayElement.Position.Y);
-                Panel.SetZIndex(parent, DisplayElement.ZIndex);
-                System.Diagnostics.Debug.WriteLine($"DesignerItemControl: Set parent Canvas.Left={DisplayElement.Position.X}, Canvas.Top={DisplayElement.Position.Y}, ZIndex={DisplayElement.ZIndex}");
-            }
-        };
 
         SizeChanged += (s, e) =>
         {
@@ -321,7 +309,7 @@ public class DesignerItemControl : ContentControl
         Width = DisplayElement.Size.Width;
         Height = DisplayElement.Size.Height;
 
-        // Position and ZIndex are set in OnLoaded event when Parent is available
+        // Position and ZIndex are handled by XAML data binding in MainWindow.xaml ItemContainerStyle
 
         // Apply visual effects (rotation, shadow, opacity)
         ApplyVisualEffects();
