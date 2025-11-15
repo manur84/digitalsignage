@@ -79,21 +79,37 @@ public class DesignerItemControl : ContentControl
 
         SizeChanged += (s, e) =>
         {
+            var canvasLeft = Canvas.GetLeft(this);
+            var canvasTop = Canvas.GetTop(this);
+            var zIndex = Panel.GetZIndex(this);
+
             System.Diagnostics.Debug.WriteLine(
                 $"DesignerItemControl.SizeChanged: Element='{DisplayElement?.Name}', " +
                 $"NewSize={e.NewSize.Width}x{e.NewSize.Height}, " +
-                $"ActualWidth={ActualWidth}, ActualHeight={ActualHeight}");
+                $"ActualWidth={ActualWidth}, ActualHeight={ActualHeight}, " +
+                $"Canvas.Left={canvasLeft}, Canvas.Top={canvasTop}, " +
+                $"Panel.ZIndex={zIndex}, " +
+                $"IsVisible={IsVisible}, Visibility={Visibility}");
         };
     }
 
     public override void OnApplyTemplate()
     {
         base.OnApplyTemplate();
+
+        // Get Canvas attached properties for debugging
+        var canvasLeft = Canvas.GetLeft(this);
+        var canvasTop = Canvas.GetTop(this);
+        var zIndex = Panel.GetZIndex(this);
+
         System.Diagnostics.Debug.WriteLine(
             $"DesignerItemControl.OnApplyTemplate: " +
             $"Element='{DisplayElement?.Name}', " +
             $"Width={Width}, Height={Height}, " +
-            $"ActualWidth={ActualWidth}, ActualHeight={ActualHeight}");
+            $"ActualWidth={ActualWidth}, ActualHeight={ActualHeight}, " +
+            $"Canvas.Left={canvasLeft}, Canvas.Top={canvasTop}, " +
+            $"Panel.ZIndex={zIndex}, " +
+            $"HorizontalAlignment={HorizontalAlignment}, VerticalAlignment={VerticalAlignment}");
     }
 
     #region Safe Parsing Helper Methods
@@ -265,22 +281,21 @@ public class DesignerItemControl : ContentControl
 
     private void OnSizeChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
+        // CRITICAL FIX: DO NOT set Width/Height manually!
+        // Size changes are handled automatically by XAML binding in ItemContainerStyle
+        // Width and Height properties are bound to Size.Width and Size.Height
+        // PropertyChanged notifications automatically trigger binding updates
+        // Manual updates would conflict with binding and cause size explosion
+
+        // REMOVED: Width = DisplayElement.Size.Width;
+        // REMOVED: Height = DisplayElement.Size.Height;
+
+        // Just log for debugging
         if (DisplayElement != null)
         {
-            // Check if already on UI thread to avoid unnecessary context switch
-            if (Dispatcher.CheckAccess())
-            {
-                Width = DisplayElement.Size.Width;
-                Height = DisplayElement.Size.Height;
-            }
-            else
-            {
-                Dispatcher.InvokeAsync(() =>
-                {
-                    Width = DisplayElement.Size.Width;
-                    Height = DisplayElement.Size.Height;
-                });
-            }
+            System.Diagnostics.Debug.WriteLine(
+                $"DesignerItemControl.OnSizeChanged: Element '{DisplayElement.Name}' size changed to " +
+                $"{DisplayElement.Size.Width}x{DisplayElement.Size.Height}");
         }
     }
 
@@ -305,9 +320,15 @@ public class DesignerItemControl : ContentControl
             $"size {DisplayElement.Size.Width}x{DisplayElement.Size.Height} " +
             $"ZIndex={DisplayElement.ZIndex}");
 
-        // CRITICAL: Set Width and Height BEFORE creating content
-        Width = DisplayElement.Size.Width;
-        Height = DisplayElement.Size.Height;
+        // CRITICAL FIX: DO NOT set Width/Height here!
+        // Width/Height is set by XAML ItemContainerStyle binding to Size.Width/Size.Height
+        // Setting it here as well causes DUPLICATE binding which creates size explosion
+        // The XAML binding in MainWindow.xaml ItemContainerStyle is the SINGLE source of truth:
+        // <Setter Property="Width" Value="{Binding Size.Width}"/>
+        // <Setter Property="Height" Value="{Binding Size.Height}"/>
+
+        // REMOVED: Width = DisplayElement.Size.Width;
+        // REMOVED: Height = DisplayElement.Size.Height;
 
         // Position and ZIndex are handled by XAML data binding in MainWindow.xaml ItemContainerStyle
 

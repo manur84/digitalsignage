@@ -14,8 +14,10 @@
                             Height="{TemplateBinding Height}"
                             HorizontalAlignment="{TemplateBinding HorizontalAlignment}"
                             VerticalAlignment="{TemplateBinding VerticalAlignment}">
-                        <ContentPresenter HorizontalAlignment="Stretch"
-                                        VerticalAlignment="Stretch"
+                        <!-- CRITICAL FIX: Use Left/Top alignment instead of Stretch to prevent size explosion -->
+                        <!-- Stretch would make content fill available space (1920x1080), ignoring Width/Height -->
+                        <ContentPresenter HorizontalAlignment="Left"
+                                        VerticalAlignment="Top"
                                         Content="{TemplateBinding Content}"/>
                     </Border>
                 </ControlTemplate>
