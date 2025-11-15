@@ -281,11 +281,26 @@ public class DataSourceManager : IDisposable
     /// <summary>
     /// Gets data sources linked to a specific layout
     /// </summary>
-    public List<SqlDataSource> GetDataSourcesForLayout(Guid layoutId)
+    public Result<List<SqlDataSource>> GetDataSourcesForLayout(Guid layoutId)
     {
-        // This would require layout-to-datasource mapping in the future
-        // For now, return empty list
-        return new List<SqlDataSource>();
+        try
+        {
+            if (layoutId == Guid.Empty)
+            {
+                _logger.LogWarning("GetDataSourcesForLayout called with empty GUID");
+                return Result<List<SqlDataSource>>.Failure("Layout ID cannot be empty");
+            }
+
+            // This would require layout-to-datasource mapping in the future
+            // For now, return empty list
+            _logger.LogDebug("Getting data sources for layout {LayoutId} (feature not yet implemented)", layoutId);
+            return Result<List<SqlDataSource>>.Success(new List<SqlDataSource>());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting data sources for layout {LayoutId}", layoutId);
+            return Result<List<SqlDataSource>>.Failure($"Failed to get data sources for layout: {ex.Message}", ex);
+        }
     }
 
     /// <summary>
