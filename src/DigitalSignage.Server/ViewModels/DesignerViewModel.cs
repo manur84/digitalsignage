@@ -551,35 +551,82 @@ public partial class DesignerViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
-    private void AddTableElement()
+    private async Task AddTableElementAsync()
     {
-        var tableElement = new DisplayElement
+        try
         {
-            Id = Guid.NewGuid().ToString(),
-            Type = "table",
-            Name = $"Table {Elements.Count + 1}",
-            Position = new Position { X = 100, Y = 100 },
-            Size = new Size { Width = 600, Height = 400 },
-            ZIndex = Elements.Count,
-            Properties = new Dictionary<string, object>
-            {
-                ["DataSource"] = "",
-                ["HeaderBackground"] = "#2196F3",
-                ["HeaderForeground"] = "#FFFFFF",
-                ["RowBackground"] = "#FFFFFF",
-                ["AlternateRowBackground"] = "#F5F5F5",
-                ["FontSize"] = 14,
-                ["ShowBorder"] = true,
-                ["BorderColor"] = "#CCCCCC"
-            }
-        };
+            _logger.LogInformation("=== Opening Table Properties Dialog ===");
 
-        tableElement.InitializeDefaultProperties();
-        var command = new AddElementCommand(Elements, tableElement);
-        CommandHistory.ExecuteCommand(command);
-        SelectedElement = tableElement;
-        UpdateLayers();
-        _logger.LogDebug("Added table element: {ElementName}", tableElement.Name);
+            // Create ViewModel with default values
+            var viewModel = new TablePropertiesViewModel();
+
+            // Create and show dialog
+            var dialog = new Views.Dialogs.TablePropertiesDialog(viewModel)
+            {
+                Owner = System.Windows.Application.Current.MainWindow
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                _logger.LogInformation("Table configured: {Rows}x{Columns}", viewModel.Rows, viewModel.Columns);
+
+                // Convert cell data to JSON-serializable format
+                var cellData = viewModel.GetCellDataAsList();
+                var cellDataJson = System.Text.Json.JsonSerializer.Serialize(cellData);
+
+                var tableElement = new DisplayElement
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    Type = "table",
+                    Name = $"Table {Elements.Count + 1}",
+                    Position = new Position { X = 100, Y = 100 },
+                    Size = new Size { Width = 600, Height = 400 },
+                    ZIndex = Elements.Count,
+                    Properties = new Dictionary<string, object>
+                    {
+                        ["Rows"] = viewModel.Rows,
+                        ["Columns"] = viewModel.Columns,
+                        ["ShowHeaderRow"] = viewModel.ShowHeaderRow,
+                        ["ShowHeaderColumn"] = viewModel.ShowHeaderColumn,
+                        ["BorderColor"] = TablePropertiesViewModel.ColorToHex(viewModel.BorderColor),
+                        ["BorderThickness"] = viewModel.BorderThickness,
+                        ["BackgroundColor"] = TablePropertiesViewModel.ColorToHex(viewModel.BackgroundColor),
+                        ["AlternateRowColor"] = TablePropertiesViewModel.ColorToHex(viewModel.AlternateRowColor),
+                        ["HeaderBackgroundColor"] = TablePropertiesViewModel.ColorToHex(viewModel.HeaderBackgroundColor),
+                        ["TextColor"] = TablePropertiesViewModel.ColorToHex(viewModel.TextColor),
+                        ["FontFamily"] = viewModel.FontFamily,
+                        ["FontSize"] = viewModel.FontSize,
+                        ["CellPadding"] = viewModel.CellPadding,
+                        ["CellData"] = cellDataJson
+                    }
+                };
+
+                tableElement.InitializeDefaultProperties();
+
+                _logger.LogInformation("Position: ({X}, {Y})", tableElement.Position.X, tableElement.Position.Y);
+                _logger.LogInformation("Size: {Width}x{Height}", tableElement.Size.Width, tableElement.Size.Height);
+
+                var command = new AddElementCommand(Elements, tableElement);
+                CommandHistory.ExecuteCommand(command);
+
+                _logger.LogInformation("Table element added. Total elements: {Count}", Elements.Count);
+
+                SelectedElement = tableElement;
+                UpdateLayers();
+                _logger.LogInformation("=== Table Element Added Successfully ===");
+            }
+            else
+            {
+                _logger.LogInformation("Table creation cancelled");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error adding table element");
+            await _dialogService.ShowErrorAsync(
+                $"Failed to add table element:\n\n{ex.Message}",
+                "Error");
+        }
     }
 
     [RelayCommand]
@@ -1871,87 +1918,102 @@ public partial class DesignerViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>
-    /// Opens the Table Editor Dialog to edit table data
+    /// Opens the Table Properties Dialog to edit table configuration and data
     /// </summary>
     [RelayCommand]
-    private async Task EditTable(DisplayElement? element)
+    private async Task EditTablePropertiesAsync(DisplayElement? element)
     {
         if (element == null || element.Type != "table")
         {
-            _logger.LogWarning("EditTable called with null or non-table element");
+            _logger.LogWarning("EditTableProperties called with null or non-table element");
             return;
         }
 
         try
         {
-            _logger.LogInformation("Opening table editor for element: {ElementName}", element.Name);
+            _logger.LogInformation("Opening table properties editor for element: {ElementName}", element.Name);
 
-            // Extract and parse current table data
-            List<string>? columns = null;
-            List<List<string>>? rows = null;
+            // Extract current table properties
+            var rows = element.GetProperty("Rows", 3);
+            var columns = element.GetProperty("Columns", 3);
+            var showHeaderRow = element.GetProperty("ShowHeaderRow", true);
+            var showHeaderColumn = element.GetProperty("ShowHeaderColumn", false);
+            var borderColor = element.GetProperty("BorderColor", "#000000");
+            var borderThickness = element.GetProperty("BorderThickness", 1);
+            var backgroundColor = element.GetProperty("BackgroundColor", "#FFFFFF");
+            var alternateRowColor = element.GetProperty("AlternateRowColor", "#F5F5F5");
+            var headerBackgroundColor = element.GetProperty("HeaderBackgroundColor", "#CCCCCC");
+            var textColor = element.GetProperty("TextColor", "#000000");
+            var fontFamily = element.GetProperty("FontFamily", "Arial");
+            var fontSize = element.GetProperty("FontSize", 14.0);
+            var cellPadding = element.GetProperty("CellPadding", 5.0);
 
-            // Parse columns from comma-separated string
-            if (element.Properties.TryGetValue("Columns", out var colsValue) && colsValue != null)
+            // Parse cell data from JSON
+            List<List<string>>? cellData = null;
+            if (element.Properties.TryGetValue("CellData", out var cellDataValue) && cellDataValue != null)
             {
-                var colsString = colsValue.ToString();
-                if (!string.IsNullOrWhiteSpace(colsString))
-                {
-                    columns = colsString
-                        .Split(',')
-                        .Select(c => c.Trim())
-                        .Where(c => !string.IsNullOrEmpty(c))
-                        .ToList();
-                }
-            }
-
-            // Parse rows from JSON
-            if (element.Properties.TryGetValue("Rows", out var rowsValue) && rowsValue != null)
-            {
-                var rowsString = rowsValue.ToString();
-                if (!string.IsNullOrWhiteSpace(rowsString) && rowsString != "[]")
+                var cellDataString = cellDataValue.ToString();
+                if (!string.IsNullOrWhiteSpace(cellDataString) && cellDataString != "[]")
                 {
                     try
                     {
-                        rows = System.Text.Json.JsonSerializer.Deserialize<List<List<string>>>(rowsString);
+                        cellData = System.Text.Json.JsonSerializer.Deserialize<List<List<string>>>(cellDataString);
                     }
-                    catch (System.Text.Json.JsonException)
+                    catch (System.Text.Json.JsonException ex)
                     {
-                        _logger.LogWarning("Failed to parse existing rows JSON, starting with empty rows");
+                        _logger.LogWarning(ex, "Failed to parse existing cell data JSON");
                     }
                 }
             }
 
+            // Create ViewModel with current properties
+            var viewModel = new TablePropertiesViewModel(
+                rows, columns, showHeaderRow, showHeaderColumn,
+                borderColor, borderThickness, backgroundColor, alternateRowColor,
+                headerBackgroundColor, textColor, fontFamily, fontSize, cellPadding, cellData);
+
             // Create and show dialog
-            var dialog = new Views.Dialogs.TableEditorDialog(columns, rows)
+            var dialog = new Views.Dialogs.TablePropertiesDialog(viewModel)
             {
                 Owner = System.Windows.Application.Current.MainWindow
             };
 
             if (dialog.ShowDialog() == true)
             {
-                // Update table data from ViewModel
-                element["Columns"] = dialog.ViewModel.ColumnsText;
-                element["Rows"] = System.Text.Json.JsonSerializer.Serialize(
-                    dialog.ViewModel.Rows,
-                    new System.Text.Json.JsonSerializerOptions { WriteIndented = false });
+                _logger.LogInformation("Table properties updated: {Rows}x{Columns}", viewModel.Rows, viewModel.Columns);
 
-                _logger.LogInformation("Table data updated for element {ElementName}: {ColumnCount} columns, {RowCount} rows",
-                    element.Name, dialog.ViewModel.Columns.Count, dialog.ViewModel.Rows.Count);
+                // Update table properties
+                element["Rows"] = viewModel.Rows;
+                element["Columns"] = viewModel.Columns;
+                element["ShowHeaderRow"] = viewModel.ShowHeaderRow;
+                element["ShowHeaderColumn"] = viewModel.ShowHeaderColumn;
+                element["BorderColor"] = TablePropertiesViewModel.ColorToHex(viewModel.BorderColor);
+                element["BorderThickness"] = viewModel.BorderThickness;
+                element["BackgroundColor"] = TablePropertiesViewModel.ColorToHex(viewModel.BackgroundColor);
+                element["AlternateRowColor"] = TablePropertiesViewModel.ColorToHex(viewModel.AlternateRowColor);
+                element["HeaderBackgroundColor"] = TablePropertiesViewModel.ColorToHex(viewModel.HeaderBackgroundColor);
+                element["TextColor"] = TablePropertiesViewModel.ColorToHex(viewModel.TextColor);
+                element["FontFamily"] = viewModel.FontFamily;
+                element["FontSize"] = viewModel.FontSize;
+                element["CellPadding"] = viewModel.CellPadding;
+                element["CellData"] = System.Text.Json.JsonSerializer.Serialize(viewModel.GetCellDataAsList());
 
                 // Mark as having unsaved changes
                 HasUnsavedChanges = true;
+
+                _logger.LogInformation("Table properties updated successfully for element {ElementName}", element.Name);
             }
             else
             {
-                _logger.LogInformation("Table editor cancelled");
+                _logger.LogInformation("Table properties editor cancelled");
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error editing table for element: {ElementName}", element?.Name);
+            _logger.LogError(ex, "Error editing table properties for element: {ElementName}", element?.Name);
             await _dialogService.ShowErrorAsync(
-                $"Fehler beim Öffnen des Tabelleneditors:\n\n{ex.Message}",
-                "Fehler");
+                $"Failed to edit table properties:\n\n{ex.Message}",
+                "Error");
         }
     }
 

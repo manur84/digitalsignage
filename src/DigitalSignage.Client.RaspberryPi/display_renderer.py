@@ -872,17 +872,23 @@ class DisplayRenderer(QWidget):
         """
         Create a Table element with rows and columns.
         Properties expected:
-        - Columns: List of column headers (list of strings)
-        - Rows: List of row data (list of lists)
-        - HeaderBackground: Header background color (default: #0078D4)
-        - HeaderForeground: Header text color (default: #FFFFFF)
-        - RowBackground: Row background color (default: #FFFFFF)
-        - AlternateRowBackground: Alternate row background color (default: #F0F0F0)
+        - Rows: Number of rows (int)
+        - Columns: Number of columns (int)
+        - CellData: Cell data as JSON string (list of lists)
+        - ShowHeaderRow: Whether first row is header (bool)
+        - ShowHeaderColumn: Whether first column is header (bool)
+        - HeaderBackgroundColor: Header background color (default: #CCCCCC)
+        - TextColor: Text color (default: #000000)
+        - BackgroundColor: Background color (default: #FFFFFF)
+        - AlternateRowColor: Alternate row background color (default: #F5F5F5)
         - FontFamily: Font family (default: Arial)
-        - FontSize: Font size (default: 12)
-        - BorderColor: Border color (default: #CCCCCC)
+        - FontSize: Font size (default: 14)
+        - BorderColor: Border color (default: #000000)
+        - BorderThickness: Border thickness (default: 1)
+        - CellPadding: Cell padding (default: 5)
         """
         try:
+            import json
             from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView
             from PyQt5.QtGui import QBrush, QColor
             from PyQt5.QtCore import Qt
@@ -890,48 +896,65 @@ class DisplayRenderer(QWidget):
             table = QTableWidget(self)
             table.setGeometry(x, y, width, height)
 
-            # Get columns and rows from properties
-            columns = properties.get('Columns', [])
-            rows = properties.get('Rows', [])
+            # Get configuration from properties
+            num_rows = properties.get('Rows', 3)
+            num_columns = properties.get('Columns', 3)
+            show_header_row = properties.get('ShowHeaderRow', True)
+            show_header_column = properties.get('ShowHeaderColumn', False)
 
-            # Validate data types
-            if not isinstance(columns, list):
-                logger.warning(f"Table Columns is not a list: {type(columns)}, using empty list")
-                columns = []
+            # Parse cell data from JSON
+            cell_data = []
+            cell_data_json = properties.get('CellData', '[]')
+            if isinstance(cell_data_json, str) and cell_data_json:
+                try:
+                    cell_data = json.loads(cell_data_json)
+                except json.JSONDecodeError as e:
+                    logger.warning(f"Failed to parse CellData JSON: {e}")
+                    cell_data = []
+            elif isinstance(cell_data_json, list):
+                # Already parsed
+                cell_data = cell_data_json
 
-            if not isinstance(rows, list):
-                logger.warning(f"Table Rows is not a list: {type(rows)}, using empty list")
-                rows = []
+            # Validate cell data
+            if not isinstance(cell_data, list) or not cell_data:
+                logger.warning("Table has no cell data, creating placeholder")
+                cell_data = []
+                for i in range(num_rows):
+                    row = []
+                    for j in range(num_columns):
+                        if i == 0 and show_header_row:
+                            row.append(f"Header {j + 1}")
+                        elif j == 0 and show_header_column:
+                            row.append(f"Row {i + 1}")
+                        else:
+                            row.append(f"Cell {i + 1},{j + 1}")
+                    cell_data.append(row)
 
             # Set table dimensions
-            num_columns = len(columns) if columns else 0
-            num_rows = len(rows) if rows else 0
-
-            if num_columns == 0 or num_rows == 0:
-                logger.warning("Table has no columns or rows, creating placeholder")
-                num_columns = 3
-                num_rows = 3
-                columns = ["Column 1", "Column 2", "Column 3"]
-                rows = [
-                    ["Row 1, Col 1", "Row 1, Col 2", "Row 1, Col 3"],
-                    ["Row 2, Col 1", "Row 2, Col 2", "Row 2, Col 3"],
-                    ["Row 3, Col 1", "Row 3, Col 2", "Row 3, Col 3"]
-                ]
-
             table.setRowCount(num_rows)
             table.setColumnCount(num_columns)
 
-            # Set column headers
-            table.setHorizontalHeaderLabels([str(col) for col in columns])
+            # Configure headers
+            if show_header_row:
+                # First row is header
+                table.horizontalHeader().setVisible(True)
+                if cell_data and len(cell_data) > 0:
+                    headers = [str(cell) for cell in cell_data[0][:num_columns]]
+                    table.setHorizontalHeaderLabels(headers)
+            else:
+                # No header row
+                table.horizontalHeader().setVisible(False)
 
             # Get style properties
-            header_bg = properties.get('HeaderBackground', '#0078D4')
-            header_fg = properties.get('HeaderForeground', '#FFFFFF')
-            row_bg = properties.get('RowBackground', '#FFFFFF')
-            alt_row_bg = properties.get('AlternateRowBackground', '#F0F0F0')
-            border_color = properties.get('BorderColor', '#CCCCCC')
+            header_bg = properties.get('HeaderBackgroundColor', '#CCCCCC')
+            text_color = properties.get('TextColor', '#000000')
+            row_bg = properties.get('BackgroundColor', '#FFFFFF')
+            alt_row_bg = properties.get('AlternateRowColor', '#F5F5F5')
+            border_color = properties.get('BorderColor', '#000000')
+            border_thickness = properties.get('BorderThickness', 1)
+            cell_padding = properties.get('CellPadding', 5)
             font_family = properties.get('FontFamily', 'Arial')
-            font_size = properties.get('FontSize', 12)
+            font_size = properties.get('FontSize', 14)
 
             # Set font
             try:
@@ -953,17 +976,19 @@ class DisplayRenderer(QWidget):
             table_style = f"""
                 QTableWidget {{
                     background-color: {row_bg};
+                    color: {text_color};
                     gridline-color: {border_color};
-                    border: 1px solid {border_color};
+                    border: {border_thickness}px solid {border_color};
                 }}
                 QTableWidget::item {{
-                    padding: 5px;
+                    padding: {cell_padding}px;
+                    color: {text_color};
                 }}
                 QHeaderView::section {{
                     background-color: {header_bg};
-                    color: {header_fg};
-                    padding: 5px;
-                    border: 1px solid {border_color};
+                    color: {text_color};
+                    padding: {cell_padding}px;
+                    border: {border_thickness}px solid {border_color};
                     font-weight: bold;
                 }}
             """
@@ -973,32 +998,43 @@ class DisplayRenderer(QWidget):
             table.setAlternatingRowColors(True)
 
             # Populate table with data
-            for row_idx, row_data in enumerate(rows):
+            start_row = 1 if show_header_row else 0  # Skip first row if it's a header
+            for row_idx, row_data in enumerate(cell_data[start_row:], start=start_row):
                 if not isinstance(row_data, list):
                     logger.warning(f"Row {row_idx} is not a list, skipping")
                     continue
 
-                for col_idx, cell_data in enumerate(row_data):
+                actual_row_idx = row_idx - start_row  # Adjust for table rows (excluding header)
+                for col_idx, cell_value in enumerate(row_data):
                     if col_idx >= num_columns:
                         break
 
                     # Create table item
-                    item = QTableWidgetItem(str(cell_data))
+                    item = QTableWidgetItem(str(cell_value))
                     item.setFlags(item.flags() & ~Qt.ItemIsEditable)  # Make read-only
 
-                    # Set alternate row background
-                    if row_idx % 2 == 1:
+                    # Set text color
+                    item.setForeground(QBrush(QColor(text_color)))
+
+                    # Set background color with alternating rows
+                    # First column is header column if show_header_column is true
+                    if col_idx == 0 and show_header_column:
+                        item.setBackground(QBrush(QColor(header_bg)))
+                        font = item.font()
+                        font.setBold(True)
+                        item.setFont(font)
+                    elif actual_row_idx % 2 == 1:
                         item.setBackground(QBrush(QColor(alt_row_bg)))
                     else:
                         item.setBackground(QBrush(QColor(row_bg)))
 
-                    table.setItem(row_idx, col_idx, item)
+                    table.setItem(actual_row_idx, col_idx, item)
 
             # Resize columns to content
             table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
             table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
 
-            # Hide vertical header (row numbers)
+            # Hide vertical header (row numbers) - we use first column for row headers if needed
             table.verticalHeader().setVisible(False)
 
             # Disable scrollbars if table fits
