@@ -588,20 +588,30 @@
                                                     Height="{Binding DataContext.Designer.CurrentLayout.Resolution.Height, RelativeSource={RelativeSource AncestorType=controls:DesignerCanvas}}"/>
                                         </ItemsPanelTemplate>
                                     </ItemsControl.ItemsPanel>
-                                    <!-- ItemContainerStyle REMOVED: Bindings don't work here (DataContext not set yet) -->
-                                    <!-- Bindings are now directly on DesignerItemControl in ItemTemplate -->
+                                    <ItemsControl.ItemContainerStyle>
+                                        <Style TargetType="ContentPresenter">
+                                            <!-- Bind through Content because the container DataContext is the parent ViewModel -->
+                                            <Setter Property="Width"
+                                                    Value="{Binding Content.Size.Width, RelativeSource={RelativeSource Self}}"/>
+                                            <Setter Property="Height"
+                                                    Value="{Binding Content.Size.Height, RelativeSource={RelativeSource Self}}"/>
+                                            <Setter Property="Canvas.Left"
+                                                    Value="{Binding Content.Position.X, RelativeSource={RelativeSource Self}}"/>
+                                            <Setter Property="Canvas.Top"
+                                                    Value="{Binding Content.Position.Y, RelativeSource={RelativeSource Self}}"/>
+                                            <Setter Property="Panel.ZIndex"
+                                                    Value="{Binding Content.ZIndex, RelativeSource={RelativeSource Self}}"/>
+                                        </Style>
+                                    </ItemsControl.ItemContainerStyle>
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <!-- CRITICAL FIX: Bind size and position directly here where DataContext is correct -->
+                                            <!-- Bind size here; the container style handles Canvas.Left/Top/ZIndex -->
                                             <controls:DesignerItemControl
                                                 DisplayElement="{Binding}"
                                                 IsSelected="{Binding IsSelected}"
                                                 Tag="{Binding}"
                                                 Width="{Binding Size.Width}"
                                                 Height="{Binding Size.Height}"
-                                                Canvas.Left="{Binding Position.X}"
-                                                Canvas.Top="{Binding Position.Y}"
-                                                Panel.ZIndex="{Binding ZIndex}"
                                                 Cursor="Hand"
                                                 MouseLeftButtonDown="Element_MouseLeftButtonDown"
                                                 MouseMove="Element_MouseMove"
