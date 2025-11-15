@@ -578,16 +578,10 @@
                                                    ScaleY="{Binding Designer.ZoomLevel}"/>
                                 </controls:DesignerCanvas.LayoutTransform>
 
-                                <!-- Render all elements using DesignerItemControl (professional WYSIWYG rendering) -->
-                                <!-- CRITICAL FIX: ItemsControl MUST have explicit Width/Height when child of Canvas! -->
-                                <!-- Without size, ItemsControl renders at 0x0 and clips all children -->
-                                <!-- DEBUG: Red background to verify ItemsControl is visible -->
+                                <!-- Render all elements using DesignerItemControl -->
                                 <ItemsControl ItemsSource="{Binding Designer.Elements}"
                                               Width="{Binding Designer.CurrentLayout.Resolution.Width}"
-                                              Height="{Binding Designer.CurrentLayout.Resolution.Height}"
-                                              Background="#44FF0000">
-                                    <!-- CRITICAL FIX: ItemsPanel MUST be Canvas for Canvas.Left/Top/ZIndex to work! -->
-                                    <!-- CRITICAL FIX: Canvas MUST have explicit size or children won't render (0x0 clip bounds)! -->
+                                              Height="{Binding Designer.CurrentLayout.Resolution.Height}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
                                             <Canvas Width="{Binding DataContext.Designer.CurrentLayout.Resolution.Width, RelativeSource={RelativeSource AncestorType=controls:DesignerCanvas}}"
@@ -596,41 +590,23 @@
                                     </ItemsControl.ItemsPanel>
                                     <ItemsControl.ItemContainerStyle>
                                         <Style TargetType="ContentPresenter">
-                                            <!-- DEBUG: HARDCODED values to test if bindings are the problem -->
-                                            <Setter Property="Canvas.Left" Value="50"/>
-                                            <Setter Property="Canvas.Top" Value="50"/>
-                                            <Setter Property="Canvas.ZIndex" Value="100"/>
-                                            <Setter Property="Width" Value="300"/>
-                                            <Setter Property="Height" Value="200"/>
+                                            <Setter Property="Canvas.Left" Value="{Binding Position.X}"/>
+                                            <Setter Property="Canvas.Top" Value="{Binding Position.Y}"/>
+                                            <Setter Property="Canvas.ZIndex" Value="{Binding ZIndex}"/>
+                                            <Setter Property="Width" Value="{Binding Size.Width}"/>
+                                            <Setter Property="Height" Value="{Binding Size.Height}"/>
                                         </Style>
                                     </ItemsControl.ItemContainerStyle>
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <!-- DEBUG: Wrapped in visible border to see if elements are rendering -->
-                                            <Border Background="Yellow"
-                                                    BorderBrush="Blue"
-                                                    BorderThickness="2"
-                                                    Width="{Binding Size.Width}"
-                                                    Height="{Binding Size.Height}">
-                                                <StackPanel>
-                                                    <TextBlock Text="{Binding Name}"
-                                                               Foreground="Black"
-                                                               FontWeight="Bold"
-                                                               FontSize="16"/>
-                                                    <TextBlock Text="{Binding Type}"
-                                                               Foreground="DarkBlue"
-                                                               FontSize="12"/>
-                                                </StackPanel>
-                                            </Border>
-                                            <!-- Original DesignerItemControl (commented out for debug) -->
-                                            <!--<controls:DesignerItemControl
+                                            <controls:DesignerItemControl
                                                 DisplayElement="{Binding}"
                                                 IsSelected="{Binding IsSelected}"
                                                 Tag="{Binding}"
                                                 Cursor="Hand"
                                                 MouseLeftButtonDown="Element_MouseLeftButtonDown"
                                                 MouseMove="Element_MouseMove"
-                                                MouseLeftButtonUp="Element_MouseLeftButtonUp"/>-->
+                                                MouseLeftButtonUp="Element_MouseLeftButtonUp"/>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
