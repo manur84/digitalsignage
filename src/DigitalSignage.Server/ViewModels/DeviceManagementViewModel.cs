@@ -91,6 +91,9 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
             }
             StatusMessage = $"Loaded {Clients.Count} client(s)";
             _logger.LogInformation("Loaded {Count} clients", Clients.Count);
+
+            // Also refresh available layouts when loading clients
+            await RefreshAvailableLayoutsAsync();
         }
         catch (Exception ex)
         {
@@ -105,6 +108,14 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
 
     [RelayCommand]
     private async Task LoadLayouts()
+    {
+        await RefreshAvailableLayoutsAsync();
+    }
+
+    /// <summary>
+    /// Refreshes the available layouts list from the LayoutService
+    /// </summary>
+    private async Task RefreshAvailableLayoutsAsync()
     {
         try
         {
@@ -123,11 +134,11 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
             {
                 AvailableLayouts.Add(layout);
             }
-            _logger.LogInformation("Loaded {Count} layouts (plus 'No Layout' option)", layouts.Count);
+            _logger.LogInformation("Refreshed {Count} available layouts (plus 'No Layout' option)", layouts.Count);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to load layouts");
+            _logger.LogError(ex, "Failed to refresh available layouts");
         }
     }
 
