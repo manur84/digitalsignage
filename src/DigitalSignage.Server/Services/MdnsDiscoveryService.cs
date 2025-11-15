@@ -5,6 +5,7 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using DigitalSignage.Server.Configuration;
+using DigitalSignage.Server.Utilities;
 using Makaretu.Dns;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -157,18 +158,7 @@ public class MdnsDiscoveryService : BackgroundService
     /// </summary>
     private static IPAddress[] GetLocalIPAddresses()
     {
-        try
-        {
-            var host = Dns.GetHostEntry(Dns.GetHostName());
-            return host.AddressList
-                .Where(ip => ip.AddressFamily == AddressFamily.InterNetwork) // IPv4 only
-                .ToArray();
-        }
-        catch
-        {
-            // Fallback to localhost if we can't get network interfaces
-            return new[] { IPAddress.Loopback };
-        }
+        return NetworkUtilities.GetLocalIPv4Addresses();
     }
 
     public override Task StopAsync(CancellationToken cancellationToken)

@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using DigitalSignage.Core.Models;
+using DigitalSignage.Server.Utilities;
 using Microsoft.Extensions.Logging;
 
 namespace DigitalSignage.Server.Services;
@@ -235,21 +236,7 @@ public class NetworkScannerService : IDisposable
     /// </summary>
     private IPAddress[] GetLocalIPAddresses()
     {
-        try
-        {
-            return NetworkInterface.GetAllNetworkInterfaces()
-                .Where(ni => ni.OperationalStatus == OperationalStatus.Up &&
-                            ni.NetworkInterfaceType != NetworkInterfaceType.Loopback)
-                .SelectMany(ni => ni.GetIPProperties().UnicastAddresses)
-                .Where(addr => addr.Address.AddressFamily == AddressFamily.InterNetwork &&
-                              !IPAddress.IsLoopback(addr.Address))
-                .Select(addr => addr.Address)
-                .ToArray();
-        }
-        catch
-        {
-            return new[] { IPAddress.Loopback };
-        }
+        return NetworkUtilities.GetLocalIPv4Addresses();
     }
 
     /// <summary>

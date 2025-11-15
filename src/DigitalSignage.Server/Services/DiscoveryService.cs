@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using DigitalSignage.Server.Configuration;
+using DigitalSignage.Server.Utilities;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -141,18 +142,7 @@ public class DiscoveryService : BackgroundService
 
     private static string[] GetLocalIPAddresses()
     {
-        try
-        {
-            var host = Dns.GetHostEntry(Dns.GetHostName());
-            return host.AddressList
-                .Where(ip => ip.AddressFamily == AddressFamily.InterNetwork) // IPv4 only
-                .Select(ip => ip.ToString())
-                .ToArray();
-        }
-        catch
-        {
-            return new[] { "127.0.0.1" };
-        }
+        return NetworkUtilities.GetLocalIPv4AddressStrings();
     }
 
     public override Task StopAsync(CancellationToken cancellationToken)

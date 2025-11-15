@@ -288,21 +288,6 @@ public class DatabaseInitializationService : IHostedService
     }
 
     /// <summary>
-    /// Verify password against BCrypt hash
-    /// </summary>
-    private static bool VerifyPassword(string password, string hash)
-    {
-        try
-        {
-            return BCrypt.Net.BCrypt.Verify(password, hash);
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    /// <summary>
     /// Generate a secure random password
     /// </summary>
     private static string GenerateSecurePassword()
