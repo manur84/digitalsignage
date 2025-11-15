@@ -801,7 +801,7 @@ public class ClientService : IClientService
     {
         if (layout?.Elements == null || layout.Elements.Count == 0)
         {
-            _logger.LogDebug("No elements to process for media embedding in layout {LayoutId}", layout?.Id ?? 0);
+            _logger.LogDebug("No elements to process for media embedding in layout {LayoutId}", layout?.Id ?? "unknown");
             return;
         }
 
