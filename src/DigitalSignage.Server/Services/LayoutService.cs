@@ -1,5 +1,6 @@
 using DigitalSignage.Core.Interfaces;
 using DigitalSignage.Core.Models;
+using DigitalSignage.Core.Exceptions;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using System.Collections.Concurrent;
@@ -36,24 +37,56 @@ public class LayoutService : ILayoutService, IDisposable
         }
     }
 
-    public Task<List<DisplayLayout>> GetAllLayoutsAsync(CancellationToken cancellationToken = default)
+    public Task<Result<List<DisplayLayout>>> GetAllLayoutsAsync(CancellationToken cancellationToken = default)
     {
-        ThrowIfDisposed();
-        return Task.FromResult(_layouts.Values.ToList());
+        try
+        {
+            ThrowIfDisposed();
+            var layouts = _layouts.Values.ToList();
+            return Task.FromResult(Result<List<DisplayLayout>>.Success(layouts));
+        }
+        catch (ObjectDisposedException ex)
+        {
+            _logger.LogError(ex, "LayoutService has been disposed");
+            return Task.FromResult(Result<List<DisplayLayout>>.Failure("Service is no longer available", ex));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get all layouts");
+            return Task.FromResult(Result<List<DisplayLayout>>.Failure("Failed to retrieve layouts", ex));
+        }
     }
 
-    public Task<DisplayLayout?> GetLayoutByIdAsync(string layoutId, CancellationToken cancellationToken = default)
+    public Task<Result<DisplayLayout>> GetLayoutByIdAsync(string layoutId, CancellationToken cancellationToken = default)
     {
-        ThrowIfDisposed();
-
-        if (string.IsNullOrWhiteSpace(layoutId))
+        try
         {
-            _logger.LogWarning("GetLayoutByIdAsync called with null or empty layoutId");
-            return Task.FromResult<DisplayLayout?>(null);
-        }
+            ThrowIfDisposed();
 
-        _layouts.TryGetValue(layoutId, out var layout);
-        return Task.FromResult(layout);
+            if (string.IsNullOrWhiteSpace(layoutId))
+            {
+                _logger.LogWarning("GetLayoutByIdAsync called with null or empty layoutId");
+                return Task.FromResult(Result<DisplayLayout>.Failure("Layout ID cannot be empty"));
+            }
+
+            if (_layouts.TryGetValue(layoutId, out var layout))
+            {
+                return Task.FromResult(Result<DisplayLayout>.Success(layout));
+            }
+
+            _logger.LogWarning("Layout {LayoutId} not found", layoutId);
+            return Task.FromResult(Result<DisplayLayout>.Failure($"Layout '{layoutId}' not found"));
+        }
+        catch (ObjectDisposedException ex)
+        {
+            _logger.LogError(ex, "LayoutService has been disposed");
+            return Task.FromResult(Result<DisplayLayout>.Failure("Service is no longer available", ex));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get layout {LayoutId}", layoutId);
+            return Task.FromResult(Result<DisplayLayout>.Failure($"Failed to retrieve layout: {ex.Message}", ex));
+        }
     }
 
     public async Task<DisplayLayout> CreateLayoutAsync(DisplayLayout layout, CancellationToken cancellationToken = default)
