@@ -169,6 +169,26 @@ class DisplayRenderer(QWidget):
         layout_name = layout.get('Name', 'Unnamed')
         logger.info(f"Rendering layout: {layout_name}")
 
+        # Calculate scaling factors based on layout resolution vs display resolution
+        layout_resolution = layout.get('Resolution', {})
+        layout_width = layout_resolution.get('Width', 1920)
+        layout_height = layout_resolution.get('Height', 1080)
+
+        # Get actual display resolution
+        display_width = self.width()
+        display_height = self.height()
+
+        # Calculate scale factors
+        scale_x = display_width / layout_width
+        scale_y = display_height / layout_height
+
+        logger.info(f"Layout resolution: {layout_width}x{layout_height}, Display resolution: {display_width}x{display_height}")
+        logger.info(f"Scale factors: X={scale_x:.3f}, Y={scale_y:.3f}")
+
+        # Store scale factors for element creation
+        self._scale_x = scale_x
+        self._scale_y = scale_y
+
         # Clear status screen when rendering actual layout
         if self.status_screen_manager.is_showing_status:
             logger.info("Clearing status screen to display layout")
@@ -352,6 +372,17 @@ class DisplayRenderer(QWidget):
             logger.error(f"Failed to parse element dimensions: {e}, using defaults")
             x, y, width, height = 0, 0, 100, 100
 
+        # Apply scaling factors if they exist
+        scale_x = getattr(self, '_scale_x', 1.0)
+        scale_y = getattr(self, '_scale_y', 1.0)
+
+        if scale_x != 1.0 or scale_y != 1.0:
+            x = int(x * scale_x)
+            y = int(y * scale_y)
+            width = int(width * scale_x)
+            height = int(height * scale_y)
+            logger.debug(f"Scaled element: pos=({x},{y}), size=({width}x{height}), scale=({scale_x:.3f},{scale_y:.3f})")
+
         try:
             if element_type == 'text':
                 return self.create_text_element(x, y, width, height, properties, data)
@@ -413,7 +444,13 @@ class DisplayRenderer(QWidget):
                     logger.warning(f"Invalid font size: {font_size}, using default")
                     font_size = 16
 
-                font = QFont(font_family, int(font_size))
+                # Apply scaling to font size (use average of both scale factors)
+                scale_x = getattr(self, '_scale_x', 1.0)
+                scale_y = getattr(self, '_scale_y', 1.0)
+                scale_factor = (scale_x + scale_y) / 2.0
+                scaled_font_size = int(font_size * scale_factor)
+
+                font = QFont(font_family, scaled_font_size)
 
                 font_weight = properties.get('FontWeight', 'normal')
                 if font_weight == 'bold':
@@ -751,7 +788,13 @@ class DisplayRenderer(QWidget):
                     logger.warning(f"Invalid font size: {font_size}, using default")
                     font_size = 24
 
-                font = QFont(font_family, int(font_size))
+                # Apply scaling to font size (use average of both scale factors)
+                scale_x = getattr(self, '_scale_x', 1.0)
+                scale_y = getattr(self, '_scale_y', 1.0)
+                scale_factor = (scale_x + scale_y) / 2.0
+                scaled_font_size = int(font_size * scale_factor)
+
+                font = QFont(font_family, scaled_font_size)
                 font_weight = properties.get('FontWeight', 'normal')
                 if font_weight == 'bold':
                     font.setBold(True)
@@ -894,7 +937,14 @@ class DisplayRenderer(QWidget):
             try:
                 if not isinstance(font_size, (int, float)):
                     font_size = 12
-                font = QFont(font_family, int(font_size))
+
+                # Apply scaling to font size (use average of both scale factors)
+                scale_x = getattr(self, '_scale_x', 1.0)
+                scale_y = getattr(self, '_scale_y', 1.0)
+                scale_factor = (scale_x + scale_y) / 2.0
+                scaled_font_size = int(font_size * scale_factor)
+
+                font = QFont(font_family, scaled_font_size)
                 table.setFont(font)
             except Exception as e:
                 logger.warning(f"Failed to set table font: {e}")

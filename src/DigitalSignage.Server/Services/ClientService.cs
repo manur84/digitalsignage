@@ -712,9 +712,9 @@ public class ClientService : IClientService
 
                 if (imageData != null && imageData.Length > 0)
                 {
-                    // Embed as Base64
+                    // Embed as Base64 (use "MediaData" to match client expectations)
                     var base64 = Convert.ToBase64String(imageData);
-                    element.SetProperty("ImageData", base64);
+                    element.SetProperty("MediaData", base64);
 
                     embedCount++;
                     _logger.LogInformation("✓ Embedded media file {FileName} ({Size} KB) as Base64 for element {ElementId}",
