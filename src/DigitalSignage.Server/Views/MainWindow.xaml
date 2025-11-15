@@ -473,7 +473,8 @@
                                                             <Style TargetType="TextBlock">
                                                                 <Setter Property="Text" Value="👁"/>
                                                                 <Style.Triggers>
-                                                                    <DataTrigger Binding="{Binding [IsVisible], FallbackValue=True}" Value="False">
+                                                                    <!-- FIX: Use Visible property instead of [IsVisible] indexer -->
+                                                                    <DataTrigger Binding="{Binding Visible, FallbackValue=True}" Value="False">
                                                                         <Setter Property="Text" Value="🚫"/>
                                                                         <Setter Property="Opacity" Value="0.5"/>
                                                                     </DataTrigger>
@@ -603,6 +604,8 @@
                                             <!-- Without this, ActualWidth/ActualHeight are 0 and elements are invisible -->
                                             <Setter Property="Width" Value="{Binding Size.Width}"/>
                                             <Setter Property="Height" Value="{Binding Size.Height}"/>
+                                            <!-- CRITICAL FIX: Bind Visibility so elements can be hidden/shown -->
+                                            <Setter Property="Visibility" Value="{Binding Visible, Converter={StaticResource BoolToVisibilityConverter}}"/>
                                         </Style>
                                     </ItemsControl.ItemContainerStyle>
                                     <ItemsControl.ItemTemplate>
@@ -748,7 +751,8 @@
                                     </Grid>
 
                                     <TextBlock Text="Visibility:" Margin="0,12,0,4"/>
-                                    <CheckBox Content="Visible" IsChecked="{Binding Designer.SelectedElement.Visible, FallbackValue=True}" Margin="0,4,0,0"/>
+                                    <!-- FIX: Explicitly set TwoWay mode and PropertyChanged trigger for immediate updates -->
+                                    <CheckBox Content="Visible" IsChecked="{Binding Designer.SelectedElement.Visible, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, FallbackValue=True}" Margin="0,4,0,0"/>
 
                                     <Separator Margin="0,16"/>
 

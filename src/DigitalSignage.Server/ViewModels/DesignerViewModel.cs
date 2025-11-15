@@ -1049,12 +1049,12 @@ public partial class DesignerViewModel : ObservableObject, IDisposable
     {
         if (element == null) return;
 
-        // Toggle visibility property using indexer for PropertyChanged notification
-        bool currentVisibility = element["IsVisible"] as bool? ?? true;
-        element["IsVisible"] = !currentVisibility;
+        // FIX: Use Visible property instead of ["IsVisible"] indexer
+        // Visible is an ObservableProperty and triggers PropertyChanged automatically
+        element.Visible = !element.Visible;
 
-        _logger.LogDebug("Toggled visibility for {ElementName}: {IsVisible}",
-            element.Name, element["IsVisible"]);
+        _logger.LogDebug("Toggled visibility for {ElementName}: {Visible}",
+            element.Name, element.Visible);
 
         OnPropertyChanged(nameof(Layers));
     }
