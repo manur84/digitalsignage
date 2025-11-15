@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using DigitalSignage.Core.Models;
 using DigitalSignage.Data.Entities;
 using System.Text.Json;
@@ -38,6 +39,16 @@ public class DigitalSignageDbContext : DbContext
     // Alert entities
     public DbSet<Alert> Alerts => Set<Alert>();
     public DbSet<AlertRule> AlertRules => Set<AlertRule>();
+
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    {
+        base.OnConfiguring(optionsBuilder);
+
+        // Temporarily suppress pending model changes warning
+        // This is being removed as we're migrating to file-based storage
+        optionsBuilder.ConfigureWarnings(warnings =>
+            warnings.Ignore(RelationalEventId.PendingModelChangesWarning));
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
