@@ -1,6 +1,9 @@
+using System;
+using System.Threading.Tasks;
 using DigitalSignage.Core.Models;
 using DigitalSignage.Server.Services;
 using FluentAssertions;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace DigitalSignage.Tests.Services;
@@ -11,7 +14,7 @@ public class LayoutServiceTests
 
     public LayoutServiceTests()
     {
-        _layoutService = new LayoutService();
+        _layoutService = new LayoutService(NullLogger<LayoutService>.Instance);
     }
 
     [Fact]
