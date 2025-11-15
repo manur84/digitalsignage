@@ -151,15 +151,18 @@ public partial class DesignerViewModel : ObservableObject, IDisposable
     {
         try
         {
-            var layout = await _layoutService.GetLayoutByIdAsync(layoutId);
-            if (layout != null)
+            var layoutResult = await _layoutService.GetLayoutByIdAsync(layoutId);
+            if (layoutResult.IsFailure)
             {
-                await LoadLayoutAsync(layout);
+                _logger.LogError("Failed to load layout {LayoutId}: {ErrorMessage}", layoutId, layoutResult.ErrorMessage);
+                return;
             }
+
+            await LoadLayoutAsync(layoutResult.Value);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to load layout: {LayoutId}", layoutId);
+            _logger.LogError(ex, "Unexpected error loading layout: {LayoutId}", layoutId);
         }
     }
 
@@ -274,18 +277,34 @@ public partial class DesignerViewModel : ObservableObject, IDisposable
             CurrentLayout.Elements = Elements.ToList();
 
             // Try to get existing layout
-            var existingLayout = await _layoutService.GetLayoutByIdAsync(CurrentLayout.Id);
+            var existingLayoutResult = await _layoutService.GetLayoutByIdAsync(CurrentLayout.Id);
 
-            if (existingLayout != null)
+            if (existingLayoutResult.IsSuccess)
             {
                 // Update existing layout
-                await _layoutService.UpdateLayoutAsync(CurrentLayout);
+                var updateResult = await _layoutService.UpdateLayoutAsync(CurrentLayout);
+                if (updateResult.IsFailure)
+                {
+                    _logger.LogError("Failed to update layout: {ErrorMessage}", updateResult.ErrorMessage);
+                    await _dialogService.ShowErrorAsync(
+                        $"Failed to update layout: {updateResult.ErrorMessage}",
+                        "Error");
+                    return;
+                }
                 _logger.LogInformation("Updated layout: {LayoutName} ({Id})", CurrentLayout.Name, CurrentLayout.Id);
             }
             else
             {
                 // Create new layout
-                await _layoutService.CreateLayoutAsync(CurrentLayout);
+                var createResult = await _layoutService.CreateLayoutAsync(CurrentLayout);
+                if (createResult.IsFailure)
+                {
+                    _logger.LogError("Failed to create layout: {ErrorMessage}", createResult.ErrorMessage);
+                    await _dialogService.ShowErrorAsync(
+                        $"Failed to create layout: {createResult.ErrorMessage}",
+                        "Error");
+                    return;
+                }
                 _logger.LogInformation("Created new layout: {LayoutName} ({Id})", CurrentLayout.Name, CurrentLayout.Id);
             }
 
@@ -299,11 +318,11 @@ public partial class DesignerViewModel : ObservableObject, IDisposable
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to save layout: {LayoutName}", CurrentLayout?.Name);
+            _logger.LogError(ex, "Unexpected error saving layout: {LayoutName}", CurrentLayout?.Name);
 
             // Show error message
             await _dialogService.ShowErrorAsync(
-                $"Failed to save layout: {ex.Message}",
+                $"Unexpected error saving layout: {ex.Message}",
                 "Error");
         }
     }
@@ -1294,12 +1313,12 @@ public partial class DesignerViewModel : ObservableObject, IDisposable
     {
         if (element == null) return;
 
-        // Toggle visibility property using indexer for PropertyChanged notification
-        bool currentVisibility = element["IsVisible"] as bool? ?? true;
-        element["IsVisible"] = !currentVisibility;
+        // FIX: Use Visible property instead of ["IsVisible"] indexer
+        // Visible is an ObservableProperty and triggers PropertyChanged automatically
+        element.Visible = !element.Visible;
 
-        _logger.LogDebug("Toggled visibility for {ElementName}: {IsVisible}",
-            element.Name, element["IsVisible"]);
+        _logger.LogDebug("Toggled visibility for {ElementName}: {Visible}",
+            element.Name, element.Visible);
 
         OnPropertyChanged(nameof(Layers));
     }

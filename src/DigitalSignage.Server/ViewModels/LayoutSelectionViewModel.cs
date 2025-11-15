@@ -79,13 +79,19 @@ public partial class LayoutSelectionViewModel : ObservableObject
         {
             _logger.LogInformation("Loading layouts from database");
 
-            var layouts = await _layoutService.GetAllLayoutsAsync();
+            var layoutsResult = await _layoutService.GetAllLayoutsAsync();
+            if (layoutsResult.IsFailure)
+            {
+                _logger.LogError("Failed to load layouts: {ErrorMessage}", layoutsResult.ErrorMessage);
+                // Don't throw, just log and return empty list
+                return;
+            }
 
-            _logger.LogInformation("Loaded {Count} layouts", layouts.Count);
+            _logger.LogInformation("Loaded {Count} layouts", layoutsResult.Value.Count);
 
             Layouts.Clear();
             FilteredLayouts.Clear();
-            foreach (var layout in layouts.OrderByDescending(l => l.Modified))
+            foreach (var layout in layoutsResult.Value.OrderByDescending(l => l.Modified))
             {
                 Layouts.Add(layout);
             }
@@ -284,7 +290,18 @@ public partial class LayoutSelectionViewModel : ObservableObject
                 layoutToUpdate.Name = newName;
                 layoutToUpdate.Modified = DateTime.Now;
 
-                await _layoutService.UpdateLayoutAsync(layoutToUpdate);
+                var updateResult = await _layoutService.UpdateLayoutAsync(layoutToUpdate);
+                if (updateResult.IsFailure)
+                {
+                    _logger.LogError("Failed to rename layout: {ErrorMessage}", updateResult.ErrorMessage);
+                    StatusMessage = $"Failed to rename layout: {updateResult.ErrorMessage}";
+                    MessageBox.Show(
+                        $"Failed to rename layout: {updateResult.ErrorMessage}",
+                        "Error",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Error);
+                    return;
+                }
 
                 _logger.LogInformation("Layout renamed successfully to: {NewName}", newName);
 
@@ -369,20 +386,32 @@ public partial class LayoutSelectionViewModel : ObservableObject
 
             try
             {
-                var duplicatedLayout = await _layoutService.DuplicateLayoutAsync(
+                var duplicateResult = await _layoutService.DuplicateLayoutAsync(
                     SelectedLayout.Id,
                     duplicateName);
 
+                if (duplicateResult.IsFailure)
+                {
+                    _logger.LogError("Failed to duplicate layout: {ErrorMessage}", duplicateResult.ErrorMessage);
+                    StatusMessage = $"Failed to duplicate layout: {duplicateResult.ErrorMessage}";
+                    MessageBox.Show(
+                        $"Failed to duplicate layout: {duplicateResult.ErrorMessage}",
+                        "Error",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Error);
+                    return;
+                }
+
                 _logger.LogInformation(
                     "Layout duplicated successfully: {NewName} (ID: {NewId})",
-                    duplicatedLayout.Name,
-                    duplicatedLayout.Id);
+                    duplicateResult.Value.Name,
+                    duplicateResult.Value.Id);
 
                 // Refresh the layouts list
                 await LoadLayoutsAsync();
 
                 // Select the newly created layout
-                SelectedLayout = FilteredLayouts.FirstOrDefault(l => l.Id == duplicatedLayout.Id);
+                SelectedLayout = FilteredLayouts.FirstOrDefault(l => l.Id == duplicateResult.Value.Id);
 
                 MessageBox.Show(
                     $"Layout '{duplicateName}' created successfully.",
@@ -459,16 +488,16 @@ public partial class LayoutSelectionViewModel : ObservableObject
                     SelectedLayout = null;
 
                     MessageBox.Show(
-                        deleteResult.Message,
+                        $"Layout '{layoutName}' deleted successfully.",
                         "Success",
                         MessageBoxButton.OK,
                         MessageBoxImage.Information);
                 }
                 else
                 {
-                    _logger.LogWarning("Failed to delete layout: {LayoutName}", layoutName);
+                    _logger.LogWarning("Failed to delete layout {LayoutName}: {ErrorMessage}", layoutName, deleteResult.ErrorMessage);
                     MessageBox.Show(
-                        deleteResult.Error ?? $"Failed to delete layout '{layoutName}'.",
+                        $"Failed to delete layout '{layoutName}': {deleteResult.ErrorMessage}",
                         "Error",
                         MessageBoxButton.OK,
                         MessageBoxImage.Error);

@@ -91,12 +91,15 @@ public class DataRefreshService : BackgroundService
     {
         try
         {
-            var layout = await _layoutService.GetLayoutByIdAsync(layoutId, cancellationToken);
-            if (layout == null)
+            var layoutResult = await _layoutService.GetLayoutByIdAsync(layoutId, cancellationToken);
+            if (layoutResult == null || layoutResult.IsFailure || layoutResult.Value == null)
             {
-                _logger.LogWarning("Layout {LayoutId} not found for client {ClientId}", layoutId, clientId);
+                _logger.LogWarning("Layout {LayoutId} not found for client {ClientId}: {Error}",
+                    layoutId, clientId, layoutResult?.ErrorMessage ?? "Unknown error");
                 return;
             }
+
+            var layout = layoutResult.Value;
 
             if (layout.DataSources == null || layout.DataSources.Count == 0)
             {

@@ -195,13 +195,34 @@ public partial class LayoutManagementViewModel : ObservableObject, IDisposable
             {
                 CurrentLayout.Id = Guid.NewGuid().ToString();
                 CurrentLayout.Created = DateTime.UtcNow;
-                await _layoutService.CreateLayoutAsync(CurrentLayout);
+
+                var createResult = await _layoutService.CreateLayoutAsync(CurrentLayout);
+                if (createResult.IsFailure)
+                {
+                    _logger.LogError("Failed to create layout: {ErrorMessage}", createResult.ErrorMessage);
+                    StatusText = $"Failed to create layout: {createResult.ErrorMessage}";
+                    await _dialogService.ShowErrorAsync(
+                        $"Failed to create layout: {createResult.ErrorMessage}",
+                        "Error");
+                    return;
+                }
+
                 StatusText = $"Layout created successfully: {CurrentLayout.Name}";
                 _logger.LogInformation("Created new layout: {LayoutId}", CurrentLayout.Id);
             }
             else
             {
-                await _layoutService.UpdateLayoutAsync(CurrentLayout);
+                var updateResult = await _layoutService.UpdateLayoutAsync(CurrentLayout);
+                if (updateResult.IsFailure)
+                {
+                    _logger.LogError("Failed to update layout: {ErrorMessage}", updateResult.ErrorMessage);
+                    StatusText = $"Failed to update layout: {updateResult.ErrorMessage}";
+                    await _dialogService.ShowErrorAsync(
+                        $"Failed to update layout: {updateResult.ErrorMessage}",
+                        "Error");
+                    return;
+                }
+
                 StatusText = $"Layout saved successfully: {CurrentLayout.Name}";
                 _logger.LogInformation("Updated layout: {LayoutId}", CurrentLayout.Id);
             }
@@ -211,10 +232,10 @@ public partial class LayoutManagementViewModel : ObservableObject, IDisposable
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to save layout");
-            StatusText = $"Failed to save layout: {ex.Message}";
+            _logger.LogError(ex, "Unexpected error saving layout");
+            StatusText = $"Unexpected error: {ex.Message}";
             await _dialogService.ShowErrorAsync(
-                $"Failed to save layout: {ex.Message}",
+                $"Unexpected error saving layout: {ex.Message}",
                 "Error");
         }
     }
@@ -249,8 +270,18 @@ public partial class LayoutManagementViewModel : ObservableObject, IDisposable
                 CurrentLayout.Elements = _designer.Elements.ToList();
                 CurrentLayout.Modified = DateTime.UtcNow;
 
-                var json = await _layoutService.ExportLayoutAsync(CurrentLayout.Id);
-                await System.IO.File.WriteAllTextAsync(dialog.FileName, json);
+                var exportResult = await _layoutService.ExportLayoutAsync(CurrentLayout.Id);
+                if (exportResult.IsFailure)
+                {
+                    _logger.LogError("Failed to export layout: {ErrorMessage}", exportResult.ErrorMessage);
+                    StatusText = $"Failed to export: {exportResult.ErrorMessage}";
+                    await _dialogService.ShowErrorAsync(
+                        $"Failed to export layout: {exportResult.ErrorMessage}",
+                        "Error");
+                    return;
+                }
+
+                await System.IO.File.WriteAllTextAsync(dialog.FileName, exportResult.Value);
 
                 StatusText = $"Layout saved to: {dialog.FileName}";
                 _logger.LogInformation("Layout saved as: {FileName}", dialog.FileName);
@@ -260,6 +291,9 @@ public partial class LayoutManagementViewModel : ObservableObject, IDisposable
         {
             _logger.LogError(ex, "Failed to save layout as file");
             StatusText = $"Failed to save: {ex.Message}";
+            await _dialogService.ShowErrorAsync(
+                $"Failed to save layout: {ex.Message}",
+                "Error");
         }
     }
 
@@ -284,8 +318,19 @@ public partial class LayoutManagementViewModel : ObservableObject, IDisposable
             if (dialog.ShowDialog() == true)
             {
                 CurrentLayout.Elements = _designer.Elements.ToList();
-                var json = await _layoutService.ExportLayoutAsync(CurrentLayout.Id);
-                await System.IO.File.WriteAllTextAsync(dialog.FileName, json);
+
+                var exportResult = await _layoutService.ExportLayoutAsync(CurrentLayout.Id);
+                if (exportResult.IsFailure)
+                {
+                    _logger.LogError("Failed to export layout: {ErrorMessage}", exportResult.ErrorMessage);
+                    StatusText = $"Failed to export: {exportResult.ErrorMessage}";
+                    await _dialogService.ShowErrorAsync(
+                        $"Failed to export layout: {exportResult.ErrorMessage}",
+                        "Error");
+                    return;
+                }
+
+                await System.IO.File.WriteAllTextAsync(dialog.FileName, exportResult.Value);
 
                 StatusText = $"Layout exported to: {dialog.FileName}";
                 _logger.LogInformation("Layout exported: {FileName}", dialog.FileName);
@@ -295,6 +340,9 @@ public partial class LayoutManagementViewModel : ObservableObject, IDisposable
         {
             _logger.LogError(ex, "Failed to export layout");
             StatusText = $"Failed to export: {ex.Message}";
+            await _dialogService.ShowErrorAsync(
+                $"Failed to export layout: {ex.Message}",
+                "Error");
         }
     }
 
@@ -313,13 +361,23 @@ public partial class LayoutManagementViewModel : ObservableObject, IDisposable
             {
                 StatusText = "Importing layout...";
                 var json = await System.IO.File.ReadAllTextAsync(dialog.FileName);
-                var layout = await _layoutService.ImportLayoutAsync(json);
+
+                var importResult = await _layoutService.ImportLayoutAsync(json);
+                if (importResult.IsFailure)
+                {
+                    _logger.LogError("Failed to import layout: {ErrorMessage}", importResult.ErrorMessage);
+                    StatusText = $"Failed to import: {importResult.ErrorMessage}";
+                    await _dialogService.ShowErrorAsync(
+                        $"Failed to import layout:\n{importResult.ErrorMessage}",
+                        "Import Error");
+                    return;
+                }
 
                 // Load into designer
-                await _designer.LoadLayoutAsync(layout);
-                CurrentLayout = layout;
+                await _designer.LoadLayoutAsync(importResult.Value);
+                CurrentLayout = importResult.Value;
 
-                StatusText = $"Layout imported: {layout.Name}";
+                StatusText = $"Layout imported: {importResult.Value.Name}";
                 _logger.LogInformation("Layout imported from: {FileName}", dialog.FileName);
             }
         }

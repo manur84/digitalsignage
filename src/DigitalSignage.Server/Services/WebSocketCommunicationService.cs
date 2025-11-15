@@ -15,14 +15,17 @@ using System.Text;
 
 namespace DigitalSignage.Server.Services;
 
-public class WebSocketCommunicationService : ICommunicationService
+public class WebSocketCommunicationService : ICommunicationService, IDisposable
 {
     private readonly ConcurrentDictionary<string, WebSocket> _clients = new();
+    private readonly ConcurrentDictionary<string, Task> _clientHandlerTasks = new();
     private readonly ILogger<WebSocketCommunicationService> _logger;
     private readonly ServerSettings _settings;
     private HttpListener? _httpListener;
     private CancellationTokenSource? _cancellationTokenSource;
+    private Task? _acceptClientsTask;
     private bool _enableCompression = true; // Enable gzip compression for large messages
+    private bool _disposed = false;
 
     // CRITICAL FIX: JSON serializer settings to prevent string truncation
     // Problem: Default Newtonsoft.Json settings were truncating hex color values (#ADD8E6 → #ADD8)
@@ -59,6 +62,8 @@ public class WebSocketCommunicationService : ICommunicationService
 
     public async Task StartAsync(CancellationToken cancellationToken = default)
     {
+        ThrowIfDisposed();
+
         try
         {
             _cancellationTokenSource = new CancellationTokenSource();
@@ -109,7 +114,8 @@ public class WebSocketCommunicationService : ICommunicationService
                 _settings.Port, protocol, bindMode);
             _logger.LogInformation("WebSocket endpoint: {Endpoint}", urlPrefix);
 
-            _ = Task.Run(() => AcceptClientsAsync(_cancellationTokenSource.Token));
+            // Track the accept clients task instead of fire-and-forget
+            _acceptClientsTask = Task.Run(() => AcceptClientsAsync(_cancellationTokenSource.Token));
 
             await Task.CompletedTask;
         }
@@ -147,7 +153,8 @@ public class WebSocketCommunicationService : ICommunicationService
                 _logger.LogWarning("Successfully started in localhost-only mode");
                 _logger.LogInformation("WebSocket endpoint: {Endpoint}", localhostPrefix);
 
-                _ = Task.Run(() => AcceptClientsAsync(_cancellationTokenSource!.Token));
+                // Track the accept clients task instead of fire-and-forget
+                _acceptClientsTask = Task.Run(() => AcceptClientsAsync(_cancellationTokenSource!.Token));
                 return;
             }
             catch
@@ -169,18 +176,105 @@ public class WebSocketCommunicationService : ICommunicationService
 
     public async Task StopAsync(CancellationToken cancellationToken = default)
     {
-        _cancellationTokenSource?.Cancel();
-        _httpListener?.Stop();
+        ThrowIfDisposed();
 
-        foreach (var client in _clients.Values)
+        _logger.LogInformation("Stopping WebSocket communication service...");
+
+        // 1. Cancel accept loop
+        _cancellationTokenSource?.Cancel();
+
+        // 2. Stop and close HTTP listener
+        if (_httpListener != null)
         {
-            await client.CloseAsync(
-                WebSocketCloseStatus.NormalClosure,
-                "Server shutting down",
-                cancellationToken);
+            try
+            {
+                _httpListener.Stop();
+                _httpListener.Close();
+                _logger.LogDebug("HttpListener stopped and closed");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error stopping HttpListener");
+            }
         }
 
+        // 3. Close all client connections gracefully
+        var closeTasks = _clients.Values.Select(async socket =>
+        {
+            try
+            {
+                if (socket.State == WebSocketState.Open || socket.State == WebSocketState.CloseReceived)
+                {
+                    await socket.CloseAsync(
+                        WebSocketCloseStatus.NormalClosure,
+                        "Server shutting down",
+                        cancellationToken);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error closing client WebSocket during shutdown");
+            }
+        });
+
+        try
+        {
+            await Task.WhenAll(closeTasks);
+            _logger.LogInformation("All {Count} client connections closed", _clients.Count);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error waiting for client connections to close");
+        }
+
+        // 4. Wait for accept clients task to complete (with 10s timeout)
+        if (_acceptClientsTask != null)
+        {
+            try
+            {
+                await _acceptClientsTask.WaitAsync(TimeSpan.FromSeconds(10));
+                _logger.LogDebug("Accept clients task stopped gracefully");
+            }
+            catch (TimeoutException)
+            {
+                _logger.LogWarning("Accept clients task did not stop within timeout");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error waiting for accept clients task to complete");
+            }
+        }
+
+        // 5. Wait for all client handler tasks to complete (with 10s timeout)
+        var handlerTasks = _clientHandlerTasks.Values.ToArray();
+        if (handlerTasks.Length > 0)
+        {
+            try
+            {
+                _logger.LogDebug("Waiting for {Count} client handler tasks to complete", handlerTasks.Length);
+                await Task.WhenAll(handlerTasks).WaitAsync(TimeSpan.FromSeconds(10));
+                _logger.LogDebug("All client handler tasks stopped gracefully");
+            }
+            catch (TimeoutException)
+            {
+                _logger.LogWarning("{Count} client handler tasks did not stop within timeout", handlerTasks.Length);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error waiting for client handler tasks to complete");
+            }
+        }
+
+        // 6. Clear clients dictionary and handler tasks
         _clients.Clear();
+        _clientHandlerTasks.Clear();
+
+        // 7. Dispose cancellation token source
+        _cancellationTokenSource?.Dispose();
+        _cancellationTokenSource = null;
+        _acceptClientsTask = null;
+
+        _logger.LogInformation("WebSocket communication service stopped successfully");
     }
 
     public async Task SendMessageAsync(
@@ -188,6 +282,8 @@ public class WebSocketCommunicationService : ICommunicationService
         Message message,
         CancellationToken cancellationToken = default)
     {
+        ThrowIfDisposed();
+
         if (_clients.TryGetValue(clientId, out var socket))
         {
             try
@@ -313,7 +409,9 @@ public class WebSocketCommunicationService : ICommunicationService
                         IpAddress = ipAddress
                     });
 
-                    _ = Task.Run(() => HandleClientAsync(clientId, wsContext.WebSocket, cancellationToken));
+                    // Track each client handler task instead of fire-and-forget
+                    var handlerTask = Task.Run(() => HandleClientAsync(clientId, wsContext.WebSocket, cancellationToken));
+                    _clientHandlerTasks[clientId] = handlerTask;
                 }
                 else
                 {
@@ -488,6 +586,7 @@ public class WebSocketCommunicationService : ICommunicationService
         finally
         {
             _clients.TryRemove(clientId, out _);
+            _clientHandlerTasks.TryRemove(clientId, out _);
             _logger.LogInformation("Client {ClientId} disconnected", clientId);
 
             ClientDisconnected?.Invoke(this, new ClientDisconnectedEventArgs
@@ -505,5 +604,56 @@ public class WebSocketCommunicationService : ICommunicationService
             }
             socket.Dispose();
         }
+    }
+
+    /// <summary>
+    /// Throws ObjectDisposedException if service has been disposed
+    /// </summary>
+    private void ThrowIfDisposed()
+    {
+        if (_disposed)
+        {
+            throw new ObjectDisposedException(nameof(WebSocketCommunicationService));
+        }
+    }
+
+    /// <summary>
+    /// Disposes managed resources
+    /// </summary>
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    /// <summary>
+    /// Disposes managed and unmanaged resources
+    /// </summary>
+    /// <param name="disposing">True if disposing managed resources</param>
+    protected virtual void Dispose(bool disposing)
+    {
+        if (_disposed)
+            return;
+
+        if (disposing)
+        {
+            // Dispose managed resources
+            try
+            {
+                // Stop async should be called before dispose
+                // But if not, clean up what we can
+                _httpListener?.Close();
+                ((IDisposable?)_httpListener)?.Dispose();
+                _cancellationTokenSource?.Dispose();
+
+                _logger.LogInformation("WebSocketCommunicationService disposed");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error during WebSocketCommunicationService disposal");
+            }
+        }
+
+        _disposed = true;
     }
 }

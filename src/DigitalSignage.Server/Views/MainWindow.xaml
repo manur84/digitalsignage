@@ -487,7 +487,8 @@
                                                             <Style TargetType="TextBlock">
                                                                 <Setter Property="Text" Value="👁"/>
                                                                 <Style.Triggers>
-                                                                    <DataTrigger Binding="{Binding [IsVisible], FallbackValue=True}" Value="False">
+                                                                    <!-- FIX: Use Visible property instead of [IsVisible] indexer -->
+                                                                    <DataTrigger Binding="{Binding Visible, FallbackValue=True}" Value="False">
                                                                         <Setter Property="Text" Value="🚫"/>
                                                                         <Setter Property="Opacity" Value="0.5"/>
                                                                     </DataTrigger>
@@ -529,8 +530,8 @@
                             <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
                             <controls:DesignerCanvas x:Name="DesignerCanvas"
                                                     Background="White"
-                                                    Width="{Binding Designer.CurrentLayout.Resolution.Width}"
-                                                    Height="{Binding Designer.CurrentLayout.Resolution.Height}"
+                                                    Width="{Binding Designer.CurrentLayout.Resolution.Width, FallbackValue=1920}"
+                                                    Height="{Binding Designer.CurrentLayout.Resolution.Height, FallbackValue=1080}"
                                                     ShowGrid="{Binding Designer.ShowGrid}"
                                                     SnapToGrid="{Binding Designer.SnapToGrid}"
                                                     GridSize="{Binding Designer.GridSize}"
@@ -592,16 +593,22 @@
                                                    ScaleY="{Binding Designer.ZoomLevel}"/>
                                 </controls:DesignerCanvas.LayoutTransform>
 
-                                <!-- Render all elements using DesignerItemControl -->
+                                <!-- Render all elements using DesignerItemControl (professional WYSIWYG rendering) -->
+                                <!-- CRITICAL FIX: ItemsControl MUST have explicit Width/Height when child of Canvas! -->
+                                <!-- Without size, ItemsControl renders at 0x0 and clips all children -->
+                                <!-- DesignerItemsControl automatically binds Canvas.Left/Top/ZIndex in code (see Controls/DesignerItemsControl.cs) -->
                                 <controls:DesignerItemsControl ItemsSource="{Binding Designer.Elements}"
-                                                               Width="{Binding Designer.CurrentLayout.Resolution.Width}"
-                                                               Height="{Binding Designer.CurrentLayout.Resolution.Height}">
+                                                               Width="{Binding Designer.CurrentLayout.Resolution.Width, FallbackValue=1920}"
+                                                               Height="{Binding Designer.CurrentLayout.Resolution.Height, FallbackValue=1080}">
+                                    <!-- CRITICAL FIX: ItemsPanel MUST be Canvas for Canvas.Left/Top/ZIndex to work! -->
+                                    <!-- CRITICAL FIX: Canvas MUST have explicit size or children won't render (0x0 clip bounds)! -->
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
-                                            <Canvas Width="{Binding DataContext.Designer.CurrentLayout.Resolution.Width, RelativeSource={RelativeSource AncestorType=controls:DesignerCanvas}}"
-                                                    Height="{Binding DataContext.Designer.CurrentLayout.Resolution.Height, RelativeSource={RelativeSource AncestorType=controls:DesignerCanvas}}"/>
+                                            <Canvas Width="{Binding DataContext.Designer.CurrentLayout.Resolution.Width, RelativeSource={RelativeSource AncestorType=controls:DesignerCanvas}, FallbackValue=1920}"
+                                                    Height="{Binding DataContext.Designer.CurrentLayout.Resolution.Height, RelativeSource={RelativeSource AncestorType=controls:DesignerCanvas}, FallbackValue=1080}"/>
                                         </ItemsPanelTemplate>
                                     </ItemsControl.ItemsPanel>
+                                    <!-- NOTE: Canvas positioning bindings handled by DesignerItemsControl.PrepareContainerForItemOverride() -->
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <!-- Width/Height bindings keep DesignerItemControl content sized -->
@@ -747,7 +754,8 @@
                                     </Grid>
 
                                     <TextBlock Text="Visibility:" Margin="0,12,0,4"/>
-                                    <CheckBox Content="Visible" IsChecked="{Binding Designer.SelectedElement.Visible, FallbackValue=True}" Margin="0,4,0,0"/>
+                                    <!-- FIX: Explicitly set TwoWay mode and PropertyChanged trigger for immediate updates -->
+                                    <CheckBox Content="Visible" IsChecked="{Binding Designer.SelectedElement.Visible, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, FallbackValue=True}" Margin="0,4,0,0"/>
 
                                     <Separator Margin="0,16"/>
 

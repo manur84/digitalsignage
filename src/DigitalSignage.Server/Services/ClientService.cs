@@ -375,9 +375,18 @@ public class ClientService : IClientService
 
                 try
                 {
-                    var layout = await _layoutService.GetLayoutByIdAsync(client.AssignedLayoutId, cancellationToken);
-                    if (layout != null)
+                    var layoutResult = await _layoutService.GetLayoutByIdAsync(client.AssignedLayoutId, cancellationToken);
+                    if (!layoutResult.IsSuccess || layoutResult.Value == null)
                     {
+                        _logger.LogWarning(
+                            "Client {ClientId} has assigned layout {LayoutId} but layout could not be loaded: {Error}",
+                            client.Id,
+                            client.AssignedLayoutId,
+                            layoutResult.ErrorMessage);
+                    }
+                    else
+                    {
+                        var layout = layoutResult.Value;
                         // Fetch data for data-driven elements
                         // TODO: Implement data source fetching when data-driven elements are supported
                         Dictionary<string, object>? layoutData = null;
@@ -392,11 +401,6 @@ public class ClientService : IClientService
                         await _communicationService.SendMessageAsync(client.Id, displayUpdate, cancellationToken);
                         _logger.LogInformation("Successfully sent assigned layout {LayoutId} to reconnected client {ClientId}",
                             layout.Id, client.Id);
-                    }
-                    else
-                    {
-                        _logger.LogWarning("Client {ClientId} has assigned layout {LayoutId} but layout not found in database",
-                            client.Id, client.AssignedLayoutId);
                     }
                 }
                 catch (Exception ex)
@@ -602,12 +606,16 @@ public class ClientService : IClientService
         try
         {
             // Load layout
-            var layout = await _layoutService.GetLayoutByIdAsync(layoutId, cancellationToken);
-            if (layout == null)
+            var layoutResult = await _layoutService.GetLayoutByIdAsync(layoutId, cancellationToken);
+            if (!layoutResult.IsSuccess || layoutResult.Value == null)
             {
-                _logger.LogError("Layout {LayoutId} not found", layoutId);
+                _logger.LogError("Layout {LayoutId} could not be loaded: {Error}",
+                    layoutId,
+                    layoutResult.ErrorMessage);
                 return false;
             }
+
+            var layout = layoutResult.Value;
 
             // Fetch data from all data sources
             var layoutData = new Dictionary<string, object>();

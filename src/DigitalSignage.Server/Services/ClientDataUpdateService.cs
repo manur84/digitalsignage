@@ -64,13 +64,14 @@ public class ClientDataUpdateService : IHostedService, IDisposable
                 e.DataSourceId, e.DataSourceName);
 
             // Find all layouts using this data source
-            var layouts = await _layoutService.GetLayoutsWithDataSourceAsync(e.DataSourceId);
-
-            if (layouts.Count == 0)
+            var layoutsResult = await _layoutService.GetLayoutsWithDataSourceAsync(e.DataSourceId);
+            if (layoutsResult.IsFailure || layoutsResult.Value == null || layoutsResult.Value.Count == 0)
             {
                 _logger.LogDebug("No layouts using data source {DataSourceId}", e.DataSourceId);
                 return;
             }
+
+            var layouts = layoutsResult.Value;
 
             _logger.LogInformation("Found {LayoutCount} layouts using data source {DataSourceId}",
                 layouts.Count, e.DataSourceId);

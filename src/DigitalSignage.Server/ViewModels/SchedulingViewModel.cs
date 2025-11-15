@@ -250,15 +250,20 @@ public partial class SchedulingViewModel : ObservableObject, IDisposable
     {
         try
         {
-            var layouts = await _layoutService.GetAllLayoutsAsync();
+            var layoutsResult = await _layoutService.GetAllLayoutsAsync();
+            if (layoutsResult.IsFailure)
+            {
+                _logger.LogError("Failed to load layouts: {ErrorMessage}", layoutsResult.ErrorMessage);
+                return;
+            }
 
             AvailableLayouts.Clear();
-            foreach (var layout in layouts)
+            foreach (var layout in layoutsResult.Value)
             {
                 AvailableLayouts.Add(layout);
             }
 
-            _logger.LogInformation("Loaded {Count} layouts", layouts.Count);
+            _logger.LogInformation("Loaded {Count} layouts", layoutsResult.Value.Count);
         }
         catch (Exception ex)
         {
