@@ -42,10 +42,16 @@ class ShapeWidget(QWidget):
         self.stroke_width = 1
         self.corner_radius = 0
 
+        # CRITICAL FIX: Configure widget for custom painting
+        # Without this, Qt won't properly render custom paintEvent drawings
+        self.setAttribute(Qt.WA_OpaquePaintEvent, False)  # Widget handles transparency
+        self.setAutoFillBackground(False)  # Don't auto-fill, we paint ourselves
+
     def set_fill_color(self, color: str):
         """Set fill color from hex string"""
         try:
             self.fill_color = QColor(color)
+            self.update()  # Trigger repaint
         except Exception as e:
             logger.warning(f"Invalid fill color {color}: {e}")
             self.fill_color = QColor('#CCCCCC')
@@ -54,6 +60,7 @@ class ShapeWidget(QWidget):
         """Set stroke color from hex string"""
         try:
             self.stroke_color = QColor(color)
+            self.update()  # Trigger repaint
         except Exception as e:
             logger.warning(f"Invalid stroke color {color}: {e}")
             self.stroke_color = QColor('#000000')
@@ -62,6 +69,7 @@ class ShapeWidget(QWidget):
         """Set stroke width"""
         try:
             self.stroke_width = max(0, int(width))
+            self.update()  # Trigger repaint
         except (ValueError, TypeError):
             self.stroke_width = 1
 
@@ -69,6 +77,7 @@ class ShapeWidget(QWidget):
         """Set corner radius for rectangles"""
         try:
             self.corner_radius = max(0, float(radius))
+            self.update()  # Trigger repaint
         except (ValueError, TypeError):
             self.corner_radius = 0
 
