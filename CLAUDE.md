@@ -316,6 +316,464 @@ class DeviceManager:
 
 ---
 
+## 🚨 CRITICAL CODING ERRORS TO AVOID
+
+**Based on audit findings in WORK.md - these errors have been found in the codebase and MUST be avoided in new code!**
+
+### 1. ❌ CRITICAL: Thread-Safety Issues
+
+**NEVER use Dictionary in multi-threaded contexts:**
+```csharp
+// ❌ BAD - Not thread-safe!
+private readonly Dictionary<int, DateTime> _cache = new();
+
+// In method accessed by multiple threads:
+_cache[key] = value;  // RACE CONDITION!
+```
+
+**✅ ALWAYS use ConcurrentDictionary:**
+```csharp
+// ✅ GOOD - Thread-safe
+private readonly ConcurrentDictionary<int, DateTime> _cache = new();
+
+// Safe for concurrent access
+_cache[key] = value;
+```
+
+**Thread-safe statistics updates:**
+```csharp
+// ❌ BAD - Not atomic!
+_statistics.AddOrUpdate(
+    key,
+    new Stats { Hits = 1 },
+    (_, stats) => { stats.Hits++; return stats; });  // READ-MODIFY-WRITE RACE!
+
+// ✅ GOOD - Atomic increment
+_statistics.AddOrUpdate(
+    key,
+    new Stats { Hits = 1 },
+    (_, stats) => {
+        Interlocked.Increment(ref stats.Hits);
+        return stats;
+    });
+```
+
+---
+
+### 2. ❌ CRITICAL: Resource Leaks (IDisposable)
+
+**ALWAYS dispose IDisposable resources:**
+
+```csharp
+// ❌ BAD - JsonDocument leak!
+private Dictionary<string, JsonElement> ParseConfig(string json)
+{
+    var doc = JsonDocument.Parse(json);  // NOT DISPOSED!
+    var dict = new Dictionary<string, JsonElement>();
+    foreach (var prop in doc.RootElement.EnumerateObject())
+        dict[prop.Name] = prop.Value;
+    return dict;  // MEMORY LEAK!
+}
+
+// ✅ GOOD - Properly disposed
+private Dictionary<string, JsonElement> ParseConfig(string json)
+{
+    if (string.IsNullOrWhiteSpace(json))
+        return new Dictionary<string, JsonElement>();
+
+    try
+    {
+        using var doc = JsonDocument.Parse(json);
+        var dict = new Dictionary<string, JsonElement>();
+        foreach (var prop in doc.RootElement.EnumerateObject())
+            dict[prop.Name] = prop.Value.Clone();  // Clone for use outside using block!
+        return dict;
+    }
+    catch (JsonException ex)
+    {
+        _logger.LogError(ex, "Error parsing configuration");
+        return new Dictionary<string, JsonElement>();
+    }
+}
+```
+
+**Always dispose SemaphoreSlim, UdpClient, Ping, etc.:**
+```csharp
+// ❌ BAD - No disposal
+public class MyService
+{
+    private readonly SemaphoreSlim _semaphore = new(1, 1);
+    // No Dispose method = RESOURCE LEAK!
+}
+
+// ✅ GOOD - Implement IDisposable
+public class MyService : IDisposable
+{
+    private readonly SemaphoreSlim _semaphore = new(1, 1);
+
+    public void Dispose()
+    {
+        _semaphore?.Dispose();
+    }
+}
+```
+
+---
+
+### 3. ❌ CRITICAL: Fire-and-Forget Tasks
+
+**NEVER use fire-and-forget tasks for critical operations:**
+
+```csharp
+// ❌ BAD - Database update may never complete!
+_ = Task.Run(async () =>
+{
+    try
+    {
+        using var scope = _serviceProvider.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<DbContext>();
+        // Update database...
+        await dbContext.SaveChangesAsync();  // May fail silently!
+    }
+    catch (Exception ex)
+    {
+        _logger.LogWarning(ex, "Failed");  // Exception swallowed!
+    }
+}, cancellationToken);
+
+// ✅ GOOD - Await the operation
+try
+{
+    using var scope = _serviceProvider.CreateScope();
+    var dbContext = scope.ServiceProvider.GetRequiredService<DbContext>();
+    // Update database...
+    await dbContext.SaveChangesAsync();
+}
+catch (Exception ex)
+{
+    _logger.LogError(ex, "Failed to update database");
+    // Handle error appropriately (retry, throw, etc.)
+}
+```
+
+**Fire-and-forget causes:**
+- Silent failures
+- Data inconsistency (in-memory vs database)
+- No guarantee of completion
+- Cannot be awaited or tracked
+- Exceptions are swallowed
+
+---
+
+### 4. ❌ CRITICAL: Sync-over-Async Anti-Patterns
+
+**NEVER block async code with sync calls:**
+
+```csharp
+// ❌ BAD - Blocks thread!
+private void SaveLayout(Layout layout)
+{
+    _fileLock.Wait();  // BLOCKING! Thread pool starvation!
+    try
+    {
+        var json = JsonConvert.SerializeObject(layout);
+        File.WriteAllText(filePath, json);  // BLOCKING I/O!
+    }
+    finally
+    {
+        _fileLock.Release();
+    }
+}
+
+// ✅ GOOD - Fully async
+private async Task SaveLayoutAsync(Layout layout, CancellationToken ct = default)
+{
+    await _fileLock.WaitAsync(ct);
+    try
+    {
+        var json = JsonConvert.SerializeObject(layout);
+        await File.WriteAllTextAsync(filePath, json, ct);
+    }
+    finally
+    {
+        _fileLock.Release();
+    }
+}
+```
+
+**NEVER use .Result or .Wait():**
+```csharp
+// ❌ BAD - Can cause deadlocks!
+var clients = _clientService.GetAllClientsAsync().Result;  // BLOCKING!
+
+// ✅ GOOD - Await it
+var clients = await _clientService.GetAllClientsAsync();
+```
+
+**NEVER use Thread.Sleep in async methods:**
+```csharp
+// ❌ BAD - Blocks thread for 500ms!
+private PerformanceMetrics GetMetrics()
+{
+    var start = Process.GetCurrentProcess().TotalProcessorTime;
+    Thread.Sleep(500);  // BLOCKING!
+    var end = Process.GetCurrentProcess().TotalProcessorTime;
+    // ...
+}
+
+// ✅ GOOD - Non-blocking delay
+private async Task<PerformanceMetrics> GetMetricsAsync()
+{
+    var start = Process.GetCurrentProcess().TotalProcessorTime;
+    await Task.Delay(500);  // NON-BLOCKING!
+    var end = Process.GetCurrentProcess().TotalProcessorTime;
+    // ...
+}
+```
+
+---
+
+### 5. ❌ HIGH: Async Void (Only for Event Handlers!)
+
+**NEVER use async void except for event handlers:**
+
+```csharp
+// ❌ BAD - Async void method!
+public async void ProcessData()  // Exceptions cannot be caught!
+{
+    await DoSomethingAsync();
+}
+
+// ✅ GOOD - Return Task
+public async Task ProcessDataAsync()
+{
+    await DoSomethingAsync();
+}
+
+// ✅ ACCEPTABLE - Event handler only
+private async void OnButtonClick(object sender, EventArgs e)
+{
+    try
+    {
+        await ProcessDataAsync();
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error processing data");
+    }
+}
+```
+
+**Why async void is dangerous:**
+- Exceptions crash the application
+- Cannot be awaited
+- Cannot be unit tested
+- No way to track completion
+
+---
+
+### 6. ❌ HIGH: Missing Async Disposal
+
+**Use `await using` for IAsyncDisposable:**
+
+```csharp
+// ❌ BAD - Synchronous disposal of async resource!
+public async Task<List<DataSource>> GetAllAsync()
+{
+    using var context = await _contextFactory.CreateDbContextAsync();
+    return await context.DataSources.ToListAsync();
+    // Disposes synchronously - may block!
+}
+
+// ✅ GOOD - Async disposal
+public async Task<List<DataSource>> GetAllAsync()
+{
+    await using var context = await _contextFactory.CreateDbContextAsync();
+    return await context.DataSources.ToListAsync();
+}
+```
+
+---
+
+### 7. ❌ HIGH: Weak Password Hashing
+
+**NEVER use SHA256/MD5 for passwords:**
+
+```csharp
+// ❌ BAD - Vulnerable to rainbow tables!
+public string HashPassword(string password)
+{
+    using var sha256 = SHA256.Create();
+    var hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
+    return Convert.ToBase64String(hash);  // NO SALT! NO ITERATIONS!
+}
+
+// ✅ GOOD - Use BCrypt
+public string HashPassword(string password)
+{
+    return BCrypt.Net.BCrypt.HashPassword(password, workFactor: 12);
+}
+
+public bool VerifyPassword(string password, string hash)
+{
+    try
+    {
+        return BCrypt.Net.BCrypt.Verify(password, hash);
+    }
+    catch
+    {
+        return false;
+    }
+}
+```
+
+---
+
+### 8. ❌ MEDIUM: Missing Input Validation
+
+**ALWAYS validate inputs:**
+
+```csharp
+// ❌ BAD - No validation!
+public async Task<string> SaveMediaAsync(byte[] data, string fileName)
+{
+    var filePath = Path.Combine(_mediaDirectory, fileName);
+    await File.WriteAllBytesAsync(filePath, data);  // What if data is null?
+    return fileName;
+}
+
+// ✅ GOOD - Validate everything
+public async Task<string> SaveMediaAsync(byte[] data, string fileName)
+{
+    if (data == null || data.Length == 0)
+        throw new ArgumentException("Data cannot be null or empty", nameof(data));
+
+    if (string.IsNullOrWhiteSpace(fileName))
+        throw new ArgumentException("Filename cannot be empty", nameof(fileName));
+
+    // Validate filename doesn't contain path traversal
+    if (fileName.Contains("..") || Path.GetFileName(fileName) != fileName)
+        throw new ArgumentException("Invalid filename", nameof(fileName));
+
+    try
+    {
+        var filePath = Path.Combine(_mediaDirectory, fileName);
+        await File.WriteAllBytesAsync(filePath, data);
+        _logger.LogDebug("Saved media file {FileName} ({Size} bytes)", fileName, data.Length);
+        return fileName;
+    }
+    catch (IOException ex)
+    {
+        _logger.LogError(ex, "Failed to save media file {FileName}", fileName);
+        throw new InvalidOperationException($"Failed to save media file {fileName}", ex);
+    }
+}
+```
+
+**Collection null checks:**
+```csharp
+// ❌ BAD - Will throw if null
+public void AlignLeft(IEnumerable<DisplayElement> elements)
+{
+    var list = elements.ToList();  // NullReferenceException if null!
+    // ...
+}
+
+// ✅ GOOD - Guard clause
+public void AlignLeft(IEnumerable<DisplayElement> elements)
+{
+    if (elements == null)
+        throw new ArgumentNullException(nameof(elements));
+
+    var list = elements.ToList();
+    if (list.Count < 2)
+        return;
+    // ...
+}
+```
+
+---
+
+### 9. ❌ MEDIUM: Inconsistent Disposal
+
+**Always dispose in StopAsync AND in finally blocks:**
+
+```csharp
+// ❌ BAD - Only closes, doesn't dispose
+public override Task StopAsync(CancellationToken cancellationToken)
+{
+    _logger.LogInformation("Stopping...");
+    _udpListener?.Close();  // Missing Dispose()!
+    return base.StopAsync(cancellationToken);
+}
+
+// ✅ GOOD - Close and dispose
+public override Task StopAsync(CancellationToken cancellationToken)
+{
+    _logger.LogInformation("Stopping...");
+    _udpListener?.Close();
+    _udpListener?.Dispose();
+    return base.StopAsync(cancellationToken);
+}
+```
+
+---
+
+### 10. ❌ LOW: Performance Issues
+
+**Avoid multiple LINQ iterations:**
+
+```csharp
+// ❌ BAD - Iterates 5+ times!
+public LogStatistics GetStatistics()
+{
+    var allLogs = _allLogs.ToArray();
+    return new LogStatistics
+    {
+        DebugCount = allLogs.Count(l => l.Level == LogLevel.Debug),
+        InfoCount = allLogs.Count(l => l.Level == LogLevel.Info),
+        WarningCount = allLogs.Count(l => l.Level == LogLevel.Warning),
+        // ... 5 separate iterations!
+    };
+}
+
+// ✅ GOOD - Single pass with GroupBy
+public LogStatistics GetStatistics()
+{
+    var allLogs = _allLogs.ToArray();
+    var levelCounts = allLogs
+        .GroupBy(l => l.Level)
+        .ToDictionary(g => g.Key, g => g.Count());
+
+    return new LogStatistics
+    {
+        DebugCount = levelCounts.GetValueOrDefault(LogLevel.Debug, 0),
+        InfoCount = levelCounts.GetValueOrDefault(LogLevel.Info, 0),
+        WarningCount = levelCounts.GetValueOrDefault(LogLevel.Warning, 0),
+        // ... single iteration!
+    };
+}
+```
+
+---
+
+## Quick Error Checklist
+
+Before committing code, check:
+
+- [ ] **Thread-safety:** Used ConcurrentDictionary for shared state?
+- [ ] **Resource disposal:** All IDisposable resources disposed with `using`?
+- [ ] **Async disposal:** Used `await using` for IAsyncDisposable?
+- [ ] **No fire-and-forget:** All async operations awaited?
+- [ ] **No sync-over-async:** No `.Result`, `.Wait()`, `Thread.Sleep()` in async code?
+- [ ] **No async void:** Only in event handlers, with try-catch?
+- [ ] **Input validation:** All parameters validated (null checks, ranges, formats)?
+- [ ] **Password hashing:** Using BCrypt, not SHA256/MD5?
+- [ ] **Proper logging:** Structured logging with context, not Console.WriteLine?
+- [ ] **Exception handling:** Try-catch with logging, not swallowing exceptions?
+
+---
+
 ## Common Tasks
 
 ### Feature Development
