@@ -70,8 +70,11 @@ public class DesignerItemControl : ContentControl
         MinWidth = 10;
         MinHeight = 10;
 
-        // Make control transparent by default so content is visible
-        Background = Brushes.Transparent;
+        // DIAGNOSTIC: Bright red background to verify rendering (REMOVE AFTER DEBUGGING)
+        Background = Brushes.Red;
+        BorderBrush = Brushes.Blue;
+        BorderThickness = new Thickness(3);
+        Opacity = 1.0;
 
         System.Diagnostics.Debug.WriteLine("DesignerItemControl: Constructor called");
         Loaded += (s, e) =>
@@ -326,7 +329,9 @@ public class DesignerItemControl : ContentControl
         System.Diagnostics.Debug.WriteLine($"DesignerItemControl: Element '{DisplayElement.Name}' updated successfully. " +
             $"Width={Width}, Height={Height}, " +
             $"ActualWidth={ActualWidth}, ActualHeight={ActualHeight}, " +
-            $"IsVisible={IsVisible}, Content={Content?.GetType().Name}");
+            $"IsVisible={IsVisible}, Visibility={Visibility}, Opacity={Opacity}, " +
+            $"Background={Background}, BorderBrush={BorderBrush}, BorderThickness={BorderThickness}, " +
+            $"Content={Content?.GetType().Name}");
     }
 
     private UIElement CreateContentForElement()

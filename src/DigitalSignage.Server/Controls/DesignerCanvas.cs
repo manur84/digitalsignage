@@ -66,7 +66,7 @@ public class DesignerCanvas : Canvas
     public DesignerCanvas()
     {
         Background = Brushes.White;
-        ClipToBounds = true;
+        ClipToBounds = false;  // DIAGNOSTIC: Changed to false to test clipping issue
         Focusable = true;
 
         // Mouse events
@@ -93,10 +93,13 @@ public class DesignerCanvas : Canvas
     {
         base.OnRender(dc);
 
-        if (ShowGrid)
-        {
-            DrawGrid(dc);
-        }
+        // DIAGNOSTIC: Grid temporarily disabled to test z-order issue
+        // if (ShowGrid)
+        // {
+        //     DrawGrid(dc);
+        // }
+
+        System.Diagnostics.Debug.WriteLine($"[DIAGNOSTIC] DesignerCanvas.OnRender: Children.Count={Children.Count}, ActualWidth={ActualWidth}, ActualHeight={ActualHeight}");
     }
 
     private void DrawGrid(DrawingContext dc)
