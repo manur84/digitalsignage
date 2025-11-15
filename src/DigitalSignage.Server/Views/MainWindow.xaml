@@ -588,23 +588,20 @@
                                                     Height="{Binding DataContext.Designer.CurrentLayout.Resolution.Height, RelativeSource={RelativeSource AncestorType=controls:DesignerCanvas}}"/>
                                         </ItemsPanelTemplate>
                                     </ItemsControl.ItemsPanel>
-                                    <ItemsControl.ItemContainerStyle>
-                                        <Style TargetType="ContentPresenter">
-                                            <!-- Width/Height MUST be set here for ContentPresenter to allocate space -->
-                                            <Setter Property="Width" Value="{Binding Size.Width}"/>
-                                            <Setter Property="Height" Value="{Binding Size.Height}"/>
-                                            <!-- Canvas position properties MUST be set here on ContentPresenter -->
-                                            <Setter Property="Canvas.Left" Value="{Binding Position.X}"/>
-                                            <Setter Property="Canvas.Top" Value="{Binding Position.Y}"/>
-                                            <Setter Property="Panel.ZIndex" Value="{Binding ZIndex}"/>
-                                        </Style>
-                                    </ItemsControl.ItemContainerStyle>
+                                    <!-- ItemContainerStyle REMOVED: Bindings don't work here (DataContext not set yet) -->
+                                    <!-- Bindings are now directly on DesignerItemControl in ItemTemplate -->
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
+                                            <!-- CRITICAL FIX: Bind size and position directly here where DataContext is correct -->
                                             <controls:DesignerItemControl
                                                 DisplayElement="{Binding}"
                                                 IsSelected="{Binding IsSelected}"
                                                 Tag="{Binding}"
+                                                Width="{Binding Size.Width}"
+                                                Height="{Binding Size.Height}"
+                                                Canvas.Left="{Binding Position.X}"
+                                                Canvas.Top="{Binding Position.Y}"
+                                                Panel.ZIndex="{Binding ZIndex}"
                                                 Cursor="Hand"
                                                 MouseLeftButtonDown="Element_MouseLeftButtonDown"
                                                 MouseMove="Element_MouseMove"
