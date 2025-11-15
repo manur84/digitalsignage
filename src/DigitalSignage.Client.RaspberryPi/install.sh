@@ -281,6 +281,7 @@ if [ "$MODE" = "UPDATE" ]; then
         "watchdog_monitor.py"
         "status_screen.py"
         "web_interface.py"
+        "burn_in_protection.py"
         "start-with-display.sh"
     )
 
@@ -672,6 +673,7 @@ REQUIRED_FILES=(
     "watchdog_monitor.py"
     "status_screen.py"
     "web_interface.py"
+    "burn_in_protection.py"
     "start-with-display.sh"
 )
 
