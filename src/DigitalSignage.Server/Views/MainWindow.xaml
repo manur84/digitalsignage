@@ -579,7 +579,11 @@
                                 </controls:DesignerCanvas.LayoutTransform>
 
                                 <!-- Render all elements using DesignerItemControl (professional WYSIWYG rendering) -->
-                                <ItemsControl ItemsSource="{Binding Designer.Elements}">
+                                <!-- CRITICAL FIX: ItemsControl MUST have explicit Width/Height when child of Canvas! -->
+                                <!-- Without size, ItemsControl renders at 0x0 and clips all children -->
+                                <ItemsControl ItemsSource="{Binding Designer.Elements}"
+                                              Width="{Binding Designer.CurrentLayout.Resolution.Width}"
+                                              Height="{Binding Designer.CurrentLayout.Resolution.Height}">
                                     <!-- CRITICAL FIX: ItemsPanel MUST be Canvas for Canvas.Left/Top/ZIndex to work! -->
                                     <!-- CRITICAL FIX: Canvas MUST have explicit size or children won't render (0x0 clip bounds)! -->
                                     <ItemsControl.ItemsPanel>
