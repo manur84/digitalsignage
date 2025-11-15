@@ -580,7 +580,7 @@
                                 <ItemsControl ItemsSource="{Binding Designer.Elements}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
-                                            <Canvas/>
+                                            <Canvas Background="White"/>
                                         </ItemsPanelTemplate>
                                     </ItemsControl.ItemsPanel>
                                     <ItemsControl.ItemContainerStyle>
@@ -588,6 +588,8 @@
                                             <Setter Property="Canvas.Left" Value="{Binding Position.X}"/>
                                             <Setter Property="Canvas.Top" Value="{Binding Position.Y}"/>
                                             <Setter Property="Canvas.ZIndex" Value="{Binding ZIndex}"/>
+                                            <Setter Property="Width" Value="{Binding Size.Width}"/>
+                                            <Setter Property="Height" Value="{Binding Size.Height}"/>
                                         </Style>
                                     </ItemsControl.ItemContainerStyle>
                                     <ItemsControl.ItemTemplate>
@@ -598,7 +600,7 @@
                                                   Height="{Binding Size.Height}"
                                                   MinWidth="10"
                                                   MinHeight="10"
-                                                  Background="Transparent"
+                                                  Background="LightBlue"
                                                   Cursor="Hand"
                                                   MouseLeftButtonDown="Element_MouseLeftButtonDown"
                                                   MouseMove="Element_MouseMove"
