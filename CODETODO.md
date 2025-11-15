@@ -278,7 +278,11 @@ Comprehensive implementation status based on project analysis (Updated: 2025-11-
   - ✅ **Details panel** with edit functions (Description, Tags, Category)
   - ✅ **FileSizeConverter** for formatted size display
   - ✅ **Status messages** for user feedback
-  - ❌ 🟡 Thumbnail generation for image preview
+  - ✅ **Thumbnail Generation** (2025-11-15)
+    - ✅ ThumbnailService with automatic generation on upload
+    - ✅ 200x200px JPEG thumbnails with HighQualityBicubic interpolation
+    - ✅ Support for images, video placeholders, document placeholders
+    - ✅ Thumbnails stored in %AppData%/DigitalSignage/Thumbnails/
 
 - ❌ 🟡 **Image Editing**
   - Cropping
@@ -360,10 +364,15 @@ Comprehensive implementation status based on project analysis (Updated: 2025-11-
 - ✅ **DeviceInfo with comprehensive data**
 - ✅ **Python DeviceManager collects system info**
 - ✅ **All required fields present**
-- ❌ 🟡 **Device Detail View** in UI
-  - Display all info clearly
-  - Graphical representation (CPU, Memory charts)
-  - Ping test button
+- ✅ **Device Detail View** in UI (2025-11-15)
+  - ✅ DeviceDetailViewModel with auto-refresh (5s intervals)
+  - ✅ DeviceDetailWindow with comprehensive layout
+  - ✅ Display all device info: IP, MAC, Model, OS, Client Version, Resolution
+  - ✅ Hardware metrics with progress bars: CPU Usage, CPU Temperature, Memory, Disk
+  - ✅ Network latency, registration date, last seen timestamp
+  - ✅ Ping test button with result display
+  - ✅ Manual refresh and auto-refresh toggle
+  - ✅ Proper uptime formatting (days, hours, minutes)
 
 #### Management Functions
 - ✅ **ClientService Fully Implemented**

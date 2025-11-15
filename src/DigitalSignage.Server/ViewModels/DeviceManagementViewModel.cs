@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DigitalSignage.Core.Interfaces;
 using DigitalSignage.Core.Models;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
@@ -13,6 +14,7 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
     private readonly IClientService _clientService;
     private readonly ILayoutService _layoutService;
     private readonly ILogger<DeviceManagementViewModel> _logger;
+    private readonly IServiceProvider _serviceProvider;
     private bool _disposed = false;
 
     [ObservableProperty]
@@ -61,12 +63,14 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
         IClientService clientService,
         ILayoutService layoutService,
         DiscoveredDevicesViewModel discoveredDevicesViewModel,
-        ILogger<DeviceManagementViewModel> logger)
+        ILogger<DeviceManagementViewModel> logger,
+        IServiceProvider serviceProvider)
     {
         _clientService = clientService ?? throw new ArgumentNullException(nameof(clientService));
         _layoutService = layoutService ?? throw new ArgumentNullException(nameof(layoutService));
         DiscoveredDevices = discoveredDevicesViewModel ?? throw new ArgumentNullException(nameof(discoveredDevicesViewModel));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
 
         // Subscribe to client events for auto-refresh
         _clientService.ClientConnected += OnClientConnected;
@@ -410,6 +414,35 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
         }
     }
 
+    [RelayCommand(CanExecute = nameof(CanExecuteClientCommand))]
+    private void ShowDeviceDetails()
+    {
+        if (SelectedClient == null) return;
+
+        try
+        {
+            _logger.LogInformation("Opening device details for {ClientName}", SelectedClient.Name);
+            StatusMessage = $"Opening device details for {SelectedClient.Name}...";
+
+            var viewModel = _serviceProvider.GetRequiredService<DeviceDetailViewModel>();
+            var window = new Views.DeviceDetailWindow(viewModel)
+            {
+                Owner = System.Windows.Application.Current.MainWindow
+            };
+
+            // Load the device information into the view model
+            viewModel.LoadDeviceInfo(SelectedClient);
+
+            window.Show();
+            StatusMessage = $"Device details opened for {SelectedClient.Name}";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Failed to open device details: {ex.Message}";
+            _logger.LogError(ex, "Failed to open device details for client {ClientId}", SelectedClient?.Id);
+        }
+    }
+
     private bool CanExecuteClientCommand()
     {
         return SelectedClient != null && !IsLoading;
@@ -428,6 +461,7 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
         RemoveClientCommand.NotifyCanExecuteChanged();
         UpdateClientConfigCommand.NotifyCanExecuteChanged();
         AssignLayoutCommand.NotifyCanExecuteChanged();
+        ShowDeviceDetailsCommand.NotifyCanExecuteChanged();
 
         if (value != null)
         {

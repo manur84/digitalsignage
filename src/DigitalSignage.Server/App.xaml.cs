@@ -129,6 +129,7 @@ public partial class App : Application
                 services.AddTransient<MediaLibraryViewModel>();
                 services.AddTransient<LogViewerViewModel>();
                 services.AddTransient<ScreenshotViewModel>();
+                services.AddTransient<DeviceDetailViewModel>();
                 services.AddTransient<MediaBrowserViewModel>();
                 services.AddTransient<SettingsViewModel>();
                 services.AddSingleton<AlertsViewModel>();
