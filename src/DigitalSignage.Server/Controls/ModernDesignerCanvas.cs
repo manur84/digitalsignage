@@ -126,6 +126,16 @@ public class ModernDesignerCanvas : Canvas
 
     protected override int VisualChildrenCount => _visualChildren.Count + base.VisualChildrenCount;
 
+    protected override Visual GetVisualChild(int index)
+    {
+        if (index < _visualChildren.Count)
+        {
+            return _visualChildren[index];
+        }
+
+        return base.GetVisualChild(index - _visualChildren.Count);
+    }
+
     #endregion
 
     public ModernDesignerCanvas()
@@ -186,13 +196,6 @@ public class ModernDesignerCanvas : Canvas
     }
 
     #region Grid Rendering
-
-    protected override Visual GetVisualChild(int index)
-    {
-        if (index < _visualChildren.Count)
-            return _visualChildren[index];
-        return base.GetVisualChild(index - _visualChildren.Count);
-    }
 
     protected override void OnRender(DrawingContext dc)
     {

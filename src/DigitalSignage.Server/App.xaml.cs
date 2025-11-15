@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using DigitalSignage.Server.ViewModels;
 using DigitalSignage.Server.Services;
 using DigitalSignage.Server.Configuration;
@@ -88,6 +89,7 @@ public partial class App : Application
                 {
                     // Use SQLite for cross-platform compatibility
                     options.UseSqlite(connectionString);
+                    options.ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning));
 
                     // Enable sensitive data logging in development
                     if (context.HostingEnvironment.IsDevelopment())
@@ -101,6 +103,7 @@ public partial class App : Application
                 services.AddDbContextFactory<DigitalSignageDbContext>(options =>
                 {
                     options.UseSqlite(connectionString);
+                    options.ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning));
 
                     if (context.HostingEnvironment.IsDevelopment())
                     {

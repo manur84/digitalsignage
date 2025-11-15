@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using DigitalSignage.Data;
 using Microsoft.EntityFrameworkCore;
 using System.IO;
+using DigitalSignage.Core.Models;
 
 namespace DigitalSignage.Server.Services;
 
@@ -313,32 +314,6 @@ public class BackupService
 
 /// <summary>
 /// Result class for backup/restore operations
-/// </summary>
-public class Result
-{
-    public bool IsSuccess { get; }
-    public string Message { get; }
-    public string? Error => IsSuccess ? null : Message;
-
-    private Result(bool isSuccess, string message)
-    {
-        IsSuccess = isSuccess;
-        Message = message;
-    }
-
-    public static Result Success(string message = "Operation completed successfully")
-    {
-        return new Result(true, message);
-    }
-
-    public static Result Failure(string error)
-    {
-        return new Result(false, error);
-    }
-}
-
-/// <summary>
-/// Information about a backup file
 /// </summary>
 public class BackupInfo
 {
