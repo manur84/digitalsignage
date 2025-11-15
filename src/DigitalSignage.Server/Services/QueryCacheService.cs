@@ -197,7 +197,11 @@ public class QueryCacheService
         _statistics.AddOrUpdate(
             cacheKey,
             new CacheStatistics { Hits = 1 },
-            (_, stats) => { stats.Hits++; return stats; });
+            (_, stats) =>
+            {
+                Interlocked.Increment(ref stats.Hits);
+                return stats;
+            });
     }
 
     private void IncrementMisses(string cacheKey)
@@ -205,7 +209,11 @@ public class QueryCacheService
         _statistics.AddOrUpdate(
             cacheKey,
             new CacheStatistics { Misses = 1 },
-            (_, stats) => { stats.Misses++; return stats; });
+            (_, stats) =>
+            {
+                Interlocked.Increment(ref stats.Misses);
+                return stats;
+            });
     }
 
     private class CacheEntry
@@ -218,8 +226,8 @@ public class QueryCacheService
 
     private class CacheStatistics
     {
-        public long Hits { get; set; }
-        public long Misses { get; set; }
+        public long Hits;
+        public long Misses;
     }
 }
 

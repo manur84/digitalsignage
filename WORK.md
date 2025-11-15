@@ -313,6 +313,7 @@ Remove the field and dispose override if not needed:
 **File:** `/home/user/digitalsignage/src/DigitalSignage.Server/Services/EnhancedMediaService.cs`
 **Lines:** 139-160
 **Severity:** HIGH
+**STATUS: ✅ FIXED (2025-11-15)**
 
 **Problem:**
 ```csharp
@@ -353,6 +354,7 @@ Either make it properly async or use a background queue for non-critical updates
 **File:** `/home/user/digitalsignage/src/DigitalSignage.Server/Services/LayoutService.cs`
 **Lines:** 209-228
 **Severity:** HIGH
+**STATUS: ✅ FIXED (2025-11-15)**
 
 **Problem:**
 ```csharp
@@ -417,6 +419,7 @@ Then update all callers to await this method.
 **File:** `/home/user/digitalsignage/src/DigitalSignage.Server/Services/MessageHandlerService.cs`
 **Lines:** 69-79
 **Severity:** HIGH
+**STATUS: ✅ FIXED (2025-11-15)**
 
 **Problem:**
 ```csharp
@@ -471,6 +474,7 @@ Or better yet, use a proper message queue/channel for this.
 **File:** `/home/user/digitalsignage/src/DigitalSignage.Server/Services/ClientService.cs`
 **Lines:** 96-106
 **Severity:** HIGH
+**STATUS: ✅ FIXED (2025-11-15)**
 
 **Problem:**
 ```csharp
@@ -516,6 +520,7 @@ foreach (var client in dbClients)
 **File:** `/home/user/digitalsignage/src/DigitalSignage.Server/Services/DiscoveryService.cs`
 **Lines:** 158-163
 **Severity:** HIGH
+**STATUS: ✅ FIXED (2025-11-15)**
 
 **Problem:**
 ```csharp
@@ -550,6 +555,7 @@ public override Task StopAsync(CancellationToken cancellationToken)
 **File:** `/home/user/digitalsignage/src/DigitalSignage.Server/Services/MdnsDiscoveryService.cs`
 **Lines:** 174-193
 **Severity:** HIGH
+**STATUS: ✅ FIXED (2025-11-15)**
 
 **Problem:**
 Same as DiscoveryService - ServiceDiscovery disposed in finally but not in StopAsync.
@@ -563,6 +569,7 @@ Ensure proper disposal in both places.
 **File:** `/home/user/digitalsignage/src/DigitalSignage.Server/Services/NetworkScannerService.cs`
 **Lines:** 167-230
 **Severity:** HIGH
+**STATUS: ✅ FIXED (2025-11-15)**
 
 **Problem:**
 ```csharp
@@ -716,6 +723,7 @@ private async Task<PerformanceMetricsInfo> GetPerformanceMetricsAsync()
 **File:** `/home/user/digitalsignage/src/DigitalSignage.Server/Services/SystemDiagnosticsService.cs`
 **Lines:** 151
 **Severity:** HIGH
+**STATUS: ✅ FIXED (2025-11-15)**
 
 **Problem:**
 ```csharp
@@ -1561,6 +1569,7 @@ Remove the field and dispose override if not needed:
 **File:** `/home/user/digitalsignage/src/DigitalSignage.Server/Services/EnhancedMediaService.cs`
 **Lines:** 139-160
 **Severity:** HIGH
+**STATUS: ✅ FIXED (2025-11-15)**
 
 **Problem:**
 ```csharp
@@ -1601,6 +1610,7 @@ Either make it properly async or use a background queue for non-critical updates
 **File:** `/home/user/digitalsignage/src/DigitalSignage.Server/Services/LayoutService.cs`
 **Lines:** 209-228
 **Severity:** HIGH
+**STATUS: ✅ FIXED (2025-11-15)**
 
 **Problem:**
 ```csharp
@@ -1665,6 +1675,7 @@ Then update all callers to await this method.
 **File:** `/home/user/digitalsignage/src/DigitalSignage.Server/Services/MessageHandlerService.cs`
 **Lines:** 69-79
 **Severity:** HIGH
+**STATUS: ✅ FIXED (2025-11-15)**
 
 **Problem:**
 ```csharp
@@ -1719,6 +1730,7 @@ Or better yet, use a proper message queue/channel for this.
 **File:** `/home/user/digitalsignage/src/DigitalSignage.Server/Services/ClientService.cs`
 **Lines:** 96-106
 **Severity:** HIGH
+**STATUS: ✅ FIXED (2025-11-15)**
 
 **Problem:**
 ```csharp
@@ -1764,6 +1776,7 @@ foreach (var client in dbClients)
 **File:** `/home/user/digitalsignage/src/DigitalSignage.Server/Services/DiscoveryService.cs`
 **Lines:** 158-163
 **Severity:** HIGH
+**STATUS: ✅ FIXED (2025-11-15)**
 
 **Problem:**
 ```csharp
@@ -1798,6 +1811,7 @@ public override Task StopAsync(CancellationToken cancellationToken)
 **File:** `/home/user/digitalsignage/src/DigitalSignage.Server/Services/MdnsDiscoveryService.cs`
 **Lines:** 174-193
 **Severity:** HIGH
+**STATUS: ✅ FIXED (2025-11-15)**
 
 **Problem:**
 Same as DiscoveryService - ServiceDiscovery disposed in finally but not in StopAsync.
@@ -1811,6 +1825,7 @@ Ensure proper disposal in both places.
 **File:** `/home/user/digitalsignage/src/DigitalSignage.Server/Services/NetworkScannerService.cs`
 **Lines:** 167-230
 **Severity:** HIGH
+**STATUS: ✅ FIXED (2025-11-15)**
 
 **Problem:**
 ```csharp
@@ -1964,6 +1979,7 @@ private async Task<PerformanceMetricsInfo> GetPerformanceMetricsAsync()
 **File:** `/home/user/digitalsignage/src/DigitalSignage.Server/Services/SystemDiagnosticsService.cs`
 **Lines:** 151
 **Severity:** HIGH
+**STATUS: ✅ FIXED (2025-11-15)**
 
 **Problem:**
 ```csharp

@@ -189,6 +189,9 @@ public class MdnsDiscoveryService : BackgroundService
             }
         }
 
+        // Dispose ServiceDiscovery
+        _serviceDiscovery?.Dispose();
+
         return base.StopAsync(cancellationToken);
     }
 }

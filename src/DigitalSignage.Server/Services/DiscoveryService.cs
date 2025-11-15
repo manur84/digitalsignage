@@ -159,6 +159,7 @@ public class DiscoveryService : BackgroundService
     {
         _logger.LogInformation("Discovery Service stopping...");
         _udpListener?.Close();
+        _udpListener?.Dispose();
         return base.StopAsync(cancellationToken);
     }
 }

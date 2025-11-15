@@ -100,6 +100,12 @@ public class ClientService : IClientService
 
             foreach (var client in dbClients)
             {
+                if (client == null || string.IsNullOrWhiteSpace(client.Id))
+                {
+                    _logger.LogWarning("Skipping client with null or empty ID during initialization");
+                    continue;
+                }
+
                 // Mark all as offline on startup
                 client.Status = ClientStatus.Offline;
                 _clients[client.Id] = client;

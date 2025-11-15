@@ -50,11 +50,11 @@ public class SystemDiagnosticsService
         {
             GeneratedAt = DateTime.Now,
             DatabaseHealth = await GetDatabaseHealthAsync(),
-            WebSocketHealth = GetWebSocketHealth(),
+            WebSocketHealth = await GetWebSocketHealthAsync(),
             PortAvailability = GetPortAvailability(),
             CertificateStatus = GetCertificateStatus(),
             ClientStatistics = await GetClientStatisticsAsync(),
-            PerformanceMetrics = GetPerformanceMetrics(),
+            PerformanceMetrics = await GetPerformanceMetricsAsync(),
             LogAnalysis = GetLogAnalysis(),
             SystemInfo = GetSystemInfo()
         };
@@ -130,7 +130,7 @@ public class SystemDiagnosticsService
         return info;
     }
 
-    private WebSocketHealthInfo GetWebSocketHealth()
+    private async Task<WebSocketHealthInfo> GetWebSocketHealthAsync()
     {
         var info = new WebSocketHealthInfo();
 
@@ -148,7 +148,7 @@ public class SystemDiagnosticsService
             info.ListeningUrl = $"{protocol}://+:{_serverSettings.Port}{_serverSettings.EndpointPath}";
 
             // Check if server is running (based on having active clients)
-            var clients = _clientService.GetAllClientsAsync().Result;
+            var clients = await _clientService.GetAllClientsAsync();
             info.IsRunning = clients.Any();
             info.ActiveConnections = clients.Count(c => c.Status == Core.Models.ClientStatus.Online);
             info.Status = info.IsRunning ? HealthStatus.Healthy : HealthStatus.Warning;
@@ -335,7 +335,7 @@ public class SystemDiagnosticsService
         return info;
     }
 
-    private PerformanceMetricsInfo GetPerformanceMetrics()
+    private async Task<PerformanceMetricsInfo> GetPerformanceMetricsAsync()
     {
         var info = new PerformanceMetricsInfo();
 
@@ -346,7 +346,7 @@ public class SystemDiagnosticsService
             // CPU usage (approximation)
             var startTime = DateTime.UtcNow;
             var startCpuUsage = currentProcess.TotalProcessorTime;
-            System.Threading.Thread.Sleep(500);
+            await Task.Delay(500);
             var endTime = DateTime.UtcNow;
             var endCpuUsage = currentProcess.TotalProcessorTime;
 

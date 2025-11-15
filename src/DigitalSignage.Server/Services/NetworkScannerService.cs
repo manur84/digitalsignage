@@ -10,12 +10,13 @@ namespace DigitalSignage.Server.Services;
 /// <summary>
 /// Service for actively scanning the local network for potential Digital Signage clients
 /// </summary>
-public class NetworkScannerService
+public class NetworkScannerService : IDisposable
 {
     private readonly ILogger<NetworkScannerService> _logger;
     private readonly ConcurrentDictionary<string, DiscoveredDevice> _discoveredDevices = new();
     private bool _isScanning = false;
     private readonly SemaphoreSlim _scanningSemaphore = new(1, 1);
+    private bool _disposed = false;
 
     /// <summary>
     /// Event raised when a new device is discovered
@@ -364,5 +365,17 @@ public class NetworkScannerService
             _logger.LogError(ex, "Error during UDP discovery scan");
             return 0;
         }
+    }
+
+    /// <summary>
+    /// Dispose resources
+    /// </summary>
+    public void Dispose()
+    {
+        if (_disposed)
+            return;
+
+        _scanningSemaphore?.Dispose();
+        _disposed = true;
     }
 }
