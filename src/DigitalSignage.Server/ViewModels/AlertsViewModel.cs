@@ -88,18 +88,27 @@ public partial class AlertsViewModel : ObservableObject, IDisposable
                 {
                     await Task.Delay(5000, _pollingCts.Token);
 
-                    var dispatcher = Application.Current.Dispatcher;
-                    // Check if already on UI thread to avoid unnecessary context switch
-                    if (dispatcher.CheckAccess())
+                    // Check if Application.Current is available (may be null during shutdown or tests)
+                    var dispatcher = Application.Current?.Dispatcher;
+                    if (dispatcher != null)
                     {
-                        await LoadAlertsAsync();
+                        // Check if already on UI thread to avoid unnecessary context switch
+                        if (dispatcher.CheckAccess())
+                        {
+                            await LoadAlertsAsync();
+                        }
+                        else
+                        {
+                            await dispatcher.InvokeAsync(async () =>
+                            {
+                                await LoadAlertsAsync();
+                            });
+                        }
                     }
                     else
                     {
-                        await dispatcher.InvokeAsync(async () =>
-                        {
-                            await LoadAlertsAsync();
-                        });
+                        // If no dispatcher available, skip this polling cycle
+                        _logger?.LogWarning("Application.Current is null during alerts polling - skipping cycle");
                     }
                 }
                 catch (OperationCanceledException)
