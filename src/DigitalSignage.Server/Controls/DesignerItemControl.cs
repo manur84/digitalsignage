@@ -301,6 +301,9 @@ public class DesignerItemControl : ContentControl
             System.Diagnostics.Debug.WriteLine(
                 $"DesignerItemControl.OnSizeChanged: Element '{DisplayElement.Name}' size changed to " +
                 $"{DisplayElement.Size.Width}x{DisplayElement.Size.Height}");
+
+            Width = DisplayElement.Size.Width;
+            Height = DisplayElement.Size.Height;
         }
     }
 
@@ -325,17 +328,12 @@ public class DesignerItemControl : ContentControl
             $"size {DisplayElement.Size.Width}x{DisplayElement.Size.Height} " +
             $"ZIndex={DisplayElement.ZIndex}");
 
-        // CRITICAL FIX: DO NOT set Width/Height here!
-        // Width/Height is set by XAML ItemContainerStyle binding to Size.Width/Size.Height
-        // Setting it here as well causes DUPLICATE binding which creates size explosion
-        // The XAML binding in MainWindow.xaml ItemContainerStyle is the SINGLE source of truth:
-        // <Setter Property="Width" Value="{Binding Size.Width}"/>
-        // <Setter Property="Height" Value="{Binding Size.Height}"/>
-
-        // REMOVED: Width = DisplayElement.Size.Width;
-        // REMOVED: Height = DisplayElement.Size.Height;
-
-        // Position and ZIndex are handled by XAML data binding in MainWindow.xaml ItemContainerStyle
+        // Ensure width/height are explicitly set so template doesn't inherit NaN
+        if (DisplayElement.Size != null)
+        {
+            Width = DisplayElement.Size.Width;
+            Height = DisplayElement.Size.Height;
+        }
 
         // Apply visual effects (rotation, shadow, opacity)
         ApplyVisualEffects();
