@@ -65,8 +65,8 @@ public partial class AlertRuleEditorViewModel : ObservableObject
     [ObservableProperty]
     private bool _isEditMode;
 
-    public List<AlertRuleType> RuleTypes { get; } = Enum.GetValues<AlertRuleType>().ToList();
-    public List<AlertSeverity> SeverityLevels { get; } = Enum.GetValues<AlertSeverity>().ToList();
+    public List<AlertRuleType> RuleTypes { get; } = [.. Enum.GetValues<AlertRuleType>()];
+    public List<AlertSeverity> SeverityLevels { get; } = [.. Enum.GetValues<AlertSeverity>()];
 
     public AlertRuleEditorViewModel(
         IDbContextFactory<DigitalSignageDbContext> contextFactory,
@@ -110,22 +110,22 @@ public partial class AlertRuleEditorViewModel : ObservableObject
                 switch (rule.RuleType)
                 {
                     case AlertRuleType.DeviceOffline:
-                        if (config.RootElement.TryGetProperty("OfflineThresholdMinutes", out var offlineThreshold))
+                        if (config.RootElement.TryGetProperty(nameof(OfflineThresholdMinutes), out var offlineThreshold))
                             OfflineThresholdMinutes = offlineThreshold.GetInt32();
                         break;
 
                     case AlertRuleType.DeviceHighCpu:
-                        if (config.RootElement.TryGetProperty("CpuThreshold", out var cpuThreshold))
+                        if (config.RootElement.TryGetProperty(nameof(CpuThreshold), out var cpuThreshold))
                             CpuThreshold = cpuThreshold.GetDouble();
                         break;
 
                     case AlertRuleType.DeviceHighMemory:
-                        if (config.RootElement.TryGetProperty("MemoryThreshold", out var memoryThreshold))
+                        if (config.RootElement.TryGetProperty(nameof(MemoryThreshold), out var memoryThreshold))
                             MemoryThreshold = memoryThreshold.GetDouble();
                         break;
 
                     case AlertRuleType.DeviceLowDiskSpace:
-                        if (config.RootElement.TryGetProperty("DiskThreshold", out var diskThreshold))
+                        if (config.RootElement.TryGetProperty(nameof(DiskThreshold), out var diskThreshold))
                             DiskThreshold = diskThreshold.GetDouble();
                         break;
                 }
@@ -151,13 +151,10 @@ public partial class AlertRuleEditorViewModel : ObservableObject
         try
         {
             // Create or update rule
-            if (CurrentRule == null)
+            CurrentRule ??= new AlertRule
             {
-                CurrentRule = new AlertRule
-                {
-                    CreatedAt = DateTime.UtcNow
-                };
-            }
+                CreatedAt = DateTime.UtcNow
+            };
 
             CurrentRule.Name = RuleName;
             CurrentRule.Description = Description;
