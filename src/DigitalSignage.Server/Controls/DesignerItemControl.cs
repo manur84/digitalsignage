@@ -10,12 +10,14 @@ namespace DigitalSignage.Server.Controls;
 
 /// <summary>
 /// Control for displaying and manipulating a design element on the canvas
+/// Rendering only - drag/drop handled by MainWindow.xaml.cs
 /// </summary>
 public class DesignerItemControl : ContentControl
 {
-    private Point _dragStartPosition;
-    private bool _isDragging;
-    private AlignmentGuidesAdorner? _alignmentAdorner;
+    // REMOVED: Drag-related fields - dragging now handled by MainWindow.xaml.cs
+    // private Point _dragStartPosition;
+    // private bool _isDragging;
+    // private AlignmentGuidesAdorner? _alignmentAdorner;
 
     public static readonly DependencyProperty DisplayElementProperty =
         DependencyProperty.Register(
@@ -53,9 +55,11 @@ public class DesignerItemControl : ContentControl
     public DesignerItemControl()
     {
         Focusable = true;
-        MouseLeftButtonDown += OnMouseLeftButtonDown;
-        MouseMove += OnMouseMove;
-        MouseLeftButtonUp += OnMouseLeftButtonUp;
+        // REMOVED: Mouse event handlers - these are now handled by MainWindow.xaml.cs
+        // to avoid conflicts and enable proper multi-element dragging
+        // MouseLeftButtonDown += OnMouseLeftButtonDown;
+        // MouseMove += OnMouseMove;
+        // MouseLeftButtonUp += OnMouseLeftButtonUp;
 
         // CRITICAL: Set alignment and minimum size to ensure control is visible
         HorizontalAlignment = HorizontalAlignment.Left;
@@ -123,9 +127,16 @@ public class DesignerItemControl : ContentControl
 
     private void OnElementPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
+        // Handle ALL property changes to ensure immediate visual updates
+        // This includes Properties dictionary changes (Color, FontSize, etc.)
         if (e.PropertyName == nameof(DisplayElement.Position) ||
             e.PropertyName == nameof(DisplayElement.Size) ||
-            e.PropertyName == nameof(DisplayElement.ZIndex))
+            e.PropertyName == nameof(DisplayElement.ZIndex) ||
+            e.PropertyName == nameof(DisplayElement.Rotation) ||
+            e.PropertyName == nameof(DisplayElement.Opacity) ||
+            e.PropertyName == nameof(DisplayElement.Visible) ||
+            e.PropertyName == nameof(DisplayElement.Properties) ||
+            e.PropertyName == "Item[]") // Indexer property change (e.g., element["Color"] = value)
         {
             // Check if already on UI thread to avoid unnecessary context switch
             if (Dispatcher.CheckAccess())
@@ -1043,155 +1054,7 @@ public class DesignerItemControl : ContentControl
         }
     }
 
-    private void OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-    {
-        if (e.ClickCount == 1)
-        {
-            _dragStartPosition = e.GetPosition(Parent as UIElement);
-            _isDragging = true;
-            CaptureMouse();
-
-            // Create alignment adorner on the canvas
-            var designerCanvas = FindDesignerCanvas(this);
-            if (designerCanvas != null)
-            {
-                var adornerLayer = AdornerLayer.GetAdornerLayer(designerCanvas);
-                if (adornerLayer != null)
-                {
-                    _alignmentAdorner = new AlignmentGuidesAdorner(designerCanvas);
-                    adornerLayer.Add(_alignmentAdorner);
-                }
-            }
-
-            // Raise selection event
-            RaiseEvent(new RoutedEventArgs(SelectedEvent, this));
-
-            e.Handled = true;
-        }
-    }
-
-    private void OnMouseMove(object sender, MouseEventArgs e)
-    {
-        if (_isDragging && e.LeftButton == MouseButtonState.Pressed)
-        {
-            var currentPosition = e.GetPosition(Parent as UIElement);
-            var delta = currentPosition - _dragStartPosition;
-
-            if (DisplayElement != null)
-            {
-                var designerCanvas = FindDesignerCanvas(this);
-                var newX = DisplayElement.Position.X + delta.X;
-                var newY = DisplayElement.Position.Y + delta.Y;
-
-                // Calculate snapped position with alignment guides
-                if (_alignmentAdorner != null && designerCanvas != null)
-                {
-                    // Get bounds of current element
-                    var currentBounds = new Rect(newX, newY, DisplayElement.Size.Width, DisplayElement.Size.Height);
-
-                    // Get bounds of canvas
-                    var canvasBounds = new Rect(0, 0, designerCanvas.ActualWidth, designerCanvas.ActualHeight);
-
-                    // Get bounds of all other elements on the canvas
-                    var otherElementBounds = GetOtherElementBounds(designerCanvas);
-
-                    // Calculate snapped position and update alignment guides
-                    var snappedPoint = _alignmentAdorner.CalculateSnappedPosition(currentBounds, otherElementBounds, canvasBounds);
-                    newX = snappedPoint.X;
-                    newY = snappedPoint.Y;
-                }
-                else if (designerCanvas != null)
-                {
-                    // Fallback to simple grid snapping if adorner not available
-                    var snappedPoint = designerCanvas.SnapPoint(new Point(newX, newY));
-                    newX = snappedPoint.X;
-                    newY = snappedPoint.Y;
-                }
-
-                DisplayElement.Position.X = newX;
-                DisplayElement.Position.Y = newY;
-
-                Canvas.SetLeft(this, newX);
-                Canvas.SetTop(this, newY);
-            }
-
-            _dragStartPosition = currentPosition;
-            e.Handled = true;
-        }
-    }
-
-    /// <summary>
-    /// Finds the DesignerCanvas in the visual tree
-    /// </summary>
-    private DesignerCanvas? FindDesignerCanvas(DependencyObject element)
-    {
-        var parent = VisualTreeHelper.GetParent(element);
-        while (parent != null)
-        {
-            if (parent is DesignerCanvas canvas)
-                return canvas;
-            parent = VisualTreeHelper.GetParent(parent);
-        }
-        return null;
-    }
-
-    /// <summary>
-    /// Gets the bounds of all other DesignerItemControls on the canvas (excluding this one)
-    /// </summary>
-    private IEnumerable<Rect> GetOtherElementBounds(DesignerCanvas canvas)
-    {
-        var bounds = new List<Rect>();
-
-        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(canvas); i++)
-        {
-            var child = VisualTreeHelper.GetChild(canvas, i);
-            if (child is DesignerItemControl itemControl && itemControl != this && itemControl.DisplayElement != null)
-            {
-                var element = itemControl.DisplayElement;
-                bounds.Add(new Rect(element.Position.X, element.Position.Y, element.Size.Width, element.Size.Height));
-            }
-        }
-
-        return bounds;
-    }
-
-    private void OnMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
-    {
-        if (_isDragging)
-        {
-            _isDragging = false;
-            ReleaseMouseCapture();
-
-            // Remove alignment adorner
-            if (_alignmentAdorner != null)
-            {
-                var designerCanvas = FindDesignerCanvas(this);
-                if (designerCanvas != null)
-                {
-                    var adornerLayer = AdornerLayer.GetAdornerLayer(designerCanvas);
-                    if (adornerLayer != null)
-                    {
-                        adornerLayer.Remove(_alignmentAdorner);
-                    }
-                }
-                _alignmentAdorner = null;
-            }
-
-            e.Handled = true;
-        }
-    }
-
-    // Routed event for selection
-    public static readonly RoutedEvent SelectedEvent =
-        EventManager.RegisterRoutedEvent(
-            "Selected",
-            RoutingStrategy.Bubble,
-            typeof(RoutedEventHandler),
-            typeof(DesignerItemControl));
-
-    public event RoutedEventHandler Selected
-    {
-        add => AddHandler(SelectedEvent, value);
-        remove => RemoveHandler(SelectedEvent, value);
-    }
+    // REMOVED: Mouse event handlers - now handled by MainWindow.xaml.cs
+    // This eliminates conflicts and enables proper multi-element dragging
+    // The old mouse handlers are no longer needed
 }

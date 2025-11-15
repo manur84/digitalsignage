@@ -3,7 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using DigitalSignage.Core.Models;
-using DigitalSignage.Server.Behaviors;
+// REMOVED: using DigitalSignage.Server.Behaviors; - ElementSelectionBehavior no longer used
 using DigitalSignage.Server.ViewModels;
 using Microsoft.Extensions.Logging;
 
@@ -16,7 +16,8 @@ namespace DigitalSignage.Server.Views;
 public partial class MainWindow : Window
 {
     private readonly ILogger<MainWindow>? _logger;
-    private ElementSelectionBehavior? _selectionBehavior;
+    // REMOVED: ElementSelectionBehavior - no longer needed since DesignerItemControl doesn't have SelectedEvent
+    // private ElementSelectionBehavior? _selectionBehavior;
     private Point _dragStartPosition;
     private bool _isDragging;
     private DisplayElement? _draggingElement;
@@ -27,10 +28,10 @@ public partial class MainWindow : Window
         DataContext = viewModel;
         _logger = logger;
 
-        // Initialize element selection behavior
-        _selectionBehavior = new ElementSelectionBehavior(this, viewModel.Designer);
+        // REMOVED: Initialize element selection behavior - no longer needed
+        // _selectionBehavior = new ElementSelectionBehavior(this, viewModel.Designer);
 
-        _logger?.LogInformation("MainWindow initialized with element selection behavior");
+        _logger?.LogInformation("MainWindow initialized");
     }
 
     public MainViewModel ViewModel => (MainViewModel)DataContext;
@@ -284,8 +285,9 @@ public partial class MainWindow : Window
     /// </summary>
     protected override void OnClosed(EventArgs e)
     {
-        _selectionBehavior?.Detach();
-        _selectionBehavior = null;
+        // REMOVED: _selectionBehavior cleanup - no longer used
+        // _selectionBehavior?.Detach();
+        // _selectionBehavior = null;
         base.OnClosed(e);
     }
 

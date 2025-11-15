@@ -7,9 +7,12 @@ using DigitalSignage.Server.ViewModels;
 namespace DigitalSignage.Server.Behaviors;
 
 /// <summary>
-/// Behavior for handling element selection and adorner management in the Designer
-/// Encapsulates the logic for adding/removing resize adorners when elements are selected
+/// DEPRECATED: Behavior for handling element selection and adorner management in the Designer
+/// This class is no longer used since DesignerItemControl.SelectedEvent was removed
+/// Selection and dragging are now handled directly by MainWindow.xaml.cs
+/// Kept for potential future use
 /// </summary>
+[Obsolete("This behavior is no longer used. Selection is handled by MainWindow.xaml.cs")]
 public class ElementSelectionBehavior
 {
     private Adorner? _currentAdorner;
@@ -26,8 +29,8 @@ public class ElementSelectionBehavior
         _attachedElement = attachedElement ?? throw new ArgumentNullException(nameof(attachedElement));
         _designerViewModel = designerViewModel;
 
-        // Subscribe to element selection events
-        _attachedElement.AddHandler(DesignerItemControl.SelectedEvent, new RoutedEventHandler(OnElementSelected));
+        // REMOVED: Subscribe to element selection events - event no longer exists
+        // _attachedElement.AddHandler(DesignerItemControl.SelectedEvent, new RoutedEventHandler(OnElementSelected));
     }
 
     /// <summary>
@@ -74,7 +77,8 @@ public class ElementSelectionBehavior
     /// </summary>
     public void Detach()
     {
-        _attachedElement.RemoveHandler(DesignerItemControl.SelectedEvent, new RoutedEventHandler(OnElementSelected));
+        // REMOVED: Unsubscribe from events - event no longer exists
+        // _attachedElement.RemoveHandler(DesignerItemControl.SelectedEvent, new RoutedEventHandler(OnElementSelected));
         RemoveCurrentAdorner();
     }
 }
