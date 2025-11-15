@@ -1,7 +1,7 @@
 # 🔧 Bug Fix TODO List - Actionable Tasks
 ## Digital Signage Projekt - Priorisierte Aufgabenliste
 
-**Status:** 🔴 **0 von 67 Issues behoben**
+**Status:** 🟢 **1 von 67 Issues behoben** (1.5% Complete)
 **Letzte Aktualisierung:** 2025-11-15
 
 ---
@@ -12,7 +12,7 @@
 **Datei:** `src/DigitalSignage.Server/Services/LayoutService.cs`
 **Priorität:** 🔴 CRITICAL
 **Aufwand:** 30min
-**Status:** ❌ TODO
+**Status:** ✅ DONE (2025-11-15)
 
 **Änderungen:**
 ```csharp
@@ -57,9 +57,16 @@ public class LayoutService : ILayoutService, IDisposable
 ```
 
 **Testplan:**
-- [ ] Service-Lifetime testen
-- [ ] Dispose zweimal aufrufen → keine Exception
-- [ ] Nach Dispose Methode aufrufen → ObjectDisposedException
+- [x] Service-Lifetime testen
+- [x] Dispose zweimal aufrufen → keine Exception
+- [x] Nach Dispose Methode aufrufen → ObjectDisposedException
+
+**Implementiert:**
+- ✅ IDisposable Interface hinzugefügt
+- ✅ Dispose-Pattern korrekt implementiert
+- ✅ ThrowIfDisposed() zu allen 8 public methods hinzugefügt
+- ✅ _fileLock wird in Dispose() korrekt disposed
+- ✅ Logging bei Disposal vorhanden
 
 ---
 

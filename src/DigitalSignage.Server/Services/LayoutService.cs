@@ -7,12 +7,13 @@ using System.IO;
 
 namespace DigitalSignage.Server.Services;
 
-public class LayoutService : ILayoutService
+public class LayoutService : ILayoutService, IDisposable
 {
     private readonly ConcurrentDictionary<string, DisplayLayout> _layouts = new();
     private readonly string _dataDirectory;
     private readonly ILogger<LayoutService> _logger;
     private readonly SemaphoreSlim _fileLock = new(1, 1);
+    private bool _disposed = false;
 
     public LayoutService(ILogger<LayoutService> logger)
     {
@@ -37,11 +38,14 @@ public class LayoutService : ILayoutService
 
     public Task<List<DisplayLayout>> GetAllLayoutsAsync(CancellationToken cancellationToken = default)
     {
+        ThrowIfDisposed();
         return Task.FromResult(_layouts.Values.ToList());
     }
 
     public Task<DisplayLayout?> GetLayoutByIdAsync(string layoutId, CancellationToken cancellationToken = default)
     {
+        ThrowIfDisposed();
+
         if (string.IsNullOrWhiteSpace(layoutId))
         {
             _logger.LogWarning("GetLayoutByIdAsync called with null or empty layoutId");
@@ -54,6 +58,8 @@ public class LayoutService : ILayoutService
 
     public async Task<DisplayLayout> CreateLayoutAsync(DisplayLayout layout, CancellationToken cancellationToken = default)
     {
+        ThrowIfDisposed();
+
         if (layout == null)
         {
             throw new ArgumentNullException(nameof(layout));
@@ -85,6 +91,8 @@ public class LayoutService : ILayoutService
 
     public async Task<DisplayLayout> UpdateLayoutAsync(DisplayLayout layout, CancellationToken cancellationToken = default)
     {
+        ThrowIfDisposed();
+
         if (layout == null)
         {
             throw new ArgumentNullException(nameof(layout));
@@ -118,6 +126,8 @@ public class LayoutService : ILayoutService
 
     public Task<bool> DeleteLayoutAsync(string layoutId, CancellationToken cancellationToken = default)
     {
+        ThrowIfDisposed();
+
         if (string.IsNullOrWhiteSpace(layoutId))
         {
             _logger.LogWarning("DeleteLayoutAsync called with null or empty layoutId");
@@ -153,6 +163,8 @@ public class LayoutService : ILayoutService
         string newName,
         CancellationToken cancellationToken = default)
     {
+        ThrowIfDisposed();
+
         var original = await GetLayoutByIdAsync(layoutId, cancellationToken);
         if (original == null)
         {
@@ -172,6 +184,8 @@ public class LayoutService : ILayoutService
 
     public async Task<string> ExportLayoutAsync(string layoutId, CancellationToken cancellationToken = default)
     {
+        ThrowIfDisposed();
+
         var layout = await GetLayoutByIdAsync(layoutId, cancellationToken);
         if (layout == null)
         {
@@ -183,6 +197,8 @@ public class LayoutService : ILayoutService
 
     public Task<DisplayLayout> ImportLayoutAsync(string jsonData, CancellationToken cancellationToken = default)
     {
+        ThrowIfDisposed();
+
         if (string.IsNullOrWhiteSpace(jsonData))
         {
             throw new ArgumentException("JSON data cannot be empty", nameof(jsonData));
@@ -275,6 +291,8 @@ public class LayoutService : ILayoutService
 
     public Task<List<DisplayLayout>> GetLayoutsWithDataSourceAsync(Guid dataSourceId, CancellationToken cancellationToken = default)
     {
+        ThrowIfDisposed();
+
         try
         {
             var layoutsWithDataSource = _layouts.Values
@@ -300,5 +318,44 @@ public class LayoutService : ILayoutService
         // Sanitize layoutId to prevent path traversal
         var sanitizedId = Path.GetFileName(layoutId);
         return Path.Combine(_dataDirectory, $"{sanitizedId}.json");
+    }
+
+    /// <summary>
+    /// Throws ObjectDisposedException if service has been disposed
+    /// </summary>
+    private void ThrowIfDisposed()
+    {
+        if (_disposed)
+        {
+            throw new ObjectDisposedException(nameof(LayoutService));
+        }
+    }
+
+    /// <summary>
+    /// Disposes managed resources
+    /// </summary>
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    /// <summary>
+    /// Disposes managed and unmanaged resources
+    /// </summary>
+    /// <param name="disposing">True if disposing managed resources</param>
+    protected virtual void Dispose(bool disposing)
+    {
+        if (_disposed)
+            return;
+
+        if (disposing)
+        {
+            // Dispose managed resources
+            _fileLock?.Dispose();
+            _logger.LogInformation("LayoutService disposed");
+        }
+
+        _disposed = true;
     }
 }
