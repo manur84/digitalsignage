@@ -1,11 +1,15 @@
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Documents;
 using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Threading;
 using DigitalSignage.Core.Models;
 // REMOVED: using DigitalSignage.Server.Behaviors; - ElementSelectionBehavior no longer used
 using DigitalSignage.Server.Controls;
+using DigitalSignage.Server.Services;
 using DigitalSignage.Server.ViewModels;
 using Microsoft.Extensions.Logging;
 
@@ -24,6 +28,8 @@ public partial class MainWindow : Window
     private bool _isDragging;
     private DisplayElement? _draggingElement;
     private AlignmentGuidesAdorner? _alignmentAdorner;
+    private readonly SelectionService? _selectionService;
+    private bool _isWaitingForContainers;
 
     public MainWindow(MainViewModel viewModel, ILogger<MainWindow>? logger = null)
     {
@@ -31,11 +37,20 @@ public partial class MainWindow : Window
         DataContext = viewModel;
         _logger = logger;
 
+        ShapeEditorOverlay.HostCanvas = DesignerSurface;
+
+        _selectionService = viewModel?.Designer?.SelectionService;
+        if (_selectionService != null)
+        {
+            _selectionService.SelectionChanged += SelectionServiceOnSelectionChanged;
+        }
+
         // REMOVED: Initialize element selection behavior - no longer needed
         // _selectionBehavior = new ElementSelectionBehavior(this, viewModel.Designer);
 
         // Initialize AlignmentGuidesAdorner when window is loaded
         Loaded += MainWindow_Loaded;
+        Dispatcher.InvokeAsync(UpdateShapeEditorOverlay, DispatcherPriority.Background);
 
         _logger?.LogInformation("MainWindow initialized");
     }
@@ -341,6 +356,12 @@ public partial class MainWindow : Window
         // REMOVED: _selectionBehavior cleanup - no longer used
         // _selectionBehavior?.Detach();
         // _selectionBehavior = null;
+        if (_selectionService != null)
+        {
+            _selectionService.SelectionChanged -= SelectionServiceOnSelectionChanged;
+        }
+
+        DesignerItemsHost.ItemContainerGenerator.StatusChanged -= ItemContainerGenerator_StatusChanged;
         base.OnClosed(e);
     }
 
@@ -418,5 +439,84 @@ public partial class MainWindow : Window
             _logger?.LogError(ex, "Failed to show log details");
             MessageBox.Show($"Failed to show log details: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
         }
+    }
+
+    private void SelectionServiceOnSelectionChanged(object? sender, EventArgs e)
+    {
+        Dispatcher.InvokeAsync(UpdateShapeEditorOverlay, DispatcherPriority.Background);
+    }
+
+    private void UpdateShapeEditorOverlay()
+    {
+        if (ShapeEditorOverlay == null || DesignerItemsHost == null || _selectionService == null)
+        {
+            return;
+        }
+
+        if (_selectionService.SelectionCount != 1 || _selectionService.PrimarySelection == null)
+        {
+            ShapeEditorOverlay.Detach();
+            _isWaitingForContainers = false;
+            return;
+        }
+
+        var container = DesignerItemsHost.ItemContainerGenerator.ContainerFromItem(_selectionService.PrimarySelection) as DependencyObject;
+        if (container == null)
+        {
+            if (!_isWaitingForContainers)
+            {
+                DesignerItemsHost.ItemContainerGenerator.StatusChanged -= ItemContainerGenerator_StatusChanged;
+                DesignerItemsHost.ItemContainerGenerator.StatusChanged += ItemContainerGenerator_StatusChanged;
+                _isWaitingForContainers = true;
+            }
+            return;
+        }
+
+        _isWaitingForContainers = false;
+        var designerControl = FindVisualChild<DesignerItemControl>(container);
+        if (designerControl == null)
+        {
+            ShapeEditorOverlay.Detach();
+            return;
+        }
+
+        ShapeEditorOverlay.HostCanvas = DesignerSurface;
+        ShapeEditorOverlay.Attach(designerControl);
+    }
+
+    private void ItemContainerGenerator_StatusChanged(object? sender, EventArgs e)
+    {
+        if (sender is ItemContainerGenerator generator &&
+            generator.Status == GeneratorStatus.ContainersGenerated)
+        {
+            generator.StatusChanged -= ItemContainerGenerator_StatusChanged;
+            _isWaitingForContainers = false;
+            UpdateShapeEditorOverlay();
+        }
+    }
+
+    private static T? FindVisualChild<T>(DependencyObject? parent) where T : DependencyObject
+    {
+        if (parent == null)
+        {
+            return null;
+        }
+
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            if (child is T typedChild)
+            {
+                return typedChild;
+            }
+
+            var descendant = FindVisualChild<T>(child);
+            if (descendant != null)
+            {
+                return descendant;
+            }
+        }
+
+        return null;
     }
 }

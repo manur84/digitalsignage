@@ -4,8 +4,11 @@ using DigitalSignage.Core.Interfaces;
 using DigitalSignage.Core.Models;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.Diagnostics;
+using System.Linq;
 
 namespace DigitalSignage.Server.ViewModels;
 
@@ -59,6 +62,8 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
     public ObservableCollection<DisplayLayout> AvailableLayouts { get; } = new();
     public ObservableCollection<string> LogLevels { get; } = new() { "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL" };
 
+    public string ClientStatusSummary => BuildClientStatusSummary();
+
     public DeviceManagementViewModel(
         IClientService clientService,
         ILayoutService layoutService,
@@ -71,6 +76,8 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
         DiscoveredDevices = discoveredDevicesViewModel ?? throw new ArgumentNullException(nameof(discoveredDevicesViewModel));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+
+        Clients.CollectionChanged += Clients_CollectionChanged;
 
         // Subscribe to client events for auto-refresh
         _clientService.ClientConnected += OnClientConnected;
@@ -125,6 +132,7 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
             }
             StatusMessage = $"Loaded {Clients.Count} client(s)";
             _logger.LogInformation("Loaded {Count} clients", Clients.Count);
+            RaiseClientStatusSummaryChanged();
 
             // Also refresh available layouts when loading clients
             await RefreshAvailableLayoutsAsync();
@@ -615,6 +623,7 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
             {
                 client.Status = ClientStatus.Offline;
                 StatusMessage = $"Client {client.Name} disconnected";
+                RaiseClientStatusSummaryChanged();
             }
         }
         else
@@ -626,6 +635,7 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
                 {
                     client.Status = ClientStatus.Offline;
                     StatusMessage = $"Client {client.Name} disconnected";
+                    RaiseClientStatusSummaryChanged();
                 }
             });
         }
@@ -670,6 +680,7 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
 
         if (disposing)
         {
+            Clients.CollectionChanged -= Clients_CollectionChanged;
             // Unregister event handlers
             _clientService.ClientConnected -= OnClientConnected;
             _clientService.ClientDisconnected -= OnClientDisconnected;
@@ -682,5 +693,48 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
         }
 
         _disposed = true;
+    }
+
+    private void Clients_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        RaiseClientStatusSummaryChanged();
+    }
+
+    private void RaiseClientStatusSummaryChanged()
+    {
+        OnPropertyChanged(nameof(ClientStatusSummary));
+    }
+
+    private string BuildClientStatusSummary()
+    {
+        var total = Clients.Count;
+        if (total == 0)
+        {
+            return "No registered devices";
+        }
+
+        var online = Clients.Count(c => c.Status == ClientStatus.Online || c.Status == ClientStatus.Updating);
+        var offline = Clients.Count(c => c.Status == ClientStatus.Offline || c.Status == ClientStatus.Disconnected || c.Status == ClientStatus.OfflineRecovery);
+        var connecting = Clients.Count(c => c.Status == ClientStatus.Connecting);
+        var errors = Clients.Count(c => c.Status == ClientStatus.Error);
+
+        var segments = new List<string>
+        {
+            $"{total} total",
+            $"{online} online",
+            $"{offline} offline"
+        };
+
+        if (connecting > 0)
+        {
+            segments.Add($"{connecting} connecting");
+        }
+
+        if (errors > 0)
+        {
+            segments.Add($"{errors} error");
+        }
+
+        return string.Join(" · ", segments);
     }
 }
