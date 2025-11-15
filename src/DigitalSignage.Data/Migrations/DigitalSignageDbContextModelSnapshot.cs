@@ -101,6 +101,10 @@ namespace DigitalSignage.Data.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("LinkedDataSourceIds")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Metadata")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -850,6 +854,10 @@ namespace DigitalSignage.Data.Migrations
 
                             b1.Property<long>("DiskUsed")
                                 .HasColumnType("INTEGER");
+
+                            b1.Property<string>("Hostname")
+                                .IsRequired()
+                                .HasColumnType("TEXT");
 
                             b1.Property<long>("MemoryTotal")
                                 .HasColumnType("INTEGER");

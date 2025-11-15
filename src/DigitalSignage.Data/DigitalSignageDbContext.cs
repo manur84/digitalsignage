@@ -70,6 +70,11 @@ public class DigitalSignageDbContext : DbContext
             c => c.Aggregate(0, (a, v) => HashCode.Combine(a, v.GetHashCode())),
             c => c.ToList());
 
+        var guidListComparer = new ValueComparer<List<Guid>>(
+            (c1, c2) => (c1 == null && c2 == null) || (c1 != null && c2 != null && c1.SequenceEqual(c2)),
+            c => c.Aggregate(0, (a, v) => HashCode.Combine(a, v.GetHashCode())),
+            c => c.ToList());
+
         // Configure RaspberryPiClient
         modelBuilder.Entity<RaspberryPiClient>(entity =>
         {
@@ -85,6 +90,7 @@ public class DigitalSignageDbContext : DbContext
             entity.OwnsOne(e => e.DeviceInfo, di =>
             {
                 di.ToJson();
+                di.Property(d => d.Hostname).IsRequired();
             });
 
             // Store Schedules as JSON
@@ -156,6 +162,14 @@ public class DigitalSignageDbContext : DbContext
                     v => System.Text.Json.JsonSerializer.Deserialize<List<string>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new List<string>()
                 )
                 .Metadata.SetValueComparer(stringListComparer);
+
+            // Store LinkedDataSourceIds as JSON
+            entity.Property(e => e.LinkedDataSourceIds)
+                .HasConversion(
+                    v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
+                    v => System.Text.Json.JsonSerializer.Deserialize<List<Guid>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new List<Guid>()
+                )
+                .Metadata.SetValueComparer(guidListComparer);
 
             entity.Property(e => e.Category).HasMaxLength(100);
 
