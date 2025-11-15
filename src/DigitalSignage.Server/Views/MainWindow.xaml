@@ -599,6 +599,10 @@
                                             <Setter Property="Canvas.Top" Value="{Binding Position.Y}"/>
                                             <!-- CRITICAL: Bind Canvas.ZIndex for proper layer ordering -->
                                             <Setter Property="Canvas.ZIndex" Value="{Binding ZIndex}"/>
+                                            <!-- CRITICAL FIX: ContentPresenter MUST have Width/Height for elements to render! -->
+                                            <!-- Without this, ActualWidth/ActualHeight are 0 and elements are invisible -->
+                                            <Setter Property="Width" Value="{Binding Size.Width}"/>
+                                            <Setter Property="Height" Value="{Binding Size.Height}"/>
                                         </Style>
                                     </ItemsControl.ItemContainerStyle>
                                     <ItemsControl.ItemTemplate>
