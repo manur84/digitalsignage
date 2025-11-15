@@ -980,6 +980,11 @@
                 </Grid>
             </TabItem>
 
+            <!-- Modern Designer Tab -->
+            <TabItem Header="Modern Designer">
+                <views:ModernDesignerView DataContext="{Binding Designer}"/>
+            </TabItem>
+
             <!-- Devices Tab -->
             <TabItem Header="Devices">
                 <devicemgmt:DeviceManagementTabControl DataContext="{Binding DeviceManagement}"/>
