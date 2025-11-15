@@ -17,6 +17,11 @@ public class DisplayLayout
     public List<DisplayElement> Elements { get; set; } = new();
     public List<DataSource> DataSources { get; set; } = new();
     public Dictionary<string, object> Metadata { get; set; } = new();
+
+    /// <summary>
+    /// List of SQL Data Source IDs linked to this layout (for datagrid elements)
+    /// </summary>
+    public List<Guid> LinkedDataSourceIds { get; set; } = new();
 }
 
 /// <summary>

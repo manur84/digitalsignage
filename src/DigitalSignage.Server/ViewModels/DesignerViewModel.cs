@@ -19,6 +19,7 @@ public partial class DesignerViewModel : ObservableObject, IDisposable
     private readonly ILogger<Views.Dialogs.MediaBrowserDialog> _mediaBrowserDialogLogger;
     private readonly IDialogService _dialogService;
     private readonly IServiceProvider _serviceProvider;
+    private readonly DataSourceManager _dataSourceManager;
     private bool _disposed = false;
 
     [ObservableProperty]
@@ -78,7 +79,8 @@ public partial class DesignerViewModel : ObservableObject, IDisposable
         ILogger<MediaBrowserViewModel> mediaBrowserViewModelLogger,
         ILogger<Views.Dialogs.MediaBrowserDialog> mediaBrowserDialogLogger,
         IDialogService dialogService,
-        IServiceProvider serviceProvider)
+        IServiceProvider serviceProvider,
+        DataSourceManager dataSourceManager)
     {
         _layoutService = layoutService ?? throw new ArgumentNullException(nameof(layoutService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -87,6 +89,7 @@ public partial class DesignerViewModel : ObservableObject, IDisposable
         _mediaBrowserDialogLogger = mediaBrowserDialogLogger ?? throw new ArgumentNullException(nameof(mediaBrowserDialogLogger));
         _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
         _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+        _dataSourceManager = dataSourceManager ?? throw new ArgumentNullException(nameof(dataSourceManager));
 
         // Subscribe to command history changes
         CommandHistory.HistoryChanged += OnHistoryChanged;
@@ -656,6 +659,86 @@ public partial class DesignerViewModel : ObservableObject, IDisposable
         SelectedElement = dateTimeElement;
         UpdateLayers();
         _logger.LogDebug("Added datetime element: {ElementName}", dateTimeElement.Name);
+    }
+
+    [RelayCommand]
+    private async Task AddDataGridElementAsync()
+    {
+        try
+        {
+            _logger.LogInformation("=== Opening DataGrid Properties Dialog ===");
+
+            // Create ViewModel with required dependencies
+            var viewModelLogger = _serviceProvider.GetRequiredService<ILogger<DataGridPropertiesViewModel>>();
+            var viewModel = new DataGridPropertiesViewModel(_dataSourceManager, viewModelLogger);
+
+            // Create and show dialog
+            var dialog = new Views.Dialogs.DataGridPropertiesDialog(viewModel)
+            {
+                Owner = System.Windows.Application.Current.MainWindow
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                if (viewModel.SelectedDataSource == null)
+                {
+                    _logger.LogWarning("No data source selected for datagrid");
+                    return;
+                }
+
+                _logger.LogInformation("DataGrid configured with data source: {DataSourceName}",
+                    viewModel.SelectedDataSource.Name);
+
+                var dataGridElement = new DisplayElement
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    Type = "datagrid",
+                    Name = $"DataGrid - {viewModel.SelectedDataSource.Name}",
+                    Position = new Position { X = 100, Y = 100 },
+                    Size = new Size { Width = 800, Height = 400 },
+                    ZIndex = Elements.Count
+                };
+
+                // Apply properties from dialog
+                viewModel.ApplyToElement(dataGridElement);
+                dataGridElement.InitializeDefaultProperties();
+
+                _logger.LogInformation("Position: ({X}, {Y})", dataGridElement.Position.X, dataGridElement.Position.Y);
+                _logger.LogInformation("Size: {Width}x{Height}", dataGridElement.Size.Width, dataGridElement.Size.Height);
+
+                // Add to layout
+                var command = new AddElementCommand(Elements, dataGridElement);
+                CommandHistory.ExecuteCommand(command);
+
+                // Update linked data sources in layout
+                if (CurrentLayout != null)
+                {
+                    var dataSourceId = viewModel.SelectedDataSource.Id;
+                    if (!CurrentLayout.LinkedDataSourceIds.Contains(dataSourceId))
+                    {
+                        CurrentLayout.LinkedDataSourceIds.Add(dataSourceId);
+                        _logger.LogInformation("Added data source {Id} to layout's linked data sources", dataSourceId);
+                    }
+                }
+
+                _logger.LogInformation("DataGrid element added. Total elements: {Count}", Elements.Count);
+
+                SelectedElement = dataGridElement;
+                UpdateLayers();
+                _logger.LogInformation("=== DataGrid Element Added Successfully ===");
+            }
+            else
+            {
+                _logger.LogInformation("DataGrid creation cancelled");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error adding datagrid element");
+            await _dialogService.ShowErrorAsync(
+                $"Failed to add datagrid element:\n\n{ex.Message}",
+                "Error");
+        }
     }
 
     [RelayCommand]

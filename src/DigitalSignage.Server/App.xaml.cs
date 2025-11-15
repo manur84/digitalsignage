@@ -183,6 +183,7 @@ public partial class App : Application
                 services.AddHostedService<MdnsDiscoveryService>();
                 services.AddHostedService<MessageHandlerService>();
                 services.AddHostedService<AlertMonitoringService>();
+                services.AddHostedService<ClientDataUpdateService>();
 
                 // Register Windows
                 services.AddTransient<Views.MainWindow>();

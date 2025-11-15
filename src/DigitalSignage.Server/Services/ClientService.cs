@@ -16,6 +16,7 @@ public class ClientService : IClientService
     private readonly ISqlDataService _dataService;
     private readonly ITemplateService _templateService;
     private readonly IServiceProvider _serviceProvider;
+    private readonly DataSourceManager _dataSourceManager;
     private readonly ILogger<ClientService> _logger;
     private bool _isInitialized = false;
     private readonly SemaphoreSlim _initSemaphore = new(1, 1);
@@ -41,6 +42,7 @@ public class ClientService : IClientService
         ISqlDataService dataService,
         ITemplateService templateService,
         IServiceProvider serviceProvider,
+        DataSourceManager dataSourceManager,
         ILogger<ClientService> logger)
     {
         _communicationService = communicationService ?? throw new ArgumentNullException(nameof(communicationService));
@@ -48,6 +50,7 @@ public class ClientService : IClientService
         _dataService = dataService ?? throw new ArgumentNullException(nameof(dataService));
         _templateService = templateService ?? throw new ArgumentNullException(nameof(templateService));
         _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+        _dataSourceManager = dataSourceManager ?? throw new ArgumentNullException(nameof(dataSourceManager));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
         // Load clients from database on startup with retry logic
@@ -596,16 +599,67 @@ public class ClientService : IClientService
             // Embed media files (images) as Base64 for client transfer
             await EmbedMediaFilesInLayoutAsync(layout, cancellationToken);
 
-            // Create and send display update message
-            var displayUpdateMessage = new DisplayUpdateMessage
+            // Check if layout has linked SQL data sources
+            var linkedDataSources = new List<LayoutDataSourceInfo>();
+            if (layout.LinkedDataSourceIds != null && layout.LinkedDataSourceIds.Count > 0)
             {
-                Layout = layout,
-                Data = layoutData
-            };
+                _logger.LogInformation("Layout {LayoutId} has {Count} linked SQL data sources",
+                    layoutId, layout.LinkedDataSourceIds.Count);
 
-            await _communicationService.SendMessageAsync(clientId, displayUpdateMessage, cancellationToken);
-            _logger.LogInformation("Sent DISPLAY_UPDATE with full layout {LayoutId} and {DataSourceCount} data sources to client {ClientId}",
-                layoutId, layout.DataSources?.Count ?? 0, clientId);
+                foreach (var dsId in layout.LinkedDataSourceIds)
+                {
+                    var dataSource = _dataSourceManager.GetDataSource(dsId);
+                    if (dataSource != null && dataSource.IsActive)
+                    {
+                        var cachedData = _dataSourceManager.GetCachedData(dsId) ?? new List<Dictionary<string, object>>();
+
+                        linkedDataSources.Add(new LayoutDataSourceInfo
+                        {
+                            DataSourceId = dataSource.Id,
+                            Name = dataSource.Name,
+                            Columns = dataSource.SelectedColumns,
+                            InitialData = cachedData
+                        });
+
+                        _logger.LogDebug("Included data source {Name} with {RowCount} rows",
+                            dataSource.Name, cachedData.Count);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Data source {DataSourceId} not found or inactive", dsId);
+                    }
+                }
+            }
+
+            // If we have linked data sources, send enhanced LAYOUT_ASSIGNED message
+            // Otherwise, send standard DISPLAY_UPDATE message
+            if (linkedDataSources.Count > 0)
+            {
+                var layoutAssignmentMessage = new LayoutAssignmentMessage
+                {
+                    LayoutId = layoutId,
+                    Layout = layout,
+                    LinkedDataSources = linkedDataSources
+                };
+
+                await _communicationService.SendMessageAsync(clientId, layoutAssignmentMessage, cancellationToken);
+                _logger.LogInformation("Sent LAYOUT_ASSIGNED with {Count} SQL data sources to client {ClientId}",
+                    linkedDataSources.Count, clientId);
+            }
+            else
+            {
+                // Standard message (backward compatibility)
+                var displayUpdateMessage = new DisplayUpdateMessage
+                {
+                    Layout = layout,
+                    Data = layoutData
+                };
+
+                await _communicationService.SendMessageAsync(clientId, displayUpdateMessage, cancellationToken);
+                _logger.LogInformation("Sent DISPLAY_UPDATE with full layout {LayoutId} and {DataSourceCount} data sources to client {ClientId}",
+                    layoutId, layout.DataSources?.Count ?? 0, clientId);
+            }
+
             return true;
         }
         catch (Exception ex)

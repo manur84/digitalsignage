@@ -446,6 +446,10 @@ class DigitalSignageClient:
                 await self.handle_registration_response(data)
             elif message_type == "DISPLAY_UPDATE":
                 await self.handle_display_update(data)
+            elif message_type == "LAYOUT_ASSIGNED":
+                await self.handle_layout_assigned(data)
+            elif message_type == "DATA_UPDATE":
+                await self.handle_data_update(data)
             elif message_type == "COMMAND":
                 await self.handle_command(data)
             elif message_type == "HEARTBEAT":
@@ -524,6 +528,66 @@ class DigitalSignageClient:
                 logger.warning("Received DISPLAY_UPDATE without layout data")
         except Exception as e:
             logger.error(f"Error updating display: {e}", exc_info=True)
+
+    async def handle_layout_assigned(self, data: Dict[str, Any]):
+        """Handle layout assignment with SQL data sources"""
+        try:
+            layout = data.get("Layout")
+            linked_data_sources = data.get("LinkedDataSources", [])
+
+            if layout:
+                self.current_layout = layout
+                layout_name = layout.get('Name', 'Unknown')
+                logger.info(f"Layout assigned: {layout_name} with {len(linked_data_sources)} linked data sources")
+
+                # Cache all linked data sources
+                if self.display_renderer and linked_data_sources:
+                    for ds_info in linked_data_sources:
+                        data_source_id = ds_info.get('DataSourceId')
+                        initial_data = ds_info.get('InitialData', [])
+                        ds_name = ds_info.get('Name', 'Unknown')
+
+                        if data_source_id:
+                            # Convert GUID to string
+                            data_source_id_str = str(data_source_id)
+                            self.display_renderer.cache_data_source(data_source_id_str, initial_data)
+                            logger.info(f"Cached data source '{ds_name}' ({data_source_id_str}) with {len(initial_data)} rows")
+
+                # Save layout to cache for offline operation
+                self.cache_manager.save_layout(layout, {}, set_current=True)
+
+                # Render the layout
+                if self.display_renderer:
+                    await self.display_renderer.render_layout(layout, {})
+                else:
+                    logger.warning("Display renderer not initialized")
+            else:
+                logger.warning("Received LAYOUT_ASSIGNED without layout data")
+        except Exception as e:
+            logger.error(f"Error handling layout assignment: {e}", exc_info=True)
+
+    async def handle_data_update(self, data: Dict[str, Any]):
+        """Handle data source update from server"""
+        try:
+            data_source_id = data.get("DataSourceId")
+            new_data = data.get("Data", [])
+            timestamp = data.get("Timestamp")
+
+            if data_source_id:
+                # Convert GUID to string
+                data_source_id_str = str(data_source_id)
+                logger.info(f"Received data update for source {data_source_id_str}: {len(new_data)} rows")
+
+                # Update cached data
+                if self.display_renderer:
+                    self.display_renderer.update_data_source(data_source_id_str, new_data)
+                    logger.info(f"Updated data source {data_source_id_str}")
+                else:
+                    logger.warning("Display renderer not initialized")
+            else:
+                logger.warning("Received DATA_UPDATE without DataSourceId")
+        except Exception as e:
+            logger.error(f"Error handling data update: {e}", exc_info=True)
 
     async def handle_command(self, data: Dict[str, Any]):
         """Handle command message from server"""

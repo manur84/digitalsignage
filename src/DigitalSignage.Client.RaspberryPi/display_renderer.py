@@ -129,6 +129,9 @@ class DisplayRenderer(QWidget):
         # Initialize status screen manager
         self.status_screen_manager = StatusScreenManager(self)
 
+        # Data source cache for datagrid elements
+        self.data_source_cache: Dict[str, list] = {}
+
     def setup_ui(self):
         """Setup the UI"""
         self.setWindowTitle("Digital Signage Display")
@@ -400,6 +403,8 @@ class DisplayRenderer(QWidget):
                 return self.create_datetime_element(x, y, width, height, properties)
             elif element_type == 'table':
                 return self.create_table_element(x, y, width, height, properties, data)
+            elif element_type == 'datagrid':
+                return self.create_datagrid_element(x, y, width, height, properties)
             else:
                 logger.warning(f"Unknown element type: {element_type}")
                 return None
@@ -1297,3 +1302,192 @@ class DisplayRenderer(QWidget):
             import traceback
             logger.error(traceback.format_exc())
             return b''
+
+    def create_datagrid_element(
+        self,
+        x: int, y: int,
+        width: int, height: int,
+        properties: Dict[str, Any]
+    ) -> Optional[QWidget]:
+        """
+        Create a DataGrid element for SQL Data Source display.
+        Properties expected:
+        - DataSourceId: GUID of the SQL data source
+        - RowsPerPage: Number of rows to display
+        - ShowHeader: Whether to show column headers
+        - AutoScroll: Enable automatic scrolling
+        - ScrollInterval: Seconds between scrolls
+        - HeaderBackgroundColor: Header background color
+        - HeaderTextColor: Header text color
+        - RowBackgroundColor: Row background color
+        - AlternateRowColor: Alternate row background color
+        - BorderColor: Border color
+        - BorderThickness: Border thickness
+        - CellPadding: Cell padding
+        - FontFamily: Font family
+        - FontSize: Font size
+        - TextColor: Text color
+        """
+        try:
+            from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView
+            from PyQt5.QtGui import QBrush, QColor, QFont
+            from PyQt5.QtCore import Qt
+
+            # Get data source ID
+            data_source_id = properties.get('DataSourceId')
+            if not data_source_id or data_source_id == '00000000-0000-0000-0000-000000000000':
+                logger.warning("DataGrid element has no valid DataSourceId")
+                return None
+
+            # Convert GUID to string if needed
+            data_source_id_str = str(data_source_id)
+
+            # Get cached data for this data source
+            cached_data = self.data_source_cache.get(data_source_id_str, [])
+
+            if not cached_data:
+                logger.warning(f"No data found for data source {data_source_id_str}")
+                # Create placeholder
+                cached_data = [{"Column1": "No Data", "Column2": "Available"}]
+
+            # Get configuration
+            rows_per_page = int(properties.get('RowsPerPage', 10))
+            show_header = properties.get('ShowHeader', True)
+
+            # Create table widget
+            table = QTableWidget(self)
+            table.setGeometry(x, y, width, height)
+
+            # Get columns from first data row
+            if cached_data:
+                columns = list(cached_data[0].keys())
+                rows = min(rows_per_page, len(cached_data))
+
+                table.setRowCount(rows)
+                table.setColumnCount(len(columns))
+
+                # Set headers
+                if show_header:
+                    table.setHorizontalHeaderLabels(columns)
+                    table.horizontalHeader().setVisible(True)
+                else:
+                    table.horizontalHeader().setVisible(False)
+
+                # Populate data
+                for row_idx, row_data in enumerate(cached_data[:rows_per_page]):
+                    for col_idx, col_name in enumerate(columns):
+                        value = str(row_data.get(col_name, ''))
+                        item = QTableWidgetItem(value)
+
+                        # Set item as read-only
+                        item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+
+                        table.setItem(row_idx, col_idx, item)
+
+                logger.info(f"DataGrid created with {rows} rows and {len(columns)} columns from data source {data_source_id_str}")
+            else:
+                # No data
+                table.setRowCount(1)
+                table.setColumnCount(1)
+                item = QTableWidgetItem("No data available")
+                item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+                table.setItem(0, 0, item)
+
+            # Apply styling
+            header_bg = properties.get('HeaderBackgroundColor', '#2196F3')
+            header_fg = properties.get('HeaderTextColor', '#FFFFFF')
+            row_bg = properties.get('RowBackgroundColor', '#FFFFFF')
+            alt_bg = properties.get('AlternateRowColor', '#F5F5F5')
+            border_color = properties.get('BorderColor', '#CCCCCC')
+            border_thickness = int(properties.get('BorderThickness', 1))
+            cell_padding = int(properties.get('CellPadding', 5))
+            text_color = properties.get('TextColor', '#000000')
+
+            # Font
+            font_family = properties.get('FontFamily', 'Arial')
+            font_size_base = properties.get('FontSize', 14)
+
+            # Apply scaling to font size
+            scale_x = getattr(self, '_scale_x', 1.0)
+            scale_y = getattr(self, '_scale_y', 1.0)
+            scale_avg = (scale_x + scale_y) / 2
+            font_size = int(font_size_base * scale_avg)
+
+            font = QFont(font_family, font_size)
+            table.setFont(font)
+
+            # Header style
+            if show_header:
+                header_style = f"""
+                    QHeaderView::section {{
+                        background-color: {header_bg};
+                        color: {header_fg};
+                        padding: {cell_padding}px;
+                        border: {border_thickness}px solid {border_color};
+                        font-weight: bold;
+                    }}
+                """
+                table.horizontalHeader().setStyleSheet(header_style)
+
+            # Table style
+            table.setStyleSheet(f"""
+                QTableWidget {{
+                    background-color: {row_bg};
+                    color: {text_color};
+                    border: {border_thickness}px solid {border_color};
+                    gridline-color: {border_color};
+                }}
+                QTableWidget::item {{
+                    padding: {cell_padding}px;
+                }}
+                QTableWidget::item:alternate {{
+                    background-color: {alt_bg};
+                }}
+            """)
+
+            # Enable alternating row colors
+            table.setAlternatingRowColors(True)
+
+            # Auto-resize columns to fit content
+            table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+
+            # Disable editing
+            table.setEditTriggers(QTableWidget.NoEditTriggers)
+
+            # Hide vertical header (row numbers)
+            table.verticalHeader().setVisible(False)
+
+            table.show()
+            return table
+
+        except Exception as e:
+            logger.error(f"Failed to create DataGrid element: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return None
+
+    def cache_data_source(self, data_source_id: str, data: list):
+        """Cache data for a SQL data source"""
+        try:
+            self.data_source_cache[data_source_id] = data
+            logger.info(f"Cached {len(data)} rows for data source {data_source_id}")
+        except Exception as e:
+            logger.error(f"Failed to cache data source {data_source_id}: {e}")
+
+    def get_data_source_data(self, data_source_id: str) -> list:
+        """Get cached data for a data source"""
+        return self.data_source_cache.get(data_source_id, [])
+
+    def update_data_source(self, data_source_id: str, new_data: list):
+        """Update cached data and refresh affected datagrid elements"""
+        try:
+            # Update cache
+            self.cache_data_source(data_source_id, new_data)
+
+            # TODO: Find and refresh datagrid elements using this data source
+            # For now, we'll just log - full implementation would require tracking
+            # which elements use which data sources
+            logger.info(f"Data source {data_source_id} updated - refresh would happen here")
+
+        except Exception as e:
+            logger.error(f"Failed to update data source {data_source_id}: {e}")

@@ -283,6 +283,25 @@ public partial class DisplayElement : ObservableObject
                 EnsureProperty("ShowBorder", true);
                 break;
 
+            case "datagrid":
+                // SQL Data Source DataGrid element
+                EnsureProperty("DataSourceId", Guid.Empty);        // Links to SqlDataSource
+                EnsureProperty("RowsPerPage", 10);                 // Number of rows to display
+                EnsureProperty("AutoScroll", false);               // Enable automatic scrolling
+                EnsureProperty("ScrollInterval", 5);               // Seconds between scrolls
+                EnsureProperty("ShowHeader", true);                // Display column headers
+                EnsureProperty("HeaderBackgroundColor", "#2196F3");
+                EnsureProperty("HeaderTextColor", "#FFFFFF");
+                EnsureProperty("RowBackgroundColor", "#FFFFFF");
+                EnsureProperty("AlternateRowColor", "#F5F5F5");
+                EnsureProperty("BorderColor", "#CCCCCC");
+                EnsureProperty("BorderThickness", 1.0);
+                EnsureProperty("CellPadding", 5);
+                EnsureProperty("FontFamily", "Arial");
+                EnsureProperty("FontSize", 14.0);
+                EnsureProperty("TextColor", "#000000");
+                break;
+
             case "datetime":
                 EnsureProperty("Format", "dddd, dd MMMM yyyy HH:mm:ss");
                 EnsureProperty("FontFamily", "Arial");

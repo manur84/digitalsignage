@@ -273,6 +273,28 @@ public class LayoutService : ILayoutService
         _logger.LogInformation("Loaded {LoadedCount} layouts, {FailedCount} failed", loadedCount, failedCount);
     }
 
+    public Task<List<DisplayLayout>> GetLayoutsWithDataSourceAsync(Guid dataSourceId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var layoutsWithDataSource = _layouts.Values
+                .Where(layout =>
+                    layout.LinkedDataSourceIds != null &&
+                    layout.LinkedDataSourceIds.Contains(dataSourceId))
+                .ToList();
+
+            _logger.LogInformation("Found {Count} layouts using data source {DataSourceId}",
+                layoutsWithDataSource.Count, dataSourceId);
+
+            return Task.FromResult(layoutsWithDataSource);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting layouts with data source {DataSourceId}", dataSourceId);
+            return Task.FromResult(new List<DisplayLayout>());
+        }
+    }
+
     private string GetLayoutFilePath(string layoutId)
     {
         // Sanitize layoutId to prevent path traversal
