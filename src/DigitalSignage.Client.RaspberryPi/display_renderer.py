@@ -1,5 +1,18 @@
 """
 Display renderer using PyQt5 for rendering layouts
+
+Supported Element Types:
+- text: Text elements with fonts, colors, alignment, decorations
+- image: Image elements from Base64 data or file paths
+- rectangle: Rectangle shapes with fill, border, corner radius
+- circle: Circle shapes with fill and border
+- ellipse: Ellipse shapes with fill and border
+- qrcode: QR code elements with error correction
+- table: Table elements with rows, columns, headers, cell data
+- datetime: Auto-updating datetime displays with custom formats
+- datagrid: SQL data grid displays with paging and styling
+- datasourcetext: Templated text elements with SQL data binding
+- group: Container elements with child elements (grouped elements)
 """
 
 import logging
@@ -462,6 +475,8 @@ class DisplayRenderer(QWidget):
                 return self.create_datagrid_element(x, y, width, height, properties)
             elif element_type == 'datasourcetext':
                 return self.create_datasourcetext_element(x, y, width, height, properties)
+            elif element_type == 'group':
+                return self.create_group_element(x, y, width, height, element_data, data)
             else:
                 logger.warning(f"Unknown element type: {element_type}")
                 return None
@@ -1695,6 +1710,148 @@ class DisplayRenderer(QWidget):
 
         except Exception as e:
             logger.error(f"Failed to create DataSourceText element: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return None
+
+    def create_group_element(
+        self,
+        x: int, y: int,
+        width: int, height: int,
+        element_data: Dict[str, Any],
+        data: Optional[Dict[str, Any]]
+    ) -> Optional[QWidget]:
+        """
+        Create a Group element - a container for child elements.
+
+        Groups have a bounding box and contain child elements with relative positions.
+        When elements are grouped in the Designer, they become children of a group element,
+        and their positions become relative to the group's origin.
+
+        Properties expected:
+        - Children: List of child DisplayElement objects
+
+        Args:
+            x: Group X position (absolute, already scaled)
+            y: Group Y position (absolute, already scaled)
+            width: Group width (already scaled)
+            height: Group height (already scaled)
+            element_data: Full element data dictionary (includes Children)
+            data: Optional data for variable replacement
+
+        Returns:
+            QWidget container with rendered children, or None on error
+        """
+        try:
+            # Create a container widget for the group
+            # The group acts as a parent widget containing all child elements
+            group_widget = QWidget(self)
+            group_widget.setGeometry(x, y, width, height)
+
+            # Get child elements from element data
+            children = element_data.get('Children', [])
+            if not isinstance(children, list):
+                logger.warning(f"Group has invalid Children property: {type(children)}, expected list")
+                children = []
+
+            logger.debug(f"Creating group element with {len(children)} children at ({x},{y}) size ({width}x{height})")
+
+            # Render each child element with positions relative to group
+            rendered_children = 0
+            failed_children = 0
+
+            for child_data in children:
+                if not isinstance(child_data, dict):
+                    logger.warning(f"Invalid child element in group: {type(child_data)}, expected dict")
+                    failed_children += 1
+                    continue
+
+                try:
+                    # Get child properties
+                    # CRITICAL: Child positions are RELATIVE to group origin
+                    child_position = child_data.get('Position', {})
+                    child_size = child_data.get('Size', {})
+
+                    # Validate nested dictionaries
+                    if not isinstance(child_position, dict):
+                        logger.warning(f"Child Position is not a dict: {type(child_position)}, using defaults")
+                        child_position = {}
+                    if not isinstance(child_size, dict):
+                        logger.warning(f"Child Size is not a dict: {type(child_size)}, using defaults")
+                        child_size = {}
+
+                    # Parse child dimensions (relative to group, NOT absolute screen coordinates)
+                    try:
+                        child_x = int(child_position.get('X', 0))
+                        child_y = int(child_position.get('Y', 0))
+                        child_width = int(child_size.get('Width', 100))
+                        child_height = int(child_size.get('Height', 100))
+
+                        # Validate dimensions
+                        if child_width <= 0 or child_height <= 0:
+                            logger.warning(f"Invalid child dimensions: {child_width}x{child_height}, using defaults")
+                            child_width = max(child_width, 100)
+                            child_height = max(child_height, 100)
+
+                    except (ValueError, TypeError) as e:
+                        logger.error(f"Failed to parse child dimensions: {e}, using defaults")
+                        child_x, child_y, child_width, child_height = 0, 0, 100, 100
+
+                    # Apply scaling to child dimensions
+                    # Note: We use the same scale factors as the parent group
+                    scale_x = getattr(self, '_scale_x', 1.0)
+                    scale_y = getattr(self, '_scale_y', 1.0)
+
+                    if scale_x != 1.0 or scale_y != 1.0:
+                        child_x = int(child_x * scale_x)
+                        child_y = int(child_y * scale_y)
+                        child_width = int(child_width * scale_x)
+                        child_height = int(child_height * scale_y)
+
+                    # Create child element using standard create_element method
+                    # Pass the child_data with absolute coordinates for create_element
+                    child_widget = self.create_element(child_data, data)
+
+                    if child_widget:
+                        # CRITICAL: Reparent child to group widget
+                        # This makes the child's position relative to the group, not the main window
+                        child_widget.setParent(group_widget)
+
+                        # Set child position relative to group origin
+                        # Since child is now parented to group, coordinates are relative
+                        child_widget.setGeometry(child_x, child_y, child_width, child_height)
+
+                        # Ensure child is visible
+                        child_widget.show()
+
+                        rendered_children += 1
+                        logger.debug(f"  → Child element {child_data.get('Type', 'unknown')} rendered at ({child_x},{child_y}) size ({child_width}x{child_height})")
+                    else:
+                        failed_children += 1
+                        logger.warning(f"  ✗ Child element {child_data.get('Type', 'unknown')} failed to render")
+
+                except Exception as child_error:
+                    logger.error(f"Failed to create child element in group: {child_error}")
+                    import traceback
+                    logger.error(traceback.format_exc())
+                    failed_children += 1
+
+            # Apply common styling to group container (opacity, shadow, etc.)
+            properties = element_data.get('Properties', {})
+            if not isinstance(properties, dict):
+                properties = {}
+
+            self.apply_common_styling(group_widget, properties)
+
+            # Make group visible
+            group_widget.show()
+
+            logger.info(f"Group element created: {rendered_children} children rendered, {failed_children} failed")
+
+            return group_widget
+
+        except Exception as e:
+            logger.error(f"Failed to create Group element: {e}")
             import traceback
             logger.error(traceback.format_exc())
             return None
