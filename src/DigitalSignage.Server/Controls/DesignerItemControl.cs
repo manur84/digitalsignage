@@ -77,6 +77,16 @@ public class DesignerItemControl : ContentControl
         Loaded += (s, e) =>
         {
             System.Diagnostics.Debug.WriteLine($"DesignerItemControl: Loaded event fired for element '{DisplayElement?.Name ?? "null"}'");
+
+            // CRITICAL: Set Canvas position on the ContentPresenter parent (not on this control!)
+            // ItemsControl wraps each item in a ContentPresenter, which is the actual Canvas child
+            if (DisplayElement != null && Parent is FrameworkElement parent)
+            {
+                Canvas.SetLeft(parent, DisplayElement.Position.X);
+                Canvas.SetTop(parent, DisplayElement.Position.Y);
+                Panel.SetZIndex(parent, DisplayElement.ZIndex);
+                System.Diagnostics.Debug.WriteLine($"DesignerItemControl: Set parent Canvas.Left={DisplayElement.Position.X}, Canvas.Top={DisplayElement.Position.Y}, ZIndex={DisplayElement.ZIndex}");
+            }
         };
 
         SizeChanged += (s, e) =>
@@ -311,13 +321,7 @@ public class DesignerItemControl : ContentControl
         Width = DisplayElement.Size.Width;
         Height = DisplayElement.Size.Height;
 
-        // CRITICAL FIX: Set Canvas position directly (XAML bindings don't work with nested objects!)
-        // ItemContainerStyle bindings to Position.X fail because Position is a separate object instance
-        Canvas.SetLeft(this, DisplayElement.Position.X);
-        Canvas.SetTop(this, DisplayElement.Position.Y);
-
-        // Set ZIndex
-        Panel.SetZIndex(this, DisplayElement.ZIndex);
+        // Position and ZIndex are set in OnLoaded event when Parent is available
 
         // Apply visual effects (rotation, shadow, opacity)
         ApplyVisualEffects();
