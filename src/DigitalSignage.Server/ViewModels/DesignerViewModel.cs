@@ -697,6 +697,248 @@ public partial class DesignerViewModel : ObservableObject, IDisposable
         _logger.LogDebug("Added datetime element: {ElementName}", dateTimeElement.Name);
     }
 
+    /// <summary>
+    /// Adds an element at a specific position (used for drag and drop)
+    /// </summary>
+    [RelayCommand]
+    private async Task AddElementAtPositionAsync(object? parameter)
+    {
+        if (parameter is ValueTuple<string, double, double> dragInfo)
+        {
+            var (elementType, x, y) = dragInfo;
+
+            _logger.LogInformation("Adding element via drag and drop: Type={Type}, Position=({X}, {Y})",
+                elementType, x, y);
+
+            DisplayElement? newElement = null;
+
+            switch (elementType)
+            {
+                case "text":
+                    newElement = new DisplayElement
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        Type = "text",
+                        Name = $"Text {Elements.Count + 1}",
+                        Position = new Position { X = x, Y = y },
+                        Size = new Size { Width = 200, Height = 50 },
+                        ZIndex = Elements.Count,
+                        Properties = new Dictionary<string, object>
+                        {
+                            ["Content"] = "New Text",
+                            ["FontFamily"] = "Arial",
+                            ["FontSize"] = 24,
+                            ["Color"] = "#000000"
+                        }
+                    };
+                    break;
+
+                case "rectangle":
+                    newElement = new DisplayElement
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        Type = "rectangle",
+                        Name = $"Rectangle {Elements.Count + 1}",
+                        Position = new Position { X = x, Y = y },
+                        Size = new Size { Width = 200, Height = 100 },
+                        ZIndex = Elements.Count,
+                        Properties = new Dictionary<string, object>
+                        {
+                            ["FillColor"] = "#ADD8E6",
+                            ["BorderColor"] = "#00008B",
+                            ["BorderThickness"] = 2
+                        }
+                    };
+                    break;
+
+                case "circle":
+                    newElement = new DisplayElement
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        Type = "circle",
+                        Name = $"Circle {Elements.Count + 1}",
+                        Position = new Position { X = x, Y = y },
+                        Size = new Size { Width = 150, Height = 150 },
+                        ZIndex = Elements.Count,
+                        Properties = new Dictionary<string, object>
+                        {
+                            ["FillColor"] = "#FFD700",
+                            ["BorderColor"] = "#FF8C00",
+                            ["BorderThickness"] = 2
+                        }
+                    };
+                    break;
+
+                case "media":
+                    // Open media browser dialog
+                    await AddMediaLibraryElement();
+                    // The above method handles positioning, so return early
+                    return;
+
+                case "qrcode":
+                    // Open QR code dialog, but position at drop location
+                    await AddQRCodeElementWithPositionAsync(x, y);
+                    return;
+
+                case "table":
+                    // Open table dialog, but position at drop location
+                    await AddTableElementWithPositionAsync(x, y);
+                    return;
+
+                case "datetime":
+                    newElement = new DisplayElement
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        Type = "datetime",
+                        Name = $"Date Time {Elements.Count + 1}",
+                        Position = new Position { X = x, Y = y },
+                        Size = new Size { Width = 300, Height = 60 },
+                        ZIndex = Elements.Count,
+                        Properties = new Dictionary<string, object>
+                        {
+                            ["Format"] = "dddd, dd MMMM yyyy HH:mm:ss",
+                            ["FontFamily"] = "Arial",
+                            ["FontSize"] = 24,
+                            ["Color"] = "#000000",
+                            ["UpdateInterval"] = 1000
+                        }
+                    };
+                    break;
+
+                default:
+                    _logger.LogWarning("Unknown element type for drag and drop: {Type}", elementType);
+                    return;
+            }
+
+            if (newElement != null)
+            {
+                newElement.InitializeDefaultProperties();
+                var command = new AddElementCommand(Elements, newElement);
+                CommandHistory.ExecuteCommand(command);
+                SelectedElement = newElement;
+                UpdateLayers();
+                _logger.LogInformation("Element added via drag and drop: {ElementName} at ({X}, {Y})",
+                    newElement.Name, x, y);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Adds a QR code element at a specific position
+    /// </summary>
+    private async Task AddQRCodeElementWithPositionAsync(double x, double y)
+    {
+        try
+        {
+            _logger.LogInformation("=== Opening QR Code Properties Dialog (with position) ===");
+
+            var viewModelLogger = _serviceProvider.GetRequiredService<ILogger<QRCodePropertiesViewModel>>();
+            var viewModel = new QRCodePropertiesViewModel(viewModelLogger);
+
+            var dialog = new Views.Dialogs.QRCodePropertiesDialog(viewModel)
+            {
+                Owner = System.Windows.Application.Current.MainWindow
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                var qrCodeElement = new DisplayElement
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    Type = "qrcode",
+                    Name = $"QR Code {Elements.Count + 1}",
+                    Position = new Position { X = x, Y = y },  // Use drop position
+                    Size = new Size { Width = 200, Height = 200 },
+                    ZIndex = Elements.Count
+                };
+
+                viewModel.ApplyToElement(qrCodeElement);
+                qrCodeElement.InitializeDefaultProperties();
+
+                var command = new AddElementCommand(Elements, qrCodeElement);
+                CommandHistory.ExecuteCommand(command);
+
+                SelectedElement = qrCodeElement;
+                UpdateLayers();
+                _logger.LogInformation("QR Code element added at ({X}, {Y})", x, y);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error adding QR code element");
+            await _dialogService.ShowErrorAsync(
+                $"Failed to add QR code element:\n\n{ex.Message}",
+                "Error");
+        }
+    }
+
+    /// <summary>
+    /// Adds a table element at a specific position
+    /// </summary>
+    private async Task AddTableElementWithPositionAsync(double x, double y)
+    {
+        try
+        {
+            _logger.LogInformation("=== Opening Table Properties Dialog (with position) ===");
+
+            var viewModel = new TablePropertiesViewModel();
+
+            var dialog = new Views.Dialogs.TablePropertiesDialog(viewModel)
+            {
+                Owner = System.Windows.Application.Current.MainWindow
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                var cellData = viewModel.GetCellDataAsList();
+                var cellDataJson = System.Text.Json.JsonSerializer.Serialize(cellData);
+
+                var tableElement = new DisplayElement
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    Type = "table",
+                    Name = $"Table {Elements.Count + 1}",
+                    Position = new Position { X = x, Y = y },  // Use drop position
+                    Size = new Size { Width = 600, Height = 400 },
+                    ZIndex = Elements.Count,
+                    Properties = new Dictionary<string, object>
+                    {
+                        ["Rows"] = viewModel.Rows,
+                        ["Columns"] = viewModel.Columns,
+                        ["ShowHeaderRow"] = viewModel.ShowHeaderRow,
+                        ["ShowHeaderColumn"] = viewModel.ShowHeaderColumn,
+                        ["BorderColor"] = TablePropertiesViewModel.ColorToHex(viewModel.BorderColor),
+                        ["BorderThickness"] = viewModel.BorderThickness,
+                        ["BackgroundColor"] = TablePropertiesViewModel.ColorToHex(viewModel.BackgroundColor),
+                        ["AlternateRowColor"] = TablePropertiesViewModel.ColorToHex(viewModel.AlternateRowColor),
+                        ["HeaderBackgroundColor"] = TablePropertiesViewModel.ColorToHex(viewModel.HeaderBackgroundColor),
+                        ["TextColor"] = TablePropertiesViewModel.ColorToHex(viewModel.TextColor),
+                        ["FontFamily"] = viewModel.FontFamily,
+                        ["FontSize"] = viewModel.FontSize,
+                        ["CellPadding"] = viewModel.CellPadding,
+                        ["CellData"] = cellDataJson
+                    }
+                };
+
+                tableElement.InitializeDefaultProperties();
+
+                var command = new AddElementCommand(Elements, tableElement);
+                CommandHistory.ExecuteCommand(command);
+
+                SelectedElement = tableElement;
+                UpdateLayers();
+                _logger.LogInformation("Table element added at ({X}, {Y})", x, y);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error adding table element");
+            await _dialogService.ShowErrorAsync(
+                $"Failed to add table element:\n\n{ex.Message}",
+                "Error");
+        }
+    }
+
     [RelayCommand]
     private async Task AddDataGridElementAsync()
     {

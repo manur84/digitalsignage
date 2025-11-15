@@ -64,6 +64,13 @@ public class DesignerCanvas : Canvas
         ClipToBounds = true;
         Focusable = true;
 
+        // Enable drag and drop
+        AllowDrop = true;
+        DragEnter += OnDragEnter;
+        DragOver += OnDragOver;
+        DragLeave += OnDragLeave;
+        Drop += OnDrop;
+
         // Mouse events
         MouseLeftButtonDown += OnMouseLeftButtonDown;
         MouseMove += OnMouseMove;
@@ -458,5 +465,90 @@ public class DesignerCanvas : Canvas
         }
 
         return null;
+    }
+
+    // Drag and Drop Event Handlers
+
+    /// <summary>
+    /// Handles drag enter event to provide visual feedback
+    /// </summary>
+    private void OnDragEnter(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetDataPresent("DesignerElementType"))
+        {
+            e.Effects = DragDropEffects.Copy;
+            e.Handled = true;
+        }
+        else
+        {
+            e.Effects = DragDropEffects.None;
+        }
+    }
+
+    /// <summary>
+    /// Handles drag over event to update cursor position feedback
+    /// </summary>
+    private void OnDragOver(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetDataPresent("DesignerElementType"))
+        {
+            e.Effects = DragDropEffects.Copy;
+
+            // Optionally snap to grid while dragging
+            var dropPosition = e.GetPosition(this);
+            if (SnapToGrid)
+            {
+                dropPosition = SnapPoint(dropPosition);
+            }
+
+            e.Handled = true;
+        }
+        else
+        {
+            e.Effects = DragDropEffects.None;
+        }
+    }
+
+    /// <summary>
+    /// Handles drag leave event
+    /// </summary>
+    private void OnDragLeave(object sender, DragEventArgs e)
+    {
+        e.Handled = true;
+    }
+
+    /// <summary>
+    /// Handles drop event to create the new element at the drop position
+    /// </summary>
+    private void OnDrop(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetDataPresent("DesignerElementType"))
+        {
+            var elementType = e.Data.GetData("DesignerElementType") as string;
+            if (!string.IsNullOrEmpty(elementType))
+            {
+                // Get drop position relative to the canvas
+                var dropPosition = e.GetPosition(this);
+
+                // Snap to grid if enabled
+                if (SnapToGrid)
+                {
+                    dropPosition = SnapPoint(dropPosition);
+                }
+
+                // Get the DesignerViewModel
+                var viewModel = DataContext as DesignerViewModel;
+                if (viewModel != null)
+                {
+                    // Call the command to add element at specific position
+                    var parameter = (elementType, dropPosition.X, dropPosition.Y);
+                    if (viewModel.AddElementAtPositionCommand?.CanExecute(parameter) == true)
+                    {
+                        viewModel.AddElementAtPositionCommand.Execute(parameter);
+                    }
+                }
+            }
+            e.Handled = true;
+        }
     }
 }

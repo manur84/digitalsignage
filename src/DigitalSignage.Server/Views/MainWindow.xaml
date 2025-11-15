@@ -5,6 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:controls="clr-namespace:DigitalSignage.Server.Controls"
         xmlns:local="clr-namespace:DigitalSignage.Server.Converters"
+        xmlns:behaviors="clr-namespace:DigitalSignage.Server.Behaviors"
         xmlns:designer="clr-namespace:DigitalSignage.Server.Views.Designer"
         xmlns:devicemgmt="clr-namespace:DigitalSignage.Server.Views.DeviceManagement"
         xmlns:scheduling="clr-namespace:DigitalSignage.Server.Views.Scheduling"
@@ -219,49 +220,63 @@
                                             Padding="8">
                                         <TextBlock Text="⬚" FontSize="20"/>
                                     </Button>
-                                    <Button ToolTip="Text"
+                                    <Button ToolTip="Text - Click to add or drag to position"
+                                            behaviors:ToolboxDragBehavior.IsDragEnabled="True"
+                                            behaviors:ToolboxDragBehavior.ElementType="text"
                                             Command="{Binding Designer.AddTextElementCommand}"
                                             Style="{StaticResource SecondaryButton}"
                                             Margin="0,4"
                                             Padding="8">
                                         <TextBlock Text="T" FontSize="20" FontWeight="Bold"/>
                                     </Button>
-                                    <Button ToolTip="Media Library"
+                                    <Button ToolTip="Media Library - Click to add or drag to position"
+                                            behaviors:ToolboxDragBehavior.IsDragEnabled="True"
+                                            behaviors:ToolboxDragBehavior.ElementType="media"
                                             Command="{Binding Designer.AddMediaLibraryElementCommand}"
                                             Style="{StaticResource SecondaryButton}"
                                             Margin="0,4"
                                             Padding="8">
                                         <TextBlock Text="📚" FontSize="18"/>
                                     </Button>
-                                    <Button ToolTip="Rectangle"
+                                    <Button ToolTip="Rectangle - Click to add or drag to position"
+                                            behaviors:ToolboxDragBehavior.IsDragEnabled="True"
+                                            behaviors:ToolboxDragBehavior.ElementType="rectangle"
                                             Command="{Binding Designer.AddRectangleElementCommand}"
                                             Style="{StaticResource SecondaryButton}"
                                             Margin="0,4"
                                             Padding="8">
                                         <Rectangle Width="24" Height="16" Fill="Transparent" Stroke="White" StrokeThickness="2"/>
                                     </Button>
-                                    <Button ToolTip="Circle"
+                                    <Button ToolTip="Circle - Click to add or drag to position"
+                                            behaviors:ToolboxDragBehavior.IsDragEnabled="True"
+                                            behaviors:ToolboxDragBehavior.ElementType="circle"
                                             Command="{Binding Designer.AddCircleElementCommand}"
                                             Style="{StaticResource SecondaryButton}"
                                             Margin="0,4"
                                             Padding="8">
                                         <Ellipse Width="24" Height="24" Fill="Transparent" Stroke="White" StrokeThickness="2"/>
                                     </Button>
-                                    <Button ToolTip="QR Code"
+                                    <Button ToolTip="QR Code - Click to add or drag to position"
+                                            behaviors:ToolboxDragBehavior.IsDragEnabled="True"
+                                            behaviors:ToolboxDragBehavior.ElementType="qrcode"
                                             Command="{Binding Designer.AddQRCodeElementCommand}"
                                             Style="{StaticResource SecondaryButton}"
                                             Margin="0,4"
                                             Padding="8">
                                         <TextBlock Text="▦" FontSize="20"/>
                                     </Button>
-                                    <Button ToolTip="Table"
+                                    <Button ToolTip="Table - Click to add or drag to position"
+                                            behaviors:ToolboxDragBehavior.IsDragEnabled="True"
+                                            behaviors:ToolboxDragBehavior.ElementType="table"
                                             Command="{Binding Designer.AddTableElementCommand}"
                                             Style="{StaticResource SecondaryButton}"
                                             Margin="0,4"
                                             Padding="8">
                                         <TextBlock Text="☰" FontSize="20"/>
                                     </Button>
-                                    <Button ToolTip="Date/Time"
+                                    <Button ToolTip="Date/Time - Click to add or drag to position"
+                                            behaviors:ToolboxDragBehavior.IsDragEnabled="True"
+                                            behaviors:ToolboxDragBehavior.ElementType="datetime"
                                             Command="{Binding Designer.AddDateTimeElementCommand}"
                                             Style="{StaticResource SecondaryButton}"
                                             Margin="0,4"
