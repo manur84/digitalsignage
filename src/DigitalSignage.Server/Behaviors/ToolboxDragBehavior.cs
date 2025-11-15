@@ -130,8 +130,12 @@ public static class ToolboxDragBehavior
         var elementType = GetElementType(element);
         if (string.IsNullOrEmpty(elementType)) return;
 
-        // Create data object with element type
-        var dragData = new DataObject("DesignerElementType", elementType);
+        // Create data object with element type (multiple formats for compatibility)
+        var dragData = new DataObject();
+        dragData.SetData("DesignerElementType", elementType);
+        dragData.SetData("ElementType", elementType);
+        dragData.SetData(DataFormats.StringFormat, elementType);
+        dragData.SetData(typeof(string), elementType);
 
         // Create a visual representation for the drag cursor
         var dragAdorner = CreateDragAdorner(element, elementType);
