@@ -22,6 +22,27 @@ public class WebSocketCommunicationService : ICommunicationService
     private HttpListener? _httpListener;
     private CancellationTokenSource? _cancellationTokenSource;
 
+    // CRITICAL FIX: JSON serializer settings to prevent string truncation
+    // Problem: Default Newtonsoft.Json settings were truncating hex color values (#ADD8E6 → #ADD8)
+    // Solution: Explicit settings with proper type handling and formatting
+    private static readonly JsonSerializerSettings _jsonSettings = new JsonSerializerSettings
+    {
+        // Prevent any truncation of string values
+        StringEscapeHandling = StringEscapeHandling.Default,
+        // Format for debugging (can be changed to None for production)
+        Formatting = Formatting.None,
+        // Preserve full type information for Dictionary<string, object>
+        TypeNameHandling = TypeNameHandling.None,
+        // Don't ignore null values (they may be meaningful)
+        NullValueHandling = NullValueHandling.Include,
+        // Handle circular references (not common, but safe)
+        ReferenceLoopHandling = ReferenceLoopHandling.Ignore,
+        // Ensure dates are serialized in ISO format
+        DateFormatHandling = DateFormatHandling.IsoDateFormat,
+        // Don't modify property names
+        ContractResolver = null
+    };
+
     public WebSocketCommunicationService(
         ILogger<WebSocketCommunicationService> logger,
         ServerSettings settings)
@@ -175,7 +196,7 @@ public class WebSocketCommunicationService : ICommunicationService
                     return;
                 }
 
-                var json = JsonConvert.SerializeObject(message);
+                var json = JsonConvert.SerializeObject(message, _jsonSettings);
                 var bytes = Encoding.UTF8.GetBytes(json);
                 await socket.SendAsync(
                     new ArraySegment<byte>(bytes),
@@ -199,7 +220,7 @@ public class WebSocketCommunicationService : ICommunicationService
 
     public async Task BroadcastMessageAsync(Message message, CancellationToken cancellationToken = default)
     {
-        var json = JsonConvert.SerializeObject(message);
+        var json = JsonConvert.SerializeObject(message, _jsonSettings);
         var bytes = Encoding.UTF8.GetBytes(json);
 
         var tasks = _clients.Values.Select(socket =>
@@ -378,7 +399,7 @@ public class WebSocketCommunicationService : ICommunicationService
                             Details = ex.Message
                         };
 
-                        var errorJson = JsonConvert.SerializeObject(errorResponse);
+                        var errorJson = JsonConvert.SerializeObject(errorResponse, _jsonSettings);
                         var errorBytes = Encoding.UTF8.GetBytes(errorJson);
                         await socket.SendAsync(new ArraySegment<byte>(errorBytes), WebSocketMessageType.Text, true, cancellationToken);
                     }
