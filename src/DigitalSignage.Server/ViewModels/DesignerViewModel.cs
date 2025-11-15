@@ -44,6 +44,9 @@ public partial class DesignerViewModel : ObservableObject, IDisposable
     private int _gridSize = 10;
 
     [ObservableProperty]
+    private bool _showRulers = false;
+
+    [ObservableProperty]
     private DisplayElement? _selectedLayer;
 
     [ObservableProperty]
@@ -121,6 +124,21 @@ public partial class DesignerViewModel : ObservableObject, IDisposable
         SelectedElement = null;
         HasUnsavedChanges = false; // New layout starts with no unsaved changes
         _logger.LogInformation("Created new layout: {LayoutName}", CurrentLayout.Name);
+    }
+
+    [RelayCommand]
+    private async Task OpenLayoutAsync()
+    {
+        try
+        {
+            // TODO: Open layout selection dialog
+            _logger.LogInformation("OpenLayoutCommand executed - dialog not yet implemented");
+            await Task.CompletedTask;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to open layout");
+        }
     }
 
     /// <summary>
