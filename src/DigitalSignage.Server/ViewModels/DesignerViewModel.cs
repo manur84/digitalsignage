@@ -229,6 +229,12 @@ public partial class DesignerViewModel : ObservableObject, IDisposable
                 UpdateLayers();
                 SelectedElement = null;
                 HasUnsavedChanges = false; // Just loaded, no unsaved changes
+
+                // CRITICAL: Force UI update - notify that Elements property changed
+                // This ensures WPF re-evaluates the binding and updates ItemsControl
+                OnPropertyChanged(nameof(Elements));
+
+                _logger.LogInformation("Designer.Elements.Count = {Count}", Elements.Count);
             };
 
             if (dispatcher.CheckAccess())
