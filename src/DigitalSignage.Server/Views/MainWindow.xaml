@@ -33,6 +33,7 @@
         <local:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
         <local:BoolToVisibilityStringConverter x:Key="BoolToVisibilityStringConverter"/>
         <local:BoolToOnOffStringConverter x:Key="BoolToOnOffStringConverter"/>
+        <views:TextTypeToVisibilityConverter x:Key="TextElementVisibilityConverter"/>
     </Window.Resources>
 
     <!-- Keyboard Shortcuts -->
@@ -593,36 +594,47 @@
                                                    ScaleY="{Binding Designer.ZoomLevel}"/>
                                 </controls:DesignerCanvas.LayoutTransform>
 
-                                <!-- Render all elements using DesignerItemControl (professional WYSIWYG rendering) -->
-                                <!-- CRITICAL FIX: ItemsControl MUST have explicit Width/Height when child of Canvas! -->
-                                <!-- Without size, ItemsControl renders at 0x0 and clips all children -->
-                                <!-- DesignerItemsControl automatically binds Canvas.Left/Top/ZIndex in code (see Controls/DesignerItemsControl.cs) -->
-                                <controls:DesignerItemsControl ItemsSource="{Binding Designer.Elements}"
-                                                               Width="{Binding Designer.CurrentLayout.Resolution.Width, FallbackValue=1920}"
-                                                               Height="{Binding Designer.CurrentLayout.Resolution.Height, FallbackValue=1080}">
-                                    <!-- CRITICAL FIX: ItemsPanel MUST be Canvas for Canvas.Left/Top/ZIndex to work! -->
-                                    <!-- CRITICAL FIX: Canvas MUST have explicit size or children won't render (0x0 clip bounds)! -->
+                                <ItemsControl ItemsSource="{Binding Designer.Elements}"
+                                              Width="{Binding Designer.CurrentLayout.Resolution.Width, FallbackValue=1920}"
+                                              Height="{Binding Designer.CurrentLayout.Resolution.Height, FallbackValue=1080}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
                                             <Canvas Width="{Binding DataContext.Designer.CurrentLayout.Resolution.Width, RelativeSource={RelativeSource AncestorType=controls:DesignerCanvas}, FallbackValue=1920}"
                                                     Height="{Binding DataContext.Designer.CurrentLayout.Resolution.Height, RelativeSource={RelativeSource AncestorType=controls:DesignerCanvas}, FallbackValue=1080}"/>
                                         </ItemsPanelTemplate>
                                     </ItemsControl.ItemsPanel>
-                                    <!-- NOTE: Canvas positioning bindings handled by DesignerItemsControl.PrepareContainerForItemOverride() -->
+                                    <ItemsControl.ItemContainerStyle>
+                                        <Style TargetType="ContentPresenter">
+                                            <Setter Property="Canvas.Left" Value="{Binding Position.X}"/>
+                                            <Setter Property="Canvas.Top" Value="{Binding Position.Y}"/>
+                                            <Setter Property="Panel.ZIndex" Value="{Binding ZIndex}"/>
+                                        </Style>
+                                    </ItemsControl.ItemContainerStyle>
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <!-- Container handles Width/Height; control just renders content -->
-                                            <controls:DesignerItemControl
-                                                DisplayElement="{Binding}"
-                                                IsSelected="{Binding IsSelected}"
-                                                Tag="{Binding}"
-                                                Cursor="Hand"
-                                                MouseLeftButtonDown="Element_MouseLeftButtonDown"
-                                                MouseMove="Element_MouseMove"
-                                                MouseLeftButtonUp="Element_MouseLeftButtonUp"/>
+                                            <Border Width="{Binding Size.Width}"
+                                                    Height="{Binding Size.Height}"
+                                                    Background="{Binding Properties[Fill], TargetNullValue=#F5F6F8}"
+                                                    BorderBrush="#1F618D"
+                                                    BorderThickness="1"
+                                                    Tag="{Binding}"
+                                                    Cursor="Hand"
+                                                    MouseLeftButtonDown="Element_MouseLeftButtonDown"
+                                                    MouseMove="Element_MouseMove"
+                                                    MouseLeftButtonUp="Element_MouseLeftButtonUp">
+                                                <Grid>
+                                                    <TextBlock Text="{Binding Properties[Content]}"
+                                                               Visibility="{Binding Type, Converter={StaticResource TextElementVisibilityConverter}}"
+                                                               Foreground="#111"
+                                                               FontSize="{Binding Properties[FontSize], TargetNullValue=28}"
+                                                               TextWrapping="Wrap"
+                                                               HorizontalAlignment="Center"
+                                                               VerticalAlignment="Center"/>
+                                                </Grid>
+                                            </Border>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
-                                </controls:DesignerItemsControl>
+                                </ItemsControl>
                             </controls:DesignerCanvas>
                         </ScrollViewer>
                         </DockPanel>
