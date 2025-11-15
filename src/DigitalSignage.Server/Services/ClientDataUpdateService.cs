@@ -13,7 +13,7 @@ public class ClientDataUpdateService : IHostedService, IDisposable
     private readonly DataSourceManager _dataSourceManager;
     private readonly IClientService _clientService;
     private readonly ILayoutService _layoutService;
-    private readonly WebSocketCommunicationService _communicationService;
+    private readonly ICommunicationService _communicationService;
     private readonly ILogger<ClientDataUpdateService> _logger;
     private bool _disposed;
 
@@ -21,7 +21,7 @@ public class ClientDataUpdateService : IHostedService, IDisposable
         DataSourceManager dataSourceManager,
         IClientService clientService,
         ILayoutService layoutService,
-        WebSocketCommunicationService communicationService,
+        ICommunicationService communicationService,
         ILogger<ClientDataUpdateService> logger)
     {
         _dataSourceManager = dataSourceManager ?? throw new ArgumentNullException(nameof(dataSourceManager));
