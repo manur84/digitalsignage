@@ -27,125 +27,40 @@ public class DatabaseInitializationService : IHostedService
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        _logger.Information("Starting database initialization...");
-        _logger.Information("Working directory: {WorkingDirectory}", Directory.GetCurrentDirectory());
+        // NOTE: Database migrations are now applied SYNCHRONOUSLY in App.xaml.cs constructor
+        // This service only handles SEED DATA after the application has started
+
+        _logger.Information("==========================================================");
+        _logger.Information("SEEDING DEFAULT DATA (Asynchronous Background Service)");
+        _logger.Information("==========================================================");
 
         try
         {
             using var scope = _serviceProvider.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<DigitalSignageDbContext>();
 
-            // Get connection string for logging
-            var connectionString = dbContext.Database.GetConnectionString();
-            _logger.Information("Database connection string: {ConnectionString}", connectionString);
-
-            // Resolve absolute path for database file
-            string? dbPath = null;
-            if (connectionString?.Contains("Data Source=") == true)
-            {
-                try
-                {
-                    // Extract database filename from connection string
-                    var startIndex = connectionString.IndexOf("Data Source=") + "Data Source=".Length;
-                    var remainingString = connectionString.Substring(startIndex);
-                    var dbFile = remainingString.Split(';')[0].Trim();
-
-                    dbPath = Path.IsPathRooted(dbFile)
-                        ? dbFile
-                        : Path.Combine(Directory.GetCurrentDirectory(), dbFile);
-                    _logger.Information("Database file path: {DatabasePath}", dbPath);
-                    _logger.Information("Database file exists: {Exists}", File.Exists(dbPath));
-                }
-                catch (Exception ex)
-                {
-                    _logger.Warning(ex, "Could not parse database path from connection string");
-                }
-            }
-
-            // Apply database migrations automatically
-            _logger.Information("Checking for pending database migrations...");
-
-            // Get all migrations
-            var allMigrations = dbContext.Database.GetMigrations();
-            var appliedMigrations = await dbContext.Database.GetAppliedMigrationsAsync(cancellationToken);
-            var pendingMigrations = await dbContext.Database.GetPendingMigrationsAsync(cancellationToken);
-
-            _logger.Information("Total migrations: {Total}", allMigrations.Count());
-            _logger.Information("Applied migrations: {Applied}", appliedMigrations.Count());
-            _logger.Information("Pending migrations: {Pending}", pendingMigrations.Count());
-
-            // If no migrations have been applied yet, the database doesn't exist
-            // MigrateAsync will create it and apply all migrations
-            if (!appliedMigrations.Any())
-            {
-                _logger.Information("No migrations applied yet - database will be created from scratch");
-            }
-
-            if (pendingMigrations.Any())
-            {
-                _logger.Information("Applying {Count} pending migrations:", pendingMigrations.Count());
-                foreach (var migration in pendingMigrations)
-                {
-                    _logger.Information("  - {Migration}", migration);
-                }
-
-                await dbContext.Database.MigrateAsync(cancellationToken);
-
-                _logger.Information("Database migrations applied successfully");
-            }
-            else
-            {
-                _logger.Information("Database is up to date - no pending migrations");
-            }
-
-            // Verify database exists now
+            // Verify database is ready
             var canConnect = await dbContext.Database.CanConnectAsync(cancellationToken);
-            _logger.Information("Database connection verification: {Status}", canConnect ? "SUCCESS" : "FAILED");
-
             if (!canConnect)
             {
-                var errorMsg = "CRITICAL: Database exists but cannot connect! Check connection string and permissions.";
-                _logger.Error(errorMsg);
-                throw new InvalidOperationException(errorMsg);
+                _logger.Error("CRITICAL: Cannot connect to database. Database initialization must have failed.");
+                return;
             }
 
-            // Seed default data
+            _logger.Information("Database connection verified. Proceeding with seed data...");
+
+            // Seed default data (users, templates, example layouts)
             await SeedDefaultDataAsync(dbContext, cancellationToken);
 
             _logger.Information("==========================================================");
-            _logger.Information("DATABASE INITIALIZATION COMPLETED SUCCESSFULLY");
-            if (dbPath != null)
-            {
-                _logger.Information("Database location: {DatabasePath}", dbPath);
-                _logger.Information("Database size: {Size} bytes", new FileInfo(dbPath).Length);
-            }
+            _logger.Information("SEED DATA COMPLETED SUCCESSFULLY");
             _logger.Information("==========================================================");
         }
         catch (Exception ex)
         {
-            _logger.Fatal(ex, "CRITICAL: Database initialization FAILED!");
-            _logger.Fatal("Error type: {ErrorType}", ex.GetType().FullName);
-            _logger.Fatal("Error message: {Message}", ex.Message);
-            _logger.Fatal("Stack trace: {StackTrace}", ex.StackTrace);
-
-            if (ex.InnerException != null)
-            {
-                _logger.Fatal("Inner exception: {InnerMessage}", ex.InnerException.Message);
-                _logger.Fatal("Inner stack trace: {InnerStackTrace}", ex.InnerException.StackTrace);
-            }
-
-            _logger.Fatal("==========================================================");
-            _logger.Fatal("DATABASE INITIALIZATION FAILED - APPLICATION CANNOT START");
-            _logger.Fatal("Common solutions:");
-            _logger.Fatal("1. Check database file permissions");
-            _logger.Fatal("2. Ensure no other process has the database file locked");
-            _logger.Fatal("3. Verify the connection string in appsettings.json");
-            _logger.Fatal("4. Run: dotnet ef database update --startup-project src/DigitalSignage.Server");
-            _logger.Fatal("5. Or use the PowerShell script: .\\create-database.ps1");
-            _logger.Fatal("==========================================================");
-
-            // CRITICAL: Rethrow to prevent startup without database
-            throw;
+            _logger.Error(ex, "Failed to seed default data");
+            _logger.Warning("Application will continue, but default data may be missing");
+            // Don't throw - seed data failure should not crash the app
         }
     }
 
