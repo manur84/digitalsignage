@@ -42,6 +42,7 @@ public partial class NewLayoutViewModel : ObservableObject
         AvailableResolutions.Add(new ResolutionOption("4K Landscape (3840x2160)", 3840, 2160));
         AvailableResolutions.Add(new ResolutionOption("WXGA Landscape (1280x800)", 1280, 800));
         AvailableResolutions.Add(new ResolutionOption("XGA (1024x768)", 1024, 768));
+        AvailableResolutions.Add(new ResolutionOption("WSVGA Landscape (1024x600)", 1024, 600)); // Raspberry Pi 7" display
         AvailableResolutions.Add(new ResolutionOption("Full HD Portrait (1080x1920)", 1080, 1920));
         AvailableResolutions.Add(new ResolutionOption("HD Portrait (720x1280)", 720, 1280));
         AvailableResolutions.Add(new ResolutionOption("4K Portrait (2160x3840)", 2160, 3840));
