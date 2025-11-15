@@ -836,6 +836,15 @@ class DisplayRenderer(QWidget):
             # Function to update the datetime display
             def update_datetime():
                 try:
+                    # Ensure German locale is set for this thread
+                    try:
+                        locale.setlocale(locale.LC_TIME, 'de_DE.UTF-8')
+                    except locale.Error:
+                        try:
+                            locale.setlocale(locale.LC_TIME, 'German_Germany.1252')
+                        except locale.Error:
+                            pass  # Use default locale
+
                     current_time = datetime.now()
                     formatted_time = current_time.strftime(format_string)
                     label.setText(formatted_time)
