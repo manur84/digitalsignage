@@ -96,7 +96,19 @@
 
                 <!-- Status Bar -->
                 <Border Grid.Row="2" Background="#F0F0F0" BorderBrush="#CCCCCC" BorderThickness="0,1,0,0" Padding="12,8">
-                    <TextBlock Text="{Binding StatusMessage}" FontSize="12" Foreground="#666666"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{Binding StatusMessage}" FontSize="12" Foreground="#666666" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="1"
+                                   Text="{Binding ClientStatusSummary}"
+                                   FontSize="12"
+                                   Foreground="#666666"
+                                   Margin="16,0,0,0"
+                                   VerticalAlignment="Center"/>
+                    </Grid>
                 </Border>
             </Grid>
 

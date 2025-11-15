@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -23,9 +24,19 @@ public class ModernDesignerCanvas : Canvas
     private DrawingVisual? _gridVisual;
     private bool _gridNeedsUpdate = true;
 
+    // Rulers and cursor guides
+    private DrawingVisual? _horizontalRulerVisual;
+    private DrawingVisual? _verticalRulerVisual;
+    private DrawingVisual? _cursorGuideVisual;
+    private bool _rulersNeedUpdate = true;
+    private Point? _currentMousePosition;
+
     // Performance optimization
     private readonly VisualCollection _visualChildren;
     private readonly Dictionary<DisplayElement, FrameworkElement> _elementVisualCache = new();
+
+    private const double RulerTickSize = 12.0;
+    private const string ElementTypeDataFormat = "DesignerElementType";
 
     #region Dependency Properties
 
@@ -174,6 +185,7 @@ public class ModernDesignerCanvas : Canvas
         MouseMove += OnMouseMove;
         MouseLeftButtonUp += OnMouseLeftButtonUp;
         MouseRightButtonDown += OnMouseRightButtonDown;
+        MouseLeave += OnMouseLeave;
 
         // Keyboard events
         KeyDown += OnKeyDown;
@@ -206,6 +218,11 @@ public class ModernDesignerCanvas : Canvas
         {
             UpdateGridVisual();
             _gridNeedsUpdate = false;
+        }
+
+        if (_rulersNeedUpdate)
+        {
+            UpdateRulerVisuals();
         }
     }
 
@@ -396,6 +413,12 @@ public class ModernDesignerCanvas : Canvas
                 viewModel.UpdateSelectionRectangleCommand.Execute((currentPoint.X, currentPoint.Y));
             }
         }
+
+        if (ShowRulers)
+        {
+            _currentMousePosition = e.GetPosition(this);
+            UpdateCursorGuides();
+        }
     }
 
     private void OnMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
@@ -417,6 +440,15 @@ public class ModernDesignerCanvas : Canvas
     {
         // Context menu will be handled by XAML
         Focus();
+    }
+
+    private void OnMouseLeave(object sender, MouseEventArgs e)
+    {
+        if (_currentMousePosition.HasValue)
+        {
+            _currentMousePosition = null;
+            UpdateCursorGuides();
+        }
     }
 
     #endregion
@@ -454,11 +486,10 @@ public class ModernDesignerCanvas : Canvas
 
     private void OnDragEnter(object sender, DragEventArgs e)
     {
-        if (e.Data.GetDataPresent("ElementType"))
+        var elementType = GetElementTypeFromData(e.Data);
+        if (!string.IsNullOrEmpty(elementType))
         {
             e.Effects = DragDropEffects.Copy;
-
-            // Visual feedback
             Background = new SolidColorBrush(Color.FromArgb(20, AccentColor.R, AccentColor.G, AccentColor.B));
         }
         else
@@ -470,18 +501,8 @@ public class ModernDesignerCanvas : Canvas
 
     private void OnDragOver(object sender, DragEventArgs e)
     {
-        if (e.Data.GetDataPresent("ElementType"))
-        {
-            e.Effects = DragDropEffects.Copy;
-
-            // Show drop preview (optional)
-            var position = e.GetPosition(this);
-            // Could show a ghost element here
-        }
-        else
-        {
-            e.Effects = DragDropEffects.None;
-        }
+        var elementType = GetElementTypeFromData(e.Data);
+        e.Effects = string.IsNullOrEmpty(elementType) ? DragDropEffects.None : DragDropEffects.Copy;
         e.Handled = true;
     }
 
@@ -494,9 +515,9 @@ public class ModernDesignerCanvas : Canvas
 
     private void OnDrop(object sender, DragEventArgs e)
     {
-        if (e.Data.GetDataPresent("ElementType"))
+        var elementType = GetElementTypeFromData(e.Data);
+        if (!string.IsNullOrEmpty(elementType))
         {
-            var elementType = e.Data.GetData("ElementType") as string;
             var position = e.GetPosition(this);
 
             if (SnapToGrid)
@@ -504,16 +525,31 @@ public class ModernDesignerCanvas : Canvas
                 position = SnapPointToGrid(position);
             }
 
-            var viewModel = DataContext as DesignerViewModel;
-            if (viewModel != null && !string.IsNullOrEmpty(elementType))
+            if (DataContext is DesignerViewModel viewModel)
             {
                 viewModel.AddElementAtPositionCommand.Execute((elementType, position.X, position.Y));
             }
         }
 
-        // Reset visual feedback
         Background = new SolidColorBrush(Color.FromRgb(245, 245, 245));
         e.Handled = true;
+    }
+
+    private static string? GetElementTypeFromData(IDataObject data)
+    {
+        if (data.GetDataPresent(ElementTypeDataFormat))
+            return data.GetData(ElementTypeDataFormat) as string;
+
+        if (data.GetDataPresent("ElementType"))
+            return data.GetData("ElementType") as string;
+
+        if (data.GetDataPresent(DataFormats.StringFormat))
+            return data.GetData(DataFormats.StringFormat)?.ToString();
+
+        if (data.GetDataPresent(typeof(string)))
+            return data.GetData(typeof(string)) as string;
+
+        return null;
     }
 
     #endregion
@@ -560,7 +596,12 @@ public class ModernDesignerCanvas : Canvas
 
     private static void OnShowRulersChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
-        // TODO: Implement rulers
+        if (d is ModernDesignerCanvas canvas)
+        {
+            canvas._rulersNeedUpdate = true;
+            canvas.UpdateRulerVisuals();
+            canvas.UpdateCursorGuides();
+        }
     }
 
     private static void OnZoomLevelChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -581,6 +622,7 @@ public class ModernDesignerCanvas : Canvas
     private void OnSizeChanged(object sender, SizeChangedEventArgs e)
     {
         _gridNeedsUpdate = true;
+        _rulersNeedUpdate = true;
         InvalidateVisual();
     }
 
@@ -594,6 +636,144 @@ public class ModernDesignerCanvas : Canvas
             return parent;
 
         return FindVisualParent<T>(parentObject);
+    }
+
+    private void RemoveVisual(ref DrawingVisual? visual)
+    {
+        if (visual != null)
+        {
+            _visualChildren.Remove(visual);
+            visual = null;
+        }
+    }
+
+    private void UpdateRulerVisuals()
+    {
+        RemoveVisual(ref _horizontalRulerVisual);
+        RemoveVisual(ref _verticalRulerVisual);
+
+        if (!ShowRulers || ActualWidth <= 0 || ActualHeight <= 0)
+        {
+            _rulersNeedUpdate = false;
+            return;
+        }
+
+        _horizontalRulerVisual = new DrawingVisual();
+        using (var dc = _horizontalRulerVisual.RenderOpen())
+        {
+            DrawHorizontalRuler(dc);
+        }
+        _visualChildren.Add(_horizontalRulerVisual);
+
+        _verticalRulerVisual = new DrawingVisual();
+        using (var dc = _verticalRulerVisual.RenderOpen())
+        {
+            DrawVerticalRuler(dc);
+        }
+        _visualChildren.Add(_verticalRulerVisual);
+
+        _rulersNeedUpdate = false;
+    }
+
+    private void DrawHorizontalRuler(DrawingContext dc)
+    {
+        var linePen = new Pen(new SolidColorBrush(Color.FromArgb(70, 0, 0, 0)), 1);
+        var tickPen = new Pen(new SolidColorBrush(Color.FromArgb(140, AccentColor.R, AccentColor.G, AccentColor.B)), 1);
+
+        dc.DrawLine(linePen, new Point(0, 0), new Point(ActualWidth, 0));
+
+        double step = Math.Max(GridSize * ZoomLevel, 8);
+        int index = 0;
+        for (double x = 0; x <= ActualWidth; x += step, index++)
+        {
+            bool isMajor = index % 5 == 0;
+            double tickHeight = isMajor ? RulerTickSize : RulerTickSize / 2;
+            dc.DrawLine(tickPen, new Point(x, 0), new Point(x, tickHeight));
+
+            if (isMajor)
+            {
+                DrawMeasurementLabel(dc, new Point(x + 2, tickHeight + 2), x / ZoomLevel);
+            }
+        }
+    }
+
+    private void DrawVerticalRuler(DrawingContext dc)
+    {
+        var linePen = new Pen(new SolidColorBrush(Color.FromArgb(70, 0, 0, 0)), 1);
+        var tickPen = new Pen(new SolidColorBrush(Color.FromArgb(140, AccentColor.R, AccentColor.G, AccentColor.B)), 1);
+
+        dc.DrawLine(linePen, new Point(0, 0), new Point(0, ActualHeight));
+
+        double step = Math.Max(GridSize * ZoomLevel, 8);
+        int index = 0;
+        for (double y = 0; y <= ActualHeight; y += step, index++)
+        {
+            bool isMajor = index % 5 == 0;
+            double tickWidth = isMajor ? RulerTickSize : RulerTickSize / 2;
+            dc.DrawLine(tickPen, new Point(0, y), new Point(tickWidth, y));
+
+            if (isMajor)
+            {
+                DrawMeasurementLabel(dc, new Point(tickWidth + 2, y + 2), y / ZoomLevel);
+            }
+        }
+    }
+
+    private void DrawMeasurementLabel(DrawingContext dc, Point location, double logicalValue)
+    {
+        var formatted = new FormattedText(
+            Math.Round(logicalValue).ToString(CultureInfo.InvariantCulture),
+            CultureInfo.InvariantCulture,
+            FlowDirection.LeftToRight,
+            new Typeface("Segoe UI"),
+            9,
+            Brushes.Gray,
+            VisualTreeHelper.GetDpi(this).PixelsPerDip);
+
+        dc.DrawText(formatted, location);
+    }
+
+    private void UpdateCursorGuides()
+    {
+        RemoveVisual(ref _cursorGuideVisual);
+
+        if (!ShowRulers || !_currentMousePosition.HasValue || ActualWidth <= 0 || ActualHeight <= 0)
+            return;
+
+        var position = _currentMousePosition.Value;
+        if (position.X < 0 || position.X > ActualWidth || position.Y < 0 || position.Y > ActualHeight)
+            return;
+
+        _cursorGuideVisual = new DrawingVisual();
+        using (var dc = _cursorGuideVisual.RenderOpen())
+        {
+            var guidePen = new Pen(new SolidColorBrush(Color.FromArgb(90, AccentColor.R, AccentColor.G, AccentColor.B)), 1)
+            {
+                DashStyle = DashStyles.Dot
+            };
+
+            dc.DrawLine(guidePen, new Point(position.X, 0), new Point(position.X, ActualHeight));
+            dc.DrawLine(guidePen, new Point(0, position.Y), new Point(ActualWidth, position.Y));
+
+            var logicalX = Math.Round(position.X / ZoomLevel);
+            var logicalY = Math.Round(position.Y / ZoomLevel);
+            var label = $"X:{logicalX}  Y:{logicalY}";
+            var formatted = new FormattedText(
+                label,
+                CultureInfo.InvariantCulture,
+                FlowDirection.LeftToRight,
+                new Typeface("Segoe UI"),
+                10,
+                Brushes.White,
+                VisualTreeHelper.GetDpi(this).PixelsPerDip);
+
+            var background = new SolidColorBrush(Color.FromArgb(170, 0, 0, 0));
+            var rect = new Rect(position.X + 10, position.Y + 10, formatted.Width + 10, formatted.Height + 6);
+            dc.DrawRectangle(background, null, rect);
+            dc.DrawText(formatted, new Point(rect.X + 5, rect.Y + 3));
+        }
+
+        _visualChildren.Add(_cursorGuideVisual);
     }
 
     #endregion

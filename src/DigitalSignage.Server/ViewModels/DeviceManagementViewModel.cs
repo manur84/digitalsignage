@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Linq;
 
 namespace DigitalSignage.Server.ViewModels;
 
@@ -25,6 +26,9 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private string _statusMessage = "Ready";
+
+    [ObservableProperty]
+    private string _clientStatusSummary = "Online: 0 • Offline: 0";
 
     /// <summary>
     /// Gets the discovered devices ViewModel
@@ -110,6 +114,8 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
 
             // Also refresh available layouts when loading clients
             await RefreshAvailableLayoutsAsync();
+
+            UpdateClientStatusSummary();
         }
         catch (Exception ex)
         {
@@ -119,6 +125,10 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
         finally
         {
             IsLoading = false;
+            if (!Clients.Any())
+            {
+                UpdateClientStatusSummary();
+            }
         }
     }
 
@@ -418,6 +428,7 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
                 await LoadClientsCommand.ExecuteAsync(null);
                 StatusMessage = $"Removed client {clientName}";
                 _logger.LogInformation("Removed client {ClientId}", clientId);
+                UpdateClientStatusSummary();
             }
             else
             {
@@ -567,6 +578,13 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
         AssignLayoutCommand.NotifyCanExecuteChanged();
     }
 
+    private void UpdateClientStatusSummary()
+    {
+        var online = Clients.Count(c => c.Status == ClientStatus.Online);
+        var offline = Clients.Count(c => c.Status == ClientStatus.Offline);
+        ClientStatusSummary = $"Online: {online} • Offline: {offline}";
+    }
+
     private void OnClientConnected(object? sender, string clientId)
     {
         _logger.LogInformation("Client connected event received: {ClientId}", clientId);
@@ -578,14 +596,12 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
         if (dispatcher.CheckAccess())
         {
             _ = LoadClientsCommand.ExecuteAsync(null);
-            StatusMessage = $"Client {clientId} connected";
         }
         else
         {
             dispatcher.InvokeAsync(async () =>
             {
                 await LoadClientsCommand.ExecuteAsync(null);
-                StatusMessage = $"Client {clientId} connected";
             });
         }
     }
@@ -598,26 +614,23 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
         if (dispatcher == null) return;
 
         // Check if already on UI thread to avoid unnecessary context switch
-        if (dispatcher.CheckAccess())
+        void MarkOffline()
         {
             var client = Clients.FirstOrDefault(c => c.Id == clientId);
             if (client != null)
             {
                 client.Status = ClientStatus.Offline;
-                StatusMessage = $"Client {client.Name} disconnected";
+                UpdateClientStatusSummary();
             }
+        }
+
+        if (dispatcher.CheckAccess())
+        {
+            MarkOffline();
         }
         else
         {
-            dispatcher.InvokeAsync(() =>
-            {
-                var client = Clients.FirstOrDefault(c => c.Id == clientId);
-                if (client != null)
-                {
-                    client.Status = ClientStatus.Offline;
-                    StatusMessage = $"Client {client.Name} disconnected";
-                }
-            });
+            dispatcher.InvokeAsync(MarkOffline);
         }
     }
 
