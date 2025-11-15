@@ -374,35 +374,6 @@ public partial class MainViewModel : ObservableObject, IDisposable
         StatusText = $"Digital Signage Manager v{version}";
     }
 
-    [RelayCommand]
-    private async Task TemplateManager()
-    {
-        try
-        {
-            _logger.LogInformation("Opening Template Manager");
-            StatusText = "Opening Template Manager...";
-
-            // Resolve TemplateManagerViewModel from DI container
-            var viewModel = _serviceProvider.GetRequiredService<TemplateManagerViewModel>();
-            var window = new TemplateManagerWindow(viewModel)
-            {
-                Owner = System.Windows.Application.Current.MainWindow
-            };
-
-            window.ShowDialog();
-
-            _logger.LogInformation("Template Manager closed");
-            StatusText = "Template Manager closed";
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to open Template Manager");
-            StatusText = $"Error opening Template Manager: {ex.Message}";
-            await _dialogService.ShowErrorAsync(
-                $"Failed to open Template Manager:\n\n{ex.Message}",
-                "Template Manager Error");
-        }
-    }
 
     #endregion
 
@@ -487,7 +458,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 "⚠️ WARNING: Restoring a backup will REPLACE the current database!\n\n" +
                 "All current data will be LOST. This action CANNOT be undone.\n\n" +
                 "This includes:\n" +
-                "• All layouts and templates\n" +
+                "• All layouts\n" +
                 "• All client registrations\n" +
                 "• All media library files\n" +
                 "• All settings and configurations\n" +

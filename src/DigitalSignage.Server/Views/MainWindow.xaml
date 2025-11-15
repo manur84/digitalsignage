@@ -82,7 +82,6 @@
         <Menu DockPanel.Dock="Top" Padding="4">
             <MenuItem Header="_File">
                 <MenuItem Header="_New Layout" Command="{Binding LayoutManagement.NewLayoutCommand}"/>
-                <MenuItem Header="New from _Template..." Command="{Binding LayoutManagement.NewFromTemplateCommand}"/>
                 <MenuItem Header="_Open Layout" Command="{Binding LayoutManagement.OpenLayoutCommand}"/>
                 <MenuItem Header="_Save" Command="{Binding LayoutManagement.SaveCommand}"/>
                 <MenuItem Header="Save _As..." Command="{Binding LayoutManagement.SaveAsCommand}"/>
@@ -144,7 +143,6 @@
                 <MenuItem Header="_Logs" Command="{Binding LogsCommand}" Icon="📋"/>
                 <MenuItem Header="Clear Logs" Command="{Binding Diagnostics.ClearLogsCommand}" Icon="🗑"/>
                 <Separator/>
-                <MenuItem Header="Template _Manager" Command="{Binding TemplateManagerCommand}" Icon="📄"/>
                 <MenuItem Header="Client _Registration Tokens" Command="{Binding ClientTokensCommand}" Icon="🔑"/>
                 <Separator/>
                 <MenuItem Header="_Backup Database" Command="{Binding BackupDatabaseCommand}" Icon="💾"/>

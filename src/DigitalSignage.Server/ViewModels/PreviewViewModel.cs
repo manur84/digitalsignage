@@ -13,7 +13,7 @@ namespace DigitalSignage.Server.ViewModels;
 /// </summary>
 public partial class PreviewViewModel : ObservableObject
 {
-    private readonly ITemplateService _templateService;
+    private readonly IScribanService _scribanService;
     private readonly DataSourceRepository _dataSourceRepository;
     private readonly ILogger<PreviewViewModel> _logger;
 
@@ -36,11 +36,11 @@ public partial class PreviewViewModel : ObservableObject
     public ObservableCollection<DataSource> AvailableDataSources { get; } = new();
 
     public PreviewViewModel(
-        ITemplateService templateService,
+        IScribanService scribanService,
         DataSourceRepository dataSourceRepository,
         ILogger<PreviewViewModel> logger)
     {
-        _templateService = templateService;
+        _scribanService = scribanService;
         _dataSourceRepository = dataSourceRepository;
         _logger = logger;
 
@@ -184,7 +184,7 @@ public partial class PreviewViewModel : ObservableObject
             {
                 try
                 {
-                    var processedContent = await _templateService.ProcessTemplateAsync(content, data);
+                    var processedContent = await _scribanService.ProcessTemplateAsync(content, data);
                     processedElement["Content"] = processedContent;
                 }
                 catch (Exception ex)

@@ -1,9 +1,9 @@
 namespace DigitalSignage.Core.Interfaces;
 
 /// <summary>
-/// Service for processing templates with variable replacement
+/// Service for processing Scriban templates with variable replacement
 /// </summary>
-public interface ITemplateService
+public interface IScribanService
 {
     /// <summary>
     /// Process a template string with provided data

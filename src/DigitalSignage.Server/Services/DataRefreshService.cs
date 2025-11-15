@@ -10,7 +10,7 @@ public class DataRefreshService : BackgroundService
     private readonly IClientService _clientService;
     private readonly ILayoutService _layoutService;
     private readonly ISqlDataService _dataService;
-    private readonly ITemplateService _templateService;
+    private readonly IScribanService _scribanService;
     private readonly ICommunicationService _communicationService;
     private readonly ILogger<DataRefreshService> _logger;
 
@@ -18,14 +18,14 @@ public class DataRefreshService : BackgroundService
         IClientService clientService,
         ILayoutService layoutService,
         ISqlDataService dataService,
-        ITemplateService templateService,
+        IScribanService scribanService,
         ICommunicationService communicationService,
         ILogger<DataRefreshService> logger)
     {
         _clientService = clientService ?? throw new ArgumentNullException(nameof(clientService));
         _layoutService = layoutService ?? throw new ArgumentNullException(nameof(layoutService));
         _dataService = dataService ?? throw new ArgumentNullException(nameof(dataService));
-        _templateService = templateService ?? throw new ArgumentNullException(nameof(templateService));
+        _scribanService = scribanService ?? throw new ArgumentNullException(nameof(scribanService));
         _communicationService = communicationService ?? throw new ArgumentNullException(nameof(communicationService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
@@ -168,7 +168,7 @@ public class DataRefreshService : BackgroundService
                             var content = element["Content"]?.ToString();
                             if (!string.IsNullOrWhiteSpace(content))
                             {
-                                element["Content"] = await _templateService.ProcessTemplateAsync(
+                                element["Content"] = await _scribanService.ProcessTemplateAsync(
                                     content,
                                     templateData,
                                     cancellationToken);

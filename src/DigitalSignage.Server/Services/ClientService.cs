@@ -14,7 +14,7 @@ public class ClientService : IClientService
     private readonly ICommunicationService _communicationService;
     private readonly ILayoutService _layoutService;
     private readonly ISqlDataService _dataService;
-    private readonly ITemplateService _templateService;
+    private readonly IScribanService _scribanService;
     private readonly IServiceProvider _serviceProvider;
     private readonly DataSourceManager _dataSourceManager;
     private readonly ILogger<ClientService> _logger;
@@ -40,7 +40,7 @@ public class ClientService : IClientService
         ICommunicationService communicationService,
         ILayoutService layoutService,
         ISqlDataService dataService,
-        ITemplateService templateService,
+        IScribanService scribanService,
         IServiceProvider serviceProvider,
         DataSourceManager dataSourceManager,
         ILogger<ClientService> logger)
@@ -48,7 +48,7 @@ public class ClientService : IClientService
         _communicationService = communicationService ?? throw new ArgumentNullException(nameof(communicationService));
         _layoutService = layoutService ?? throw new ArgumentNullException(nameof(layoutService));
         _dataService = dataService ?? throw new ArgumentNullException(nameof(dataService));
-        _templateService = templateService ?? throw new ArgumentNullException(nameof(templateService));
+        _scribanService = scribanService ?? throw new ArgumentNullException(nameof(scribanService));
         _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
         _dataSourceManager = dataSourceManager ?? throw new ArgumentNullException(nameof(dataSourceManager));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -651,7 +651,7 @@ public class ClientService : IClientService
                             var content = element["Content"]?.ToString();
                             if (!string.IsNullOrWhiteSpace(content))
                             {
-                                element["Content"] = await _templateService.ProcessTemplateAsync(
+                                element["Content"] = await _scribanService.ProcessTemplateAsync(
                                     content,
                                     templateData,
                                     cancellationToken);

@@ -246,7 +246,6 @@ public partial class App : Application
                 services.AddTransient<SettingsViewModel>();
                 services.AddSingleton<AlertsViewModel>();
                 services.AddTransient<AlertRuleEditorViewModel>();
-                services.AddTransient<TemplateManagerViewModel>();
                 services.AddTransient<TokenManagementViewModel>();
                 services.AddTransient<SystemDiagnosticsViewModel>();
                 services.AddTransient<DataMappingViewModel>();
@@ -269,7 +268,7 @@ public partial class App : Application
                 services.AddSingleton<IDataService>(sp => sp.GetRequiredService<SqlDataService>());
                 services.AddSingleton<ISqlDataService>(sp => sp.GetRequiredService<SqlDataService>());
 
-                services.AddSingleton<ITemplateService, TemplateService>();
+                services.AddSingleton<IScribanService, ScribanService>();
                 services.AddSingleton<ICommunicationService, WebSocketCommunicationService>();
                 services.AddSingleton<IDialogService, DialogService>();
 

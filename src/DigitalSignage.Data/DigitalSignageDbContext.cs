@@ -20,7 +20,6 @@ public class DigitalSignageDbContext : DbContext
     public DbSet<RaspberryPiClient> Clients => Set<RaspberryPiClient>();
     public DbSet<DisplayLayout> DisplayLayouts => Set<DisplayLayout>();
     public DbSet<DataSource> DataSources => Set<DataSource>();
-    public DbSet<LayoutTemplate> LayoutTemplates => Set<LayoutTemplate>();
 
     // Authentication entities
     public DbSet<User> Users => Set<User>();
@@ -320,36 +319,6 @@ public class DigitalSignageDbContext : DbContext
             entity.HasIndex(e => e.Tags);
         });
 
-        // Configure LayoutTemplate
-        modelBuilder.Entity<LayoutTemplate>(entity =>
-        {
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
-            entity.Property(e => e.Description).IsRequired().HasMaxLength(1000);
-            entity.Property(e => e.Category).HasConversion<string>();
-            entity.Property(e => e.ThumbnailPath).HasMaxLength(500);
-            entity.Property(e => e.BackgroundColor).HasMaxLength(20);
-            entity.Property(e => e.BackgroundImage).HasMaxLength(500);
-            entity.Property(e => e.ElementsJson).IsRequired();
-
-            // Store Resolution as JSON
-            entity.OwnsOne(e => e.Resolution, r =>
-            {
-                r.ToJson();
-            });
-
-            // Relationships
-            entity.HasOne(e => e.CreatedByUser)
-                .WithMany()
-                .HasForeignKey(e => e.CreatedByUserId)
-                .OnDelete(DeleteBehavior.SetNull);
-
-            // Indexes
-            entity.HasIndex(e => e.Name);
-            entity.HasIndex(e => e.Category);
-            entity.HasIndex(e => e.IsBuiltIn);
-            entity.HasIndex(e => e.CreatedAt);
-        });
 
         // Configure LayoutSchedule
         modelBuilder.Entity<LayoutSchedule>(entity =>
