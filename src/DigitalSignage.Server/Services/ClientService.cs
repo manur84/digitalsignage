@@ -244,8 +244,6 @@ public class ClientService : IClientService, IDisposable
                 return Result<RaspberryPiClient>.Failure("MAC address is required for registration");
             }
 
-        try
-        {
             using var scope = _serviceProvider.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<DigitalSignageDbContext>();
             var authService = scope.ServiceProvider.GetRequiredService<IAuthenticationService>();
@@ -267,7 +265,7 @@ public class ClientService : IClientService, IDisposable
                 {
                     _logger.LogWarning("Registration failed for MAC {MacAddress}: {Error}",
                         registerMessage.MacAddress, validationResult.ErrorMessage);
-                    throw new UnauthorizedAccessException(validationResult.ErrorMessage ?? "Invalid registration token");
+                    return Result<RaspberryPiClient>.Failure(validationResult.ErrorMessage ?? "Invalid registration token");
                 }
 
                 assignedGroup = validationResult.AutoAssignGroup;
@@ -436,8 +434,8 @@ public class ClientService : IClientService, IDisposable
 
                 try
                 {
-                    var layout = await _layoutService.GetLayoutByIdAsync(client.AssignedLayoutId, cancellationToken);
-                    if (layout != null)
+                    var layoutResult = await _layoutService.GetLayoutByIdAsync(client.AssignedLayoutId, cancellationToken);
+                    if (layoutResult.IsSuccess)
                     {
                         // Fetch data for data-driven elements
                         // TODO: Implement data source fetching when data-driven elements are supported
@@ -446,13 +444,13 @@ public class ClientService : IClientService, IDisposable
                         // Send DISPLAY_UPDATE message
                         var displayUpdate = new DisplayUpdateMessage
                         {
-                            Layout = layout,
+                            Layout = layoutResult.Value,
                             Data = layoutData
                         };
 
                         await _communicationService.SendMessageAsync(client.Id, displayUpdate, cancellationToken);
                         _logger.LogInformation("Successfully sent assigned layout {LayoutId} to reconnected client {ClientId}",
-                            layout.Id, client.Id);
+                            layoutResult.Value.Id, client.Id);
                     }
                     else
                     {
@@ -474,33 +472,40 @@ public class ClientService : IClientService, IDisposable
             ClientConnected?.Invoke(this, client.Id);
             _logger.LogDebug("Raised ClientConnected event for {ClientId}", client.Id);
 
-            return client;
+            return Result<RaspberryPiClient>.Success(client);
         }
-        catch (UnauthorizedAccessException)
+        catch (ObjectDisposedException ex)
         {
-            // Re-throw authentication errors
-            throw;
+            _logger.LogError(ex, "ClientService has been disposed");
+            return Result<RaspberryPiClient>.Failure("Service is no longer available", ex);
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning("Client registration cancelled for MAC {MacAddress}", registerMessage?.MacAddress);
+            return Result<RaspberryPiClient>.Failure("Operation was cancelled");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to register client from MAC {MacAddress}", registerMessage.MacAddress);
-            throw;
+            _logger.LogError(ex, "Failed to register client from MAC {MacAddress}", registerMessage?.MacAddress);
+            return Result<RaspberryPiClient>.Failure($"Failed to register client: {ex.Message}", ex);
         }
     }
 
-    public async Task UpdateClientStatusAsync(
+    public async Task<Result> UpdateClientStatusAsync(
         string clientId,
         ClientStatus status,
         DeviceInfo? deviceInfo = null,
         CancellationToken cancellationToken = default)
     {
-        ThrowIfDisposed();
-
-        if (string.IsNullOrWhiteSpace(clientId))
+        try
         {
-            _logger.LogWarning("UpdateClientStatusAsync called with null or empty clientId");
-            return;
-        }
+            ThrowIfDisposed();
+
+            if (string.IsNullOrWhiteSpace(clientId))
+            {
+                _logger.LogWarning("UpdateClientStatusAsync called with null or empty clientId");
+                return Result.Failure("Client ID cannot be empty");
+            }
 
         if (_clients.TryGetValue(clientId, out var client))
         {
@@ -554,11 +559,31 @@ public class ClientService : IClientService, IDisposable
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to update client {ClientId} status in database", clientId);
+                // Don't fail the whole operation if DB update fails - in-memory cache is updated
             }
+
+            return Result.Success();
         }
         else
         {
             _logger.LogWarning("Client {ClientId} not found for status update", clientId);
+            return Result.Failure($"Client '{clientId}' not found");
+        }
+        }
+        catch (ObjectDisposedException ex)
+        {
+            _logger.LogError(ex, "ClientService has been disposed");
+            return Result.Failure("Service is no longer available", ex);
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning("Update client status operation cancelled for {ClientId}", clientId);
+            return Result.Failure("Operation was cancelled");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to update client {ClientId} status", clientId);
+            return Result.Failure($"Failed to update client status: {ex.Message}", ex);
         }
     }
 
