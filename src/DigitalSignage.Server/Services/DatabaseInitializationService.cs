@@ -43,15 +43,22 @@ public class DatabaseInitializationService : IHostedService
             string? dbPath = null;
             if (connectionString?.Contains("Data Source=") == true)
             {
-                var parts = connectionString.Split("Data Source=", StringSplitOptions.RemoveEmptyEntries);
-                if (parts.Length > 0)
+                try
                 {
-                    var dbFile = parts[1].Split(';')[0].Trim();
+                    // Extract database filename from connection string
+                    var startIndex = connectionString.IndexOf("Data Source=") + "Data Source=".Length;
+                    var remainingString = connectionString.Substring(startIndex);
+                    var dbFile = remainingString.Split(';')[0].Trim();
+
                     dbPath = Path.IsPathRooted(dbFile)
                         ? dbFile
                         : Path.Combine(Directory.GetCurrentDirectory(), dbFile);
                     _logger.Information("Database file path: {DatabasePath}", dbPath);
                     _logger.Information("Database file exists: {Exists}", File.Exists(dbPath));
+                }
+                catch (Exception ex)
+                {
+                    _logger.Warning(ex, "Could not parse database path from connection string");
                 }
             }
 
