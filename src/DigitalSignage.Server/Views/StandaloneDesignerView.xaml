@@ -104,7 +104,7 @@
                                 <DataTemplate DataType="{x:Type models:DisplayElement}">
                                     <Border Width="{Binding Size.Width}"
                                             Height="{Binding Size.Height}"
-                                            Background="{Binding Properties[Fill], TargetNullValue=#F2F2F2}"
+                                            Background="{Binding [FillColor], TargetNullValue=#F2F2F2}"
                                             BorderBrush="#2E86C1"
                                             BorderThickness="1"
                                             MouseLeftButtonDown="Element_MouseLeftButtonDown"
@@ -112,9 +112,9 @@
                                             MouseLeftButtonUp="Element_MouseLeftButtonUp"
                                             Tag="{Binding}">
                                         <Grid>
-                                            <TextBlock Text="{Binding Properties[Content]}"
+                                            <TextBlock Text="{Binding [Content]}"
                                                        Foreground="#1B2631"
-                                                       FontSize="{Binding Properties[FontSize], TargetNullValue=28}"
+                                                       FontSize="{Binding [FontSize], TargetNullValue=28}"
                                                        TextWrapping="Wrap"
                                                        HorizontalAlignment="Center"
                                                        VerticalAlignment="Center"
@@ -157,7 +157,7 @@
                          Text="{Binding SelectedElement.Size.Height, UpdateSourceTrigger=PropertyChanged, TargetNullValue=''}"/>
             </StackPanel>
             <TextBlock Text="Text Content:" Margin="0,12,0,0"/>
-            <TextBox Text="{Binding SelectedElement.Properties[Content], UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" Height="80"/>
+            <TextBox Text="{Binding SelectedElement[Content], UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" Height="80"/>
         </StackPanel>
     </Grid>
 </UserControl>
