@@ -705,13 +705,13 @@
                                         <Slider Grid.Column="0"
                                                 Minimum="0"
                                                 Maximum="360"
-                                                Value="{Binding Designer.SelectedElement.Properties[Rotation], FallbackValue=0, UpdateSourceTrigger=PropertyChanged}"
+                                                Value="{Binding Designer.SelectedElement[Rotation], FallbackValue=0, UpdateSourceTrigger=PropertyChanged}"
                                                 TickFrequency="45"
                                                 IsSnapToTickEnabled="False"
                                                 Margin="0,0,8,0"/>
                                         <TextBox Grid.Column="1"
                                                 Width="60"
-                                                Text="{Binding Designer.SelectedElement.Properties[Rotation], FallbackValue=0, UpdateSourceTrigger=PropertyChanged}"/>
+                                                Text="{Binding Designer.SelectedElement[Rotation], FallbackValue=0, UpdateSourceTrigger=PropertyChanged}"/>
                                     </Grid>
 
                                     <TextBlock Text="Opacity:" Margin="0,12,0,4"/>
@@ -749,19 +749,19 @@
                                         <Slider Grid.Column="0"
                                                 Minimum="0"
                                                 Maximum="100"
-                                                Value="{Binding Designer.SelectedElement.Properties[BorderRadius], FallbackValue=0, UpdateSourceTrigger=PropertyChanged}"
+                                                Value="{Binding Designer.SelectedElement[BorderRadius], FallbackValue=0, UpdateSourceTrigger=PropertyChanged}"
                                                 TickFrequency="5"
                                                 IsSnapToTickEnabled="False"
                                                 Margin="0,0,8,0"/>
                                         <TextBox Grid.Column="1"
                                                 Width="60"
-                                                Text="{Binding Designer.SelectedElement.Properties[BorderRadius], FallbackValue=0, UpdateSourceTrigger=PropertyChanged}"/>
+                                                Text="{Binding Designer.SelectedElement[BorderRadius], FallbackValue=0, UpdateSourceTrigger=PropertyChanged}"/>
                                     </Grid>
 
                                     <TextBlock Text="Shadow:" Margin="0,12,0,4"/>
-                                    <CheckBox Content="Enable Shadow" IsChecked="{Binding Designer.SelectedElement.Properties[EnableShadow], FallbackValue=False}" Margin="0,4,0,8"/>
+                                    <CheckBox Content="Enable Shadow" IsChecked="{Binding Designer.SelectedElement[EnableShadow], FallbackValue=False}" Margin="0,4,0,8"/>
 
-                                    <StackPanel Visibility="{Binding Designer.SelectedElement.Properties[EnableShadow], Converter={StaticResource BooleanToVisibilityConverter}, FallbackValue=Collapsed}">
+                                    <StackPanel Visibility="{Binding Designer.SelectedElement[EnableShadow], Converter={StaticResource BooleanToVisibilityConverter}, FallbackValue=Collapsed}">
                                         <TextBlock Text="Shadow Blur:" Margin="0,4,0,2" FontSize="11"/>
                                         <Grid>
                                             <Grid.ColumnDefinitions>
@@ -771,13 +771,13 @@
                                             <Slider Grid.Column="0"
                                                     Minimum="0"
                                                     Maximum="50"
-                                                    Value="{Binding Designer.SelectedElement.Properties[ShadowBlur], FallbackValue=10, UpdateSourceTrigger=PropertyChanged}"
+                                                    Value="{Binding Designer.SelectedElement[ShadowBlur], FallbackValue=10, UpdateSourceTrigger=PropertyChanged}"
                                                     TickFrequency="5"
                                                     IsSnapToTickEnabled="False"
                                                     Margin="0,0,8,0"/>
                                             <TextBox Grid.Column="1"
                                                     Width="60"
-                                                    Text="{Binding Designer.SelectedElement.Properties[ShadowBlur], FallbackValue=10, UpdateSourceTrigger=PropertyChanged}"/>
+                                                    Text="{Binding Designer.SelectedElement[ShadowBlur], FallbackValue=10, UpdateSourceTrigger=PropertyChanged}"/>
                                         </Grid>
 
                                         <TextBlock Text="Shadow Color:" Margin="0,8,0,2" FontSize="11"/>
@@ -787,7 +787,7 @@
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
                                             <TextBox Grid.Column="0"
-                                                    Text="{Binding Designer.SelectedElement.Properties[ShadowColor], FallbackValue=#80000000, UpdateSourceTrigger=PropertyChanged}"
+                                                    Text="{Binding Designer.SelectedElement[ShadowColor], FallbackValue=#80000000, UpdateSourceTrigger=PropertyChanged}"
                                                     Margin="0,0,8,0"/>
                                             <Border Grid.Column="1"
                                                    Width="40"
@@ -795,16 +795,16 @@
                                                    BorderBrush="#CCCCCC"
                                                    BorderThickness="1">
                                                 <Border.Background>
-                                                    <SolidColorBrush Color="{Binding Designer.SelectedElement.Properties[ShadowColor], Converter={StaticResource HexToColorConverter}, FallbackValue=#80000000}"/>
+                                                    <SolidColorBrush Color="{Binding Designer.SelectedElement[ShadowColor], Converter={StaticResource HexToColorConverter}, FallbackValue=#80000000}"/>
                                                 </Border.Background>
                                             </Border>
                                         </Grid>
 
                                         <TextBlock Text="Shadow Offset X:" Margin="0,8,0,2" FontSize="11"/>
-                                        <TextBox Text="{Binding Designer.SelectedElement.Properties[ShadowOffsetX], FallbackValue=5, UpdateSourceTrigger=PropertyChanged}"/>
+                                        <TextBox Text="{Binding Designer.SelectedElement[ShadowOffsetX], FallbackValue=5, UpdateSourceTrigger=PropertyChanged}"/>
 
                                         <TextBlock Text="Shadow Offset Y:" Margin="0,4,0,2" FontSize="11"/>
-                                        <TextBox Text="{Binding Designer.SelectedElement.Properties[ShadowOffsetY], FallbackValue=5, UpdateSourceTrigger=PropertyChanged}"/>
+                                        <TextBox Text="{Binding Designer.SelectedElement[ShadowOffsetY], FallbackValue=5, UpdateSourceTrigger=PropertyChanged}"/>
                                     </StackPanel>
 
                                     <Separator Margin="0,16"/>
@@ -825,14 +825,14 @@
                                         <TextBlock Text="Text Properties" FontWeight="SemiBold" Margin="0,0,0,8"/>
 
                                         <TextBlock Text="Content:" Margin="0,4,0,2"/>
-                                        <TextBox Text="{Binding Designer.SelectedElement.Properties[Content], UpdateSourceTrigger=PropertyChanged}"
+                                        <TextBox Text="{Binding Designer.SelectedElement[Content], UpdateSourceTrigger=PropertyChanged}"
                                                 Height="60"
                                                 TextWrapping="Wrap"
                                                 AcceptsReturn="True"
                                                 VerticalScrollBarVisibility="Auto"/>
 
                                         <TextBlock Text="Font Family:" Margin="0,12,0,4"/>
-                                        <ComboBox SelectedValue="{Binding Designer.SelectedElement.Properties[FontFamily], FallbackValue=Arial, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                        <ComboBox SelectedValue="{Binding Designer.SelectedElement[FontFamily], FallbackValue=Arial, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                   SelectedValuePath="Content">
                                             <ComboBoxItem Content="Arial"/>
                                             <ComboBoxItem Content="Calibri"/>
@@ -855,24 +855,24 @@
                                             <Slider Grid.Column="0"
                                                    Minimum="8"
                                                    Maximum="144"
-                                                   Value="{Binding Designer.SelectedElement.Properties[FontSize], FallbackValue=24}"
+                                                   Value="{Binding Designer.SelectedElement[FontSize], FallbackValue=24}"
                                                    TickFrequency="4"
                                                    IsSnapToTickEnabled="True"
                                                    Margin="0,0,8,0"/>
                                             <TextBox Grid.Column="1"
                                                     Width="60"
-                                                    Text="{Binding Designer.SelectedElement.Properties[FontSize], FallbackValue=24, UpdateSourceTrigger=PropertyChanged}"/>
+                                                    Text="{Binding Designer.SelectedElement[FontSize], FallbackValue=24, UpdateSourceTrigger=PropertyChanged}"/>
                                         </Grid>
 
                                         <TextBlock Text="Font Style:" Margin="0,12,0,4"/>
                                         <StackPanel Orientation="Horizontal">
                                             <ToggleButton Content="Bold"
-                                                         IsChecked="{Binding Designer.SelectedElement.Properties[FontWeight], Converter={StaticResource FontWeightToBoolConverter}, FallbackValue=False}"
+                                                         IsChecked="{Binding Designer.SelectedElement[FontWeight], Converter={StaticResource FontWeightToBoolConverter}, FallbackValue=False}"
                                                          Width="60"
                                                          Margin="0,0,4,0"
                                                          Padding="8,4"/>
                                             <ToggleButton Content="Italic"
-                                                         IsChecked="{Binding Designer.SelectedElement.Properties[FontStyle], Converter={StaticResource FontStyleToBoolConverter}, FallbackValue=False}"
+                                                         IsChecked="{Binding Designer.SelectedElement[FontStyle], Converter={StaticResource FontStyleToBoolConverter}, FallbackValue=False}"
                                                          Width="60"
                                                          Padding="8,4"/>
                                         </StackPanel>
@@ -884,7 +884,7 @@
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
                                             <TextBox Grid.Column="0"
-                                                    Text="{Binding Designer.SelectedElement.Properties[Color], FallbackValue=#000000, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                    Text="{Binding Designer.SelectedElement[Color], FallbackValue=#000000, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                     Margin="0,0,8,0"/>
                                             <Border Grid.Column="1"
                                                    Width="40"
@@ -892,7 +892,7 @@
                                                    BorderBrush="#CCCCCC"
                                                    BorderThickness="1">
                                                 <Border.Background>
-                                                    <SolidColorBrush Color="{Binding Designer.SelectedElement.Properties[Color], Converter={StaticResource HexToColorConverter}, FallbackValue=Black}"/>
+                                                    <SolidColorBrush Color="{Binding Designer.SelectedElement[Color], Converter={StaticResource HexToColorConverter}, FallbackValue=Black}"/>
                                                 </Border.Background>
                                             </Border>
                                         </Grid>
@@ -911,7 +911,7 @@
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
                                             <TextBox Grid.Column="0"
-                                                    Text="{Binding Designer.SelectedElement.Properties[FillColor], FallbackValue=#ADD8E6, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                    Text="{Binding Designer.SelectedElement[FillColor], FallbackValue=#ADD8E6, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                     Margin="0,0,8,0"/>
                                             <Border Grid.Column="1"
                                                    Width="40"
@@ -919,7 +919,7 @@
                                                    BorderBrush="#CCCCCC"
                                                    BorderThickness="1">
                                                 <Border.Background>
-                                                    <SolidColorBrush Color="{Binding Designer.SelectedElement.Properties[FillColor], Converter={StaticResource HexToColorConverter}, FallbackValue=LightBlue}"/>
+                                                    <SolidColorBrush Color="{Binding Designer.SelectedElement[FillColor], Converter={StaticResource HexToColorConverter}, FallbackValue=LightBlue}"/>
                                                 </Border.Background>
                                             </Border>
                                         </Grid>
@@ -931,7 +931,7 @@
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
                                             <TextBox Grid.Column="0"
-                                                    Text="{Binding Designer.SelectedElement.Properties[BorderColor], FallbackValue=#00008B, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                    Text="{Binding Designer.SelectedElement[BorderColor], FallbackValue=#00008B, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                     Margin="0,0,8,0"/>
                                             <Border Grid.Column="1"
                                                    Width="40"
@@ -939,13 +939,13 @@
                                                    BorderBrush="#CCCCCC"
                                                    BorderThickness="1">
                                                 <Border.Background>
-                                                    <SolidColorBrush Color="{Binding Designer.SelectedElement.Properties[BorderColor], Converter={StaticResource HexToColorConverter}, FallbackValue=DarkBlue}"/>
+                                                    <SolidColorBrush Color="{Binding Designer.SelectedElement[BorderColor], Converter={StaticResource HexToColorConverter}, FallbackValue=DarkBlue}"/>
                                                 </Border.Background>
                                             </Border>
                                         </Grid>
 
                                         <TextBlock Text="Border Thickness:" Margin="0,12,0,4"/>
-                                        <TextBox Text="{Binding Designer.SelectedElement.Properties[BorderThickness], FallbackValue=2, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                        <TextBox Text="{Binding Designer.SelectedElement[BorderThickness], FallbackValue=2, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                                     </StackPanel>
 
                                     <Separator Margin="0,16"/>
