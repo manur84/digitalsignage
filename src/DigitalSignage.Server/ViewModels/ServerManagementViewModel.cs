@@ -142,7 +142,16 @@ public partial class ServerManagementViewModel : ObservableObject, IDisposable
     {
         try
         {
-            var clients = await _clientService.GetAllClientsAsync();
+            var clientsResult = await _clientService.GetAllClientsAsync();
+
+            if (clientsResult.IsFailure)
+            {
+                _logger.LogError("Failed to load clients: {ErrorMessage}", clientsResult.ErrorMessage);
+                StatusText = $"Failed to refresh clients: {clientsResult.ErrorMessage}";
+                return;
+            }
+
+            var clients = clientsResult.Value;
 
             // Check if already on UI thread to avoid unnecessary context switch
             if (System.Windows.Application.Current.Dispatcher.CheckAccess())
@@ -193,7 +202,15 @@ public partial class ServerManagementViewModel : ObservableObject, IDisposable
 
         try
         {
-            await _clientService.RemoveClientAsync(SelectedClient.Id);
+            var removeResult = await _clientService.RemoveClientAsync(SelectedClient.Id);
+
+            if (removeResult.IsFailure)
+            {
+                _logger.LogError("Failed to remove client: {ErrorMessage}", removeResult.ErrorMessage);
+                StatusText = $"Failed to remove client: {removeResult.ErrorMessage}";
+                return;
+            }
+
             Clients.Remove(SelectedClient);
             StatusText = $"Removed client: {SelectedClient.Name}";
             SelectedClient = null;

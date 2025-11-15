@@ -88,7 +88,17 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
         StatusMessage = "Loading clients...";
         try
         {
-            var clients = await _clientService.GetAllClientsAsync();
+            var clientsResult = await _clientService.GetAllClientsAsync();
+
+            if (clientsResult.IsFailure)
+            {
+                _logger.LogError("Failed to load clients: {ErrorMessage}", clientsResult.ErrorMessage);
+                StatusMessage = $"Failed to load clients: {clientsResult.ErrorMessage}";
+                IsLoading = false;
+                return;
+            }
+
+            var clients = clientsResult.Value;
 
             // Load all layouts to populate AssignedLayout navigation property
             var layoutsResult = await _layoutService.GetAllLayoutsAsync();
@@ -179,9 +189,16 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
 
         try
         {
-            await _clientService.SendCommandAsync(
+            var result = await _clientService.SendCommandAsync(
                 SelectedClient.Id,
                 ClientCommands.Restart);
+
+            if (result.IsFailure)
+            {
+                StatusMessage = $"Failed to restart {SelectedClient.Name}: {result.ErrorMessage}";
+                _logger.LogError("Failed to send restart command to client {ClientId}: {ErrorMessage}", SelectedClient.Id, result.ErrorMessage);
+                return;
+            }
 
             StatusMessage = $"Restart command sent to {SelectedClient.Name}";
             _logger.LogInformation("Restart command sent to client {ClientId}", SelectedClient.Id);
@@ -200,9 +217,16 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
 
         try
         {
-            await _clientService.SendCommandAsync(
+            var result = await _clientService.SendCommandAsync(
                 SelectedClient.Id,
                 ClientCommands.RestartApp);
+
+            if (result.IsFailure)
+            {
+                StatusMessage = $"Failed to restart app on {SelectedClient.Name}: {result.ErrorMessage}";
+                _logger.LogError("Failed to send restart app command to client {ClientId}: {ErrorMessage}", SelectedClient.Id, result.ErrorMessage);
+                return;
+            }
 
             StatusMessage = $"App restart command sent to {SelectedClient.Name}";
             _logger.LogInformation("App restart command sent to client {ClientId}", SelectedClient.Id);
@@ -221,9 +245,16 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
 
         try
         {
-            await _clientService.SendCommandAsync(
+            var result = await _clientService.SendCommandAsync(
                 SelectedClient.Id,
                 ClientCommands.Screenshot);
+
+            if (result.IsFailure)
+            {
+                StatusMessage = $"Failed to take screenshot on {SelectedClient.Name}: {result.ErrorMessage}";
+                _logger.LogError("Failed to send screenshot command to client {ClientId}: {ErrorMessage}", SelectedClient.Id, result.ErrorMessage);
+                return;
+            }
 
             StatusMessage = $"Screenshot requested from {SelectedClient.Name}";
             _logger.LogInformation("Screenshot command sent to client {ClientId}", SelectedClient.Id);
@@ -242,9 +273,16 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
 
         try
         {
-            await _clientService.SendCommandAsync(
+            var result = await _clientService.SendCommandAsync(
                 SelectedClient.Id,
                 ClientCommands.ScreenOn);
+
+            if (result.IsFailure)
+            {
+                StatusMessage = $"Failed to turn screen on for {SelectedClient.Name}: {result.ErrorMessage}";
+                _logger.LogError("Failed to send screen on command to client {ClientId}: {ErrorMessage}", SelectedClient.Id, result.ErrorMessage);
+                return;
+            }
 
             StatusMessage = $"Screen on command sent to {SelectedClient.Name}";
             _logger.LogInformation("Screen on command sent to client {ClientId}", SelectedClient.Id);
@@ -263,9 +301,16 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
 
         try
         {
-            await _clientService.SendCommandAsync(
+            var result = await _clientService.SendCommandAsync(
                 SelectedClient.Id,
                 ClientCommands.ScreenOff);
+
+            if (result.IsFailure)
+            {
+                StatusMessage = $"Failed to turn screen off for {SelectedClient.Name}: {result.ErrorMessage}";
+                _logger.LogError("Failed to send screen off command to client {ClientId}: {ErrorMessage}", SelectedClient.Id, result.ErrorMessage);
+                return;
+            }
 
             StatusMessage = $"Screen off command sent to {SelectedClient.Name}";
             _logger.LogInformation("Screen off command sent to client {ClientId}", SelectedClient.Id);
@@ -284,10 +329,17 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
 
         try
         {
-            await _clientService.SendCommandAsync(
+            var result = await _clientService.SendCommandAsync(
                 SelectedClient.Id,
                 ClientCommands.SetVolume,
                 new Dictionary<string, object> { ["volume"] = VolumeLevel });
+
+            if (result.IsFailure)
+            {
+                StatusMessage = $"Failed to set volume on {SelectedClient.Name}: {result.ErrorMessage}";
+                _logger.LogError("Failed to send set volume command to client {ClientId}: {ErrorMessage}", SelectedClient.Id, result.ErrorMessage);
+                return;
+            }
 
             StatusMessage = $"Volume set to {VolumeLevel}% on {SelectedClient.Name}";
             _logger.LogInformation("Set volume to {Volume}% on client {ClientId}", VolumeLevel, SelectedClient.Id);
@@ -306,9 +358,16 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
 
         try
         {
-            await _clientService.SendCommandAsync(
+            var result = await _clientService.SendCommandAsync(
                 SelectedClient.Id,
                 ClientCommands.ClearCache);
+
+            if (result.IsFailure)
+            {
+                StatusMessage = $"Failed to clear cache on {SelectedClient.Name}: {result.ErrorMessage}";
+                _logger.LogError("Failed to send clear cache command to client {ClientId}: {ErrorMessage}", SelectedClient.Id, result.ErrorMessage);
+                return;
+            }
 
             StatusMessage = $"Cache clear command sent to {SelectedClient.Name}";
             _logger.LogInformation("Clear cache command sent to client {ClientId}", SelectedClient.Id);
@@ -327,7 +386,15 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
 
         try
         {
-            await _clientService.AssignLayoutAsync(SelectedClient.Id, SelectedLayoutId);
+            var result = await _clientService.AssignLayoutAsync(SelectedClient.Id, SelectedLayoutId);
+
+            if (result.IsFailure)
+            {
+                StatusMessage = $"Failed to assign layout to {SelectedClient.Name}: {result.ErrorMessage}";
+                _logger.LogError("Failed to assign layout {LayoutId} to client {ClientId}: {ErrorMessage}", SelectedLayoutId, SelectedClient.Id, result.ErrorMessage);
+                return;
+            }
+
             SelectedClient.AssignedLayoutId = SelectedLayoutId;
 
             var layout = AvailableLayouts.FirstOrDefault(l => l.Id == SelectedLayoutId);
@@ -355,7 +422,15 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
         var clientName = SelectedClient.Name;
         try
         {
-            await _clientService.RemoveClientAsync(clientId);
+            var result = await _clientService.RemoveClientAsync(clientId);
+
+            if (result.IsFailure)
+            {
+                StatusMessage = $"Failed to remove client {clientName}: {result.ErrorMessage}";
+                _logger.LogError("Failed to remove client {ClientId}: {ErrorMessage}", clientId, result.ErrorMessage);
+                return;
+            }
+
             await LoadClientsCommand.ExecuteAsync(null);
 
             StatusMessage = $"Removed client {clientName}";
@@ -385,7 +460,14 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
                 LogLevel = ConfigLogLevel
             };
 
-            await _clientService.UpdateClientConfigAsync(SelectedClient.Id, configMessage);
+            var result = await _clientService.UpdateClientConfigAsync(SelectedClient.Id, configMessage);
+
+            if (result.IsFailure)
+            {
+                StatusMessage = $"Failed to update configuration for {SelectedClient.Name}: {result.ErrorMessage}";
+                _logger.LogError("Failed to update configuration for client {ClientId}: {ErrorMessage}", SelectedClient.Id, result.ErrorMessage);
+                return;
+            }
 
             StatusMessage = $"Configuration update sent to {SelectedClient.Name}";
             _logger.LogInformation("Configuration update sent to client {ClientId}", SelectedClient.Id);

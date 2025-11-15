@@ -587,69 +587,81 @@ public class ClientService : IClientService, IDisposable
         }
     }
 
-    public async Task<bool> SendCommandAsync(
+    public async Task<Result> SendCommandAsync(
         string clientId,
         string command,
         Dictionary<string, object>? parameters = null,
         CancellationToken cancellationToken = default)
     {
-        ThrowIfDisposed();
-
-        if (string.IsNullOrWhiteSpace(clientId))
-        {
-            _logger.LogWarning("SendCommandAsync called with null or empty clientId");
-            return false;
-        }
-
-        if (string.IsNullOrWhiteSpace(command))
-        {
-            _logger.LogWarning("SendCommandAsync called with null or empty command");
-            return false;
-        }
-
-        if (!_clients.ContainsKey(clientId))
-        {
-            _logger.LogWarning("Client {ClientId} not found for command {Command}", clientId, command);
-            return false;
-        }
-
-        var commandMessage = new CommandMessage
-        {
-            Command = command,
-            Parameters = parameters
-        };
-
         try
         {
+            ThrowIfDisposed();
+
+            if (string.IsNullOrWhiteSpace(clientId))
+            {
+                _logger.LogWarning("SendCommandAsync called with null or empty clientId");
+                return Result.Failure("Client ID cannot be empty");
+            }
+
+            if (string.IsNullOrWhiteSpace(command))
+            {
+                _logger.LogWarning("SendCommandAsync called with null or empty command");
+                return Result.Failure("Command cannot be empty");
+            }
+
+            if (!_clients.ContainsKey(clientId))
+            {
+                _logger.LogWarning("Client {ClientId} not found for command {Command}", clientId, command);
+                return Result.Failure($"Client '{clientId}' not found");
+            }
+
+            var commandMessage = new CommandMessage
+            {
+                Command = command,
+                Parameters = parameters
+            };
+
             await _communicationService.SendMessageAsync(clientId, commandMessage, cancellationToken);
             _logger.LogInformation("Sent command {Command} to client {ClientId}", command, clientId);
-            return true;
+            return Result.Success();
+        }
+        catch (ObjectDisposedException ex)
+        {
+            _logger.LogError(ex, "ClientService has been disposed");
+            return Result.Failure("Service is no longer available", ex);
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning("Send command operation cancelled for client {ClientId}", clientId);
+            return Result.Failure("Operation was cancelled");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to send command {Command} to client {ClientId}", command, clientId);
-            return false;
+            return Result.Failure($"Failed to send command: {ex.Message}", ex);
         }
     }
 
-    public async Task<bool> AssignLayoutAsync(
+    public async Task<Result> AssignLayoutAsync(
         string clientId,
         string layoutId,
         CancellationToken cancellationToken = default)
     {
-        ThrowIfDisposed();
-
-        if (string.IsNullOrWhiteSpace(clientId))
+        try
         {
-            _logger.LogWarning("AssignLayoutAsync called with null or empty clientId");
-            return false;
-        }
+            ThrowIfDisposed();
 
-        if (string.IsNullOrWhiteSpace(layoutId))
-        {
-            _logger.LogWarning("AssignLayoutAsync called with null or empty layoutId");
-            return false;
-        }
+            if (string.IsNullOrWhiteSpace(clientId))
+            {
+                _logger.LogWarning("AssignLayoutAsync called with null or empty clientId");
+                return Result.Failure("Client ID cannot be empty");
+            }
+
+            if (string.IsNullOrWhiteSpace(layoutId))
+            {
+                _logger.LogWarning("AssignLayoutAsync called with null or empty layoutId");
+                return Result.Failure("Layout ID cannot be empty");
+            }
 
         if (_clients.TryGetValue(clientId, out var client))
         {
@@ -679,10 +691,26 @@ public class ClientService : IClientService, IDisposable
         }
 
         _logger.LogWarning("Client {ClientId} not found for layout assignment", clientId);
-        return false;
+        return Result.Failure($"Client '{clientId}' not found");
     }
+    catch (ObjectDisposedException ex)
+    {
+        _logger.LogError(ex, "ClientService has been disposed");
+        return Result.Failure("Service is no longer available", ex);
+    }
+    catch (OperationCanceledException)
+    {
+        _logger.LogWarning("Layout assignment cancelled for client {ClientId}", clientId);
+        return Result.Failure("Operation was cancelled");
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Failed to assign layout {LayoutId} to client {ClientId}", layoutId, clientId);
+        return Result.Failure($"Failed to assign layout: {ex.Message}", ex);
+    }
+}
 
-    private async Task<bool> SendLayoutToClientAsync(
+    private async Task<Result> SendLayoutToClientAsync(
         string clientId,
         string layoutId,
         CancellationToken cancellationToken = default)
@@ -690,12 +718,14 @@ public class ClientService : IClientService, IDisposable
         try
         {
             // Load layout
-            var layout = await _layoutService.GetLayoutByIdAsync(layoutId, cancellationToken);
-            if (layout == null)
+            var layoutResult = await _layoutService.GetLayoutByIdAsync(layoutId, cancellationToken);
+            if (layoutResult.IsFailure)
             {
-                _logger.LogError("Layout {LayoutId} not found", layoutId);
-                return false;
+                _logger.LogError("Layout {LayoutId} not found: {ErrorMessage}", layoutId, layoutResult.ErrorMessage);
+                return Result.Failure($"Layout '{layoutId}' not found: {layoutResult.ErrorMessage}");
             }
+
+            var layout = layoutResult.Value;
 
             // Fetch data from all data sources
             var layoutData = new Dictionary<string, object>();
@@ -822,71 +852,119 @@ public class ClientService : IClientService, IDisposable
                     layoutId, layout.DataSources?.Count ?? 0, clientId);
             }
 
-            return true;
+            return Result.Success();
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to send layout update to client {ClientId}", clientId);
-            return false;
+            return Result.Failure($"Failed to send layout to client: {ex.Message}", ex);
         }
     }
 
-    public Task<bool> RemoveClientAsync(string clientId, CancellationToken cancellationToken = default)
+    public async Task<Result> RemoveClientAsync(string clientId, CancellationToken cancellationToken = default)
     {
-        ThrowIfDisposed();
-
-        if (string.IsNullOrWhiteSpace(clientId))
+        try
         {
-            _logger.LogWarning("RemoveClientAsync called with null or empty clientId");
-            return Task.FromResult(false);
-        }
+            ThrowIfDisposed();
 
-        if (_clients.TryRemove(clientId, out _))
+            if (string.IsNullOrWhiteSpace(clientId))
+            {
+                _logger.LogWarning("RemoveClientAsync called with null or empty clientId");
+                return Result.Failure("Client ID cannot be empty");
+            }
+
+            if (_clients.TryRemove(clientId, out _))
+            {
+                _logger.LogInformation("Removed client {ClientId}", clientId);
+
+                // Remove from database
+                try
+                {
+                    using var scope = _serviceProvider.CreateScope();
+                    var dbContext = scope.ServiceProvider.GetRequiredService<DigitalSignageDbContext>();
+
+                    var dbClient = await dbContext.Clients.FindAsync(new object[] { clientId }, cancellationToken);
+                    if (dbClient != null)
+                    {
+                        dbContext.Clients.Remove(dbClient);
+                        await dbContext.SaveChangesAsync(cancellationToken);
+                        _logger.LogInformation("Removed client {ClientId} from database", clientId);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to remove client {ClientId} from database", clientId);
+                }
+
+                return Result.Success();
+            }
+
+            _logger.LogWarning("Client {ClientId} not found for removal", clientId);
+            return Result.Failure($"Client '{clientId}' not found");
+        }
+        catch (ObjectDisposedException ex)
         {
-            _logger.LogInformation("Removed client {ClientId}", clientId);
-            return Task.FromResult(true);
+            _logger.LogError(ex, "ClientService has been disposed");
+            return Result.Failure("Service is no longer available", ex);
         }
-
-        _logger.LogWarning("Client {ClientId} not found for removal", clientId);
-        return Task.FromResult(false);
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning("Client removal cancelled for {ClientId}", clientId);
+            return Result.Failure("Operation was cancelled");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to remove client {ClientId}", clientId);
+            return Result.Failure($"Failed to remove client: {ex.Message}", ex);
+        }
     }
 
-    public async Task<bool> UpdateClientConfigAsync(
+    public async Task<Result> UpdateClientConfigAsync(
         string clientId,
         UpdateConfigMessage config,
         CancellationToken cancellationToken = default)
     {
-        ThrowIfDisposed();
-
-        if (string.IsNullOrWhiteSpace(clientId))
-        {
-            _logger.LogWarning("UpdateClientConfigAsync called with null or empty clientId");
-            return false;
-        }
-
-        if (config == null)
-        {
-            _logger.LogWarning("UpdateClientConfigAsync called with null config");
-            return false;
-        }
-
-        if (!_clients.ContainsKey(clientId))
-        {
-            _logger.LogWarning("Client {ClientId} not found for config update", clientId);
-            return false;
-        }
-
         try
         {
+            ThrowIfDisposed();
+
+            if (string.IsNullOrWhiteSpace(clientId))
+            {
+                _logger.LogWarning("UpdateClientConfigAsync called with null or empty clientId");
+                return Result.Failure("Client ID cannot be empty");
+            }
+
+            if (config == null)
+            {
+                _logger.LogWarning("UpdateClientConfigAsync called with null config");
+                return Result.Failure("Configuration cannot be null");
+            }
+
+            if (!_clients.ContainsKey(clientId))
+            {
+                _logger.LogWarning("Client {ClientId} not found for config update", clientId);
+                return Result.Failure($"Client '{clientId}' not found");
+            }
+
             await _communicationService.SendMessageAsync(clientId, config, cancellationToken);
             _logger.LogInformation("Sent UPDATE_CONFIG to client {ClientId} (Host: {Host}, Port: {Port})",
                 clientId, config.ServerHost, config.ServerPort);
-            return true;
+            return Result.Success();
+        }
+        catch (ObjectDisposedException ex)
+        {
+            _logger.LogError(ex, "ClientService has been disposed");
+            return Result.Failure("Service is no longer available", ex);
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning("Config update cancelled for client {ClientId}", clientId);
+            return Result.Failure("Operation was cancelled");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to send UPDATE_CONFIG to client {ClientId}", clientId);
-            return false;
+            return Result.Failure($"Failed to update client configuration: {ex.Message}", ex);
         }
     }
 

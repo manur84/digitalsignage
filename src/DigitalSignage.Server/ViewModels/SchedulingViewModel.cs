@@ -278,15 +278,21 @@ public partial class SchedulingViewModel : ObservableObject, IDisposable
     {
         try
         {
-            var devices = await _clientService.GetAllClientsAsync();
+            var devicesResult = await _clientService.GetAllClientsAsync();
+
+            if (devicesResult.IsFailure)
+            {
+                _logger.LogError("Failed to load devices: {ErrorMessage}", devicesResult.ErrorMessage);
+                return;
+            }
 
             AvailableDevices.Clear();
-            foreach (var device in devices)
+            foreach (var device in devicesResult.Value)
             {
                 AvailableDevices.Add(device);
             }
 
-            _logger.LogInformation("Loaded {Count} devices for scheduling", devices.Count);
+            _logger.LogInformation("Loaded {Count} devices for scheduling", devicesResult.Value.Count);
         }
         catch (Exception ex)
         {

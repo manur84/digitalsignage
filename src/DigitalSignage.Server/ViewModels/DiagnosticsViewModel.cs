@@ -55,8 +55,15 @@ public partial class DiagnosticsViewModel : ObservableObject, IDisposable
             if (canConnect)
             {
                 // Test a simple query
-                var clients = await _clientService.GetAllClientsAsync();
+                var clientsResult = await _clientService.GetAllClientsAsync();
                 var layoutsResult = await _layoutService.GetAllLayoutsAsync();
+
+                if (clientsResult.IsFailure)
+                {
+                    _logger.LogError("Failed to load clients during database test: {ErrorMessage}", clientsResult.ErrorMessage);
+                    StatusText = $"Database test partial failure: {clientsResult.ErrorMessage}";
+                    return;
+                }
 
                 if (layoutsResult.IsFailure)
                 {
@@ -68,14 +75,14 @@ public partial class DiagnosticsViewModel : ObservableObject, IDisposable
                 var message = $"✅ Database Connection Successful!\n\n" +
                              $"Connection String:\n{connectionString}\n\n" +
                              $"Statistics:\n" +
-                             $"• Clients: {clients.Count()}\n" +
+                             $"• Clients: {clientsResult.Value.Count}\n" +
                              $"• Layouts: {layoutsResult.Value.Count}\n" +
                              $"• Provider: {_dbContext.Database.ProviderName}";
 
                 await _dialogService.ShowInformationAsync(message, "Database Test Result");
 
                 StatusText = "Database test successful";
-                _logger.LogInformation("Database test successful: {ClientCount} clients, {LayoutCount} layouts", clients.Count(), layoutsResult.Value.Count);
+                _logger.LogInformation("Database test successful: {ClientCount} clients, {LayoutCount} layouts", clientsResult.Value.Count, layoutsResult.Value.Count);
             }
             else
             {
