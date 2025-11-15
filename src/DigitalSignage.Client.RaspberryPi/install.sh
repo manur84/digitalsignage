@@ -212,14 +212,14 @@ check_hdmi_display() {
 # ========================================
 
 if [ "$MODE" = "UPDATE" ]; then
-    TOTAL_STEPS=8
+    TOTAL_STEPS=9
 
     echo "════════════════════════════════════════════════════════════"
     echo "  UPDATE MODE - Updating Existing Installation"
     echo "════════════════════════════════════════════════════════════"
     echo ""
 
-    # [1/8] Stop service
+    # [1/9] Stop service
     show_step "Stopping service..."
     if systemctl is-active --quiet $SERVICE_NAME; then
         systemctl stop $SERVICE_NAME
@@ -228,7 +228,7 @@ if [ "$MODE" = "UPDATE" ]; then
         show_info "Service not running"
     fi
 
-    # [2/8] Backup config
+    # [2/9] Backup config
     show_step "Backing up configuration..."
     BACKUP_FILE="/tmp/digitalsignage-config-backup-$(date +%s).py"
     if [ -f "$INSTALL_DIR/config.py" ]; then
@@ -239,7 +239,7 @@ if [ "$MODE" = "UPDATE" ]; then
         BACKUP_FILE=""
     fi
 
-    # [3/8] Update from Git
+    # [3/9] Update from Git
     show_step "Updating code from repository..."
 
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -267,7 +267,7 @@ if [ "$MODE" = "UPDATE" ]; then
         show_info "Not a git repository - using files in current directory"
     fi
 
-    # [4/8] Copy updated files
+    # [4/9] Copy updated files
     show_step "Copying updated files..."
 
     # Required files
@@ -372,7 +372,18 @@ if [ "$MODE" = "UPDATE" ]; then
     chmod +x "$INSTALL_DIR"/*.sh 2>/dev/null || true
     chmod +x "$INSTALL_DIR/client.py" 2>/dev/null || true
 
-    # [5/8] Update dependencies if needed
+    # [5/9] Configure German locale
+    show_step "Configuring German locale..."
+    apt-get install -y -qq locales >/dev/null 2>&1 || true
+    if ! locale -a | grep -q "de_DE.utf8"; then
+        echo "de_DE.UTF-8 UTF-8" >> /etc/locale.gen
+        locale-gen de_DE.UTF-8 >/dev/null 2>&1
+        show_success "German locale (de_DE.UTF-8) generated"
+    else
+        show_success "German locale already installed"
+    fi
+
+    # [6/9] Update dependencies if needed
     show_step "Checking Python dependencies..."
 
     if [ -f "$SCRIPT_DIR/requirements.txt" ]; then
@@ -390,7 +401,7 @@ if [ "$MODE" = "UPDATE" ]; then
         show_warning "requirements.txt not found"
     fi
 
-    # [6/8] Restore config
+    # [7/9] Restore config
     show_step "Restoring configuration..."
 
     if [ -n "$BACKUP_FILE" ] && [ -f "$BACKUP_FILE" ]; then
@@ -403,7 +414,7 @@ if [ "$MODE" = "UPDATE" ]; then
     # Set ownership
     chown -R "$ACTUAL_USER:$ACTUAL_USER" "$INSTALL_DIR"
 
-    # [7/8] Update service file
+    # [8/9] Update service file
     show_step "Updating systemd service..."
 
     if [ -f "$SCRIPT_DIR/digitalsignage-client.service" ]; then
@@ -419,7 +430,7 @@ if [ "$MODE" = "UPDATE" ]; then
         show_info "Service file not changed"
     fi
 
-    # [8/8] Configure and restart service
+    # [9/9] Configure and restart service
     show_step "Configuring client..."
 
     # Check if config.json exists and needs configuration
@@ -592,8 +603,19 @@ apt-get install -y -qq \
     xdotool \
     libqt5multimedia5-plugins \
     xvfb \
-    x11vnc
+    x11vnc \
+    locales
 show_success "System dependencies installed"
+
+# Configure German locale for datetime formatting
+show_info "Configuring German locale..."
+if ! locale -a | grep -q "de_DE.utf8"; then
+    echo "de_DE.UTF-8 UTF-8" >> /etc/locale.gen
+    locale-gen de_DE.UTF-8
+    show_success "German locale (de_DE.UTF-8) generated"
+else
+    show_success "German locale already installed"
+fi
 
 # [3/10] Verify PyQt5
 show_step "Verifying PyQt5 installation..."
