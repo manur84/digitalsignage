@@ -526,31 +526,65 @@ public partial class DesignerViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
-    private void AddQRCodeElement()
+    private async Task AddQRCodeElementAsync()
     {
-        var qrCodeElement = new DisplayElement
+        try
         {
-            Id = Guid.NewGuid().ToString(),
-            Type = "qrcode",
-            Name = $"QR Code {Elements.Count + 1}",
-            Position = new Position { X = 100, Y = 100 },
-            Size = new Size { Width = 200, Height = 200 },
-            ZIndex = Elements.Count,
-            Properties = new Dictionary<string, object>
-            {
-                ["Content"] = "https://example.com",
-                ["ForegroundColor"] = "#000000",
-                ["BackgroundColor"] = "#FFFFFF",
-                ["ErrorCorrectionLevel"] = "M"
-            }
-        };
+            _logger.LogInformation("=== Opening QR Code Properties Dialog ===");
 
-        qrCodeElement.InitializeDefaultProperties();
-        var command = new AddElementCommand(Elements, qrCodeElement);
-        CommandHistory.ExecuteCommand(command);
-        SelectedElement = qrCodeElement;
-        UpdateLayers();
-        _logger.LogDebug("Added QR code element: {ElementName}", qrCodeElement.Name);
+            // Create ViewModel with required dependencies
+            var viewModelLogger = _serviceProvider.GetRequiredService<ILogger<QRCodePropertiesViewModel>>();
+            var viewModel = new QRCodePropertiesViewModel(viewModelLogger);
+
+            // Create and show dialog
+            var dialog = new Views.Dialogs.QRCodePropertiesDialog(viewModel)
+            {
+                Owner = System.Windows.Application.Current.MainWindow
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                _logger.LogInformation("QR Code configured with content: {Content}", viewModel.Content);
+
+                var qrCodeElement = new DisplayElement
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    Type = "qrcode",
+                    Name = $"QR Code {Elements.Count + 1}",
+                    Position = new Position { X = 100, Y = 100 },
+                    Size = new Size { Width = 200, Height = 200 },
+                    ZIndex = Elements.Count
+                };
+
+                // Apply properties from dialog
+                viewModel.ApplyToElement(qrCodeElement);
+                qrCodeElement.InitializeDefaultProperties();
+
+                _logger.LogInformation("Position: ({X}, {Y})", qrCodeElement.Position.X, qrCodeElement.Position.Y);
+                _logger.LogInformation("Size: {Width}x{Height}", qrCodeElement.Size.Width, qrCodeElement.Size.Height);
+
+                // Add to layout
+                var command = new AddElementCommand(Elements, qrCodeElement);
+                CommandHistory.ExecuteCommand(command);
+
+                _logger.LogInformation("QR Code element added. Total elements: {Count}", Elements.Count);
+
+                SelectedElement = qrCodeElement;
+                UpdateLayers();
+                _logger.LogInformation("=== QR Code Element Added Successfully ===");
+            }
+            else
+            {
+                _logger.LogInformation("QR Code creation cancelled");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error adding QR code element");
+            await _dialogService.ShowErrorAsync(
+                $"Failed to add QR code element:\n\n{ex.Message}",
+                "Error");
+        }
     }
 
     [RelayCommand]
@@ -2076,6 +2110,61 @@ public partial class DesignerViewModel : ObservableObject, IDisposable
             _logger.LogError(ex, "Error browsing images for element: {ElementName}", element?.Name);
             await _dialogService.ShowErrorAsync(
                 $"Failed to open media browser:\n\n{ex.Message}",
+                "Error");
+        }
+    }
+
+    /// <summary>
+    /// Opens the QR Code Properties Dialog to edit QR code configuration
+    /// </summary>
+    [RelayCommand]
+    private async Task EditQRCodePropertiesAsync(DisplayElement? element)
+    {
+        if (element == null || element.Type != "qrcode")
+        {
+            _logger.LogWarning("EditQRCodeProperties called with null or non-qrcode element");
+            return;
+        }
+
+        try
+        {
+            _logger.LogInformation("Opening QR code properties editor for element: {ElementName}", element.Name);
+
+            // Create ViewModel with required dependencies
+            var viewModelLogger = _serviceProvider.GetRequiredService<ILogger<QRCodePropertiesViewModel>>();
+            var viewModel = new QRCodePropertiesViewModel(viewModelLogger);
+
+            // Load current properties from element
+            viewModel.LoadFromElement(element);
+
+            // Create and show dialog
+            var dialog = new Views.Dialogs.QRCodePropertiesDialog(viewModel)
+            {
+                Owner = System.Windows.Application.Current.MainWindow
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                _logger.LogInformation("QR code properties updated");
+
+                // Apply updated properties to element
+                viewModel.ApplyToElement(element);
+
+                // Mark as having unsaved changes
+                HasUnsavedChanges = true;
+
+                _logger.LogInformation("QR code properties updated successfully for element {ElementName}", element.Name);
+            }
+            else
+            {
+                _logger.LogInformation("QR code properties editor cancelled");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error editing QR code properties for element: {ElementName}", element?.Name);
+            await _dialogService.ShowErrorAsync(
+                $"Failed to edit QR code properties:\n\n{ex.Message}",
                 "Error");
         }
     }

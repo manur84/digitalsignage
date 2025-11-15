@@ -1168,9 +1168,13 @@ class DisplayRenderer(QWidget):
                 except (ValueError, TypeError):
                     logger.warning(f"Invalid Rotation value: {rotation}")
 
-            # Shadow Effect
-            shadow_enabled = properties.get('ShadowEnabled', False)
-            if shadow_enabled:
+            # Shadow Effect - Server uses 'EnableShadow' property
+            # Support legacy property names for backwards compatibility
+            enable_shadow = properties.get('EnableShadow', False)
+            has_shadow = properties.get('HasShadow', False)  # Alternative property name
+            shadow_enabled = properties.get('ShadowEnabled', False)  # Legacy
+
+            if enable_shadow or has_shadow or shadow_enabled:
                 try:
                     shadow = QGraphicsDropShadowEffect()
 
@@ -1178,14 +1182,17 @@ class DisplayRenderer(QWidget):
                     shadow_color = properties.get('ShadowColor', '#000000')
                     shadow.setColor(QColor(shadow_color))
 
-                    # Shadow Blur Radius
-                    shadow_blur = properties.get('ShadowBlur', 10)
+                    # Shadow Blur Radius - Server uses 'ShadowBlur' property
+                    shadow_blur = properties.get('ShadowBlur', 5.0)
+                    # Fallback to alternative property names
+                    if shadow_blur == 5.0:
+                        shadow_blur = properties.get('ShadowBlurRadius', 5.0)
                     try:
                         shadow_blur = float(shadow_blur)
                         shadow.setBlurRadius(shadow_blur)
                     except (ValueError, TypeError):
                         logger.warning(f"Invalid ShadowBlur: {shadow_blur}")
-                        shadow.setBlurRadius(10)
+                        shadow.setBlurRadius(5.0)
 
                     # Shadow Offset
                     shadow_offset_x = properties.get('ShadowOffsetX', 5)

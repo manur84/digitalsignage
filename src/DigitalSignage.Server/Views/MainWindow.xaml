@@ -588,9 +588,10 @@
                                             <!-- CRITICAL: Bind Canvas position to element Position properties -->
                                             <Setter Property="Canvas.Left" Value="{Binding Position.X}"/>
                                             <Setter Property="Canvas.Top" Value="{Binding Position.Y}"/>
+                                            <!-- CRITICAL: Bind Canvas.ZIndex for proper layer ordering -->
+                                            <Setter Property="Canvas.ZIndex" Value="{Binding ZIndex}"/>
                                         </Style>
-                                    </ItemsControl.ItemContainerStyle>
-                                    <ItemsControl.ItemTemplate>
+                                    </ItemsControl.ItemContainerStyle>                                    <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <!-- Use DesignerItemControl for professional rendering -->
                                             <controls:DesignerItemControl
