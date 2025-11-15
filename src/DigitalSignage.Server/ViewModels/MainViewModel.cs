@@ -43,13 +43,13 @@ public partial class MainViewModel : ObservableObject, IDisposable
     // Existing Sub-ViewModels
     public DesignerViewModel Designer { get; }
     public DeviceManagementViewModel DeviceManagement { get; }
-    public DataSourceViewModel DataSourceViewModel { get; }
     public PreviewViewModel PreviewViewModel { get; }
     public SchedulingViewModel SchedulingViewModel { get; }
     public MediaLibraryViewModel MediaLibraryViewModel { get; }
     public LogViewerViewModel LogViewerViewModel { get; }
     public LiveLogsViewModel LiveLogsViewModel { get; }
     public AlertsViewModel Alerts { get; }
+    public SqlDataSourcesViewModel SqlDataSources { get; }
 
     // Unified Status Text (aggregated from sub-ViewModels)
     [ObservableProperty]
@@ -61,13 +61,13 @@ public partial class MainViewModel : ObservableObject, IDisposable
         DiagnosticsViewModel diagnosticsViewModel,
         DesignerViewModel designerViewModel,
         DeviceManagementViewModel deviceManagementViewModel,
-        DataSourceViewModel dataSourceViewModel,
         PreviewViewModel previewViewModel,
         SchedulingViewModel schedulingViewModel,
         MediaLibraryViewModel mediaLibraryViewModel,
         LogViewerViewModel logViewerViewModel,
         LiveLogsViewModel liveLogsViewModel,
         AlertsViewModel alertsViewModel,
+        SqlDataSourcesViewModel sqlDataSourcesViewModel,
         SettingsViewModel settingsViewModel,
         BackupService backupService,
         IDialogService dialogService,
@@ -83,13 +83,13 @@ public partial class MainViewModel : ObservableObject, IDisposable
         // Existing Sub-ViewModels
         Designer = designerViewModel ?? throw new ArgumentNullException(nameof(designerViewModel));
         DeviceManagement = deviceManagementViewModel ?? throw new ArgumentNullException(nameof(deviceManagementViewModel));
-        DataSourceViewModel = dataSourceViewModel ?? throw new ArgumentNullException(nameof(dataSourceViewModel));
         PreviewViewModel = previewViewModel ?? throw new ArgumentNullException(nameof(previewViewModel));
         SchedulingViewModel = schedulingViewModel ?? throw new ArgumentNullException(nameof(schedulingViewModel));
         MediaLibraryViewModel = mediaLibraryViewModel ?? throw new ArgumentNullException(nameof(mediaLibraryViewModel));
         LogViewerViewModel = logViewerViewModel ?? throw new ArgumentNullException(nameof(logViewerViewModel));
         LiveLogsViewModel = liveLogsViewModel ?? throw new ArgumentNullException(nameof(liveLogsViewModel));
         Alerts = alertsViewModel ?? throw new ArgumentNullException(nameof(alertsViewModel));
+        SqlDataSources = sqlDataSourcesViewModel ?? throw new ArgumentNullException(nameof(sqlDataSourcesViewModel));
 
         _settingsViewModel = settingsViewModel ?? throw new ArgumentNullException(nameof(settingsViewModel));
         _backupService = backupService ?? throw new ArgumentNullException(nameof(backupService));
@@ -607,9 +607,6 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
             if (DeviceManagement is IDisposable deviceManagementDisposable)
                 deviceManagementDisposable.Dispose();
-
-            if (DataSourceViewModel is IDisposable dataSourceDisposable)
-                dataSourceDisposable.Dispose();
 
             if (PreviewViewModel is IDisposable previewDisposable)
                 previewDisposable.Dispose();

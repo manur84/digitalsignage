@@ -124,7 +124,6 @@ public partial class App : Application
                 services.AddSingleton<DesignerViewModel>(); // CRITICAL: Must be Singleton so MainViewModel and LayoutManagementViewModel share the SAME instance!
                 services.AddTransient<DeviceManagementViewModel>();
                 services.AddTransient<DiscoveredDevicesViewModel>();
-                services.AddTransient<DataSourceViewModel>();
                 services.AddTransient<PreviewViewModel>();
                 services.AddTransient<SchedulingViewModel>();
                 services.AddTransient<MediaLibraryViewModel>();
@@ -138,6 +137,7 @@ public partial class App : Application
                 services.AddTransient<TokenManagementViewModel>();
                 services.AddTransient<SystemDiagnosticsViewModel>();
                 services.AddTransient<DataMappingViewModel>();
+                services.AddTransient<SqlDataSourcesViewModel>();
 
                 // Register LiveLogsViewModel as singleton with shared log collection
                 services.AddSingleton<LiveLogsViewModel>(sp =>
@@ -172,8 +172,9 @@ public partial class App : Application
                 services.AddSingleton<NetworkScannerService>();
                 services.AddSingleton<SystemDiagnosticsService>();
 
-                // Register Repositories
-                services.AddSingleton<DataSourceRepository>();
+                // SQL Data Source Services
+                services.AddSingleton<ISqlDataSourceService, SqlDataSourceService>();
+                services.AddSingleton<DataSourceManager>();
 
                 // Register Background Services
                 services.AddHostedService<DataRefreshService>();
