@@ -152,23 +152,9 @@ public class DesignerItemControl : ContentControl
 
     private void OnPositionChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        if (DisplayElement != null)
-        {
-            // Check if already on UI thread to avoid unnecessary context switch
-            if (Dispatcher.CheckAccess())
-            {
-                Canvas.SetLeft(this, DisplayElement.Position.X);
-                Canvas.SetTop(this, DisplayElement.Position.Y);
-            }
-            else
-            {
-                Dispatcher.InvokeAsync(() =>
-                {
-                    Canvas.SetLeft(this, DisplayElement.Position.X);
-                    Canvas.SetTop(this, DisplayElement.Position.Y);
-                });
-            }
-        }
+        // Position updates are handled automatically by XAML binding in ItemContainerStyle
+        // Canvas.Left and Canvas.Top are bound to Position.X and Position.Y
+        // No manual updates needed - PropertyChanged notifications trigger binding updates
     }
 
     private void OnSizeChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -217,9 +203,7 @@ public class DesignerItemControl : ContentControl
         Width = DisplayElement.Size.Width;
         Height = DisplayElement.Size.Height;
 
-        // Set Canvas position
-        Canvas.SetLeft(this, DisplayElement.Position.X);
-        Canvas.SetTop(this, DisplayElement.Position.Y);
+        // Set ZIndex (Position is handled by XAML binding in ItemContainerStyle)
         Panel.SetZIndex(this, DisplayElement.ZIndex);
 
         // Apply visual effects (rotation, shadow, opacity)
