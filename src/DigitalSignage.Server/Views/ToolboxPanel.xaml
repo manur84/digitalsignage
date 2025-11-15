@@ -66,6 +66,13 @@
                             Padding="8">
                         <TextBlock Text="☰" FontSize="20"/>
                     </Button>
+                    <Button ToolTip="DataGrid (SQL Data Source)"
+                            Command="{Binding AddDataGridElementCommand}"
+                            Style="{StaticResource SecondaryButton}"
+                            Margin="0,4"
+                            Padding="8">
+                        <TextBlock Text="📊" FontSize="18"/>
+                    </Button>
                     <Button ToolTip="Date/Time"
                             Command="{Binding AddDateTimeElementCommand}"
                             Style="{StaticResource SecondaryButton}"
