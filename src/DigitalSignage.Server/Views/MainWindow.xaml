@@ -582,30 +582,35 @@
                                 <!-- Render all elements using DesignerItemControl (professional WYSIWYG rendering) -->
                                 <!-- CRITICAL FIX: ItemsControl MUST have explicit Width/Height when child of Canvas! -->
                                 <!-- Without size, ItemsControl renders at 0x0 and clips all children -->
+                                <!-- FallbackValue ensures minimum size if binding fails -->
                                 <ItemsControl ItemsSource="{Binding Designer.Elements}"
-                                              Width="{Binding Designer.CurrentLayout.Resolution.Width}"
-                                              Height="{Binding Designer.CurrentLayout.Resolution.Height}">
+                                              Width="{Binding Designer.CurrentLayout.Resolution.Width, FallbackValue=1920}"
+                                              Height="{Binding Designer.CurrentLayout.Resolution.Height, FallbackValue=1080}">
                                     <!-- CRITICAL FIX: ItemsPanel MUST be Canvas for Canvas.Left/Top/ZIndex to work! -->
                                     <!-- CRITICAL FIX: Canvas MUST have explicit size or children won't render (0x0 clip bounds)! -->
+                                    <!-- CRITICAL FIX: FallbackValue ensures Canvas has size even if binding fails -->
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
-                                            <Canvas Width="{Binding DataContext.Designer.CurrentLayout.Resolution.Width, RelativeSource={RelativeSource AncestorType=controls:DesignerCanvas}}"
-                                                    Height="{Binding DataContext.Designer.CurrentLayout.Resolution.Height, RelativeSource={RelativeSource AncestorType=controls:DesignerCanvas}}"/>
+                                            <Canvas Width="{Binding DataContext.Designer.CurrentLayout.Resolution.Width, RelativeSource={RelativeSource AncestorType=controls:DesignerCanvas}, FallbackValue=1920}"
+                                                    Height="{Binding DataContext.Designer.CurrentLayout.Resolution.Height, RelativeSource={RelativeSource AncestorType=controls:DesignerCanvas}, FallbackValue=1080}"/>
                                         </ItemsPanelTemplate>
                                     </ItemsControl.ItemsPanel>
                                     <ItemsControl.ItemContainerStyle>
                                         <Style TargetType="ContentPresenter">
                                             <!-- CRITICAL: Bind Canvas position to element Position properties -->
-                                            <Setter Property="Canvas.Left" Value="{Binding Position.X}"/>
-                                            <Setter Property="Canvas.Top" Value="{Binding Position.Y}"/>
+                                            <Setter Property="Canvas.Left" Value="{Binding Position.X, FallbackValue=0, TargetNullValue=0}"/>
+                                            <Setter Property="Canvas.Top" Value="{Binding Position.Y, FallbackValue=0, TargetNullValue=0}"/>
                                             <!-- CRITICAL: Bind Canvas.ZIndex for proper layer ordering -->
                                             <Setter Property="Canvas.ZIndex" Value="{Binding ZIndex}"/>
                                             <!-- CRITICAL FIX: ContentPresenter MUST have Width/Height for elements to render! -->
                                             <!-- Without this, ActualWidth/ActualHeight are 0 and elements are invisible -->
-                                            <Setter Property="Width" Value="{Binding Size.Width}"/>
-                                            <Setter Property="Height" Value="{Binding Size.Height}"/>
+                                            <!-- FallbackValue ensures minimum size if binding fails -->
+                                            <Setter Property="Width" Value="{Binding Size.Width, FallbackValue=100, TargetNullValue=100}"/>
+                                            <Setter Property="Height" Value="{Binding Size.Height, FallbackValue=100, TargetNullValue=100}"/>
                                             <!-- CRITICAL FIX: Bind Visibility so elements can be hidden/shown -->
-                                            <Setter Property="Visibility" Value="{Binding Visible, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                            <!-- FallbackValue=Visible ensures elements are visible if binding fails -->
+                                            <!-- TargetNullValue=Visible handles null Visible property gracefully -->
+                                            <Setter Property="Visibility" Value="{Binding Visible, Converter={StaticResource BoolToVisibilityConverter}, FallbackValue=Visible, TargetNullValue=Visible}"/>
                                         </Style>
                                     </ItemsControl.ItemContainerStyle>
                                     <ItemsControl.ItemTemplate>
