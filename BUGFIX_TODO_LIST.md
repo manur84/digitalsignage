@@ -1,7 +1,7 @@
 # 🔧 Bug Fix TODO List - Actionable Tasks
 ## Digital Signage Projekt - Priorisierte Aufgabenliste
 
-**Status:** 🟢 **2 von 67 Issues behoben** (3% Complete)
+**Status:** 🟢 **3 von 67 Issues behoben** (4.5% Complete)
 **Letzte Aktualisierung:** 2025-11-15
 
 ---
@@ -120,7 +120,7 @@ public class ClientService : IClientService, IDisposable
 **Datei:** `src/DigitalSignage.Server/Services/WebSocketCommunicationService.cs`
 **Priorität:** 🔴 CRITICAL
 **Aufwand:** 1h
-**Status:** ❌ TODO
+**Status:** ✅ DONE (2025-11-15)
 
 **Änderungen:**
 ```csharp
@@ -172,9 +172,19 @@ public async Task StopAsync(CancellationToken cancellationToken = default)
 ```
 
 **Testplan:**
-- [ ] Server Start → Stop → Start wieder möglich
-- [ ] Port-Blocking prüfen nach Stop
-- [ ] Graceful shutdown mit verbundenen Clients testen
+- [x] Server Start → Stop → Start wieder möglich
+- [x] Port-Blocking prüfen nach Stop
+- [x] Graceful shutdown mit verbundenen Clients testen
+
+**Implementiert:**
+- ✅ IDisposable Interface hinzugefügt
+- ✅ Dispose-Pattern korrekt implementiert
+- ✅ HttpListener.Close() + Dispose() in StopAsync
+- ✅ CancellationTokenSource.Dispose() in StopAsync
+- ✅ Graceful WebSocket close für alle Clients
+- ✅ Error Handling für Shutdown-Fehler
+- ✅ ThrowIfDisposed() zu StartAsync, StopAsync, SendMessageAsync
+- ✅ Comprehensive logging für alle Shutdown-Schritte
 
 ---
 
