@@ -7,6 +7,7 @@ using DigitalSignage.Core.Models;
 using Serilog;
 using System.Security.Cryptography;
 using System.Text;
+using System.IO;
 
 namespace DigitalSignage.Server.Services;
 
@@ -27,64 +28,117 @@ public class DatabaseInitializationService : IHostedService
     public async Task StartAsync(CancellationToken cancellationToken)
     {
         _logger.Information("Starting database initialization...");
+        _logger.Information("Working directory: {WorkingDirectory}", Directory.GetCurrentDirectory());
 
         try
         {
             using var scope = _serviceProvider.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<DigitalSignageDbContext>();
 
+            // Get connection string for logging
+            var connectionString = dbContext.Database.GetConnectionString();
+            _logger.Information("Database connection string: {ConnectionString}", connectionString);
+
+            // Resolve absolute path for database file
+            string? dbPath = null;
+            if (connectionString?.Contains("Data Source=") == true)
+            {
+                var parts = connectionString.Split("Data Source=", StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length > 0)
+                {
+                    var dbFile = parts[1].Split(';')[0].Trim();
+                    dbPath = Path.IsPathRooted(dbFile)
+                        ? dbFile
+                        : Path.Combine(Directory.GetCurrentDirectory(), dbFile);
+                    _logger.Information("Database file path: {DatabasePath}", dbPath);
+                    _logger.Information("Database file exists: {Exists}", File.Exists(dbPath));
+                }
+            }
+
             // Apply database migrations automatically
             _logger.Information("Checking for pending database migrations...");
 
-            try
+            // Get all migrations
+            var allMigrations = dbContext.Database.GetMigrations();
+            var appliedMigrations = await dbContext.Database.GetAppliedMigrationsAsync(cancellationToken);
+            var pendingMigrations = await dbContext.Database.GetPendingMigrationsAsync(cancellationToken);
+
+            _logger.Information("Total migrations: {Total}", allMigrations.Count());
+            _logger.Information("Applied migrations: {Applied}", appliedMigrations.Count());
+            _logger.Information("Pending migrations: {Pending}", pendingMigrations.Count());
+
+            // If no migrations have been applied yet, the database doesn't exist
+            // MigrateAsync will create it and apply all migrations
+            if (!appliedMigrations.Any())
             {
-                // Check if database exists
-                var canConnect = await dbContext.Database.CanConnectAsync(cancellationToken);
-                _logger.Information("Database connection status: {Status}", canConnect ? "Connected" : "Not found");
-
-                if (!canConnect)
-                {
-                    _logger.Information("Database does not exist. Creating database...");
-                    await dbContext.Database.MigrateAsync(cancellationToken);
-                    _logger.Information("Database created successfully");
-                }
-                else
-                {
-                    var pendingMigrations = await dbContext.Database.GetPendingMigrationsAsync(cancellationToken);
-                    if (pendingMigrations.Any())
-                    {
-                        _logger.Information("Applying {Count} pending migrations: {Migrations}",
-                            pendingMigrations.Count(),
-                            string.Join(", ", pendingMigrations));
-
-                        await dbContext.Database.MigrateAsync(cancellationToken);
-
-                        _logger.Information("Database migrations applied successfully");
-                    }
-                    else
-                    {
-                        _logger.Information("Database is up to date - no pending migrations");
-                    }
-                }
+                _logger.Information("No migrations applied yet - database will be created from scratch");
             }
-            catch (Exception migrationEx)
+
+            if (pendingMigrations.Any())
             {
-                _logger.Error(migrationEx, "Failed to apply database migrations");
-                _logger.Error("Migration error details: {Message}", migrationEx.Message);
-                _logger.Error("Stack trace: {StackTrace}", migrationEx.StackTrace);
-                throw; // Rethrow to prevent startup with broken database
+                _logger.Information("Applying {Count} pending migrations:", pendingMigrations.Count());
+                foreach (var migration in pendingMigrations)
+                {
+                    _logger.Information("  - {Migration}", migration);
+                }
+
+                await dbContext.Database.MigrateAsync(cancellationToken);
+
+                _logger.Information("Database migrations applied successfully");
+            }
+            else
+            {
+                _logger.Information("Database is up to date - no pending migrations");
+            }
+
+            // Verify database exists now
+            var canConnect = await dbContext.Database.CanConnectAsync(cancellationToken);
+            _logger.Information("Database connection verification: {Status}", canConnect ? "SUCCESS" : "FAILED");
+
+            if (!canConnect)
+            {
+                var errorMsg = "CRITICAL: Database exists but cannot connect! Check connection string and permissions.";
+                _logger.Error(errorMsg);
+                throw new InvalidOperationException(errorMsg);
             }
 
             // Seed default data
             await SeedDefaultDataAsync(dbContext, cancellationToken);
 
-            _logger.Information("Database initialization completed successfully");
+            _logger.Information("==========================================================");
+            _logger.Information("DATABASE INITIALIZATION COMPLETED SUCCESSFULLY");
+            if (dbPath != null)
+            {
+                _logger.Information("Database location: {DatabasePath}", dbPath);
+                _logger.Information("Database size: {Size} bytes", new FileInfo(dbPath).Length);
+            }
+            _logger.Information("==========================================================");
         }
         catch (Exception ex)
         {
-            _logger.Error(ex, "Failed to initialize database");
-            // Don't throw - allow application to start even if DB initialization fails
-            // This allows manual fixes or configuration changes
+            _logger.Fatal(ex, "CRITICAL: Database initialization FAILED!");
+            _logger.Fatal("Error type: {ErrorType}", ex.GetType().FullName);
+            _logger.Fatal("Error message: {Message}", ex.Message);
+            _logger.Fatal("Stack trace: {StackTrace}", ex.StackTrace);
+
+            if (ex.InnerException != null)
+            {
+                _logger.Fatal("Inner exception: {InnerMessage}", ex.InnerException.Message);
+                _logger.Fatal("Inner stack trace: {InnerStackTrace}", ex.InnerException.StackTrace);
+            }
+
+            _logger.Fatal("==========================================================");
+            _logger.Fatal("DATABASE INITIALIZATION FAILED - APPLICATION CANNOT START");
+            _logger.Fatal("Common solutions:");
+            _logger.Fatal("1. Check database file permissions");
+            _logger.Fatal("2. Ensure no other process has the database file locked");
+            _logger.Fatal("3. Verify the connection string in appsettings.json");
+            _logger.Fatal("4. Run: dotnet ef database update --startup-project src/DigitalSignage.Server");
+            _logger.Fatal("5. Or use the PowerShell script: .\\create-database.ps1");
+            _logger.Fatal("==========================================================");
+
+            // CRITICAL: Rethrow to prevent startup without database
+            throw;
         }
     }
 
