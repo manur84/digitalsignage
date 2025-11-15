@@ -611,13 +611,11 @@
                                     <!-- NOTE: Canvas positioning bindings handled by DesignerItemsControl.PrepareContainerForItemOverride() -->
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <!-- Width/Height bindings keep DesignerItemControl content sized -->
+                                            <!-- Container handles Width/Height; control just renders content -->
                                             <controls:DesignerItemControl
                                                 DisplayElement="{Binding}"
                                                 IsSelected="{Binding IsSelected}"
                                                 Tag="{Binding}"
-                                                Width="{Binding Size.Width}"
-                                                Height="{Binding Size.Height}"
                                                 Cursor="Hand"
                                                 MouseLeftButtonDown="Element_MouseLeftButtonDown"
                                                 MouseMove="Element_MouseMove"

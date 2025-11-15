@@ -72,10 +72,9 @@ public class DesignerItemControl : ContentControl
         MinWidth = 10;
         MinHeight = 10;
 
-        // DIAGNOSTIC: Bright red background to verify rendering (REMOVE AFTER DEBUGGING)
-        Background = Brushes.Red;
-        BorderBrush = Brushes.Blue;
-        BorderThickness = new Thickness(3);
+        Background = Brushes.Transparent;
+        BorderBrush = Brushes.Transparent;
+        BorderThickness = new Thickness(0);
         Opacity = 1.0;
 
         // Canvas position (Canvas.Left/Top/ZIndex) is now handled by XAML data binding
