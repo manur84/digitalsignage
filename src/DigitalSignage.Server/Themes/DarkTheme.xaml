@@ -1,0 +1,81 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Dark Theme Colors -->
+    <Color x:Key="PrimaryColorValue">#3A9AD9</Color>
+    <Color x:Key="SecondaryColorValue">#8B4FC6</Color>
+    <Color x:Key="AccentColorValue">#FF8585</Color>
+    <Color x:Key="BackgroundColorValue">#1E1E1E</Color>
+    <Color x:Key="SurfaceColorValue">#2D2D30</Color>
+    <Color x:Key="TextColorValue">#E0E0E0</Color>
+    <Color x:Key="TextSecondaryColorValue">#A0A0A0</Color>
+    <Color x:Key="BorderColorValue">#3F3F46</Color>
+    <Color x:Key="HoverColorValue">#3E3E42</Color>
+    <Color x:Key="PressedColorValue">#4E4E52</Color>
+
+    <!-- Brushes -->
+    <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource PrimaryColorValue}"/>
+    <SolidColorBrush x:Key="SecondaryBrush" Color="{StaticResource SecondaryColorValue}"/>
+    <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColorValue}"/>
+    <SolidColorBrush x:Key="BackgroundBrush" Color="{StaticResource BackgroundColorValue}"/>
+    <SolidColorBrush x:Key="SurfaceBrush" Color="{StaticResource SurfaceColorValue}"/>
+    <SolidColorBrush x:Key="TextBrush" Color="{StaticResource TextColorValue}"/>
+    <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource TextSecondaryColorValue}"/>
+    <SolidColorBrush x:Key="BorderBrush" Color="{StaticResource BorderColorValue}"/>
+    <SolidColorBrush x:Key="HoverBrush" Color="{StaticResource HoverColorValue}"/>
+    <SolidColorBrush x:Key="PressedBrush" Color="{StaticResource PressedColorValue}"/>
+
+    <!-- Window Styles -->
+    <Style TargetType="Window">
+        <Setter Property="Background" Value="{StaticResource BackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+    </Style>
+
+    <!-- TextBlock Styles -->
+    <Style TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+    </Style>
+
+    <!-- TextBox Styles -->
+    <Style TargetType="TextBox">
+        <Setter Property="Background" Value="{StaticResource SurfaceBrush}"/>
+        <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+        <Setter Property="CaretBrush" Value="{StaticResource TextBrush}"/>
+    </Style>
+
+    <!-- ComboBox Styles -->
+    <Style TargetType="ComboBox">
+        <Setter Property="Background" Value="{StaticResource SurfaceBrush}"/>
+        <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+    </Style>
+
+    <!-- ListBox Styles -->
+    <Style TargetType="ListBox">
+        <Setter Property="Background" Value="{StaticResource SurfaceBrush}"/>
+        <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+    </Style>
+
+    <!-- DataGrid Styles -->
+    <Style TargetType="DataGrid">
+        <Setter Property="Background" Value="{StaticResource SurfaceBrush}"/>
+        <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+        <Setter Property="RowBackground" Value="{StaticResource SurfaceBrush}"/>
+        <Setter Property="AlternatingRowBackground" Value="#252526"/>
+    </Style>
+
+    <!-- GroupBox Styles -->
+    <Style TargetType="GroupBox">
+        <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+        <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+    </Style>
+
+    <!-- Label Styles -->
+    <Style TargetType="Label">
+        <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+    </Style>
+
+</ResourceDictionary>

@@ -129,6 +129,8 @@
                 <MenuItem Header="Show _Grid" IsCheckable="True" IsChecked="{Binding Designer.ShowGrid}"/>
                 <MenuItem Header="Show _Rulers" IsCheckable="True" IsChecked="{Binding ShowRulers}"/>
                 <MenuItem Header="Snap to Grid" IsCheckable="True" IsChecked="{Binding Designer.SnapToGrid}"/>
+                <Separator/>
+                <MenuItem Header="Toggle _Theme (Light/Dark)" Command="{Binding ToggleThemeCommand}" Icon="🌓"/>
             </MenuItem>
             <MenuItem Header="_Tools">
                 <MenuItem Header="_Database Connection" Command="{Binding Diagnostics.DatabaseConnectionCommand}" Icon="🗄"/>

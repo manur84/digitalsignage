@@ -173,6 +173,7 @@ public partial class App : Application
                 services.AddSingleton<BackupService>();
                 services.AddSingleton<NetworkScannerService>();
                 services.AddSingleton<SystemDiagnosticsService>();
+                services.AddSingleton<ThemeService>();
 
                 // SQL Data Source Services
                 services.AddSingleton<ISqlDataSourceService, SqlDataSourceService>();

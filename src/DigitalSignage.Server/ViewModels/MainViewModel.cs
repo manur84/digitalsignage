@@ -20,6 +20,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private readonly ILogger<Views.Dialogs.SettingsDialog> _settingsDialogLogger;
     private readonly IDialogService _dialogService;
     private readonly IServiceProvider _serviceProvider;
+    private readonly ThemeService _themeService;
     private bool _disposed = false;
 
     // View Options
@@ -70,6 +71,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         SqlDataSourcesViewModel sqlDataSourcesViewModel,
         SettingsViewModel settingsViewModel,
         BackupService backupService,
+        ThemeService themeService,
         IDialogService dialogService,
         IServiceProvider serviceProvider,
         ILogger<MainViewModel> logger,
@@ -93,6 +95,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
         _settingsViewModel = settingsViewModel ?? throw new ArgumentNullException(nameof(settingsViewModel));
         _backupService = backupService ?? throw new ArgumentNullException(nameof(backupService));
+        _themeService = themeService ?? throw new ArgumentNullException(nameof(themeService));
         _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
         _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -293,6 +296,26 @@ public partial class MainViewModel : ObservableObject, IDisposable
         // Switch to Logs tab - assuming TabControl can be accessed
         StatusText = "Check the 'Logs' tab for application logs";
         _logger.LogInformation("User requested logs view");
+    }
+
+    /// <summary>
+    /// Toggles between Light and Dark theme
+    /// </summary>
+    [RelayCommand]
+    private void ToggleTheme()
+    {
+        try
+        {
+            _themeService.ToggleTheme();
+            var currentTheme = _themeService.CurrentTheme;
+            StatusText = $"Switched to {currentTheme} theme";
+            _logger.LogInformation("Theme toggled to: {Theme}", currentTheme);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error toggling theme");
+            StatusText = $"Error toggling theme: {ex.Message}";
+        }
     }
 
     [RelayCommand]
