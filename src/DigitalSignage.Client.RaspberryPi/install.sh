@@ -1033,42 +1033,50 @@ if [ "$DEPLOYMENT_MODE" = "1" ]; then
 
     NEEDS_REBOOT=false
 
-    # Auto-login to desktop (default behavior, no optional desktop disable)
+    # CRITICAL FIX: Boot to Console (not Desktop) for Digital Signage
+    # B2 = Console with autologin (NO desktop environment)
+    # This prevents desktop terminal from appearing over the Digital Signage client
+    # X11 will be started by systemd service WITHOUT desktop environment
     if command -v raspi-config &>/dev/null; then
         CURRENT_BOOT=$(raspi-config nonint get_boot_behaviour 2>/dev/null || echo "unknown")
-        if [ "$CURRENT_BOOT" != "B4" ]; then
-            raspi-config nonint do_boot_behaviour B4 2>/dev/null
-            show_success "Auto-login enabled (desktop)"
+        if [ "$CURRENT_BOOT" != "B2" ]; then
+            raspi-config nonint do_boot_behaviour B2 2>/dev/null
+            show_success "Auto-login enabled (console mode - no desktop)"
+            show_info "X11 will be started by systemd service for Digital Signage only"
             NEEDS_REBOOT=true
         else
-            show_info "Auto-login already enabled"
+            show_info "Console auto-login already enabled"
         fi
     fi
 
-    # LightDM
-    if [ -f /etc/lightdm/lightdm.conf ]; then
-        if ! grep -q "^autologin-user=$ACTUAL_USER" /etc/lightdm/lightdm.conf; then
-            [ ! -f /etc/lightdm/lightdm.conf.backup ] && cp /etc/lightdm/lightdm.conf /etc/lightdm/lightdm.conf.backup
-            sed -i "s/^#autologin-user=.*/autologin-user=$ACTUAL_USER/" /etc/lightdm/lightdm.conf
-            sed -i "s/^autologin-user=.*/autologin-user=$ACTUAL_USER/" /etc/lightdm/lightdm.conf
-            show_success "LightDM configured"
-            NEEDS_REBOOT=true
-        fi
-    fi
+    # NOTE: LightDM configuration skipped - we boot to console (B2), not desktop
+    # X11 is started manually by systemd service WITHOUT desktop environment
+    # This prevents desktop components (like terminal windows) from interfering
+    show_info "Skipping LightDM config (console mode - no display manager needed)"
 
-    # .xinitrc
-    if [ ! -f "$USER_HOME/.xinitrc" ] || ! grep -q "xset -dpms" "$USER_HOME/.xinitrc"; then
+    # CRITICAL FIX: .xinitrc for Digital Signage client
+    # This starts X11 WITHOUT desktop environment and runs the client as the only GUI app
+    if [ ! -f "$USER_HOME/.xinitrc" ] || ! grep -q "digitalsignage" "$USER_HOME/.xinitrc"; then
         cat > "$USER_HOME/.xinitrc" <<'EOF'
 #!/bin/sh
+# Digital Signage Client - X11 startup without desktop environment
+# This provides pure X11 display for the Digital Signage client only
+
+# Disable screen blanking and power management
 xset -dpms
 xset s off
 xset s noblank
+
+# Hide mouse cursor
 unclutter -idle 0.1 -root &
-exec tail -f /dev/null
+
+# CRITICAL: Start Digital Signage client as the ONLY GUI application
+# When client exits, X11 session ends and systemd will restart it
+exec /opt/digitalsignage-client/start-with-display.sh
 EOF
         chown "$ACTUAL_USER:$ACTUAL_USER" "$USER_HOME/.xinitrc"
         chmod +x "$USER_HOME/.xinitrc"
-        show_success "X11 configuration created"
+        show_success "X11 configuration created for Digital Signage client"
     fi
 
     # Update /boot/config.txt with detected HDMI modes

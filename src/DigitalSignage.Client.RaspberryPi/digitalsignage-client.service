@@ -14,18 +14,18 @@ Environment="QT_LOGGING_RULES=*.debug=false"
 Environment="DISPLAY=:0"
 Environment="XAUTHORITY=/home/INSTALL_USER/.Xauthority"
 
-# CRITICAL FIX: Wait for X11 AND desktop environment to be fully ready
-# Problem: X11 may be running but desktop not yet loaded → PyQt5 window invisible
-# Solution: Extended wait time + verification that desktop is actually usable
-ExecStartPre=/bin/bash -c 'echo "Waiting for X11 and desktop environment to be ready..."; for i in {1..45}; do if DISPLAY=:0 xset q &>/dev/null 2>&1 && DISPLAY=:0 xdpyinfo &>/dev/null 2>&1; then if [ $i -gt 15 ]; then echo "X11 and desktop ready after $i seconds (waited for desktop)"; sleep 5; else echo "X11 ready after $i seconds"; fi; exit 0; fi; echo "Waiting for X11 and desktop... ($i/45)"; sleep 1; done; echo "WARNING: X11 not detected after 45s, will use Xvfb fallback"; exit 0'
-
 # Pre-start file checks
 ExecStartPre=/bin/bash -c 'test -f /opt/digitalsignage-client/start-with-display.sh || (echo "ERROR: start-with-display.sh not found" && exit 1)'
 ExecStartPre=/bin/bash -c 'test -x /opt/digitalsignage-client/start-with-display.sh || (echo "ERROR: start-with-display.sh not executable" && exit 1)'
 ExecStartPre=/bin/bash -c 'test -f /opt/digitalsignage-client/venv/bin/python3 || (echo "ERROR: Python venv not found" && exit 1)'
 
-# Start the client
-ExecStart=/opt/digitalsignage-client/start-with-display.sh
+# CRITICAL FIX: Start X11 without desktop environment if not running (for HDMI displays)
+# This prevents desktop terminal window from appearing over Digital Signage client
+# Two scenarios:
+#   1. X11 already running on :0 (desktop booted) → Use it directly with start-with-display.sh
+#   2. X11 not running (console boot) → Start X11 via startx with .xinitrc (no desktop)
+# The .xinitrc will execute start-with-display.sh as the ONLY GUI application
+ExecStart=/bin/bash -c 'if DISPLAY=:0 xset q &>/dev/null 2>&1; then echo "X11 detected on :0, using existing display"; exec /opt/digitalsignage-client/start-with-display.sh; else echo "No X11 detected, starting X11 without desktop via startx"; exec /usr/bin/startx /home/INSTALL_USER/.xinitrc -- :0 vt1 -nocursor; fi'
 
 # Cleanup
 ExecStopPost=/bin/bash -c 'pkill -f "Xvfb :99" || true'
