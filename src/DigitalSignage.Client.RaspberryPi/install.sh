@@ -1054,28 +1054,33 @@ if [ "$DEPLOYMENT_MODE" = "1" ]; then
         fi
     fi
 
-    # CRITICAL FIX: Create Desktop Autostart entry (THE STANDARD WAY)
-    # This is how Raspberry Pi Desktop applications are auto-started
-    # Much more reliable than systemd service on boot
-    AUTOSTART_DIR="$USER_HOME/.config/autostart"
-    mkdir -p "$AUTOSTART_DIR"
+    # CRITICAL FIX: Override LXDE autostart to DISABLE terminal and desktop components
+    # The default /etc/xdg/lxsession/LXDE-pi/autostart starts lxterminal automatically
+    # We create user-specific override to prevent this
+    LXDE_AUTOSTART_DIR="$USER_HOME/.config/lxsession/LXDE-pi"
+    mkdir -p "$LXDE_AUTOSTART_DIR"
 
-    # Create Digital Signage autostart desktop file
-    cat > "$AUTOSTART_DIR/digitalsignage-client.desktop" <<EOF
-[Desktop Entry]
-Type=Application
-Name=Digital Signage Client
-Comment=Digital Signage Display Client
-Exec=/opt/digitalsignage-client/start-with-display.sh
-Terminal=false
-Hidden=false
-NoDisplay=false
-X-GNOME-Autostart-enabled=true
-X-GNOME-Autostart-Delay=10
+    # Create LXDE autostart override (this REPLACES default autostart behavior)
+    cat > "$LXDE_AUTOSTART_DIR/autostart" <<'EOF'
+# Digital Signage - LXDE Autostart Override
+# This file PREVENTS default desktop components (terminal, taskbar, etc.)
+
+# Screen settings
+@xset s off
+@xset -dpms
+@xset s noblank
+
+# Hide cursor
+@unclutter -idle 0.1 -root
+
+# CRITICAL: Do NOT start lxterminal (default behavior)
+# CRITICAL: Do NOT start pcmanfm desktop
+# CRITICAL: Start Digital Signage client ONLY
+@/opt/digitalsignage-client/start-with-display.sh
 EOF
 
-    chown "$ACTUAL_USER:$ACTUAL_USER" "$AUTOSTART_DIR/digitalsignage-client.desktop"
-    show_success "Desktop autostart configured for Digital Signage client"
+    chown "$ACTUAL_USER:$ACTUAL_USER" "$LXDE_AUTOSTART_DIR/autostart"
+    show_success "LXDE autostart configured (terminal DISABLED, Digital Signage ONLY)"
 
     # Also disable pcmanfm desktop (file manager/desktop icons) to keep it clean
     PCMANFM_CONFIG="$USER_HOME/.config/pcmanfm/LXDE-pi/desktop-items-0.conf"
