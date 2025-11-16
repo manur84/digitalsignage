@@ -167,6 +167,46 @@ public class ClientService : IClientService, IDisposable
                     if (_clients.TryGetValue(dbClient.Id, out var cachedClient))
                     {
                         dbClient.Status = cachedClient.Status;
+
+                        // Preserve live device info (e.g. resolution) when DB entry is missing it
+                        if (cachedClient.DeviceInfo != null)
+                        {
+                            dbClient.DeviceInfo ??= new DeviceInfo();
+
+                            var cachedInfo = cachedClient.DeviceInfo;
+                            var dbInfo = dbClient.DeviceInfo;
+
+                            if (string.IsNullOrWhiteSpace(dbInfo.Hostname) && !string.IsNullOrWhiteSpace(cachedInfo.Hostname))
+                                dbInfo.Hostname = cachedInfo.Hostname;
+                            if (string.IsNullOrWhiteSpace(dbInfo.Model) && !string.IsNullOrWhiteSpace(cachedInfo.Model))
+                                dbInfo.Model = cachedInfo.Model;
+                            if (string.IsNullOrWhiteSpace(dbInfo.OsVersion) && !string.IsNullOrWhiteSpace(cachedInfo.OsVersion))
+                                dbInfo.OsVersion = cachedInfo.OsVersion;
+                            if (string.IsNullOrWhiteSpace(dbInfo.ClientVersion) && !string.IsNullOrWhiteSpace(cachedInfo.ClientVersion))
+                                dbInfo.ClientVersion = cachedInfo.ClientVersion;
+
+                            if (dbInfo.ScreenWidth <= 0 && cachedInfo.ScreenWidth > 0)
+                                dbInfo.ScreenWidth = cachedInfo.ScreenWidth;
+                            if (dbInfo.ScreenHeight <= 0 && cachedInfo.ScreenHeight > 0)
+                                dbInfo.ScreenHeight = cachedInfo.ScreenHeight;
+
+                            if (dbInfo.CpuTemperature <= 0 && cachedInfo.CpuTemperature > 0)
+                                dbInfo.CpuTemperature = cachedInfo.CpuTemperature;
+                            if (dbInfo.CpuUsage <= 0 && cachedInfo.CpuUsage > 0)
+                                dbInfo.CpuUsage = cachedInfo.CpuUsage;
+                            if (dbInfo.MemoryTotal <= 0 && cachedInfo.MemoryTotal > 0)
+                                dbInfo.MemoryTotal = cachedInfo.MemoryTotal;
+                            if (dbInfo.MemoryUsed <= 0 && cachedInfo.MemoryUsed > 0)
+                                dbInfo.MemoryUsed = cachedInfo.MemoryUsed;
+                            if (dbInfo.DiskTotal <= 0 && cachedInfo.DiskTotal > 0)
+                                dbInfo.DiskTotal = cachedInfo.DiskTotal;
+                            if (dbInfo.DiskUsed <= 0 && cachedInfo.DiskUsed > 0)
+                                dbInfo.DiskUsed = cachedInfo.DiskUsed;
+                            if (dbInfo.NetworkLatency <= 0 && cachedInfo.NetworkLatency > 0)
+                                dbInfo.NetworkLatency = cachedInfo.NetworkLatency;
+                            if (dbInfo.Uptime <= 0 && cachedInfo.Uptime > 0)
+                                dbInfo.Uptime = cachedInfo.Uptime;
+                        }
                     }
 
                     _clients[dbClient.Id] = dbClient;
