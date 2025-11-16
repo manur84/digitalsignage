@@ -274,6 +274,7 @@ if [ "$MODE" = "UPDATE" ]; then
     REQUIRED_FILES=(
         "client.py"
         "config.py"
+        "config_txt_manager.py"
         "discovery.py"
         "device_manager.py"
         "display_renderer.py"
@@ -666,6 +667,7 @@ show_step "Copying client files..."
 REQUIRED_FILES=(
     "client.py"
     "config.py"
+    "config_txt_manager.py"
     "discovery.py"
     "device_manager.py"
     "display_renderer.py"
@@ -1067,6 +1069,19 @@ EOF
         chown "$ACTUAL_USER:$ACTUAL_USER" "$USER_HOME/.xinitrc"
         chmod +x "$USER_HOME/.xinitrc"
         show_success "X11 configuration created"
+    fi
+
+    # Update /boot/config.txt with detected HDMI modes
+    if [ -f "$INSTALL_DIR/config_txt_manager.py" ]; then
+        echo ""
+        echo "Updating /boot/config.txt with detected display resolutions..."
+        if python3 "$INSTALL_DIR/config_txt_manager.py"; then
+            show_success "config.txt updated with detected modes"
+        else
+            show_warning "Could not update config.txt automatically. Run manually: sudo python3 $INSTALL_DIR/config_txt_manager.py"
+        fi
+    else
+        show_warning "config_txt_manager.py not found; skipping config.txt update"
     fi
 
     echo ""
