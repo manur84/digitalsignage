@@ -971,18 +971,14 @@ echo "  Starting Service"
 echo "════════════════════════════════════════════════════════════"
 echo ""
 
-systemctl enable $SERVICE_NAME
-show_success "Service enabled"
-
-systemctl start $SERVICE_NAME --no-block
-sleep 3
-
-if systemctl is-active --quiet $SERVICE_NAME || systemctl is-activating --quiet $SERVICE_NAME; then
-    show_success "Service started successfully"
-else
-    show_warning "Service failed to start"
-    echo "Check status: sudo systemctl status $SERVICE_NAME"
-fi
+# CRITICAL FIX: Do NOT enable/start service at boot
+# Problem: systemd service runs on Xvfb (:99) = invisible on HDMI display (:0)
+# Solution: Desktop autostart will launch client on real display (:0)
+systemctl disable $SERVICE_NAME 2>/dev/null || true
+systemctl stop $SERVICE_NAME 2>/dev/null || true
+show_success "Service installed (manual control only)"
+show_info "✓ Client will auto-start via Desktop on REAL display (:0)"
+show_info "  Systemd service disabled to prevent Xvfb conflict"
 
 # Display Configuration (only for fresh install)
 echo ""
@@ -1058,37 +1054,33 @@ if [ "$DEPLOYMENT_MODE" = "1" ]; then
         fi
     fi
 
-    # CRITICAL FIX: Configure LXDE autostart to prevent terminal window
-    # Disable default desktop components and only start Digital Signage client
-    LXDE_AUTOSTART="$USER_HOME/.config/lxsession/LXDE-pi/autostart"
-    mkdir -p "$(dirname "$LXDE_AUTOSTART")"
+    # CRITICAL FIX: Create Desktop Autostart entry (THE STANDARD WAY)
+    # This is how Raspberry Pi Desktop applications are auto-started
+    # Much more reliable than systemd service on boot
+    AUTOSTART_DIR="$USER_HOME/.config/autostart"
+    mkdir -p "$AUTOSTART_DIR"
 
-    # Create clean autostart file (this REPLACES the default one)
-    cat > "$LXDE_AUTOSTART" <<'EOF'
-# Digital Signage Client - LXDE Autostart Configuration
-# This file REPLACES the default autostart to prevent terminal windows
-
-# Disable screen blanking and power management
-@xset s noblank
-@xset s off
-@xset -dpms
-
-# Hide mouse cursor
-@unclutter -idle 0.1 -root
-
-# CRITICAL: Start Digital Signage client via systemd (managed restart)
-# Using systemd instead of direct launch ensures proper restart and logging
+    # Create Digital Signage autostart desktop file
+    cat > "$AUTOSTART_DIR/digitalsignage-client.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=Digital Signage Client
+Comment=Digital Signage Display Client
+Exec=/opt/digitalsignage-client/start-with-display.sh
+Terminal=false
+Hidden=false
+NoDisplay=false
+X-GNOME-Autostart-enabled=true
+X-GNOME-Autostart-Delay=10
 EOF
 
-    chown "$ACTUAL_USER:$ACTUAL_USER" "$LXDE_AUTOSTART"
-    show_success "LXDE autostart configured (terminal disabled)"
+    chown "$ACTUAL_USER:$ACTUAL_USER" "$AUTOSTART_DIR/digitalsignage-client.desktop"
+    show_success "Desktop autostart configured for Digital Signage client"
 
-    # Also disable pcmanfm desktop (file manager/desktop icons) to prevent interference
+    # Also disable pcmanfm desktop (file manager/desktop icons) to keep it clean
     PCMANFM_CONFIG="$USER_HOME/.config/pcmanfm/LXDE-pi/desktop-items-0.conf"
-    if [ -f "$PCMANFM_CONFIG" ]; then
-        if ! grep -q "desktop_bg=#000000" "$PCMANFM_CONFIG" 2>/dev/null; then
-            mkdir -p "$(dirname "$PCMANFM_CONFIG")"
-            cat > "$PCMANFM_CONFIG" <<'EOF'
+    mkdir -p "$(dirname "$PCMANFM_CONFIG")"
+    cat > "$PCMANFM_CONFIG" <<'EOF'
 [*]
 desktop_bg=#000000
 desktop_fg=#ffffff
@@ -1098,10 +1090,8 @@ show_documents=0
 show_trash=0
 show_mounts=0
 EOF
-            chown "$ACTUAL_USER:$ACTUAL_USER" "$PCMANFM_CONFIG"
-            show_success "Desktop icons disabled"
-        fi
-    fi
+    chown "$ACTUAL_USER:$ACTUAL_USER" "$PCMANFM_CONFIG"
+    show_success "Desktop icons disabled"
 
     # Update /boot/config.txt with detected HDMI modes
     if [ -f "$INSTALL_DIR/config_txt_manager.py" ]; then
