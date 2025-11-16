@@ -388,7 +388,7 @@ public class DatabaseInitializationService : IHostedService
             _logger.Information("Resolution: {Width}x{Height}",
                 exampleLayout.Resolution.Width, exampleLayout.Resolution.Height);
             _logger.Information("Elements Count: {Count}", exampleLayout.Elements.Count);
-            _logger.Information("Open the Designer tab to view and edit this example layout");
+            _logger.Information("Example layouts are preloaded; the designer UI is no longer included in this build.");
             _logger.Information("==========================================================");
         }
         catch (Exception ex)

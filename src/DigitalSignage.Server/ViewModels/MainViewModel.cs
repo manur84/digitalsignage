@@ -23,27 +23,11 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private readonly ThemeService _themeService;
     private bool _disposed = false;
 
-    // View Options
-    [ObservableProperty]
-    private bool _showGrid = true;
-
-    [ObservableProperty]
-    private bool _showRulers = true;
-
-    [ObservableProperty]
-    private bool _snapToGrid = true;
-
-    [ObservableProperty]
-    private bool _hasSelectedElement = false;
-
     // Sub-ViewModels (Responsibility Segregation)
-    public LayoutManagementViewModel LayoutManagement { get; }
     public ServerManagementViewModel ServerManagement { get; }
     public DiagnosticsViewModel Diagnostics { get; }
 
     // Existing Sub-ViewModels
-    public DesignerViewModel Designer { get; }
-    public StandaloneDesignerViewModel StandaloneDesigner { get; }
     public DeviceManagementViewModel DeviceManagement { get; }
     public PreviewViewModel PreviewViewModel { get; }
     public SchedulingViewModel SchedulingViewModel { get; }
@@ -58,11 +42,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private string _statusText = "Ready";
 
     public MainViewModel(
-        LayoutManagementViewModel layoutManagementViewModel,
         ServerManagementViewModel serverManagementViewModel,
         DiagnosticsViewModel diagnosticsViewModel,
-        DesignerViewModel designerViewModel,
-        StandaloneDesignerViewModel standaloneDesignerViewModel,
         DeviceManagementViewModel deviceManagementViewModel,
         PreviewViewModel previewViewModel,
         SchedulingViewModel schedulingViewModel,
@@ -80,13 +61,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
         ILogger<Views.Dialogs.SettingsDialog> settingsDialogLogger)
     {
         // New Sub-ViewModels
-        LayoutManagement = layoutManagementViewModel ?? throw new ArgumentNullException(nameof(layoutManagementViewModel));
         ServerManagement = serverManagementViewModel ?? throw new ArgumentNullException(nameof(serverManagementViewModel));
         Diagnostics = diagnosticsViewModel ?? throw new ArgumentNullException(nameof(diagnosticsViewModel));
 
         // Existing Sub-ViewModels
-        Designer = designerViewModel ?? throw new ArgumentNullException(nameof(designerViewModel));
-        StandaloneDesigner = standaloneDesignerViewModel ?? throw new ArgumentNullException(nameof(standaloneDesignerViewModel));
         DeviceManagement = deviceManagementViewModel ?? throw new ArgumentNullException(nameof(deviceManagementViewModel));
         PreviewViewModel = previewViewModel ?? throw new ArgumentNullException(nameof(previewViewModel));
         SchedulingViewModel = schedulingViewModel ?? throw new ArgumentNullException(nameof(schedulingViewModel));
@@ -103,13 +81,6 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _settingsDialogLogger = settingsDialogLogger ?? throw new ArgumentNullException(nameof(settingsDialogLogger));
-
-        // Subscribe to sub-ViewModel status changes to update unified StatusText
-        LayoutManagement.PropertyChanged += (s, e) =>
-        {
-            if (e.PropertyName == nameof(LayoutManagement.StatusText))
-                StatusText = LayoutManagement.StatusText;
-        };
 
         ServerManagement.PropertyChanged += (s, e) =>
         {
@@ -131,76 +102,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             if (e.PropertyName == nameof(Diagnostics.StatusText))
                 StatusText = Diagnostics.StatusText;
         };
-
-        // Subscribe to layout changes to update preview
-        LayoutManagement.PropertyChanged += (s, e) =>
-        {
-            if (e.PropertyName == nameof(LayoutManagement.CurrentLayout) && LayoutManagement.CurrentLayout != null)
-            {
-                PreviewViewModel.LoadLayout(LayoutManagement.CurrentLayout);
-            }
-        };
     }
-
-    #region Pass-Through Commands (Designer)
-
-    [RelayCommand]
-    private void Undo()
-    {
-        Designer.UndoCommand.Execute(null);
-        StatusText = $"Undo: {Designer.CommandHistory.RedoDescription ?? "Nothing to undo"}";
-    }
-
-    [RelayCommand]
-    private void Redo()
-    {
-        Designer.RedoCommand.Execute(null);
-        StatusText = $"Redo: {Designer.CommandHistory.UndoDescription ?? "Nothing to redo"}";
-    }
-
-    [RelayCommand]
-    private void Cut()
-    {
-        StatusText = "Cut";
-    }
-
-    [RelayCommand]
-    private void Copy()
-    {
-        StatusText = "Copy";
-    }
-
-    [RelayCommand]
-    private void Paste()
-    {
-        StatusText = "Paste";
-    }
-
-    [RelayCommand]
-    private void Delete()
-    {
-        StatusText = "Delete";
-    }
-
-    [RelayCommand]
-    private void ZoomIn()
-    {
-        StatusText = "Zoom in";
-    }
-
-    [RelayCommand]
-    private void ZoomOut()
-    {
-        StatusText = "Zoom out";
-    }
-
-    [RelayCommand]
-    private void ZoomToFit()
-    {
-        StatusText = "Zoom to fit";
-    }
-
-    #endregion
 
     #region Menu Commands
 
@@ -594,14 +496,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
         if (disposing)
         {
             // Dispose new sub-viewmodels
-            LayoutManagement?.Dispose();
             ServerManagement?.Dispose();
             Diagnostics?.Dispose();
 
             // Dispose existing sub-viewmodels
-            if (Designer is IDisposable designerDisposable)
-                designerDisposable.Dispose();
-
             if (DeviceManagement is IDisposable deviceManagementDisposable)
                 deviceManagementDisposable.Dispose();
 

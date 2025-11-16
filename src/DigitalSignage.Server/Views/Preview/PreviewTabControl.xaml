@@ -104,7 +104,7 @@
                     </ItemsControl>
 
                     <!-- Placeholder when no layout -->
-                    <TextBlock Text="No layout loaded. Create or open a layout in the Designer tab."
+                    <TextBlock Text="No layout loaded. Import a layout or select one from Scheduling."
                               Canvas.Left="400"
                               Canvas.Top="500"
                               FontSize="24"

@@ -231,13 +231,10 @@ public partial class App : Application
                 services.AddSingleton<MainViewModel>();
 
                 // Register new Sub-ViewModels (Refactored from MainViewModel)
-                services.AddSingleton<LayoutManagementViewModel>();
                 services.AddSingleton<ServerManagementViewModel>();
                 services.AddSingleton<DiagnosticsViewModel>();
 
                 // Existing ViewModels
-                services.AddSingleton<DesignerViewModel>(); // CRITICAL: Must be Singleton so MainViewModel and LayoutManagementViewModel share the SAME instance!
-                services.AddSingleton<StandaloneDesignerViewModel>();
                 services.AddTransient<DeviceManagementViewModel>();
                 services.AddTransient<DiscoveredDevicesViewModel>();
                 services.AddTransient<PreviewViewModel>();
