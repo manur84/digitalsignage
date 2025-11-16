@@ -513,17 +513,16 @@ class DigitalSignageClient:
                     await asyncio.sleep(10)
                     # If still connected but no layout received, show "no layout assigned" screen
                     if self.connected and not self.current_layout and self.display_renderer:
-                        if self.display_renderer.status_screen_manager.is_showing_status:
-                            logger.info("No layout received after 10 seconds - showing 'No Layout Assigned' screen")
-                            # Get IP address
-                            device_info = await self.device_manager.get_device_info()
-                            ip_address = device_info.get("ip_address", "Unknown")
-                            server_url = self.config.get_server_url()
-                            self.display_renderer.status_screen_manager.show_no_layout_assigned(
-                                self.config.client_id,
-                                server_url,
-                                ip_address
-                            )
+                        logger.info("No layout received after 10 seconds - showing 'No Layout Assigned' screen")
+                        # Get IP address
+                        device_info = await self.device_manager.get_device_info()
+                        ip_address = device_info.get("ip_address", "Unknown")
+                        server_url = self.config.get_server_url()
+                        self.display_renderer.status_screen_manager.show_no_layout_assigned(
+                            self.config.client_id,
+                            server_url,
+                            ip_address
+                        )
 
                 asyncio.create_task(check_for_no_layout())
 
