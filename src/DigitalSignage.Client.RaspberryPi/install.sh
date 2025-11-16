@@ -1032,43 +1032,16 @@ if [ "$DEPLOYMENT_MODE" = "1" ]; then
     echo ""
 
     NEEDS_REBOOT=false
-    DISABLE_DESKTOP_DEFAULT="Y"
 
-    # Decide whether to disable Raspberry Pi desktop/LXDE (boot to console only)
-    read -p "Disable Raspberry Pi desktop/LXDE to boot straight to console? [Y/n]: " DISABLE_DESKTOP
-    DISABLE_DESKTOP=${DISABLE_DESKTOP:-$DISABLE_DESKTOP_DEFAULT}
-    if [[ $DISABLE_DESKTOP =~ ^[Yy]$ ]]; then
-        # Console auto-login (no desktop)
-        if command -v raspi-config &>/dev/null; then
-            CURRENT_BOOT=$(raspi-config nonint get_boot_behaviour 2>/dev/null || echo "unknown")
-            if [ "$CURRENT_BOOT" != "B2" ]; then
-                raspi-config nonint do_boot_behaviour B2 2>/dev/null || true
-                show_success "Set boot to console (no desktop)"
-                NEEDS_REBOOT=true
-            else
-                show_info "Boot already set to console"
-            fi
-        fi
-
-        # Stop desktop manager if present
-        if systemctl list-unit-files | grep -q lightdm; then
-            systemctl disable --now lightdm 2>/dev/null || true
-            show_success "LightDM disabled"
+    # Auto-login to desktop (default behavior, no optional desktop disable)
+    if command -v raspi-config &>/dev/null; then
+        CURRENT_BOOT=$(raspi-config nonint get_boot_behaviour 2>/dev/null || echo "unknown")
+        if [ "$CURRENT_BOOT" != "B4" ]; then
+            raspi-config nonint do_boot_behaviour B4 2>/dev/null
+            show_success "Auto-login enabled (desktop)"
             NEEDS_REBOOT=true
         else
-            show_info "No LightDM service detected"
-        fi
-    else
-        # Auto-login to desktop only if user keeps desktop
-        if command -v raspi-config &>/dev/null; then
-            CURRENT_BOOT=$(raspi-config nonint get_boot_behaviour 2>/dev/null || echo "unknown")
-            if [ "$CURRENT_BOOT" != "B4" ]; then
-                raspi-config nonint do_boot_behaviour B4 2>/dev/null
-                show_success "Auto-login enabled (desktop)"
-                NEEDS_REBOOT=true
-            else
-                show_info "Auto-login already enabled"
-            fi
+            show_info "Auto-login already enabled"
         fi
     fi
 
