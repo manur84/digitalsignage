@@ -1111,6 +1111,36 @@ EOF
         show_warning "config_txt_manager.py not found; skipping config.txt update"
     fi
 
+    # BACKUP SOLUTION: .xinitrc and .bash_profile for boot-to-console setups
+    # This ensures X11 auto-starts even if LXDE desktop is disabled
+    if [ ! -f "$USER_HOME/.xinitrc" ] || ! grep -q "start-with-display.sh" "$USER_HOME/.xinitrc"; then
+        cat > "$USER_HOME/.xinitrc" <<'EOF'
+#!/bin/sh
+# Digital Signage Client - X11 startup configuration
+xset -dpms
+xset s off
+xset s noblank
+unclutter -idle 0.1 -root &
+exec /opt/digitalsignage-client/start-with-display.sh
+EOF
+        chown "$ACTUAL_USER:$ACTUAL_USER" "$USER_HOME/.xinitrc"
+        chmod +x "$USER_HOME/.xinitrc"
+        show_success ".xinitrc created (backup X11 config)"
+    fi
+
+    # Auto-start X11 on tty1 login (works with boot-to-console)
+    if [ ! -f "$USER_HOME/.bash_profile" ] || ! grep -q "startx" "$USER_HOME/.bash_profile"; then
+        cat >> "$USER_HOME/.bash_profile" <<'EOF'
+
+# Auto-start X11 on tty1 login for Digital Signage
+if [ -z "$DISPLAY" ] && [ "$(tty)" = "/dev/tty1" ]; then
+    exec startx
+fi
+EOF
+        chown "$ACTUAL_USER:$ACTUAL_USER" "$USER_HOME/.bash_profile"
+        show_success ".bash_profile configured (auto-start X11 on tty1)"
+    fi
+
     echo ""
     if [ "$NEEDS_REBOOT" = true ]; then
         echo -e "${YELLOW}IMPORTANT: Reboot required${NC}"
