@@ -7,7 +7,6 @@
         xmlns:devicemgmt="clr-namespace:DigitalSignage.Server.Views.DeviceManagement"
         xmlns:scheduling="clr-namespace:DigitalSignage.Server.Views.Scheduling"
         xmlns:preview="clr-namespace:DigitalSignage.Server.Views.Preview"
-        xmlns:media="clr-namespace:DigitalSignage.Server.Views.MediaLibrary"
         xmlns:alerts="clr-namespace:DigitalSignage.Server.Views.Alerts"
         xmlns:sqldatasources="clr-namespace:DigitalSignage.Server.Views.SqlDataSources"
         mc:Ignorable="d"
@@ -112,11 +111,6 @@
             <!-- Preview Tab -->
             <TabItem Header="Preview">
                 <preview:PreviewTabControl DataContext="{Binding}"/>
-            </TabItem>
-
-            <!-- Media Library Tab -->
-            <TabItem Header="Media Library">
-                <media:MediaLibraryTabControl DataContext="{Binding}"/>
             </TabItem>
 
             <!-- Logs Tab -->

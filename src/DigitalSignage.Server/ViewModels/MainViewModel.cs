@@ -31,7 +31,6 @@ public partial class MainViewModel : ObservableObject, IDisposable
     public DeviceManagementViewModel DeviceManagement { get; }
     public PreviewViewModel PreviewViewModel { get; }
     public SchedulingViewModel SchedulingViewModel { get; }
-    public MediaLibraryViewModel MediaLibraryViewModel { get; }
     public LogViewerViewModel LogViewerViewModel { get; }
     public LiveLogsViewModel LiveLogsViewModel { get; }
     public AlertsViewModel Alerts { get; }
@@ -47,7 +46,6 @@ public partial class MainViewModel : ObservableObject, IDisposable
         DeviceManagementViewModel deviceManagementViewModel,
         PreviewViewModel previewViewModel,
         SchedulingViewModel schedulingViewModel,
-        MediaLibraryViewModel mediaLibraryViewModel,
         LogViewerViewModel logViewerViewModel,
         LiveLogsViewModel liveLogsViewModel,
         AlertsViewModel alertsViewModel,
@@ -68,7 +66,6 @@ public partial class MainViewModel : ObservableObject, IDisposable
         DeviceManagement = deviceManagementViewModel ?? throw new ArgumentNullException(nameof(deviceManagementViewModel));
         PreviewViewModel = previewViewModel ?? throw new ArgumentNullException(nameof(previewViewModel));
         SchedulingViewModel = schedulingViewModel ?? throw new ArgumentNullException(nameof(schedulingViewModel));
-        MediaLibraryViewModel = mediaLibraryViewModel ?? throw new ArgumentNullException(nameof(mediaLibraryViewModel));
         LogViewerViewModel = logViewerViewModel ?? throw new ArgumentNullException(nameof(logViewerViewModel));
         LiveLogsViewModel = liveLogsViewModel ?? throw new ArgumentNullException(nameof(liveLogsViewModel));
         Alerts = alertsViewModel ?? throw new ArgumentNullException(nameof(alertsViewModel));
@@ -508,9 +505,6 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
             if (SchedulingViewModel is IDisposable schedulingDisposable)
                 schedulingDisposable.Dispose();
-
-            if (MediaLibraryViewModel is IDisposable mediaLibraryDisposable)
-                mediaLibraryDisposable.Dispose();
 
             if (LogViewerViewModel is IDisposable logViewerDisposable)
                 logViewerDisposable.Dispose();

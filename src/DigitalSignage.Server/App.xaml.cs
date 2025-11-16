@@ -239,11 +239,9 @@ public partial class App : Application
                 services.AddTransient<DiscoveredDevicesViewModel>();
                 services.AddTransient<PreviewViewModel>();
                 services.AddTransient<SchedulingViewModel>();
-                services.AddTransient<MediaLibraryViewModel>();
                 services.AddTransient<LogViewerViewModel>();
                 services.AddTransient<ScreenshotViewModel>();
                 services.AddTransient<DeviceDetailViewModel>();
-                services.AddTransient<MediaBrowserViewModel>();
                 services.AddTransient<SettingsViewModel>();
                 services.AddSingleton<AlertsViewModel>();
                 services.AddTransient<AlertRuleEditorViewModel>();
