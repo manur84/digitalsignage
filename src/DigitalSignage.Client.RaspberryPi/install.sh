@@ -1033,50 +1033,74 @@ if [ "$DEPLOYMENT_MODE" = "1" ]; then
 
     NEEDS_REBOOT=false
 
-    # CRITICAL FIX: Boot to Console (not Desktop) for Digital Signage
-    # B2 = Console with autologin (NO desktop environment)
-    # This prevents desktop terminal from appearing over the Digital Signage client
-    # X11 will be started by systemd service WITHOUT desktop environment
+    # CRITICAL FIX: Boot to Desktop (B4) for reliable X11, but disable terminal
+    # B4 = Desktop with autologin - reliable X11 startup
+    # We'll prevent terminal from appearing via autostart configuration
     if command -v raspi-config &>/dev/null; then
         CURRENT_BOOT=$(raspi-config nonint get_boot_behaviour 2>/dev/null || echo "unknown")
-        if [ "$CURRENT_BOOT" != "B2" ]; then
-            raspi-config nonint do_boot_behaviour B2 2>/dev/null
-            show_success "Auto-login enabled (console mode - no desktop)"
-            show_info "X11 will be started by systemd service for Digital Signage only"
+        if [ "$CURRENT_BOOT" != "B4" ]; then
+            raspi-config nonint do_boot_behaviour B4 2>/dev/null
+            show_success "Auto-login enabled (desktop mode)"
             NEEDS_REBOOT=true
         else
-            show_info "Console auto-login already enabled"
+            show_info "Desktop auto-login already enabled"
         fi
     fi
 
-    # NOTE: LightDM configuration skipped - we boot to console (B2), not desktop
-    # X11 is started manually by systemd service WITHOUT desktop environment
-    # This prevents desktop components (like terminal windows) from interfering
-    show_info "Skipping LightDM config (console mode - no display manager needed)"
+    # LightDM configuration for autologin
+    if [ -f /etc/lightdm/lightdm.conf ]; then
+        if ! grep -q "^autologin-user=$ACTUAL_USER" /etc/lightdm/lightdm.conf; then
+            [ ! -f /etc/lightdm/lightdm.conf.backup ] && cp /etc/lightdm/lightdm.conf /etc/lightdm/lightdm.conf.backup
+            sed -i "s/^#autologin-user=.*/autologin-user=$ACTUAL_USER/" /etc/lightdm/lightdm.conf
+            sed -i "s/^autologin-user=.*/autologin-user=$ACTUAL_USER/" /etc/lightdm/lightdm.conf
+            show_success "LightDM configured for autologin"
+            NEEDS_REBOOT=true
+        fi
+    fi
 
-    # CRITICAL FIX: .xinitrc for Digital Signage client
-    # This starts X11 WITHOUT desktop environment and runs the client as the only GUI app
-    if [ ! -f "$USER_HOME/.xinitrc" ] || ! grep -q "digitalsignage" "$USER_HOME/.xinitrc"; then
-        cat > "$USER_HOME/.xinitrc" <<'EOF'
-#!/bin/sh
-# Digital Signage Client - X11 startup without desktop environment
-# This provides pure X11 display for the Digital Signage client only
+    # CRITICAL FIX: Configure LXDE autostart to prevent terminal window
+    # Disable default desktop components and only start Digital Signage client
+    LXDE_AUTOSTART="$USER_HOME/.config/lxsession/LXDE-pi/autostart"
+    mkdir -p "$(dirname "$LXDE_AUTOSTART")"
+
+    # Create clean autostart file (this REPLACES the default one)
+    cat > "$LXDE_AUTOSTART" <<'EOF'
+# Digital Signage Client - LXDE Autostart Configuration
+# This file REPLACES the default autostart to prevent terminal windows
 
 # Disable screen blanking and power management
-xset -dpms
-xset s off
-xset s noblank
+@xset s noblank
+@xset s off
+@xset -dpms
 
 # Hide mouse cursor
-unclutter -idle 0.1 -root &
+@unclutter -idle 0.1 -root
 
-# CRITICAL: Start Digital Signage client as the ONLY GUI application
-# When client exits, X11 session ends and systemd will restart it
-exec /opt/digitalsignage-client/start-with-display.sh
+# CRITICAL: Start Digital Signage client via systemd (managed restart)
+# Using systemd instead of direct launch ensures proper restart and logging
 EOF
-        chown "$ACTUAL_USER:$ACTUAL_USER" "$USER_HOME/.xinitrc"
-        chmod +x "$USER_HOME/.xinitrc"
-        show_success "X11 configuration created for Digital Signage client"
+
+    chown "$ACTUAL_USER:$ACTUAL_USER" "$LXDE_AUTOSTART"
+    show_success "LXDE autostart configured (terminal disabled)"
+
+    # Also disable pcmanfm desktop (file manager/desktop icons) to prevent interference
+    PCMANFM_CONFIG="$USER_HOME/.config/pcmanfm/LXDE-pi/desktop-items-0.conf"
+    if [ -f "$PCMANFM_CONFIG" ]; then
+        if ! grep -q "desktop_bg=#000000" "$PCMANFM_CONFIG" 2>/dev/null; then
+            mkdir -p "$(dirname "$PCMANFM_CONFIG")"
+            cat > "$PCMANFM_CONFIG" <<'EOF'
+[*]
+desktop_bg=#000000
+desktop_fg=#ffffff
+desktop_shadow=#000000
+wallpaper_mode=color
+show_documents=0
+show_trash=0
+show_mounts=0
+EOF
+            chown "$ACTUAL_USER:$ACTUAL_USER" "$PCMANFM_CONFIG"
+            show_success "Desktop icons disabled"
+        fi
     fi
 
     # Update /boot/config.txt with detected HDMI modes
