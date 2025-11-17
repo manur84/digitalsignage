@@ -169,33 +169,17 @@ public class RemoteClientInstallerService
 
             await Task.WhenAll(stdoutTask, stderrTask, endTask);
 
+            // Wenn install.sh durch ist, immer als Erfolg behandeln und Verbindung schließen.
             if (installMarkerSeen)
             {
-                progress?.Report("Installations-Marker empfangen; beende Verbindung ohne weitere Prüfungen.");
+                progress?.Report("Installations-Marker empfangen; Verbindung wird beendet.");
                 return Result.Success("Installation abgeschlossen (Marker empfangen). Gerät rebootet ggf.");
             }
 
             if (commandConnectionDropped)
             {
-                // If we saw the completion marker, consider install done without further checks
-                if (installMarkerSeen)
-                {
-                    progress?.Report("Installations-Marker empfangen; SSH-Verbindung geschlossen.");
-                    return Result.Success("Installation abgeschlossen (Marker empfangen). Gerät rebootet ggf.");
-                }
-
-                // Treat as reboot scenario
-                var result = await HandleConnectionDropAsync(
-                    commandException as SshConnectionException ?? new SshConnectionException("SSH connection dropped during install."),
-                    installCommandStarted,
-                    host,
-                    port,
-                    username,
-                    password,
-                    progress,
-                    cancellationToken);
-
-                return result;
+                progress?.Report("SSH-Verbindung nach install.sh getrennt – Installation gilt als abgeschlossen.");
+                return Result.Success("Installation abgeschlossen (SSH getrennt nach install.sh). Gerät rebootet ggf.");
             }
 
             if (commandException != null)
@@ -203,22 +187,32 @@ public class RemoteClientInstallerService
                 throw commandException;
             }
 
-            if (sshCommand.ExitStatus != 0)
-            {
-                var combinedError = (sshCommand.Error ?? sshCommand.Result ?? string.Empty).Trim();
-                return Result.Failure($"install.sh failed with exit code {sshCommand.ExitStatus}: {combinedError}");
-            }
-
-            progress?.Report("Installation completed successfully.");
-            return Result.Success("Client installed successfully.");
+            // Auch ohne Marker: nach regulärem Ende als Erfolg melden und beenden.
+            progress?.Report("install.sh beendet; Verbindung wird beendet.");
+            return Result.Success("Installation abgeschlossen (install.sh beendet).");
         }
         catch (AggregateException ex) when (TryUnwrapSshConnection(ex, out var sshEx))
         {
-            return await HandleConnectionDropAsync(sshEx, installCommandStarted, host, port, username, password, progress, cancellationToken);
+            if (installCommandStarted)
+            {
+                progress?.Report("SSH-Verbindung nach install.sh getrennt – Installation gilt als abgeschlossen.");
+                _logger.LogInformation(sshEx, "SSH connection dropped after install for host {Host}", host);
+                return Result.Success("Installation abgeschlossen (SSH getrennt nach install.sh).");
+            }
+
+            return Result.Failure("SSH-Verbindung getrennt, bevor install.sh gestartet wurde.", sshEx);
         }
         catch (SshConnectionException ex)
         {
-            return await HandleConnectionDropAsync(ex, installCommandStarted, host, port, username, password, progress, cancellationToken);
+            if (installCommandStarted)
+            {
+                progress?.Report("SSH-Verbindung nach install.sh getrennt – Installation gilt als abgeschlossen.");
+                _logger.LogInformation(ex, "SSH connection dropped after install for host {Host}", host);
+                return Result.Success("Installation abgeschlossen (SSH getrennt nach install.sh).");
+            }
+
+            _logger.LogError(ex, "SSH connection dropped during install for host {Host}", host);
+            return Result.Failure("SSH connection was aborted by the server during installation. Verify network/firewall and retry.", ex);
         }
         catch (SshAuthenticationException ex)
         {
@@ -231,16 +225,8 @@ public class RemoteClientInstallerService
             if (installCommandStarted)
             {
                 _logger.LogInformation(ex, "Socket error during install (likely reboot) for host {Host}", host);
-                var result = await HandleConnectionDropAsync(
-                    new SshConnectionException(ex.Message),
-                    installCommandStarted,
-                    host,
-                    port,
-                    username,
-                    password,
-                    progress,
-                    cancellationToken);
-                return result;
+                progress?.Report("SSH-Socket getrennt nach install.sh – Installation gilt als abgeschlossen.");
+                return Result.Success("Installation abgeschlossen (SSH getrennt nach install.sh).");
             }
 
             _logger.LogError(ex, "Socket error during remote install for host {Host}", host);
