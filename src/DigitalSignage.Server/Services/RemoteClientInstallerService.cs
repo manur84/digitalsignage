@@ -408,7 +408,8 @@ rm -f '{RemoteServiceFile}'
             if (await IsTcpReachableAsync(host, port, cancellationToken))
             {
                 progress?.Report("SSH reachable again - verifying client service status...");
-                if (await IsServiceActiveAsync(host, port, username, password, cancellationToken))
+                var serviceActive = await IsServiceActiveSafeAsync(host, port, username, password, cancellationToken);
+                if (serviceActive == true)
                 {
                     progress?.Report("digitalsignage-client service is active after reboot.");
                     return true;
@@ -450,20 +451,39 @@ rm -f '{RemoteServiceFile}'
         }
     }
 
-    private async Task<bool> IsServiceActiveAsync(
+    /// <summary>
+    /// Returns true if service is active, false if inactive, null if SSH not ready yet.
+    /// Does not throw for connection/auth errors so callers can retry during reboot.
+    /// </summary>
+    private async Task<bool?> IsServiceActiveSafeAsync(
         string host,
         int port,
         string username,
         string password,
         CancellationToken cancellationToken)
     {
-        using var ssh = CreateSshClient(host, port, username, password);
-        await ConnectWithTimeoutAsync(ssh, cancellationToken);
+        try
+        {
+            using var ssh = CreateSshClient(host, port, username, password);
+            await ConnectWithTimeoutAsync(ssh, cancellationToken);
 
-        var checkCmd = ssh.CreateCommand($"systemctl is-active --quiet {RemoteServiceName}");
-        checkCmd.CommandTimeout = TimeSpan.FromSeconds(10);
+            var checkCmd = ssh.CreateCommand($"systemctl is-active --quiet {RemoteServiceName}");
+            checkCmd.CommandTimeout = TimeSpan.FromSeconds(10);
 
-        await Task.Run(() => checkCmd.Execute(), cancellationToken);
-        return checkCmd.ExitStatus == 0;
+            await Task.Run(() => checkCmd.Execute(), cancellationToken);
+            return checkCmd.ExitStatus == 0;
+        }
+        catch (SshConnectionException)
+        {
+            return null; // still rebooting or SSH not ready
+        }
+        catch (SshAuthenticationException)
+        {
+            return null; // auth not ready yet after reboot (e.g., sshd startup delay)
+        }
+        catch (SocketException)
+        {
+            return null; // network/sshd not ready
+        }
     }
 }
