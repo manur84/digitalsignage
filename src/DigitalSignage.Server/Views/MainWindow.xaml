@@ -97,7 +97,7 @@
         <!-- Main Content Area with Tabs -->
         <TabControl Margin="0" TabStripPlacement="Top">
             <!-- Layout Manager Tab -->
-            <TabItem Header="Layout Manager">
+            <TabItem Header="Layout Manager (PNG)">
                 <layoutmanager:LayoutManagerTabControl DataContext="{Binding LayoutManager}"/>
             </TabItem>
 

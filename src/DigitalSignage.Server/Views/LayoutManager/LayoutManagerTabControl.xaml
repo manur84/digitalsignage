@@ -18,13 +18,13 @@
 
         <StackPanel Orientation="Vertical" Grid.Row="0" Margin="0,0,0,12">
             <TextBlock Text="Layout Manager" FontSize="18" FontWeight="SemiBold"/>
-            <TextBlock Text="Importiere SVG-Dateien als Layouts, damit sie im Geräte-Tab zugewiesen werden können."
+            <TextBlock Text="Importiere PNG-Layouts (SVG wird automatisch zu PNG konvertiert) und weise sie Geräten zu."
                        Foreground="#555"
                        Margin="0,4,0,0"/>
         </StackPanel>
 
         <StackPanel Orientation="Horizontal" Grid.Row="1" Margin="0,0,0,12">
-            <Button Content="📥 SVG importieren"
+            <Button Content="📥 PNG/SVG importieren"
                     Command="{Binding ImportSvgCommand}"
                     Style="{StaticResource PrimaryButton}"
                     Padding="12,6"

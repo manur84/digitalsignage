@@ -57,8 +57,8 @@ public partial class LayoutManagerViewModel : ObservableObject
     {
         var dialog = new OpenFileDialog
         {
-            Filter = "SVG Dateien (*.svg)|*.svg",
-            Title = "SVG-Layout importieren",
+            Filter = "PNG oder SVG Dateien (*.png;*.svg)|*.png;*.svg",
+            Title = "Layout importieren",
             Multiselect = true
         };
 
@@ -89,8 +89,8 @@ public partial class LayoutManagerViewModel : ObservableObject
         _ = _deviceManagementViewModel.LoadLayoutsCommand.ExecuteAsync(null);
 
         StatusMessage = failedCount == 0
-            ? $"SVG-Layout(s) importiert ({successCount})"
-            : $"SVG-Import abgeschlossen: {successCount} ok, {failedCount} fehlgeschlagen";
+            ? $"Layout(s) importiert ({successCount})"
+            : $"Import abgeschlossen: {successCount} ok, {failedCount} fehlgeschlagen";
 
         IsBusy = false;
     }
