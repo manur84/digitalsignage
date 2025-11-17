@@ -28,9 +28,6 @@ public partial class ClientInstallerViewModel : ObservableObject, IDisposable
     private int _sshPort = 22;
 
     [ObservableProperty]
-    private string _repositoryUrl = string.Empty;
-
-    [ObservableProperty]
     private bool _isInstalling;
 
     [ObservableProperty]
@@ -71,13 +68,9 @@ public partial class ClientInstallerViewModel : ObservableObject, IDisposable
             IsInstalling = true;
             StatusMessage = $"Installiere auf {device.IpAddress} ...";
             AppendLog($"Verbinde mit {device.Hostname ?? device.IpAddress} ({device.IpAddress}) als {SshUsername}.");
-            if (!string.IsNullOrWhiteSpace(RepositoryUrl))
-            {
-                AppendLog($"Nutze Git-Repository: {RepositoryUrl}");
-            }
 
             var progress = new Progress<string>(message => AppendLog(message));
-            var result = await _installerService.InstallAsync(device.IpAddress, SshPort, SshUsername, SshPassword, RepositoryUrl, progress);
+            var result = await _installerService.InstallAsync(device.IpAddress, SshPort, SshUsername, SshPassword, progress);
 
             if (result.IsSuccess)
             {
@@ -139,7 +132,6 @@ public partial class ClientInstallerViewModel : ObservableObject, IDisposable
     partial void OnSshUsernameChanged(string value) => InstallSelectedDeviceCommand.NotifyCanExecuteChanged();
     partial void OnSshPasswordChanged(string value) => InstallSelectedDeviceCommand.NotifyCanExecuteChanged();
     partial void OnSshPortChanged(int value) => InstallSelectedDeviceCommand.NotifyCanExecuteChanged();
-    partial void OnRepositoryUrlChanged(string value) => InstallSelectedDeviceCommand.NotifyCanExecuteChanged();
 
     private void OnDiscoveredDevicesPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {

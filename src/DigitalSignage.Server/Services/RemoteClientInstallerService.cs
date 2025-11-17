@@ -25,14 +25,12 @@ public class RemoteClientInstallerService
     /// <summary>
     /// Uploads the installer payload and executes install.sh on the remote device.
     /// </summary>
-    public async Task<Result> InstallAsync(string host, int port, string username, string password, string? repositoryUrl, IProgress<string>? progress = null, CancellationToken cancellationToken = default)
+    public async Task<Result> InstallAsync(string host, int port, string username, string password, IProgress<string>? progress = null, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(host))
             return Result.Failure("Host/IP is required for installation.");
 
-        var useRepository = !string.IsNullOrWhiteSpace(repositoryUrl);
-
-        if (!useRepository && !Directory.Exists(_installerSourcePath))
+        if (!Directory.Exists(_installerSourcePath))
             return Result.Failure($"Installer payload not found: {_installerSourcePath}");
 
         try
@@ -44,45 +42,15 @@ public class RemoteClientInstallerService
             using var sftp = CreateSftpClient(host, port, username, password);
 
             await Task.Run(() => ssh.Connect(), cancellationToken);
-            if (!useRepository)
-            {
-                await Task.Run(() => sftp.Connect(), cancellationToken);
-            }
+            await Task.Run(() => sftp.Connect(), cancellationToken);
 
-            string installScriptPath;
+            progress?.Report("Preparing remote staging folder...");
+            await Task.Run(() => ssh.RunCommand($"rm -rf '{RemoteInstallPath}' && mkdir -p '{RemoteInstallPath}'"), cancellationToken);
 
-            if (useRepository)
-            {
-                progress?.Report($"Klone Repository {repositoryUrl} ...");
-                var cloneCommand = await Task.Run(() => ssh.RunCommand($"rm -rf '{RemoteInstallPath}' && git clone '{repositoryUrl}' '{RemoteInstallPath}'"), cancellationToken);
-                if (cloneCommand.ExitStatus != 0)
-                {
-                    var cloneError = (cloneCommand.Error ?? cloneCommand.Result ?? "Git clone failed").Trim();
-                    _logger.LogWarning("Git clone failed: {Error}", cloneError);
-                    return Result.Failure($"Git clone fehlgeschlagen: {cloneError}");
-                }
+            progress?.Report("Uploading installer files (can take a moment)...");
+            await UploadInstallerAsync(sftp, cancellationToken, progress);
 
-                progress?.Report("Suche nach install.sh im Repository...");
-                var findCommand = await Task.Run(() => ssh.RunCommand($"find '{RemoteInstallPath}' -maxdepth 4 -type f -name 'install.sh' | head -n 1"), cancellationToken);
-                var foundPath = (findCommand.Result ?? string.Empty).Trim();
-
-                if (string.IsNullOrWhiteSpace(foundPath))
-                {
-                    return Result.Failure("install.sh wurde im geklonten Repository nicht gefunden.");
-                }
-
-                installScriptPath = foundPath;
-            }
-            else
-            {
-                progress?.Report("Preparing remote staging folder...");
-                await Task.Run(() => ssh.RunCommand($"rm -rf '{RemoteInstallPath}' && mkdir -p '{RemoteInstallPath}'"), cancellationToken);
-
-                progress?.Report("Uploading installer files (can take a moment)...");
-                await UploadInstallerAsync(sftp, cancellationToken, progress);
-
-                installScriptPath = $"{RemoteInstallPath}/install.sh";
-            }
+            var installScriptPath = $"{RemoteInstallPath}/install.sh";
 
             progress?.Report($"Gefundenes install.sh: {installScriptPath}");
 
