@@ -1114,29 +1114,33 @@ class DigitalSignageClient:
             logger.info("AUTO-DISCOVERY MODE ENABLED")
             logger.info("Client will ONLY connect after successfully discovering a server")
             logger.info("Discovery methods: mDNS/Zeroconf (preferred) + UDP Broadcast (fallback)")
+            logger.info("Discovery will run continuously until server is found")
             logger.info("=" * 70)
+
+            # Show discovering server status screen with QR code ONCE
+            if self.display_renderer:
+                self.display_renderer.status_screen_manager.show_discovering_server("mDNS/Zeroconf + UDP Broadcast")
 
             server_discovered = False
             discovery_attempt = 0
 
-            # Keep trying discovery until server is found
+            # Import discovery module once
+            try:
+                from discovery import discover_server
+                logger.info("Discovery module imported successfully")
+            except Exception as e:
+                logger.error(f"Failed to import discovery module: {e}")
+                raise
+
+            # Keep trying discovery until server is found - NO SLEEP between attempts
             while not server_discovered:
                 discovery_attempt += 1
-                logger.info(f"Discovery attempt #{discovery_attempt}")
-                self.watchdog.notify_status(f"Searching for servers (attempt {discovery_attempt})...")
-
-                # Show discovering server status screen with QR code
-                if self.display_renderer:
-                    self.display_renderer.status_screen_manager.show_discovering_server("mDNS/Zeroconf + UDP Broadcast")
+                logger.info(f"Discovery scan #{discovery_attempt} starting...")
+                self.watchdog.notify_status(f"Searching for servers (scan #{discovery_attempt})...")
 
                 try:
-                    logger.info("Importing discovery module...")
-                    from discovery import discover_server
-                    logger.info("Discovery module imported successfully")
-                    logger.info(f"Calling discover_server with timeout={self.config.discovery_timeout}s")
-
+                    # Run discovery with timeout - this will search continuously for the timeout duration
                     discovered_url = discover_server(timeout=self.config.discovery_timeout)
-                    logger.info(f"discover_server returned: {discovered_url}")
 
                     if discovered_url:
                         logger.info(f"✓ SERVER FOUND: {discovered_url}")
@@ -1163,19 +1167,19 @@ class DigitalSignageClient:
                             server_discovered = True
                         else:
                             logger.error(f"Failed to parse discovered URL: {discovered_url}")
+                            logger.info(f"Retrying immediately (scan #{discovery_attempt + 1})...")
                     else:
-                        logger.warning(f"✗ No servers found in attempt #{discovery_attempt}")
-                        logger.info(f"Retrying discovery in {self.config.discovery_timeout} seconds...")
-                        await asyncio.sleep(self.config.discovery_timeout)
+                        logger.debug(f"Scan #{discovery_attempt} complete - no servers found")
+                        logger.debug(f"Starting scan #{discovery_attempt + 1} immediately...")
+                        # NO SLEEP - immediately start next scan
 
                 except Exception as e:
-                    logger.error(f"Auto-Discovery attempt #{discovery_attempt} failed: {e}")
+                    logger.error(f"Discovery scan #{discovery_attempt} failed: {e}")
                     logger.error(f"Exception type: {type(e).__name__}")
-                    logger.error(f"Exception details: {str(e)}")
                     import traceback
-                    logger.error(f"Traceback:\n{traceback.format_exc()}")
-                    logger.info(f"Retrying discovery in {self.config.discovery_timeout} seconds...")
-                    await asyncio.sleep(self.config.discovery_timeout)
+                    logger.debug(f"Traceback:\n{traceback.format_exc()}")
+                    logger.info(f"Starting scan #{discovery_attempt + 1} immediately...")
+                    # NO SLEEP - immediately retry on error
 
             logger.info("=" * 70)
             logger.info("✓ SERVER DISCOVERED SUCCESSFULLY - Proceeding to connection...")
