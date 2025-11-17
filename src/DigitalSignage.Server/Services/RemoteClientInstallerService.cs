@@ -508,7 +508,12 @@ rm -f '{RemoteServiceFile}'
             using var ssh = CreateSshClient(host, port, username, password);
             await ConnectWithTimeoutAsync(ssh, cancellationToken);
 
-            var checkCmd = ssh.CreateCommand($"systemctl is-active --quiet {RemoteServiceName}");
+            var escapedPassword = password.Replace("'", "'\"'\"'");
+            var sudoPrefix = string.Equals(username, "root", StringComparison.OrdinalIgnoreCase)
+                ? string.Empty
+                : $"printf '%s\\n' '{escapedPassword}' | sudo -S ";
+
+            var checkCmd = ssh.CreateCommand($"{sudoPrefix}systemctl is-active --quiet {RemoteServiceName}");
             checkCmd.CommandTimeout = TimeSpan.FromSeconds(10);
 
             await Task.Run(() => checkCmd.Execute(), cancellationToken);
