@@ -184,7 +184,7 @@ class StatusScreen(QWidget):
         self.animated_widgets.clear()
 
     def show_discovering_server(self, discovery_method: str = "Auto-Discovery"):
-        """Show 'Discovering Server...' screen"""
+        """Show 'Discovering Server...' screen with QR code to web interface"""
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignCenter)
         layout.setSpacing(self.spacing)
@@ -199,31 +199,61 @@ class StatusScreen(QWidget):
         layout.addWidget(spinner_container)
         self.animated_widgets.append(spinner)
 
-        # Main text with animated dots
-        title_label = AnimatedDotsLabel("Discovering Digital Signage Server", self)
-        title_label.setStyleSheet(f"color: {self.COLOR_TEXT_PRIMARY}; font-size: {self.title_font_size}pt; font-weight: bold;")
+        # Main text with animated dots - German
+        title_label = AnimatedDotsLabel("Auto-Discovery Aktiv", self)
+        title_label.setStyleSheet(f"color: {self.COLOR_PRIMARY}; font-size: {self.title_font_size}pt; font-weight: bold;")
         title_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(title_label)
         self.animated_widgets.append(title_label)
 
+        # Searching message - German
+        search_label = QLabel("Suche Server im Netzwerk", self)
+        search_label.setStyleSheet(f"color: {self.COLOR_TEXT_PRIMARY}; font-size: {self.subtitle_font_size}pt;")
+        search_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(search_label)
+
         # Discovery method
-        method_label = QLabel(f"Using: {discovery_method}", self)
-        method_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: {self.subtitle_font_size}pt;")
+        method_label = QLabel(f"Methode: {discovery_method}", self)
+        method_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: {self.body_font_size}pt;")
         method_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(method_label)
 
-        # Info text
-        info_label = QLabel("Please wait while we search for available servers on the network", self)
-        info_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: {self.body_font_size}pt;")
-        info_label.setAlignment(Qt.AlignCenter)
-        info_label.setWordWrap(True)
-        layout.addWidget(info_label)
+        # Spacer
+        layout.addSpacing(self.large_spacing)
+
+        # QR Code for web interface
+        try:
+            import socket
+            # Get local IP address
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            try:
+                s.connect(('8.8.8.8', 80))
+                local_ip = s.getsockname()[0]
+            except Exception:
+                local_ip = '127.0.0.1'
+            finally:
+                s.close()
+
+            web_url = f"http://{local_ip}:5000"
+
+            qr_label = self._create_qr_code(web_url, self.qr_code_size)
+            if qr_label:
+                layout.addWidget(qr_label)
+
+            # Web interface URL below QR code
+            url_label = QLabel(f"Web-Interface: {web_url}", self)
+            url_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: {self.body_font_size}pt;")
+            url_label.setAlignment(Qt.AlignCenter)
+            layout.addWidget(url_label)
+
+        except Exception as e:
+            logger.warning(f"Could not create QR code for web interface: {e}")
 
         layout.addStretch()
 
         self.setLayout(layout)
         self.update()
-        logger.info("Status screen: Discovering Server")
+        logger.info("Status screen: Discovering Server (Auto-Discovery Active)")
 
     def show_connecting(self, server_url: str, attempt: int = 1, max_attempts: int = 5):
         """Show 'Connecting to Server...' screen"""

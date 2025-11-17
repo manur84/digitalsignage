@@ -1111,59 +1111,74 @@ class DigitalSignageClient:
         # AUTO-DISCOVERY: Try to find server automatically if enabled
         if self.config.auto_discover:
             logger.info("=" * 70)
-            logger.info("AUTO-DISCOVERY ENABLED - Searching for servers...")
+            logger.info("AUTO-DISCOVERY MODE ENABLED")
+            logger.info("Client will ONLY connect after successfully discovering a server")
             logger.info("Discovery methods: mDNS/Zeroconf (preferred) + UDP Broadcast (fallback)")
             logger.info("=" * 70)
-            self.watchdog.notify_status("Searching for servers via Auto-Discovery...")
 
-            # Show discovering server status screen (only during initial startup, not when reconnecting)
-            # Note: This is called during start(), not during reconnection, so we always show it
-            if self.display_renderer:
-                self.display_renderer.status_screen_manager.show_discovering_server("mDNS/Zeroconf + UDP Broadcast")
+            server_discovered = False
+            discovery_attempt = 0
 
-            try:
-                logger.info("Importing discovery module...")
-                from discovery import discover_server
-                logger.info("Discovery module imported successfully")
-                logger.info(f"Calling discover_server with timeout={self.config.discovery_timeout}s")
+            # Keep trying discovery until server is found
+            while not server_discovered:
+                discovery_attempt += 1
+                logger.info(f"Discovery attempt #{discovery_attempt}")
+                self.watchdog.notify_status(f"Searching for servers (attempt {discovery_attempt})...")
 
-                discovered_url = discover_server(timeout=self.config.discovery_timeout)
-                logger.info(f"discover_server returned: {discovered_url}")
+                # Show discovering server status screen with QR code
+                if self.display_renderer:
+                    self.display_renderer.status_screen_manager.show_discovering_server("mDNS/Zeroconf + UDP Broadcast")
 
-                if discovered_url:
-                    logger.info(f"✓ SERVER FOUND: {discovered_url}")
-                    logger.info("  Using auto-discovered server instead of config.json")
+                try:
+                    logger.info("Importing discovery module...")
+                    from discovery import discover_server
+                    logger.info("Discovery module imported successfully")
+                    logger.info(f"Calling discover_server with timeout={self.config.discovery_timeout}s")
 
-                    # Parse the discovered URL to update config
-                    # Format: ws://192.168.1.100:8080/ws or wss://...
-                    import re
-                    match = re.match(r'(wss?)://([^:]+):(\d+)/(.+)', discovered_url)
-                    if match:
-                        protocol, host, port, endpoint = match.groups()
-                        self.config.server_host = host
-                        self.config.server_port = int(port)
-                        self.config.endpoint_path = endpoint  # Save the endpoint path (e.g., "ws/")
-                        self.config.use_ssl = (protocol == 'wss')
-                        logger.info(f"  Server Host: {host}")
-                        logger.info(f"  Server Port: {port}")
-                        logger.info(f"  Endpoint Path: {endpoint}")
-                        logger.info(f"  SSL: {'Enabled' if self.config.use_ssl else 'Disabled'}")
+                    discovered_url = discover_server(timeout=self.config.discovery_timeout)
+                    logger.info(f"discover_server returned: {discovered_url}")
 
-                        # Save discovered configuration for future use
-                        self.config.save()
-                        logger.info("  Configuration saved")
-                else:
-                    logger.warning("✗ No servers found via Auto-Discovery")
-                    logger.warning("  Falling back to manual configuration from config.json")
-                    logger.warning(f"  Manual config: {self.config.server_host}:{self.config.server_port}")
-            except Exception as e:
-                logger.error(f"Auto-Discovery failed: {e}")
-                logger.error(f"Exception type: {type(e).__name__}")
-                logger.error(f"Exception details: {str(e)}")
-                import traceback
-                logger.error(f"Traceback:\n{traceback.format_exc()}")
-                logger.warning("Falling back to manual configuration from config.json")
+                    if discovered_url:
+                        logger.info(f"✓ SERVER FOUND: {discovered_url}")
+                        logger.info("  Using auto-discovered server")
 
+                        # Parse the discovered URL to update config
+                        # Format: ws://192.168.1.100:8080/ws or wss://...
+                        import re
+                        match = re.match(r'(wss?)://([^:]+):(\d+)/(.+)', discovered_url)
+                        if match:
+                            protocol, host, port, endpoint = match.groups()
+                            self.config.server_host = host
+                            self.config.server_port = int(port)
+                            self.config.endpoint_path = endpoint  # Save the endpoint path (e.g., "ws/")
+                            self.config.use_ssl = (protocol == 'wss')
+                            logger.info(f"  Server Host: {host}")
+                            logger.info(f"  Server Port: {port}")
+                            logger.info(f"  Endpoint Path: {endpoint}")
+                            logger.info(f"  SSL: {'Enabled' if self.config.use_ssl else 'Disabled'}")
+
+                            # Save discovered configuration for future use
+                            self.config.save()
+                            logger.info("  Configuration saved")
+                            server_discovered = True
+                        else:
+                            logger.error(f"Failed to parse discovered URL: {discovered_url}")
+                    else:
+                        logger.warning(f"✗ No servers found in attempt #{discovery_attempt}")
+                        logger.info(f"Retrying discovery in {self.config.discovery_timeout} seconds...")
+                        await asyncio.sleep(self.config.discovery_timeout)
+
+                except Exception as e:
+                    logger.error(f"Auto-Discovery attempt #{discovery_attempt} failed: {e}")
+                    logger.error(f"Exception type: {type(e).__name__}")
+                    logger.error(f"Exception details: {str(e)}")
+                    import traceback
+                    logger.error(f"Traceback:\n{traceback.format_exc()}")
+                    logger.info(f"Retrying discovery in {self.config.discovery_timeout} seconds...")
+                    await asyncio.sleep(self.config.discovery_timeout)
+
+            logger.info("=" * 70)
+            logger.info("✓ SERVER DISCOVERED SUCCESSFULLY - Proceeding to connection...")
             logger.info("=" * 70)
         else:
             logger.info("=" * 70)
