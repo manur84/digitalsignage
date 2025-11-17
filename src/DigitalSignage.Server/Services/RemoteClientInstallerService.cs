@@ -198,6 +198,7 @@ public class RemoteClientInstallerService
         var isRoot = string.Equals(username, "root", StringComparison.OrdinalIgnoreCase);
         var escapedPassword = password.Replace("'", "'\"'\"'");
 
+        // Normalize to LF to avoid CR issues on target bash
         var cleanupScript = $@"
 set -e
 if systemctl is-active --quiet {RemoteServiceName} 2>/dev/null; then
@@ -208,7 +209,7 @@ if systemctl is-enabled --quiet {RemoteServiceName} 2>/dev/null; then
 fi
 rm -rf '{RemoteInstallDir}'
 rm -f '{RemoteServiceFile}'
-";
+".Replace("\r\n", "\n").Replace("\r", "\n");
 
         var escapedScript = cleanupScript.Replace("'", "'\"'\"'");
         var commandText = isRoot
