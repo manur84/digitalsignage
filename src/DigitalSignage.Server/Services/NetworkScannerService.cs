@@ -197,13 +197,16 @@ public class NetworkScannerService : IDisposable
             string discoveryMethod = "Ping Scan";
             int? openPort = null;
 
-            // Optional follow-up: quick TCP port probe for hosts blocking ICMP
-            if (!reachable && scanMode == NetworkScanMode.Deep)
+            // Optional follow-up in Deep mode: probe TCP ports to improve detection (even if ping responded)
+            if (scanMode == NetworkScanMode.Deep)
             {
                 var probed = await ProbeTcpPortsAsync(ipAddress, cancellationToken);
-                reachable = probed.reachable;
+                reachable = reachable || probed.reachable;
                 openPort = probed.port;
-                discoveryMethod = openPort.HasValue ? $"Deep TCP {openPort}" : "Deep TCP probe";
+                if (probed.reachable)
+                {
+                    discoveryMethod = openPort.HasValue ? $"Deep TCP {openPort}" : "Deep TCP probe";
+                }
             }
 
             if (!reachable)
