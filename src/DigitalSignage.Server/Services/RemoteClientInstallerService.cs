@@ -34,6 +34,7 @@ public class RemoteClientInstallerService
     {
         SshClient? ssh = null;
         SftpClient? sftp = null;
+        var installCommandStarted = false;
 
         if (string.IsNullOrWhiteSpace(host))
             return Result.Failure("Host/IP is required for installation.");
@@ -100,6 +101,7 @@ public class RemoteClientInstallerService
 
             var sshCommand = ssh.CreateCommand(installCommand);
             sshCommand.CommandTimeout = TimeSpan.FromMinutes(10);
+            installCommandStarted = true;
 
             // Stream output live to progress log (stdout + stderr)
             using var stdoutReader = new StreamReader(sshCommand.OutputStream ?? Stream.Null);
@@ -143,6 +145,19 @@ public class RemoteClientInstallerService
         }
         catch (SshConnectionException ex)
         {
+            // If the connection dropped after we started the install command, assume reboot and wait for service
+            if (installCommandStarted)
+            {
+                _logger.LogInformation(ex, "SSH connection dropped during install (likely reboot) for host {Host}", host);
+                var serviceUp = await WaitForRebootAndServiceAsync(host, port, username, password, progress, cancellationToken);
+                if (serviceUp)
+                {
+                    return Result.Success("Installation completed and service is running after reboot.");
+                }
+
+                return Result.Failure("Device reboot detected, but the client service did not come online in time.", ex);
+            }
+
             _logger.LogError(ex, "SSH connection dropped during install for host {Host}", host);
             return Result.Failure("SSH connection was aborted by the server during installation. Verify network stability and retry.", ex);
         }
@@ -346,5 +361,84 @@ rm -f '{RemoteServiceFile}'
         {
             _logger.LogWarning(ex, "Ignoring {Resource} dispose failure during cleanup", name);
         }
+    }
+
+    private async Task<bool> WaitForRebootAndServiceAsync(
+        string host,
+        int port,
+        string username,
+        string password,
+        IProgress<string>? progress,
+        CancellationToken cancellationToken)
+    {
+        var maxRebootWait = TimeSpan.FromMinutes(3);
+        var retryDelay = TimeSpan.FromSeconds(5);
+        var start = DateTime.UtcNow;
+
+        progress?.Report("Connection dropped (likely reboot). Waiting for device to come back online...");
+        while (DateTime.UtcNow - start < maxRebootWait)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (await IsTcpReachableAsync(host, port, cancellationToken))
+            {
+                progress?.Report("SSH reachable again - verifying client service status...");
+                if (await IsServiceActiveAsync(host, port, username, password, cancellationToken))
+                {
+                    progress?.Report("digitalsignage-client service is active after reboot.");
+                    return true;
+                }
+
+                progress?.Report("Service not yet active, retrying...");
+            }
+            else
+            {
+                progress?.Report("Waiting for SSH to come back up...");
+            }
+
+            await Task.Delay(retryDelay, cancellationToken);
+        }
+
+        progress?.Report("Timeout waiting for device to reboot and start the service.");
+        return false;
+    }
+
+    private static async Task<bool> IsTcpReachableAsync(string host, int port, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var tcpClient = new TcpClient();
+            var connectTask = tcpClient.ConnectAsync(host, port);
+            var completed = await Task.WhenAny(connectTask, Task.Delay(TimeSpan.FromSeconds(5), cancellationToken));
+            cancellationToken.ThrowIfCancellationRequested();
+            if (completed != connectTask)
+            {
+                return false;
+            }
+
+            await connectTask;
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private async Task<bool> IsServiceActiveAsync(
+        string host,
+        int port,
+        string username,
+        string password,
+        CancellationToken cancellationToken)
+    {
+        using var ssh = CreateSshClient(host, port, username, password);
+        await ConnectWithTimeoutAsync(ssh, cancellationToken);
+
+        var checkCmd = ssh.CreateCommand($"systemctl is-active --quiet {RemoteServiceName}");
+        checkCmd.CommandTimeout = TimeSpan.FromSeconds(10);
+
+        await Task.Run(() => checkCmd.Execute(), cancellationToken);
+        return checkCmd.ExitStatus == 0;
     }
 }
