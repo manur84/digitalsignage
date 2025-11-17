@@ -35,14 +35,12 @@ public partial class LayoutPreviewWindow : Window
 
         try
         {
-            var bytes = Convert.FromBase64String(svgBase64);
-            var svgText = Encoding.UTF8.GetString(bytes);
-
             var htmlPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.html");
-            var html = BuildHtml(svgText);
+            var html = BuildHtml(svgBase64);
             File.WriteAllText(htmlPath, html, Encoding.UTF8);
             _tempFiles.Add(htmlPath);
 
+            // Using NavigateToString often strips resources; Navigate with file:// to keep base URL
             Browser.Navigate(new Uri(htmlPath));
             ErrorText.Visibility = Visibility.Collapsed;
         }
@@ -53,7 +51,7 @@ public partial class LayoutPreviewWindow : Window
         }
     }
 
-    private static string BuildHtml(string svgContent)
+    private static string BuildHtml(string svgBase64)
     {
         var sb = new StringBuilder();
         sb.Append("""
@@ -63,13 +61,15 @@ public partial class LayoutPreviewWindow : Window
     <meta charset="utf-8">
     <style>
         html, body { margin:0; padding:0; width:100%; height:100%; background:#111; overflow:hidden;}
-        svg { width:100%; height:100%; }
+        object { width:100vw; height:100vh; display:block; }
     </style>
 </head>
 <body>
+    <object type="image/svg+xml" data="data:image/svg+xml;base64,
 """);
-        sb.Append(svgContent);
+        sb.Append(svgBase64);
         sb.Append("""
+"></object>
 </body>
 </html>
 """);
