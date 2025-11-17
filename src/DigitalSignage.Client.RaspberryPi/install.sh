@@ -59,6 +59,9 @@ USER_HOME=$(eval echo "~$ACTUAL_USER")
 VENV_DIR="$INSTALL_DIR/venv"
 CONFIG_DIR="$USER_HOME/.digitalsignage"
 
+# Non-interactive mode for remote/UI installer
+NON_INTERACTIVE=${DS_NONINTERACTIVE:-0}
+
 echo "User: $ACTUAL_USER"
 echo "Home: $USER_HOME"
 echo ""
@@ -120,6 +123,12 @@ else
     MODE="INSTALL"
     echo ""
     echo -e "${BLUE}Mode: ðŸ“¦ INSTALL${NC}"
+fi
+
+# Force fresh install in non-interactive mode
+if [ "$NON_INTERACTIVE" = "1" ]; then
+    MODE="INSTALL"
+    echo -e "${BLUE}Non-interactive: forcing fresh INSTALL${NC}"
 fi
 
 echo "â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•"
@@ -439,11 +448,17 @@ if [ "$MODE" = "UPDATE" ]; then
     if [ -f "$INSTALL_DIR/config.json" ]; then
         # Check if server_host is still localhost (needs configuration)
         if grep -q '"server_host": "localhost"' "$INSTALL_DIR/config.json" 2>/dev/null; then
-            echo ""
-            echo -e "${YELLOW}Client needs configuration:${NC}"
-            echo ""
-            read -p "Enter server IP address (e.g., 192.168.0.100): " SERVER_IP
-            read -p "Enter registration token (from server): " REG_TOKEN
+            if [ "$NON_INTERACTIVE" = "1" ]; then
+                echo -e "${YELLOW}Non-interactive: skipping config prompts (configure later)${NC}"
+                SERVER_IP=""
+                REG_TOKEN=""
+            else
+                echo ""
+                echo -e "${YELLOW}Client needs configuration:${NC}"
+                echo ""
+                read -p "Enter server IP address (e.g., 192.168.0.100): " SERVER_IP
+                read -p "Enter registration token (from server): " REG_TOKEN
+            fi
 
             if [ -n "$SERVER_IP" ] && [ -n "$REG_TOKEN" ]; then
                 # Update config.json
@@ -517,8 +532,13 @@ if [ -d "$INSTALL_DIR" ] || [ "$SERVICE_INSTALLED" = true ]; then
     echo "  - Install fresh version"
     echo "  - Enable and start the service automatically"
     echo ""
-    read -p "Continue with installation? (y/N): " -n 1 -r
-    echo
+    if [ "$NON_INTERACTIVE" = "1" ]; then
+        REPLY="y"
+        echo "Non-interactive: skipping fresh install confirmation"
+    else
+        read -p "Continue with installation? (y/N): " -n 1 -r
+        echo
+    fi
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
         echo "Installation cancelled."
         exit 0
@@ -937,12 +957,18 @@ echo ""
 
 # Check if config.json exists and configure it
 if [ -f "$INSTALL_DIR/config.json" ]; then
-    echo -e "${YELLOW}Configure Digital Signage Client:${NC}"
-    echo ""
-    echo "The client needs to know where to find the server."
-    echo ""
-    read -p "Enter server IP address (e.g., 192.168.0.100): " SERVER_IP
-    read -p "Enter registration token (from server): " REG_TOKEN
+    if [ "$NON_INTERACTIVE" = "1" ]; then
+        echo -e "${YELLOW}Non-interactive: skipping server IP/token prompts (configure later)${NC}"
+        SERVER_IP=""
+        REG_TOKEN=""
+    else
+        echo -e "${YELLOW}Configure Digital Signage Client:${NC}"
+        echo ""
+        echo "The client needs to know where to find the server."
+        echo ""
+        read -p "Enter server IP address (e.g., 192.168.0.100): " SERVER_IP
+        read -p "Enter registration token (from server): " REG_TOKEN
+    fi
 
     if [ -n "$SERVER_IP" ] && [ -n "$REG_TOKEN" ]; then
         # Update config.json
@@ -1019,8 +1045,13 @@ echo "  1) PRODUCTION MODE - For HDMI displays"
 echo "  2) DEVELOPMENT MODE - For headless/testing"
 echo ""
 
-read -p "Enter choice [1/2] (default: $RECOMMENDED_MODE): " DEPLOYMENT_MODE
-DEPLOYMENT_MODE=${DEPLOYMENT_MODE:-$RECOMMENDED_MODE}
+if [ "$NON_INTERACTIVE" = "1" ]; then
+    DEPLOYMENT_MODE=1
+    echo "Non-interactive: selecting PRODUCTION MODE (1)"
+else
+    read -p "Enter choice [1/2] (default: $RECOMMENDED_MODE): " DEPLOYMENT_MODE
+    DEPLOYMENT_MODE=${DEPLOYMENT_MODE:-$RECOMMENDED_MODE}
+fi
 
 if [ "$DEPLOYMENT_MODE" = "1" ]; then
     echo ""
@@ -1145,8 +1176,13 @@ EOF
     if [ "$NEEDS_REBOOT" = true ]; then
         echo -e "${YELLOW}IMPORTANT: Reboot required${NC}"
         echo ""
-        read -p "Reboot now? (y/N): " -n 1 -r
-        echo
+        if [ "$NON_INTERACTIVE" = "1" ]; then
+            REPLY="y"
+            echo "Non-interactive: auto-confirm reboot"
+        else
+            read -p "Reboot now? (y/N): " -n 1 -r
+            echo
+        fi
         if [[ $REPLY =~ ^[Yy]$ ]]; then
             echo "Rebooting in 3 seconds..."
             sleep 3
