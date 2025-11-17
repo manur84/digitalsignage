@@ -25,12 +25,14 @@ public class RemoteClientInstallerService
     /// <summary>
     /// Uploads the installer payload and executes install.sh on the remote device.
     /// </summary>
-    public async Task<Result> InstallAsync(string host, int port, string username, string password, IProgress<string>? progress = null, CancellationToken cancellationToken = default)
+    public async Task<Result> InstallAsync(string host, int port, string username, string password, string? repositoryUrl, IProgress<string>? progress = null, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(host))
             return Result.Failure("Host/IP is required for installation.");
 
-        if (!Directory.Exists(_installerSourcePath))
+        var useRepository = !string.IsNullOrWhiteSpace(repositoryUrl);
+
+        if (!useRepository && !Directory.Exists(_installerSourcePath))
             return Result.Failure($"Installer payload not found: {_installerSourcePath}");
 
         try
@@ -42,18 +44,52 @@ public class RemoteClientInstallerService
             using var sftp = CreateSftpClient(host, port, username, password);
 
             await Task.Run(() => ssh.Connect(), cancellationToken);
-            await Task.Run(() => sftp.Connect(), cancellationToken);
+            if (!useRepository)
+            {
+                await Task.Run(() => sftp.Connect(), cancellationToken);
+            }
 
-            progress?.Report("Preparing remote staging folder...");
-            await Task.Run(() => ssh.RunCommand($"rm -rf '{RemoteInstallPath}' && mkdir -p '{RemoteInstallPath}'"), cancellationToken);
+            string installScriptPath;
 
-            progress?.Report("Uploading installer files (can take a moment)...");
-            await UploadInstallerAsync(sftp, cancellationToken, progress);
+            if (useRepository)
+            {
+                progress?.Report($"Klone Repository {repositoryUrl} ...");
+                var cloneCommand = await Task.Run(() => ssh.RunCommand($"rm -rf '{RemoteInstallPath}' && git clone '{repositoryUrl}' '{RemoteInstallPath}'"), cancellationToken);
+                if (cloneCommand.ExitStatus != 0)
+                {
+                    var cloneError = (cloneCommand.Error ?? cloneCommand.Result ?? "Git clone failed").Trim();
+                    _logger.LogWarning("Git clone failed: {Error}", cloneError);
+                    return Result.Failure($"Git clone fehlgeschlagen: {cloneError}");
+                }
+
+                progress?.Report("Suche nach install.sh im Repository...");
+                var findCommand = await Task.Run(() => ssh.RunCommand($"find '{RemoteInstallPath}' -maxdepth 4 -type f -name 'install.sh' | head -n 1"), cancellationToken);
+                var foundPath = (findCommand.Result ?? string.Empty).Trim();
+
+                if (string.IsNullOrWhiteSpace(foundPath))
+                {
+                    return Result.Failure("install.sh wurde im geklonten Repository nicht gefunden.");
+                }
+
+                installScriptPath = foundPath;
+            }
+            else
+            {
+                progress?.Report("Preparing remote staging folder...");
+                await Task.Run(() => ssh.RunCommand($"rm -rf '{RemoteInstallPath}' && mkdir -p '{RemoteInstallPath}'"), cancellationToken);
+
+                progress?.Report("Uploading installer files (can take a moment)...");
+                await UploadInstallerAsync(sftp, cancellationToken, progress);
+
+                installScriptPath = $"{RemoteInstallPath}/install.sh";
+            }
+
+            progress?.Report($"Gefundenes install.sh: {installScriptPath}");
 
             progress?.Report("Making install.sh executable...");
-            await Task.Run(() => ssh.RunCommand($"cd '{RemoteInstallPath}' && chmod +x install.sh"), cancellationToken);
+            await Task.Run(() => ssh.RunCommand($"chmod +x '{installScriptPath}'"), cancellationToken);
 
-            var installCommand = BuildInstallCommand(username, password);
+            var installCommand = BuildInstallCommand(username, password, installScriptPath);
             progress?.Report("Running install.sh (sudo) ...");
 
             var sshCommand = ssh.CreateCommand(installCommand);
@@ -144,10 +180,16 @@ public class RemoteClientInstallerService
         }
     }
 
-    private string BuildInstallCommand(string username, string password)
+    private string BuildInstallCommand(string username, string password, string installScriptPath)
     {
+        var normalizedPath = installScriptPath.Replace("\\", "/");
+        if (!normalizedPath.StartsWith("/"))
+        {
+            normalizedPath = $"{RemoteInstallPath.TrimEnd('/')}/{normalizedPath.TrimStart('/')}";
+        }
+
         // Run through bash explicitly to avoid line-ending interpreter issues on uploaded scripts
-        var baseCommand = $"cd '{RemoteInstallPath}' && /bin/bash install.sh";
+        var baseCommand = $"/bin/bash '{normalizedPath}'";
 
         // Root can execute directly without sudo.
         if (string.Equals(username, "root", StringComparison.OrdinalIgnoreCase))
@@ -156,6 +198,6 @@ public class RemoteClientInstallerService
         }
 
         var escapedPassword = password.Replace("'", "'\"'\"'");
-        return $"cd '{RemoteInstallPath}' && echo '{escapedPassword}' | sudo -S ./install.sh";
+        return $"echo '{escapedPassword}' | sudo -S {baseCommand}";
     }
 }

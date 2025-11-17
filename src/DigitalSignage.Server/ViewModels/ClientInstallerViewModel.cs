@@ -28,6 +28,9 @@ public partial class ClientInstallerViewModel : ObservableObject, IDisposable
     private int _sshPort = 22;
 
     [ObservableProperty]
+    private string _repositoryUrl = string.Empty;
+
+    [ObservableProperty]
     private bool _isInstalling;
 
     [ObservableProperty]
@@ -68,9 +71,13 @@ public partial class ClientInstallerViewModel : ObservableObject, IDisposable
             IsInstalling = true;
             StatusMessage = $"Installiere auf {device.IpAddress} ...";
             AppendLog($"Verbinde mit {device.Hostname ?? device.IpAddress} ({device.IpAddress}) als {SshUsername}.");
+            if (!string.IsNullOrWhiteSpace(RepositoryUrl))
+            {
+                AppendLog($"Nutze Git-Repository: {RepositoryUrl}");
+            }
 
             var progress = new Progress<string>(message => AppendLog(message));
-            var result = await _installerService.InstallAsync(device.IpAddress, SshPort, SshUsername, SshPassword, progress);
+            var result = await _installerService.InstallAsync(device.IpAddress, SshPort, SshUsername, SshPassword, RepositoryUrl, progress);
 
             if (result.IsSuccess)
             {
@@ -111,19 +118,28 @@ public partial class ClientInstallerViewModel : ObservableObject, IDisposable
 
     private void AppendLog(string message)
     {
-        var builder = new StringBuilder(LogOutput ?? string.Empty);
         var timestamp = DateTime.Now.ToString("HH:mm:ss");
-        if (builder.Length > 0)
+        var entry = $"[{timestamp}] {message}";
+
+        // Newest first in the log output
+        if (string.IsNullOrWhiteSpace(LogOutput))
         {
-            builder.AppendLine();
+            LogOutput = entry;
         }
-        builder.Append($"[{timestamp}] {message}");
-        LogOutput = builder.ToString();
+        else
+        {
+            var builder = new StringBuilder(entry.Length + LogOutput.Length + Environment.NewLine.Length);
+            builder.Append(entry);
+            builder.AppendLine();
+            builder.Append(LogOutput);
+            LogOutput = builder.ToString();
+        }
     }
 
     partial void OnSshUsernameChanged(string value) => InstallSelectedDeviceCommand.NotifyCanExecuteChanged();
     partial void OnSshPasswordChanged(string value) => InstallSelectedDeviceCommand.NotifyCanExecuteChanged();
     partial void OnSshPortChanged(int value) => InstallSelectedDeviceCommand.NotifyCanExecuteChanged();
+    partial void OnRepositoryUrlChanged(string value) => InstallSelectedDeviceCommand.NotifyCanExecuteChanged();
 
     private void OnDiscoveredDevicesPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
