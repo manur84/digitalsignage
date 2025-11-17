@@ -56,6 +56,9 @@
                         <Button Content="Alle löschen" Padding="12,6"
                                 Command="{Binding DiscoveredDevices.ClearDiscoveredDevicesCommand}"
                                 IsEnabled="{Binding DiscoveredDevices.IsScanning, Converter={StaticResource InverseBooleanConverter}}"/>
+                        <CheckBox Content="Tiefer Scan (Ping+Port+UDP)" Margin="16,0,0,0" VerticalAlignment="Center"
+                                  IsChecked="{Binding DiscoveredDevices.UseDeepScan}"
+                                  ToolTip="Aktiviert TCP-Port-Probe und UDP-Broadcast, falls Pings geblockt werden."/>
                     </StackPanel>
 
                     <DataGrid Grid.Row="1"

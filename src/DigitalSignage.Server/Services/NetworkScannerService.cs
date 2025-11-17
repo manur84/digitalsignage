@@ -11,6 +11,15 @@ namespace DigitalSignage.Server.Services;
 /// <summary>
 /// Service for actively scanning the local network for potential Digital Signage clients
 /// </summary>
+public enum NetworkScanMode
+{
+    Quick,
+    Deep
+}
+
+/// <summary>
+/// Service for actively scanning the local network for potential Digital Signage clients
+/// </summary>
 public class NetworkScannerService : IDisposable
 {
     private readonly ILogger<NetworkScannerService> _logger;
@@ -91,7 +100,7 @@ public class NetworkScannerService : IDisposable
     /// <summary>
     /// Start scanning the local network for devices
     /// </summary>
-    public async Task<int> ScanNetworkAsync(CancellationToken cancellationToken = default)
+    public async Task<int> ScanNetworkAsync(NetworkScanMode scanMode = NetworkScanMode.Quick, CancellationToken cancellationToken = default)
     {
         await _scanningSemaphore.WaitAsync(cancellationToken);
         try
@@ -104,7 +113,7 @@ public class NetworkScannerService : IDisposable
 
             _isScanning = true;
             ScanningStatusChanged?.Invoke(this, true);
-            _logger.LogInformation("Starting network scan...");
+            _logger.LogInformation("Starting network scan with mode {Mode}...", scanMode);
 
             var discoveredCount = 0;
 
@@ -128,7 +137,7 @@ public class NetworkScannerService : IDisposable
                         if (localIPs.Any(local => local.ToString() == ip))
                             continue;
 
-                        tasks.Add(ScanHostAsync(ip, cancellationToken));
+                        tasks.Add(ScanHostAsync(ip, scanMode, cancellationToken));
 
                         // Batch scanning to avoid overwhelming the network
                         if (tasks.Count >= 50)
@@ -152,6 +161,16 @@ public class NetworkScannerService : IDisposable
                 }
             }
 
+            if (scanMode == NetworkScanMode.Deep)
+            {
+                var udpCount = await ScanUsingUdpDiscoveryAsync(timeoutSeconds: 3, cancellationToken);
+                if (udpCount > 0)
+                {
+                    _logger.LogDebug("Deep scan UDP discovery added {Count} device(s)", udpCount);
+                }
+            }
+
+            discoveredCount = _discoveredDevices.Count;
             _logger.LogInformation("Network scan completed. Discovered {Count} device(s)", discoveredCount);
             return discoveredCount;
         }
@@ -166,59 +185,74 @@ public class NetworkScannerService : IDisposable
     /// <summary>
     /// Scan a specific host
     /// </summary>
-    private async Task ScanHostAsync(string ipAddress, CancellationToken cancellationToken)
+    private async Task ScanHostAsync(string ipAddress, NetworkScanMode scanMode, CancellationToken cancellationToken)
     {
         try
         {
+            // First attempt: ICMP ping
             using var ping = new Ping();
             var reply = await ping.SendPingAsync(ipAddress, 500); // 500ms timeout
 
-            if (reply.Status == IPStatus.Success)
+            var reachable = reply.Status == IPStatus.Success;
+            string discoveryMethod = "Ping Scan";
+            int? openPort = null;
+
+            // Optional follow-up: quick TCP port probe for hosts blocking ICMP
+            if (!reachable && scanMode == NetworkScanMode.Deep)
             {
-                // Device is reachable
-                var device = new DiscoveredDevice
-                {
-                    IpAddress = ipAddress,
-                    DiscoveredAt = DateTime.UtcNow,
-                    DiscoveryMethod = "Ping Scan",
-                    IsReachable = true
-                };
+                var probed = await ProbeTcpPortsAsync(ipAddress, cancellationToken);
+                reachable = probed.reachable;
+                openPort = probed.port;
+                discoveryMethod = openPort.HasValue ? $"Deep TCP {openPort}" : "Deep TCP probe";
+            }
 
-                // Try to resolve hostname
-                try
-                {
-                    var hostEntry = await Dns.GetHostEntryAsync(ipAddress);
-                    device.Hostname = hostEntry.HostName;
+            if (!reachable)
+            {
+                return;
+            }
 
-                    // Check if it's likely a Raspberry Pi based on hostname
-                    device.IsLikelyRaspberryPi = IsLikelyRaspberryPi(hostEntry.HostName);
-                }
-                catch
-                {
-                    device.Hostname = ipAddress; // Fallback to IP
-                }
+            var device = new DiscoveredDevice
+            {
+                IpAddress = ipAddress,
+                DiscoveredAt = DateTime.UtcNow,
+                DiscoveryMethod = discoveryMethod,
+                IsReachable = true
+            };
 
-                // Try to get MAC address (requires admin privileges on Windows)
-                try
-                {
-                    device.MacAddress = await GetMacAddressAsync(ipAddress);
-                }
-                catch
-                {
-                    // MAC address lookup failed - not critical
-                }
+            // Try to resolve hostname
+            try
+            {
+                var hostEntry = await Dns.GetHostEntryAsync(ipAddress);
+                device.Hostname = hostEntry.HostName;
 
-                // Add or update device
-                if (_discoveredDevices.TryAdd(ipAddress, device))
-                {
-                    _logger.LogDebug("Discovered device: {Hostname} ({IpAddress})", device.Hostname, device.IpAddress);
-                    DeviceDiscovered?.Invoke(this, device);
-                }
-                else
-                {
-                    // Update existing entry
-                    _discoveredDevices[ipAddress] = device;
-                }
+                // Check if it's likely a Raspberry Pi based on hostname
+                device.IsLikelyRaspberryPi = IsLikelyRaspberryPi(hostEntry.HostName);
+            }
+            catch
+            {
+                device.Hostname = ipAddress; // Fallback to IP
+            }
+
+            // Try to get MAC address (requires admin privileges on Windows)
+            try
+            {
+                device.MacAddress = await GetMacAddressAsync(ipAddress);
+            }
+            catch
+            {
+                // MAC address lookup failed - not critical
+            }
+
+            // Add or update device
+            if (_discoveredDevices.TryAdd(ipAddress, device))
+            {
+                _logger.LogDebug("Discovered device: {Hostname} ({IpAddress})", device.Hostname, device.IpAddress);
+                DeviceDiscovered?.Invoke(this, device);
+            }
+            else
+            {
+                // Update existing entry
+                _discoveredDevices[ipAddress] = device;
             }
         }
         catch (OperationCanceledException)
@@ -352,6 +386,39 @@ public class NetworkScannerService : IDisposable
             _logger.LogError(ex, "Error during UDP discovery scan");
             return 0;
         }
+    }
+
+    private async Task<(bool reachable, int? port)> ProbeTcpPortsAsync(string ipAddress, CancellationToken cancellationToken)
+    {
+        var portsToProbe = new[] { 22, 80, 443, 8080 };
+
+        foreach (var port in portsToProbe)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                using var tcpClient = new TcpClient();
+                var connectTask = tcpClient.ConnectAsync(ipAddress, port);
+                var delayTask = Task.Delay(500, cancellationToken);
+
+                var completed = await Task.WhenAny(connectTask, delayTask);
+
+                if (completed == connectTask && tcpClient.Connected)
+                {
+                    return (true, port);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogTrace(ex, "TCP probe failed for {IpAddress}:{Port}", ipAddress, port);
+            }
+        }
+
+        return (false, null);
     }
 
     /// <summary>

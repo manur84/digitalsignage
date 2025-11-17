@@ -41,6 +41,9 @@ public partial class DiscoveredDevicesViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private int _staleDeviceThresholdMinutes = 30;
 
+    [ObservableProperty]
+    private bool _useDeepScan;
+
     public ObservableCollection<DiscoveredDevice> DiscoveredDevices { get; } = new();
 
     public DiscoveredDevicesViewModel(
@@ -162,11 +165,13 @@ public partial class DiscoveredDevicesViewModel : ObservableObject, IDisposable
             // Remove stale devices before scanning
             _scannerService.RemoveStaleDevices(TimeSpan.FromMinutes(StaleDeviceThresholdMinutes));
 
-            var count = await _scannerService.ScanNetworkAsync();
+            var scanMode = UseDeepScan ? NetworkScanMode.Deep : NetworkScanMode.Quick;
+            var count = await _scannerService.ScanNetworkAsync(scanMode);
 
             RefreshDiscoveredDevicesList();
-            ScanStatusMessage = $"Scan complete. Discovered {count} device(s)";
-            _logger.LogInformation("Network scan completed. Found {Count} devices", count);
+            var modeLabel = scanMode == NetworkScanMode.Deep ? "Deep" : "Quick";
+            ScanStatusMessage = $"Scan complete ({modeLabel}). Discovered {count} device(s)";
+            _logger.LogInformation("{Mode} network scan completed. Found {Count} devices", modeLabel, count);
         }
         catch (Exception ex)
         {
