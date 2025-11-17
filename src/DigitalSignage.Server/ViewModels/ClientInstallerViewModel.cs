@@ -28,6 +28,9 @@ public partial class ClientInstallerViewModel : ObservableObject, IDisposable
     private int _sshPort = 22;
 
     [ObservableProperty]
+    private string _manualTargetIp = string.Empty;
+
+    [ObservableProperty]
     private bool _isInstalling;
 
     [ObservableProperty]
@@ -59,18 +62,23 @@ public partial class ClientInstallerViewModel : ObservableObject, IDisposable
     private async Task InstallSelectedDevice()
     {
         if (DiscoveredDevices?.SelectedDiscoveredDevice == null)
-            return;
+        {
+            if (string.IsNullOrWhiteSpace(ManualTargetIp))
+                return;
+        }
 
-        var device = DiscoveredDevices.SelectedDiscoveredDevice;
+        var targetDevice = DiscoveredDevices?.SelectedDiscoveredDevice;
+        var targetIp = targetDevice?.IpAddress ?? ManualTargetIp.Trim();
+        var targetName = targetDevice?.Hostname ?? targetIp;
 
         try
         {
             IsInstalling = true;
-            StatusMessage = $"Installiere auf {device.IpAddress} ...";
-            AppendLog($"Verbinde mit {device.Hostname ?? device.IpAddress} ({device.IpAddress}) als {SshUsername}.");
+            StatusMessage = $"Installiere auf {targetIp} ...";
+            AppendLog($"Verbinde mit {targetName} ({targetIp}) als {SshUsername}.");
 
             var progress = new Progress<string>(message => AppendLog(message));
-            var result = await _installerService.InstallAsync(device.IpAddress, SshPort, SshUsername, SshPassword, progress);
+            var result = await _installerService.InstallAsync(targetIp, SshPort, SshUsername, SshPassword, progress);
 
             if (result.IsSuccess)
             {
@@ -91,7 +99,7 @@ public partial class ClientInstallerViewModel : ObservableObject, IDisposable
         catch (Exception ex)
         {
             StatusMessage = "Installation fehlgeschlagen";
-            _logger.LogError(ex, "Installation failed for device {Ip}", device.IpAddress);
+            _logger.LogError(ex, "Installation failed for device {Ip}", targetIp);
             AppendLog($"FEHLER: {ex.Message}");
         }
         finally
@@ -103,10 +111,10 @@ public partial class ClientInstallerViewModel : ObservableObject, IDisposable
     private bool CanInstall()
     {
         return !IsInstalling
-            && DiscoveredDevices?.SelectedDiscoveredDevice != null
             && !string.IsNullOrWhiteSpace(SshUsername)
             && !string.IsNullOrWhiteSpace(SshPassword)
-            && SshPort > 0;
+            && SshPort > 0
+            && (DiscoveredDevices?.SelectedDiscoveredDevice != null || !string.IsNullOrWhiteSpace(ManualTargetIp));
     }
 
     private void AppendLog(string message)
@@ -132,6 +140,7 @@ public partial class ClientInstallerViewModel : ObservableObject, IDisposable
     partial void OnSshUsernameChanged(string value) => InstallSelectedDeviceCommand.NotifyCanExecuteChanged();
     partial void OnSshPasswordChanged(string value) => InstallSelectedDeviceCommand.NotifyCanExecuteChanged();
     partial void OnSshPortChanged(int value) => InstallSelectedDeviceCommand.NotifyCanExecuteChanged();
+    partial void OnManualTargetIpChanged(string value) => InstallSelectedDeviceCommand.NotifyCanExecuteChanged();
 
     private void OnDiscoveredDevicesPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
