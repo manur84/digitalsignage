@@ -41,6 +41,9 @@ public class RaspberryPiClient
             if (DeviceInfo != null && !string.IsNullOrWhiteSpace(DeviceInfo.Hostname))
                 return DeviceInfo.Hostname;
 
+            if (DeviceInfo != null && !string.IsNullOrWhiteSpace(DeviceInfo.MdnsName))
+                return DeviceInfo.MdnsName;
+
             // Try known metadata keys for mDNS service/host names
             if (Metadata != null)
             {
@@ -90,6 +93,7 @@ public enum ClientStatus
 /// </summary>
 public class DeviceInfo
 {
+    public string MdnsName { get; set; } = string.Empty;
     public string Hostname { get; set; } = string.Empty;
     public string Model { get; set; } = string.Empty;
     public string OsVersion { get; set; } = string.Empty;

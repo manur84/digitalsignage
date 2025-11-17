@@ -19,6 +19,19 @@ class DeviceManager:
     def __init__(self):
         self.hostname = platform.node()
 
+    def get_mdns_name(self) -> str:
+        """Return mDNS hostname (best effort)"""
+        try:
+            name = self.hostname or platform.node()
+            if not name:
+                return ""
+            if name.endswith(".local"):
+                return name
+            return f"{name}.local"
+        except Exception as e:
+            logger.debug(f"Failed to build mDNS name: {e}")
+            return ""
+
     async def get_device_info(self) -> Dict[str, Any]:
         """Get comprehensive device information"""
         try:
@@ -53,6 +66,7 @@ class DeviceManager:
 
         return {
             "hostname": self.hostname,
+            "mdns_name": self.get_mdns_name(),
             "model": self.get_rpi_model(),
             "os_version": self.get_os_version(),
             "ip_address": self.get_ip_address(),

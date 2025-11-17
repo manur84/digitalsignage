@@ -445,6 +445,8 @@ class DigitalSignageClient:
                 "MacAddress": device_info["mac_address"],
                 "IpAddress": device_info["ip_address"],
                 "DeviceInfo": {
+                    "Hostname": device_info.get("hostname"),
+                    "MdnsName": device_info.get("mdns_name"),
                     "Model": device_info["model"],
                     "OsVersion": device_info["os_version"],
                     "ClientVersion": "1.0.0",
@@ -676,6 +678,8 @@ class DigitalSignageClient:
                 "ClientId": self.config.client_id,
                 "Status": "Online" if not self.offline_mode else "OfflineRecovery",
                 "DeviceInfo": {
+                    "Hostname": device_info.get("hostname"),
+                    "MdnsName": device_info.get("mdns_name"),
                     "CpuTemperature": device_info["cpu_temp"],
                     "CpuUsage": device_info["cpu_usage"],
                     "MemoryUsed": device_info["memory_used"],
