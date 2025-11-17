@@ -8,7 +8,7 @@ public class DisplayLayout
     public string Id { get; set; } = Guid.NewGuid().ToString();
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
-    public string LayoutType { get; set; } = "standard"; // standard, svg
+    public string LayoutType { get; set; } = "png"; // png (preferred), legacy svg
     public string Version { get; set; } = "1.0";
     public DateTime Created { get; set; } = DateTime.UtcNow;
     public DateTime Modified { get; set; } = DateTime.UtcNow;

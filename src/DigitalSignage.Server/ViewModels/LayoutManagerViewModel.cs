@@ -198,18 +198,19 @@ public partial class LayoutManagerViewModel : ObservableObject
         {
             if (!File.Exists(filePath))
             {
-                _logger.LogWarning("SVG file not found: {File}", filePath);
+                _logger.LogWarning("File not found: {File}", filePath);
                 return false;
             }
 
-            var svgBytes = await File.ReadAllBytesAsync(filePath);
-            if (svgBytes.Length == 0)
+            var bytes = await File.ReadAllBytesAsync(filePath);
+            if (bytes.Length == 0)
             {
-                _logger.LogWarning("SVG file is empty: {File}", filePath);
+                _logger.LogWarning("File is empty: {File}", filePath);
                 return false;
             }
 
             var fileName = Path.GetFileName(filePath);
+            var extension = Path.GetExtension(fileName).ToLowerInvariant();
             var layout = new DisplayLayout
             {
                 Name = Path.GetFileNameWithoutExtension(fileName),
@@ -220,11 +221,18 @@ public partial class LayoutManagerViewModel : ObservableObject
                 BackgroundColor = "#FFFFFF"
             };
 
-            layout.PngContentBase64 = ConvertSvgToPngBase64(svgBytes);
-            if (string.IsNullOrWhiteSpace(layout.PngContentBase64))
+            if (extension == ".png")
             {
-                _logger.LogWarning("Failed to convert SVG to PNG for {File}", fileName);
-                return false;
+                layout.PngContentBase64 = Convert.ToBase64String(bytes);
+            }
+            else
+            {
+                layout.PngContentBase64 = ConvertSvgToPngBase64(bytes);
+                if (string.IsNullOrWhiteSpace(layout.PngContentBase64))
+                {
+                    _logger.LogWarning("Failed to convert SVG to PNG for {File}", fileName);
+                    return false;
+                }
             }
 
             layout.Tags.Add("png");
