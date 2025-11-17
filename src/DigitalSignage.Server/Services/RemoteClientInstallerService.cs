@@ -21,6 +21,7 @@ public class RemoteClientInstallerService
     private const string RemoteServiceName = "digitalsignage-client";
     private const string RemoteInstallDir = "/opt/digitalsignage-client";
     private const string RemoteServiceFile = "/etc/systemd/system/digitalsignage-client.service";
+    private const string InstallCompleteMarker = "__DS_INSTALL_COMPLETE__";
 
     public RemoteClientInstallerService(ILogger<RemoteClientInstallerService> logger)
     {
@@ -36,6 +37,7 @@ public class RemoteClientInstallerService
         SshClient? ssh = null;
         SftpClient? sftp = null;
         var installCommandStarted = false;
+        var installMarkerSeen = false;
 
         if (string.IsNullOrWhiteSpace(host))
             return Result.Failure("Host/IP is required for installation.");
@@ -116,7 +118,13 @@ public class RemoteClientInstallerService
                     var line = await stdoutReader.ReadLineAsync();
                     if (!string.IsNullOrWhiteSpace(line))
                     {
-                        progress?.Report(line.TrimEnd());
+                        var trimmed = line.TrimEnd();
+                        progress?.Report(trimmed);
+                        if (!installMarkerSeen && trimmed.Contains(InstallCompleteMarker, StringComparison.Ordinal))
+                        {
+                            installMarkerSeen = true;
+                            progress?.Report("Installations-Marker empfangen. Warte auf Neustart/Abschluss...");
+                        }
                     }
                 }
             }, cancellationToken);
@@ -128,7 +136,13 @@ public class RemoteClientInstallerService
                     var line = await stderrReader.ReadLineAsync();
                     if (!string.IsNullOrWhiteSpace(line))
                     {
-                        progress?.Report($"[stderr] {line.TrimEnd()}");
+                        var trimmed = line.TrimEnd();
+                        progress?.Report($"[stderr] {trimmed}");
+                        if (!installMarkerSeen && trimmed.Contains(InstallCompleteMarker, StringComparison.Ordinal))
+                        {
+                            installMarkerSeen = true;
+                            progress?.Report("Installations-Marker empfangen. Warte auf Neustart/Abschluss...");
+                        }
                     }
                 }
             }, cancellationToken);
@@ -157,6 +171,13 @@ public class RemoteClientInstallerService
 
             if (commandConnectionDropped)
             {
+                // If we saw the completion marker, consider install done without further checks
+                if (installMarkerSeen)
+                {
+                    progress?.Report("Installations-Marker empfangen; SSH-Verbindung geschlossen.");
+                    return Result.Success("Installation abgeschlossen (Marker empfangen). Gerät rebootet ggf.");
+                }
+
                 // Treat as reboot scenario
                 var result = await HandleConnectionDropAsync(
                     commandException as SshConnectionException ?? new SshConnectionException("SSH connection dropped during install."),

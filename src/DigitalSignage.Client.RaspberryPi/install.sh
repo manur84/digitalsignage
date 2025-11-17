@@ -28,6 +28,7 @@ INSTALL_DIR="/opt/digitalsignage-client"
 SERVICE_NAME="digitalsignage-client"
 SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
 NON_INTERACTIVE=1
+COMPLETE_MARKER="__DS_INSTALL_COMPLETE__"
 echo "â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•"
 echo "  Digital Signage Client - Smart Installer"
 echo "â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•"
@@ -1185,6 +1186,7 @@ EOF
             echo
         fi
         if [[ $REPLY =~ ^[Yy]$ ]]; then
+            echo "$COMPLETE_MARKER"
             echo "Rebooting in 3 seconds..."
             sleep 3
             reboot
@@ -1193,11 +1195,13 @@ EOF
         fi
     else
         show_success "No reboot required - system ready"
+        echo "$COMPLETE_MARKER"
     fi
 else
     echo ""
     show_info "DEVELOPMENT MODE selected"
     echo "Service uses Xvfb virtual display (via start-with-display.sh)"
+    echo "$COMPLETE_MARKER"
 fi
 
 # Final summary
