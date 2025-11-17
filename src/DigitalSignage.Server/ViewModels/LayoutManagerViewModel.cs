@@ -254,8 +254,8 @@ public partial class LayoutManagerViewModel : ObservableObject
             var svgDoc = SvgDocument.Open<SvgDocument>(stream);
             if (svgDoc == null) return null;
 
-            var width = (int)(svgDoc.Width?.Value ?? 1920);
-            var height = (int)(svgDoc.Height?.Value ?? 1080);
+            var width = svgDoc.Width != null ? (int)svgDoc.Width.Value : 1920;
+            var height = svgDoc.Height != null ? (int)svgDoc.Height.Value : 1080;
             using var bitmap = new Bitmap(width, height);
             svgDoc.Draw(bitmap);
             using var ms = new MemoryStream();
