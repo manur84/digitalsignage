@@ -184,13 +184,17 @@ public class RemoteClientInstallerService
         // Root can execute directly without sudo.
         if (string.Equals(username, "root", StringComparison.OrdinalIgnoreCase))
         {
-            // Pre-seed install.sh interactive prompts (deployment mode = 1, reboot = y)
-            return $"printf '1\\ny\\n' | /bin/bash '{normalizedPath}'";
+            // Pre-seed install.sh interactive prompts:
+            // y = continue fresh install
+            // 1 = production mode
+            // (blank) server IP / (blank) registration token
+            // y = reboot
+            return $"printf 'y\\n1\\n\\n\\ny\\n' | /bin/bash '{normalizedPath}'";
         }
 
         // Run through bash via sudo; first line of input is the sudo password, remaining feed into install.sh.
         var escapedPassword = password.Replace("'", "'\"'\"'");
-        return $"printf '%s\\n1\\ny\\n' '{escapedPassword}' | sudo -S /bin/bash '{normalizedPath}'";
+        return $"printf '%s\\ny\\n1\\n\\n\\ny\\n' '{escapedPassword}' | sudo -S /bin/bash '{normalizedPath}'";
     }
 
     private async Task ForceFreshInstallAsync(SshClient ssh, string username, string password, CancellationToken cancellationToken, IProgress<string>? progress)
