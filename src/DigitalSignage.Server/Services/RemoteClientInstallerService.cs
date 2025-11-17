@@ -4,6 +4,8 @@ using DigitalSignage.Core.Models;
 using Microsoft.Extensions.Logging;
 using Renci.SshNet;
 using Renci.SshNet.Sftp;
+using Renci.SshNet.Common;
+using System.Net.Sockets;
 
 namespace DigitalSignage.Server.Services;
 
@@ -30,6 +32,9 @@ public class RemoteClientInstallerService
     /// </summary>
     public async Task<Result> InstallAsync(string host, int port, string username, string password, IProgress<string>? progress = null, CancellationToken cancellationToken = default)
     {
+        SshClient? ssh = null;
+        SftpClient? sftp = null;
+
         if (string.IsNullOrWhiteSpace(host))
             return Result.Failure("Host/IP is required for installation.");
 
@@ -41,11 +46,37 @@ public class RemoteClientInstallerService
             progress?.Report($"Connecting to {host}:{port} ...");
             _logger.LogInformation("Starting remote installer for {Host}:{Port} as {User}", host, port, username);
 
-            using var ssh = CreateSshClient(host, port, username, password);
-            using var sftp = CreateSftpClient(host, port, username, password);
+            // Quick connectivity probe to fail fast on unreachable hosts/ports
+            await EnsurePortReachableAsync(host, port, cancellationToken);
 
-            await Task.Run(() => ssh.Connect(), cancellationToken);
-            await Task.Run(() => sftp.Connect(), cancellationToken);
+            try
+            {
+                ssh = CreateSshClient(host, port, username, password);
+                sftp = CreateSftpClient(host, port, username, password);
+
+                await ConnectWithTimeoutAsync(ssh, cancellationToken);
+                await ConnectWithTimeoutAsync(sftp, cancellationToken);
+            }
+            catch (SshAuthenticationException ex)
+            {
+                _logger.LogWarning(ex, "SSH authentication failed for {Host}", host);
+                return Result.Failure("SSH authentication failed. Please verify username/password.", ex);
+            }
+            catch (SshConnectionException ex)
+            {
+                _logger.LogWarning(ex, "SSH connection aborted while connecting to {Host}", host);
+                return Result.Failure("SSH connection was aborted by the remote host. Check network/firewall and that SSH is running.", ex);
+            }
+            catch (SocketException ex)
+            {
+                _logger.LogWarning(ex, "SSH TCP connection failed for {Host}:{Port}", host, port);
+                return Result.Failure($"Unable to reach {host}:{port} over SSH (TCP connection failed).", ex);
+            }
+
+            if (ssh == null || sftp == null)
+            {
+                return Result.Failure("Failed to initialize SSH/SFTP clients.");
+            }
 
             // Always start from a clean slate on the target device
             progress?.Report("Preparing target for fresh install (stop/disable service, remove old files)...");
@@ -110,16 +141,46 @@ public class RemoteClientInstallerService
             progress?.Report("Installation completed successfully.");
             return Result.Success("Client installed successfully.");
         }
+        catch (SshConnectionException ex)
+        {
+            _logger.LogError(ex, "SSH connection dropped during install for host {Host}", host);
+            return Result.Failure("SSH connection was aborted by the server during installation. Verify network stability and retry.", ex);
+        }
+        catch (SshAuthenticationException ex)
+        {
+            _logger.LogError(ex, "SSH authentication failed mid-install for host {Host}", host);
+            return Result.Failure("SSH authentication failed while running install.sh. Please re-enter credentials.", ex);
+        }
+        catch (SocketException ex)
+        {
+            _logger.LogError(ex, "Socket error during remote install for host {Host}", host);
+            return Result.Failure($"Network error during installation: {ex.Message}", ex);
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Remote installation failed for host {Host}", host);
             return Result.Failure($"Installation failed: {ex.Message}", ex);
         }
+        finally
+        {
+            // Ensure disposal never escapes as an unhandled SshConnectionException when the server drops the line
+            SafeDispose(sftp, nameof(sftp));
+            SafeDispose(ssh, nameof(ssh));
+        }
     }
 
     private static SshClient CreateSshClient(string host, int port, string username, string password)
     {
-        return new SshClient(host, port, username, password)
+        var connectionInfo = new ConnectionInfo(
+            host,
+            port,
+            username,
+            new PasswordAuthenticationMethod(username, password))
+        {
+            Timeout = TimeSpan.FromSeconds(15)
+        };
+
+        return new SshClient(connectionInfo)
         {
             KeepAliveInterval = TimeSpan.FromSeconds(30)
         };
@@ -127,7 +188,16 @@ public class RemoteClientInstallerService
 
     private static SftpClient CreateSftpClient(string host, int port, string username, string password)
     {
-        return new SftpClient(host, port, username, password);
+        var connectionInfo = new ConnectionInfo(
+            host,
+            port,
+            username,
+            new PasswordAuthenticationMethod(username, password))
+        {
+            Timeout = TimeSpan.FromSeconds(15)
+        };
+
+        return new SftpClient(connectionInfo);
     }
 
     private async Task UploadInstallerAsync(SftpClient sftp, CancellationToken cancellationToken, IProgress<string>? progress)
@@ -181,16 +251,13 @@ public class RemoteClientInstallerService
             normalizedPath = $"{RemoteInstallPath.TrimEnd('/')}/{normalizedPath.TrimStart('/')}";
         }
 
-        // Root can execute directly without sudo.
+        // Execute install.sh exactly as provided, without extra environment flags or password piping.
         if (string.Equals(username, "root", StringComparison.OrdinalIgnoreCase))
         {
-            // Run install.sh in non-interactive mode (script handles its own defaults)
-            return $"DS_NONINTERACTIVE=1 /bin/bash '{normalizedPath}'";
+            return $"/bin/bash '{normalizedPath}'";
         }
 
-        // Run through bash via sudo; first line of input is the sudo password, remaining feed into install.sh.
-        var escapedPassword = password.Replace("'", "'\"'\"'");
-        return $"printf '%s\\n' '{escapedPassword}' | sudo -S DS_NONINTERACTIVE=1 /bin/bash '{normalizedPath}'";
+        return $"sudo /bin/bash '{normalizedPath}'";
     }
 
     private async Task ForceFreshInstallAsync(SshClient ssh, string username, string password, CancellationToken cancellationToken, IProgress<string>? progress)
@@ -237,6 +304,47 @@ rm -f '{RemoteServiceFile}'
         if (cmd.ExitStatus != 0)
         {
             throw new InvalidOperationException($"Failed to prepare fresh install (exit {cmd.ExitStatus}): {combined}");
+        }
+    }
+
+    private static async Task EnsurePortReachableAsync(string host, int port, CancellationToken cancellationToken)
+    {
+        using var tcpClient = new TcpClient();
+        var connectTask = tcpClient.ConnectAsync(host, port);
+        var completed = await Task.WhenAny(connectTask, Task.Delay(TimeSpan.FromSeconds(10), cancellationToken));
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (completed != connectTask)
+        {
+            throw new TimeoutException($"SSH connection to {host}:{port} timed out.");
+        }
+
+        // Surface any socket exceptions
+        await connectTask;
+    }
+
+    private static async Task ConnectWithTimeoutAsync(BaseClient client, CancellationToken cancellationToken)
+    {
+        // Run connect on TP so we can cancel/timeout gracefully
+        await Task.Run(() =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            client.Connect();
+        }, cancellationToken);
+    }
+
+    private void SafeDispose(IDisposable? disposable, string name)
+    {
+        if (disposable == null) return;
+
+        try
+        {
+            disposable.Dispose();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Ignoring {Resource} dispose failure during cleanup", name);
         }
     }
 }
