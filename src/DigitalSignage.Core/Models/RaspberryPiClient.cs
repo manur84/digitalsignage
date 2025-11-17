@@ -28,6 +28,33 @@ public class RaspberryPiClient
     public DisplayLayout? AssignedLayout { get; set; }
 
     /// <summary>
+    /// Display name with fallbacks (Name -> Hostname -> mDNS -> IP)
+    /// </summary>
+    [NotMapped]
+    public string DisplayName
+    {
+        get
+        {
+            if (!string.IsNullOrWhiteSpace(Name))
+                return Name;
+
+            if (DeviceInfo != null && !string.IsNullOrWhiteSpace(DeviceInfo.Hostname))
+                return DeviceInfo.Hostname;
+
+            // Try known metadata keys for mDNS service/host names
+            if (Metadata != null)
+            {
+                if (Metadata.TryGetValue("MdnsName", out var mdns) && mdns != null && !string.IsNullOrWhiteSpace(mdns.ToString()))
+                    return mdns.ToString()!;
+                if (Metadata.TryGetValue("MdnsServiceName", out var mdnsService) && mdnsService != null && !string.IsNullOrWhiteSpace(mdnsService.ToString()))
+                    return mdnsService.ToString()!;
+            }
+
+            return !string.IsNullOrWhiteSpace(IpAddress) ? IpAddress : "Unknown";
+        }
+    }
+
+    /// <summary>
     /// Gets the assigned layout name for display purposes
     /// </summary>
     [NotMapped]

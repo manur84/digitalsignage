@@ -46,7 +46,7 @@
                      SelectionMode="Single"
                      Margin="12,0">
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="Name" Binding="{Binding DeviceInfo.Hostname}" Width="150"/>
+                    <DataGridTextColumn Header="Name" Binding="{Binding DisplayName}" Width="150"/>
                     <DataGridTextColumn Header="IP Address" Binding="{Binding IpAddress}" Width="120"/>
                     <DataGridTemplateColumn Header="Status" Width="100">
                         <DataGridTemplateColumn.CellTemplate>
