@@ -87,7 +87,7 @@
                             <DataTemplate>
                                 <Button Content="Open"
                                         Command="{Binding DataContext.OpenWebInterfaceCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                        Padding="8,4"/>
+                                        CommandParameter="{Binding}" Padding="8,4"/>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>

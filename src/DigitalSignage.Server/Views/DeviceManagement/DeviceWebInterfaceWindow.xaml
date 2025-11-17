@@ -1,0 +1,24 @@
+<Window x:Class="DigitalSignage.Server.Views.DeviceManagement.DeviceWebInterfaceWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Device Web Interface" WindowState="Maximized" WindowStyle="None" Background="Black" Loaded="Window_Loaded" KeyDown="Window_KeyDown">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <Border Background="#222" Padding="8" Grid.Row="0">
+            <DockPanel>
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
+                    <TextBlock Text="Geräte Web Interface" FontSize="16" FontWeight="Bold" Foreground="White" Margin="0,0,16,0"/>
+                    <TextBlock x:Name="UrlText" Foreground="LightGray" VerticalAlignment="Center"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
+                    <Button Content="?" Width="40" Margin="0,0,8,0" Click="Refresh_Click" ToolTip="Neu laden"/>
+                    <Button Content="?" Width="60" Click="Close_Click" ToolTip="Schließen (Esc)"/>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+        <WebBrowser x:Name="Browser" Grid.Row="1" />
+    </Grid>
+</Window>

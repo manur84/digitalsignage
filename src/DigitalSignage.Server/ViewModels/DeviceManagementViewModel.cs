@@ -9,6 +9,7 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Diagnostics;
 using System.Linq;
+using DigitalSignage.Server.Views.DeviceManagement; // hinzugefügt
 
 namespace DigitalSignage.Server.ViewModels;
 
@@ -490,31 +491,27 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void OpenWebInterface(RaspberryPiClient? client)
     {
-        if (client == null || string.IsNullOrEmpty(client.IpAddress)) return;
+        var targetClient = client ?? SelectedClient;
+        if (targetClient == null || string.IsNullOrWhiteSpace(targetClient.IpAddress)) return;
 
         try
         {
-            var url = $"http://{client.IpAddress}:5000";
-
-            var psi = new ProcessStartInfo
+            var url = $"http://{targetClient.IpAddress}:5000";
+            var window = new DeviceWebInterfaceWindow(url) // korrigiert
             {
-                FileName = url,
-                UseShellExecute = true
+                Owner = System.Windows.Application.Current.MainWindow
             };
+            window.Show();
 
-            Process.Start(psi);
-
-            var hostname = !string.IsNullOrEmpty(client.DeviceInfo.Hostname)
-                ? client.DeviceInfo.Hostname
-                : client.Name;
-            StatusMessage = $"Opened web interface for {hostname}";
-            _logger.LogInformation("Opened web interface for client {ClientId} at {Url}", client.Id, url);
+            var hostname = !string.IsNullOrEmpty(targetClient.DeviceInfo.Hostname) ? targetClient.DeviceInfo.Hostname : targetClient.Name;
+            StatusMessage = $"Web Interface geöffnet (Vollbild) für {hostname}";
+            _logger.LogInformation("Opened fullscreen web interface for client {ClientId} at {Url}", targetClient.Id, url);
         }
         catch (Exception ex)
         {
-            var hostname = client.DeviceInfo?.Hostname ?? client.Name;
-            StatusMessage = $"Failed to open web interface for {hostname}: {ex.Message}";
-            _logger.LogError(ex, "Failed to open web interface for client {ClientId}", client.Id);
+            var hostname = targetClient.DeviceInfo?.Hostname ?? targetClient.Name;
+            StatusMessage = $"Fehler beim Öffnen Web Interface für {hostname}: {ex.Message}";
+            _logger.LogError(ex, "Failed to open web interface for client {ClientId}", targetClient.Id);
         }
     }
 
