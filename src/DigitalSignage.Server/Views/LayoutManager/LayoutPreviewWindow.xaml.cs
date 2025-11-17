@@ -25,10 +25,10 @@ public partial class LayoutPreviewWindow : Window
     {
         TitleText.Text = $"{_layout.Name} ({_layout.SvgFileName ?? "SVG"})";
 
-        var svgBase64 = _layout.SvgContentBase64;
-        if (string.IsNullOrWhiteSpace(svgBase64))
+        var pngBase64 = _layout.PngContentBase64;
+        if (string.IsNullOrWhiteSpace(pngBase64))
         {
-            ErrorText.Text = "Kein SVG-Inhalt im Layout vorhanden.";
+            ErrorText.Text = "Kein Bildinhalt im Layout vorhanden.";
             ErrorText.Visibility = Visibility.Visible;
             return;
         }
@@ -36,7 +36,7 @@ public partial class LayoutPreviewWindow : Window
         try
         {
             var htmlPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.html");
-            var html = BuildHtml(svgBase64);
+            var html = BuildHtml(pngBase64);
             File.WriteAllText(htmlPath, html, Encoding.UTF8);
             _tempFiles.Add(htmlPath);
 
@@ -51,7 +51,7 @@ public partial class LayoutPreviewWindow : Window
         }
     }
 
-    private static string BuildHtml(string svgBase64)
+    private static string BuildHtml(string pngBase64)
     {
         var sb = new StringBuilder();
         sb.Append("""
@@ -61,15 +61,15 @@ public partial class LayoutPreviewWindow : Window
     <meta charset="utf-8">
     <style>
         html, body { margin:0; padding:0; width:100%; height:100%; background:#111; overflow:hidden;}
-        object { width:100vw; height:100vh; display:block; }
+        img { width:100vw; height:100vh; display:block; object-fit:contain; background:#111; }
     </style>
 </head>
 <body>
-    <object type="image/svg+xml" data="data:image/svg+xml;base64,
+    <img src="data:image/png;base64,
 """);
-        sb.Append(svgBase64);
+        sb.Append(pngBase64);
         sb.Append("""
-"></object>
+"/>
 </body>
 </html>
 """);

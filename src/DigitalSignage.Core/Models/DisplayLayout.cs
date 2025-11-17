@@ -16,6 +16,7 @@ public class DisplayLayout
     public string? BackgroundImage { get; set; }
     public string? BackgroundColor { get; set; } = "#FFFFFF";
     public string? SvgContentBase64 { get; set; }
+    public string? PngContentBase64 { get; set; }
     public string? SvgFileName { get; set; }
     public List<DisplayElement> Elements { get; set; } = new();
     public List<DataSource> DataSources { get; set; } = new();

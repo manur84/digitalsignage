@@ -175,6 +175,8 @@ class DisplayRenderer(QWidget):
         self._svg_widget = None
         self._rendering_svg_only = False
         self._svg_temp_path: Optional[str] = None
+        self._png_label: Optional[QLabel] = None
+        self._png_pixmap: Optional[QPixmap] = None
 
     def setup_ui(self):
         """Setup the UI"""
@@ -389,9 +391,37 @@ class DisplayRenderer(QWidget):
 
             rendered_count = 0
             failed_count = 0
-            svg_data_b64 = layout.get('SvgContentBase64') or layout.get('SvgContent')
+            png_data_b64 = layout.get('PngContentBase64') or layout.get('PngContent')
 
-            if svg_data_b64:
+            if png_data_b64:
+                try:
+                    import base64
+                    image_bytes = base64.b64decode(png_data_b64)
+                    image = QImage()
+                    if image.loadFromData(image_bytes):
+                        self._png_pixmap = QPixmap.fromImage(image)
+                        if not self._png_label:
+                            self._png_label = QLabel(parent=self)
+                            self._png_label.setStyleSheet("background: transparent;")
+                        self._png_label.setGeometry(0, 0, self.width(), self.height())
+                        self._png_label.setScaledContents(False)
+                        scaled = self._png_pixmap.scaled(self.width(), self.height(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                        self._png_label.setPixmap(scaled)
+                        self._png_label.show()
+                        self.elements.append(self._png_label)
+                        self._rendering_svg_only = True
+                        rendered_count += 1
+                        logger.info("PNG layout rendered to screen")
+                    else:
+                        failed_count += 1
+                        logger.error("Failed to load PNG data for layout")
+                except Exception as e:
+                    failed_count += 1
+                    logger.error(f"Failed to render PNG layout: {e}")
+            else:
+                svg_data_b64 = layout.get('SvgContentBase64') or layout.get('SvgContent')
+
+            if not png_data_b64 and svg_data_b64:
                 if not HAS_QT_SVG:
                     logger.error("Received SVG layout but QtSvg is unavailable on this client")
                 else:
@@ -457,6 +487,10 @@ class DisplayRenderer(QWidget):
         super().resizeEvent(event)
         if self._svg_widget:
             self._svg_widget.setGeometry(0, 0, self.width(), self.height())
+        if self._png_label and self._png_pixmap:
+            scaled = self._png_pixmap.scaled(self.width(), self.height(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            self._png_label.setGeometry(0, 0, self.width(), self.height())
+            self._png_label.setPixmap(scaled)
 
     def create_element(self, element_data: Dict[str, Any], data: Optional[Dict[str, Any]]) -> Optional[QWidget]:
         """Create a UI element from element data"""

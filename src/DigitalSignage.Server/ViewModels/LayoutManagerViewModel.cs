@@ -8,6 +8,9 @@ using System;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Drawing;
+using System.Drawing.Imaging;
+using Svg;
 
 namespace DigitalSignage.Server.ViewModels;
 
@@ -210,29 +213,59 @@ public partial class LayoutManagerViewModel : ObservableObject
             var layout = new DisplayLayout
             {
                 Name = Path.GetFileNameWithoutExtension(fileName),
-                Description = $"SVG-Layout importiert aus {fileName}",
-                LayoutType = "svg",
-                SvgContentBase64 = Convert.ToBase64String(svgBytes),
+                Description = $"Layout importiert aus {fileName}",
+                LayoutType = "png",
+                SvgContentBase64 = null,
                 SvgFileName = fileName,
                 BackgroundColor = "#FFFFFF"
             };
 
-            layout.Tags.Add("svg");
+            layout.PngContentBase64 = ConvertSvgToPngBase64(svgBytes);
+            if (string.IsNullOrWhiteSpace(layout.PngContentBase64))
+            {
+                _logger.LogWarning("Failed to convert SVG to PNG for {File}", fileName);
+                return false;
+            }
+
+            layout.Tags.Add("png");
 
             var createResult = await _layoutService.CreateLayoutAsync(layout);
             if (createResult.IsFailure)
             {
-                _logger.LogError("Failed to create SVG layout {Layout}: {Error}", fileName, createResult.ErrorMessage);
+                _logger.LogError("Failed to create PNG layout {Layout}: {Error}", fileName, createResult.ErrorMessage);
                 return false;
             }
 
-            _logger.LogInformation("Imported SVG layout {LayoutId} from {File}", createResult.Value.Id, fileName);
+            _logger.LogInformation("Imported PNG layout {LayoutId} from {File}", createResult.Value.Id, fileName);
             return true;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to import SVG layout from {File}", filePath);
+            _logger.LogError(ex, "Failed to import layout from {File}", filePath);
             return false;
+        }
+    }
+
+    private string? ConvertSvgToPngBase64(byte[] svgBytes)
+    {
+        try
+        {
+            using var stream = new MemoryStream(svgBytes);
+            var svgDoc = SvgDocument.Open<SvgDocument>(stream);
+            if (svgDoc == null) return null;
+
+            var width = (int)(svgDoc.Width?.Value ?? 1920);
+            var height = (int)(svgDoc.Height?.Value ?? 1080);
+            using var bitmap = new Bitmap(width, height);
+            svgDoc.Draw(bitmap);
+            using var ms = new MemoryStream();
+            bitmap.Save(ms, ImageFormat.Png);
+            return Convert.ToBase64String(ms.ToArray());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed converting SVG to PNG");
+            return null;
         }
     }
 }
