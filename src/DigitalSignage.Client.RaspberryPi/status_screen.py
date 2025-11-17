@@ -236,7 +236,7 @@ class StatusScreen(QWidget):
 
             web_url = f"http://{local_ip}:5000"
 
-            qr_label = self._create_qr_code(web_url, self.qr_code_size)
+            qr_label = self._create_qr_code(web_url, self.qr_size)
             if qr_label:
                 layout.addWidget(qr_label)
 
