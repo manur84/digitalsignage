@@ -395,14 +395,23 @@ class DisplayRenderer(QWidget):
                             self._png_label = QLabel(parent=self)
                             self._png_label.setStyleSheet("background: transparent;")
                         self._png_label.setGeometry(0, 0, self.width(), self.height())
-                        self._png_label.setScaledContents(False)
-                        scaled = self._png_pixmap.scaled(self.width(), self.height(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                        # FIX: Use setScaledContents(True) to enable automatic scaling to fit label size
+                        # This ensures the PNG always fills the entire screen
+                        self._png_label.setScaledContents(True)
+                        # Scale pixmap to screen size while maintaining aspect ratio
+                        # Use IgnoreAspectRatio to fill entire screen (alternative: KeepAspectRatioByExpanding)
+                        scaled = self._png_pixmap.scaled(
+                            self.width(), 
+                            self.height(), 
+                            Qt.IgnoreAspectRatio,  # Fill entire screen, stretch if needed
+                            Qt.SmoothTransformation
+                        )
                         self._png_label.setPixmap(scaled)
                         self._png_label.show()
                         self.elements.append(self._png_label)
                         self._rendering_png_only = True
                         rendered_count += 1
-                        logger.info("PNG layout rendered to screen")
+                        logger.info("PNG layout rendered to screen (scaled to fill)")
                     else:
                         failed_count += 1
                         logger.error("Failed to load PNG data for layout")
@@ -433,9 +442,17 @@ class DisplayRenderer(QWidget):
     def resizeEvent(self, event):
         super().resizeEvent(event)
         if hasattr(self, "_png_label") and self._png_label and self._png_pixmap:
-            scaled = self._png_pixmap.scaled(self.width(), self.height(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            # Rescale PNG pixmap to new window size using same scaling strategy as initial render
+            # Use IgnoreAspectRatio to fill entire screen (alternative: KeepAspectRatioByExpanding)
+            scaled = self._png_pixmap.scaled(
+                self.width(), 
+                self.height(), 
+                Qt.IgnoreAspectRatio,  # Fill entire screen, stretch if needed
+                Qt.SmoothTransformation
+            )
             self._png_label.setGeometry(0, 0, self.width(), self.height())
             self._png_label.setPixmap(scaled)
+            logger.debug(f"PNG layout rescaled to {self.width()}x{self.height()}")
 
     def create_element(self, element_data: Dict[str, Any], data: Optional[Dict[str, Any]]) -> Optional[QWidget]:
         """Create a UI element from element data"""
@@ -1119,21 +1136,21 @@ class DisplayRenderer(QWidget):
             font_family = properties.get('FontFamily', 'Arial')
             font_size = properties.get('FontSize', 14)
 
-            # Set font
-            try:
-                if not isinstance(font_size, (int, float)):
-                    font_size = 12
+            # Font
+            font_family = properties.get('FontFamily', 'Arial')
+            font_size_base = properties.get('FontSize', 14)
 
-                # Apply scaling to font size (use average of both scale factors)
+            # Apply scaling to font size
+            try:
                 scale_x = getattr(self, '_scale_x', 1.0)
                 scale_y = getattr(self, '_scale_y', 1.0)
-                scale_factor = (scale_x + scale_y) / 2.0
-                scaled_font_size = int(font_size * scale_factor)
+                scale_avg = (scale_x + scale_y) / 2
+                font_size = int(font_size_base * scale_avg)
 
-                font = QFont(font_family, scaled_font_size)
+                font = QFont(font_family, font_size)
                 table.setFont(font)
             except Exception as e:
-                logger.warning(f"Failed to set table font: {e}")
+                logger.warning(f"Failed to set datagrid font: {e}")
 
             # Set table style
             table_style = f"""
@@ -1573,13 +1590,16 @@ class DisplayRenderer(QWidget):
             font_size_base = properties.get('FontSize', 14)
 
             # Apply scaling to font size
-            scale_x = getattr(self, '_scale_x', 1.0)
-            scale_y = getattr(self, '_scale_y', 1.0)
-            scale_avg = (scale_x + scale_y) / 2
-            font_size = int(font_size_base * scale_avg)
+            try:
+                scale_x = getattr(self, '_scale_x', 1.0)
+                scale_y = getattr(self, '_scale_y', 1.0)
+                scale_avg = (scale_x + scale_y) / 2
+                font_size = int(font_size_base * scale_avg)
 
-            font = QFont(font_family, font_size)
-            table.setFont(font)
+                font = QFont(font_family, font_size)
+                table.setFont(font)
+            except Exception as e:
+                logger.warning(f"Failed to set datagrid font: {e}")
 
             # Header style
             if show_header:

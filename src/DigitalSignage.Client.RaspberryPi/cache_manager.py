@@ -40,6 +40,8 @@ class CacheManager:
 
         # Initialize database
         self._init_database()
+        # Migrate schema if needed
+        self._migrate_schema()
 
     def _init_database(self):
         """Initialize SQLite database with required tables"""
@@ -87,6 +89,39 @@ class CacheManager:
         except Exception as e:
             logger.error(f"Failed to initialize cache database: {e}")
             raise
+
+    def _migrate_schema(self):
+        """Migrate database schema to add missing columns if needed"""
+        try:
+            conn = sqlite3.connect(str(self.db_path))
+            cursor = conn.cursor()
+
+            # Check if expires_at column exists in layouts table
+            cursor.execute("PRAGMA table_info(layouts)")
+            columns = [row[1] for row in cursor.fetchall()]
+            
+            if 'expires_at' not in columns:
+                logger.info("Migrating layouts table: adding expires_at column")
+                cursor.execute("ALTER TABLE layouts ADD COLUMN expires_at TEXT")
+                conn.commit()
+                logger.info("layouts table migration completed")
+
+            # Check if expires_at column exists in layout_data table
+            cursor.execute("PRAGMA table_info(layout_data)")
+            columns = [row[1] for row in cursor.fetchall()]
+            
+            if 'expires_at' not in columns:
+                logger.info("Migrating layout_data table: adding expires_at column")
+                cursor.execute("ALTER TABLE layout_data ADD COLUMN expires_at TEXT")
+                conn.commit()
+                logger.info("layout_data table migration completed")
+
+            conn.close()
+            logger.debug("Schema migration check completed")
+        except Exception as e:
+            logger.error(f"Failed to migrate database schema: {e}")
+            # Don't raise - let the service continue if migration fails
+            # The error will surface when trying to use the column
 
     def save_layout(
         self,
