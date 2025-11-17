@@ -60,12 +60,8 @@ VENV_DIR="$INSTALL_DIR/venv"
 CONFIG_DIR="$USER_HOME/.digitalsignage"
 
 # Non-interactive mode for remote/UI installer
-# Auto-detect SSH session and enable non-interactive mode
-if [ -n "$SSH_CONNECTION" ] || [ -n "$SSH_CLIENT" ] || [ -n "$SSH_TTY" ]; then
-    NON_INTERACTIVE=${DS_NONINTERACTIVE:-1}
-else
-    NON_INTERACTIVE=${DS_NONINTERACTIVE:-0}
-fi
+# Always enable non-interactive mode (auto-answer all prompts)
+NON_INTERACTIVE=${DS_NONINTERACTIVE:-1}
 
 echo "User: $ACTUAL_USER"
 echo "Home: $USER_HOME"
