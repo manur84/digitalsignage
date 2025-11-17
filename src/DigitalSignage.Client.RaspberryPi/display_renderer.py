@@ -485,9 +485,9 @@ class DisplayRenderer(QWidget):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        if self._svg_widget:
+        if hasattr(self, "_svg_widget") and self._svg_widget:
             self._svg_widget.setGeometry(0, 0, self.width(), self.height())
-        if self._png_label and self._png_pixmap:
+        if hasattr(self, "_png_label") and self._png_label and self._png_pixmap:
             scaled = self._png_pixmap.scaled(self.width(), self.height(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
             self._png_label.setGeometry(0, 0, self.width(), self.height())
             self._png_label.setPixmap(scaled)
