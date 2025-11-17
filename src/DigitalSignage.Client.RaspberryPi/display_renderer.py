@@ -167,6 +167,10 @@ class DisplayRenderer(QWidget):
         self.setWindowTitle("Digital Signage Display")
         # Match the status screen background to avoid white flashes during initial discovery
         self.setStyleSheet("background-color: #1a1a2e;")
+        self.setAutoFillBackground(True)
+        palette = self.palette()
+        palette.setColor(self.backgroundRole(), QColor("#1a1a2e"))
+        self.setPalette(palette)
 
         if self.fullscreen:
             self.showFullScreen()

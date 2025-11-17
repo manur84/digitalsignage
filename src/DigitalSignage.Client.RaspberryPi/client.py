@@ -1497,6 +1497,16 @@ def main():
             client.display_renderer.activateWindow()
             client.display_renderer.setFocus()
             client.display_renderer.showFullScreen() if config.fullscreen else client.display_renderer.show()
+            # If a status screen is active, raise it again so it stays above the renderer
+            try:
+                ssm = client.display_renderer.status_screen_manager
+                if ssm and ssm.status_screen:
+                    ssm.status_screen.raise_()
+                    ssm.status_screen.activateWindow()
+                    ssm.status_screen.showFullScreen()
+                    logger.info("Status screen re-raised above display renderer")
+            except Exception as e:
+                logger.warning(f"Could not re-raise status screen: {e}")
             logger.info("Display window visibility ensured")
 
         # Schedule window visibility check after 2 seconds (when event loop is running)

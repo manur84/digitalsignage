@@ -125,10 +125,15 @@ class StatusScreen(QWidget):
         self.screen_height = height
         self.animated_widgets = []  # Track animated widgets for cleanup
 
+        self.setObjectName("status_screen")
         self.setFixedSize(width, height)
         self.setAttribute(Qt.WA_StyledBackground, True)  # Ensure the stylesheet paints the whole widget
+        self.setAttribute(Qt.WA_OpaquePaintEvent, True)  # Tell Qt we fully paint the widget
         self.setAutoFillBackground(True)
         self.setStyleSheet(f"background-color: {self.COLOR_BACKGROUND};")
+        palette = self.palette()
+        palette.setColor(self.backgroundRole(), QColor(self.COLOR_BACKGROUND))
+        self.setPalette(palette)
 
         # Calculate scaled dimensions for responsive layout
         self._calculate_scaled_dimensions()
