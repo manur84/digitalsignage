@@ -28,9 +28,9 @@ INSTALL_DIR="/opt/digitalsignage-client"
 SERVICE_NAME="digitalsignage-client"
 SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
 
-echo "════════════════════════════════════════════════════════════"
+echo "â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•"
 echo "  Digital Signage Client - Smart Installer"
-echo "════════════════════════════════════════════════════════════"
+echo "â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•"
 echo ""
 
 # Check if running as root
@@ -68,7 +68,7 @@ echo ""
 # ========================================
 
 echo "Detecting installation status..."
-echo "────────────────────────────────────────────────────────────"
+echo "â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€"
 
 MODE="INSTALL"
 GIT_REPO_EXISTS=false
@@ -78,51 +78,51 @@ CONFIG_EXISTS=false
 
 # Check for existing installation
 if [ -d "$INSTALL_DIR" ]; then
-    echo -e "${GREEN}✓${NC} Installation directory found: $INSTALL_DIR"
+    echo -e "${GREEN}âœ“${NC} Installation directory found: $INSTALL_DIR"
 
     if [ -d "$INSTALL_DIR/.git" ]; then
         GIT_REPO_EXISTS=true
-        echo -e "${GREEN}✓${NC} Git repository exists"
+        echo -e "${GREEN}âœ“${NC} Git repository exists"
     fi
 
     if [ -d "$VENV_DIR" ]; then
         VENV_EXISTS=true
-        echo -e "${GREEN}✓${NC} Virtual environment exists"
+        echo -e "${GREEN}âœ“${NC} Virtual environment exists"
     fi
 
     if [ -f "$INSTALL_DIR/config.py" ]; then
         CONFIG_EXISTS=true
-        echo -e "${GREEN}✓${NC} Configuration file exists"
+        echo -e "${GREEN}âœ“${NC} Configuration file exists"
     fi
 else
-    echo -e "${YELLOW}✗${NC} No installation directory found"
+    echo -e "${YELLOW}âœ—${NC} No installation directory found"
 fi
 
 if [ -f "$SERVICE_FILE" ]; then
     SERVICE_INSTALLED=true
-    echo -e "${GREEN}✓${NC} Service installed"
+    echo -e "${GREEN}âœ“${NC} Service installed"
 
     if systemctl is-active --quiet $SERVICE_NAME; then
-        echo -e "${GREEN}✓${NC} Service running"
+        echo -e "${GREEN}âœ“${NC} Service running"
     else
-        echo -e "${YELLOW}⚠${NC} Service not running"
+        echo -e "${YELLOW}âš ${NC} Service not running"
     fi
 else
-    echo -e "${YELLOW}✗${NC} Service not installed"
+    echo -e "${YELLOW}âœ—${NC} Service not installed"
 fi
 
 # Determine MODE
 if [ -d "$INSTALL_DIR" ] && [ "$SERVICE_INSTALLED" = true ]; then
     MODE="UPDATE"
     echo ""
-    echo -e "${BLUE}Mode: 🔄 UPDATE${NC}"
+    echo -e "${BLUE}Mode: ðŸ”„ UPDATE${NC}"
 else
     MODE="INSTALL"
     echo ""
-    echo -e "${BLUE}Mode: 📦 INSTALL${NC}"
+    echo -e "${BLUE}Mode: ðŸ“¦ INSTALL${NC}"
 fi
 
-echo "════════════════════════════════════════════════════════════"
+echo "â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•"
 echo ""
 
 # ========================================
@@ -140,21 +140,21 @@ function show_step() {
 
 function check_error() {
     if [ $? -ne 0 ]; then
-        echo -e "${RED}✗ Error: $1${NC}"
+        echo -e "${RED}âœ— Error: $1${NC}"
         exit 1
     fi
 }
 
 function show_success() {
-    echo -e "${GREEN}✓ $1${NC}"
+    echo -e "${GREEN}âœ“ $1${NC}"
 }
 
 function show_warning() {
-    echo -e "${YELLOW}⚠ $1${NC}"
+    echo -e "${YELLOW}âš  $1${NC}"
 }
 
 function show_info() {
-    echo -e "${BLUE}ℹ $1${NC}"
+    echo -e "${BLUE}â„¹ $1${NC}"
 }
 
 # ========================================
@@ -214,9 +214,9 @@ check_hdmi_display() {
 if [ "$MODE" = "UPDATE" ]; then
     TOTAL_STEPS=9
 
-    echo "════════════════════════════════════════════════════════════"
+    echo "â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•"
     echo "  UPDATE MODE - Updating Existing Installation"
-    echo "════════════════════════════════════════════════════════════"
+    echo "â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•"
     echo ""
 
     # [1/9] Stop service
@@ -296,12 +296,12 @@ if [ "$MODE" = "UPDATE" ]; then
         if [ -f "$SCRIPT_DIR/$file" ]; then
             if cp "$SCRIPT_DIR/$file" "$INSTALL_DIR/" 2>/dev/null; then
                 ((COPIED_COUNT++))
-                echo "  ✓ $file"
+                echo "  âœ“ $file"
             else
-                echo -e "  ${YELLOW}⚠ Failed to copy: $file${NC}"
+                echo -e "  ${YELLOW}âš  Failed to copy: $file${NC}"
             fi
         else
-            echo -e "  ${RED}✗ Missing: $file${NC}"
+            echo -e "  ${RED}âœ— Missing: $file${NC}"
             MISSING_FILES+=("$file")
         fi
     done
@@ -326,7 +326,7 @@ if [ "$MODE" = "UPDATE" ]; then
 
     if [ ${#MISSING_FILES[@]} -gt 0 ]; then
         echo ""
-        echo -e "${YELLOW}⚠ Warning: Some files were not found in source:${NC}"
+        echo -e "${YELLOW}âš  Warning: Some files were not found in source:${NC}"
         for file in "${MISSING_FILES[@]}"; do
             echo "  - $file"
         done
@@ -342,16 +342,16 @@ if [ "$MODE" = "UPDATE" ]; then
         done
 
         if [ "$CRITICAL_MISSING" = true ]; then
-            echo -e "${RED}✗ Critical files missing - cannot continue!${NC}"
+            echo -e "${RED}âœ— Critical files missing - cannot continue!${NC}"
             echo ""
-            echo -e "${BLUE}💡 TROUBLESHOOTING:${NC}"
+            echo -e "${BLUE}ðŸ’¡ TROUBLESHOOTING:${NC}"
             echo "  1. Go to your repository: cd ~/digitalsignage"
             echo "  2. Update repository: git pull"
             echo "  3. Run install.sh: cd src/DigitalSignage.Client.RaspberryPi && sudo ./install.sh"
             echo ""
             exit 1
         else
-            echo -e "${YELLOW}⚠ Non-critical files missing, continuing...${NC}"
+            echo -e "${YELLOW}âš  Non-critical files missing, continuing...${NC}"
         fi
     fi
 
@@ -475,9 +475,9 @@ EOF
     fi
 
     echo ""
-    echo "════════════════════════════════════════════════════════════"
+    echo "â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•"
     echo -e "${GREEN}  UPDATE COMPLETE!${NC}"
-    echo "════════════════════════════════════════════════════════════"
+    echo "â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•"
     echo ""
     echo "Service Status:"
     systemctl status $SERVICE_NAME --no-pager -l || true
@@ -502,9 +502,9 @@ fi
 # INSTALL MODE
 # ========================================
 
-echo "════════════════════════════════════════════════════════════"
+echo "â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•"
 echo "  INSTALL MODE - Fresh Installation"
-echo "════════════════════════════════════════════════════════════"
+echo "â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•"
 echo ""
 
 # Check for existing installation and prompt
@@ -553,9 +553,9 @@ if [ -d "$INSTALL_DIR" ] || [ "$SERVICE_INSTALLED" = true ]; then
 fi
 
 # Update code from repository (if in git repo)
-echo "────────────────────────────────────────────────────────────"
+echo "â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€"
 echo "Updating code from repository..."
-echo "────────────────────────────────────────────────────────────"
+echo "â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€"
 echo ""
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -577,9 +577,9 @@ else
 fi
 
 echo ""
-echo "════════════════════════════════════════════════════════════"
+echo "â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•"
 echo "  Installing Digital Signage Client"
-echo "════════════════════════════════════════════════════════════"
+echo "â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•"
 echo ""
 
 # [1/10] Update package lists
@@ -625,7 +625,7 @@ if python3 -c "import PyQt5" 2>/dev/null; then
     PYQT5_VERSION=$(python3 -c "from PyQt5.QtCore import PYQT_VERSION_STR; print(PYQT_VERSION_STR)" 2>/dev/null)
     show_success "PyQt5 $PYQT5_VERSION installed"
 else
-    echo -e "${RED}✗ PyQt5 installation failed${NC}"
+    echo -e "${RED}âœ— PyQt5 installation failed${NC}"
     exit 1
 fi
 
@@ -689,12 +689,12 @@ for file in "${REQUIRED_FILES[@]}"; do
     if [ -f "$SCRIPT_DIR/$file" ]; then
         if cp "$SCRIPT_DIR/$file" "$INSTALL_DIR/" 2>/dev/null; then
             ((COPIED_COUNT++))
-            echo "  ✓ $file"
+            echo "  âœ“ $file"
         else
-            echo -e "  ${YELLOW}⚠ Failed to copy: $file${NC}"
+            echo -e "  ${YELLOW}âš  Failed to copy: $file${NC}"
         fi
     else
-        echo -e "  ${RED}✗ Missing: $file${NC}"
+        echo -e "  ${RED}âœ— Missing: $file${NC}"
         MISSING_FILES+=("$file")
     fi
 done
@@ -719,7 +719,7 @@ done
 
 if [ ${#MISSING_FILES[@]} -gt 0 ]; then
     echo ""
-    echo -e "${YELLOW}⚠ Warning: Some files were not found in source:${NC}"
+    echo -e "${YELLOW}âš  Warning: Some files were not found in source:${NC}"
     for file in "${MISSING_FILES[@]}"; do
         echo "  - $file"
     done
@@ -735,15 +735,15 @@ if [ ${#MISSING_FILES[@]} -gt 0 ]; then
     done
 
     if [ "$CRITICAL_MISSING" = true ]; then
-        echo -e "${RED}✗ Critical files missing - cannot continue!${NC}"
+        echo -e "${RED}âœ— Critical files missing - cannot continue!${NC}"
         echo ""
-        echo -e "${BLUE}💡 TROUBLESHOOTING:${NC}"
+        echo -e "${BLUE}ðŸ’¡ TROUBLESHOOTING:${NC}"
         echo "  1. Clone repository to home directory: cd ~ && git clone https://github.com/manur84/digitalsignage.git"
         echo "  2. Run install.sh: cd digitalsignage/src/DigitalSignage.Client.RaspberryPi && sudo ./install.sh"
         echo ""
         exit 1
     else
-        echo -e "${YELLOW}⚠ Non-critical files missing, continuing...${NC}"
+        echo -e "${YELLOW}âš  Non-critical files missing, continuing...${NC}"
     fi
 fi
 
@@ -785,7 +785,7 @@ for file in "${REQUIRED_FILES[@]}"; do
 done
 
 if [ ${#VERIFY_MISSING[@]} -gt 0 ]; then
-    echo -e "${RED}✗ Verification failed, missing: ${VERIFY_MISSING[*]}${NC}"
+    echo -e "${RED}âœ— Verification failed, missing: ${VERIFY_MISSING[*]}${NC}"
     exit 1
 fi
 
@@ -875,9 +875,9 @@ show_success "Autostart configured"
 
 # Verify installation
 echo ""
-echo "════════════════════════════════════════════════════════════"
+echo "â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•"
 echo "  Verifying Installation"
-echo "════════════════════════════════════════════════════════════"
+echo "â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•"
 echo ""
 
 # Check PyQt5
@@ -903,9 +903,9 @@ fi
 
 # Pre-flight check
 echo ""
-echo "════════════════════════════════════════════════════════════"
+echo "â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•"
 echo "  Pre-Flight Check"
-echo "════════════════════════════════════════════════════════════"
+echo "â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•"
 echo ""
 echo "Testing client startup before enabling service..."
 echo ""
@@ -917,9 +917,9 @@ else
     TEST_EXIT_CODE=$?
     echo ""
     if [ $TEST_EXIT_CODE -eq 124 ]; then
-        echo -e "${RED}✗ Pre-flight check timed out${NC}"
+        echo -e "${RED}âœ— Pre-flight check timed out${NC}"
     else
-        echo -e "${RED}✗ Pre-flight check failed (exit code: $TEST_EXIT_CODE)${NC}"
+        echo -e "${RED}âœ— Pre-flight check failed (exit code: $TEST_EXIT_CODE)${NC}"
     fi
     echo ""
     echo "Check startup log: sudo cat /var/log/digitalsignage-client-startup.log"
@@ -930,9 +930,9 @@ fi
 
 # Client Configuration
 echo ""
-echo "════════════════════════════════════════════════════════════"
+echo "â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•"
 echo "  Client Configuration"
-echo "════════════════════════════════════════════════════════════"
+echo "â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•"
 echo ""
 
 # Check if config.json exists and configure it
@@ -966,9 +966,9 @@ fi
 
 # Start service
 echo ""
-echo "════════════════════════════════════════════════════════════"
+echo "â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•"
 echo "  Starting Service"
-echo "════════════════════════════════════════════════════════════"
+echo "â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•"
 echo ""
 
 # CRITICAL FIX: Do NOT enable/start service at boot
@@ -977,14 +977,14 @@ echo ""
 systemctl disable $SERVICE_NAME 2>/dev/null || true
 systemctl stop $SERVICE_NAME 2>/dev/null || true
 show_success "Service installed (manual control only)"
-show_info "✓ Client will auto-start via Desktop on REAL display (:0)"
+show_info "âœ“ Client will auto-start via Desktop on REAL display (:0)"
 show_info "  Systemd service disabled to prevent Xvfb conflict"
 
 # Display Configuration (only for fresh install)
 echo ""
-echo "════════════════════════════════════════════════════════════"
+echo "â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•"
 echo "  Display Configuration"
-echo "════════════════════════════════════════════════════════════"
+echo "â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•"
 echo ""
 
 set +e
@@ -1165,9 +1165,9 @@ fi
 
 # Final summary
 echo ""
-echo "════════════════════════════════════════════════════════════"
+echo "â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•"
 echo -e "${GREEN}  INSTALLATION COMPLETE!${NC}"
-echo "════════════════════════════════════════════════════════════"
+echo "â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•"
 echo ""
 echo "Installation Paths:"
 echo "  Installation: $INSTALL_DIR"
