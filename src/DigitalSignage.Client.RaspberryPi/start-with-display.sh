@@ -24,6 +24,9 @@ log_message "=========================================="
 log_message "Digital Signage Client Starting"
 log_message "=========================================="
 
+# Clear any inherited display to avoid stale :0 from systemd
+unset DISPLAY
+
 # Parse arguments
 TEST_MODE=false
 if [ "$1" = "--test" ]; then

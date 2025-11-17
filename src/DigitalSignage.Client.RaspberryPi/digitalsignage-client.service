@@ -9,10 +9,7 @@ User=INSTALL_USER
 Group=INSTALL_USER
 WorkingDirectory=/opt/digitalsignage-client
 Environment="PYTHONUNBUFFERED=1"
-Environment="QT_QPA_PLATFORM=xcb"
 Environment="QT_LOGGING_RULES=*.debug=false"
-Environment="DISPLAY=:0"
-Environment="XAUTHORITY=/home/INSTALL_USER/.Xauthority"
 
 # CRITICAL FIX: Wait for X11 display to be ready (desktop environment)
 # Desktop (B4) boots with X11, but we need to wait for it to be fully initialized
