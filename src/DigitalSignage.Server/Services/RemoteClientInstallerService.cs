@@ -133,7 +133,48 @@ public class RemoteClientInstallerService
                 }
             }, cancellationToken);
 
-            await Task.WhenAll(stdoutTask, stderrTask, Task.Run(() => sshCommand.EndExecute(asyncResult), cancellationToken));
+            var commandConnectionDropped = false;
+            Exception? commandException = null;
+
+            var endTask = Task.Run(() =>
+            {
+                try
+                {
+                    sshCommand.EndExecute(asyncResult);
+                }
+                catch (SshConnectionException ex)
+                {
+                    commandConnectionDropped = true;
+                    commandException = ex;
+                }
+                catch (Exception ex)
+                {
+                    commandException = ex;
+                }
+            }, cancellationToken);
+
+            await Task.WhenAll(stdoutTask, stderrTask, endTask);
+
+            if (commandConnectionDropped)
+            {
+                // Treat as reboot scenario
+                var result = await HandleConnectionDropAsync(
+                    commandException as SshConnectionException ?? new SshConnectionException("SSH connection dropped during install."),
+                    installCommandStarted,
+                    host,
+                    port,
+                    username,
+                    password,
+                    progress,
+                    cancellationToken);
+
+                return result;
+            }
+
+            if (commandException != null)
+            {
+                throw commandException;
+            }
 
             if (sshCommand.ExitStatus != 0)
             {
