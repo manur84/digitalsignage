@@ -15,6 +15,9 @@ public class RemoteClientInstallerService
     private readonly ILogger<RemoteClientInstallerService> _logger;
     private readonly string _installerSourcePath;
     private const string RemoteInstallPath = "/tmp/digitalsignage-client-installer";
+    private const string RemoteServiceName = "digitalsignage-client";
+    private const string RemoteInstallDir = "/opt/digitalsignage-client";
+    private const string RemoteServiceFile = "/etc/systemd/system/digitalsignage-client.service";
 
     public RemoteClientInstallerService(ILogger<RemoteClientInstallerService> logger)
     {
@@ -44,6 +47,10 @@ public class RemoteClientInstallerService
             await Task.Run(() => ssh.Connect(), cancellationToken);
             await Task.Run(() => sftp.Connect(), cancellationToken);
 
+            // Always start from a clean slate on the target device
+            progress?.Report("Preparing target for fresh install (stop/disable service, remove old files)...");
+            await ForceFreshInstallAsync(ssh, username, password, cancellationToken, progress);
+
             progress?.Report("Preparing remote staging folder...");
             await Task.Run(() => ssh.RunCommand($"rm -rf '{RemoteInstallPath}' && mkdir -p '{RemoteInstallPath}'"), cancellationToken);
 
@@ -67,14 +74,29 @@ public class RemoteClientInstallerService
             var output = (sshCommand.Result ?? commandOutput ?? string.Empty).Trim();
             var error = sshCommand.Error?.Trim();
 
+            // Send install.sh output to UI log
             if (!string.IsNullOrWhiteSpace(output))
             {
-                _logger.LogInformation("install.sh output: {Output}", output);
+                foreach (var line in output.Split('\n'))
+                {
+                    var trimmed = line.TrimEnd();
+                    if (!string.IsNullOrWhiteSpace(trimmed))
+                    {
+                        progress?.Report(trimmed);
+                    }
+                }
             }
 
             if (!string.IsNullOrWhiteSpace(error))
             {
-                _logger.LogWarning("install.sh stderr: {Error}", error);
+                foreach (var line in error.Split('\n'))
+                {
+                    var trimmed = line.TrimEnd();
+                    if (!string.IsNullOrWhiteSpace(trimmed))
+                    {
+                        progress?.Report($"[stderr] {trimmed}");
+                    }
+                }
             }
 
             if (sshCommand.ExitStatus != 0)
@@ -166,5 +188,32 @@ public class RemoteClientInstallerService
         // Run through bash via sudo; first line of input is the sudo password, remaining feed into install.sh.
         var escapedPassword = password.Replace("'", "'\"'\"'");
         return $"printf '%s\\n1\\ny\\n' '{escapedPassword}' | sudo -S /bin/bash '{normalizedPath}'";
+    }
+
+    private async Task ForceFreshInstallAsync(SshClient ssh, string username, string password, CancellationToken cancellationToken, IProgress<string>? progress)
+    {
+        var isRoot = string.Equals(username, "root", StringComparison.OrdinalIgnoreCase);
+        var escapedPassword = password.Replace("'", "'\"'\"'");
+
+        var cleanupScript = $@"
+set -e
+if systemctl is-active --quiet {RemoteServiceName} 2>/dev/null; then
+  systemctl stop {RemoteServiceName}
+fi
+if systemctl is-enabled --quiet {RemoteServiceName} 2>/dev/null; then
+  systemctl disable {RemoteServiceName}
+fi
+rm -rf '{RemoteInstallDir}'
+rm -f '{RemoteServiceFile}'
+";
+
+        var commandText = isRoot
+            ? $"bash -lc \"{cleanupScript.Replace("\"", "\\\"")}\""
+            : $"printf '%s\\n' '{escapedPassword}' | sudo -S bash -lc \"{cleanupScript.Replace("\"", "\\\"")}\"";
+
+        progress?.Report("Stopping service and removing previous install (if any)...");
+        var cmd = ssh.CreateCommand(commandText);
+        cmd.CommandTimeout = TimeSpan.FromSeconds(30);
+        await Task.Run(() => cmd.Execute(), cancellationToken);
     }
 }
