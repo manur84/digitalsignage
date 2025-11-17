@@ -3,6 +3,7 @@ using System.IO;
 using System.Text;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Media.Imaging;
 using DigitalSignage.Core.Models;
 
 namespace DigitalSignage.Server.Views.LayoutManager;
@@ -34,17 +35,53 @@ public partial class LayoutPreviewWindow : Window
 
         try
         {
+            var image = DecodeSvgToBitmap(svgBase64);
+            if (image != null)
+            {
+                PreviewImage.Source = image;
+                ErrorText.Visibility = Visibility.Collapsed;
+                return;
+            }
+        }
+        catch (Exception)
+        {
+            // fall back to file-based rendering below
+        }
+
+        try
+        {
             var bytes = Convert.FromBase64String(svgBase64);
             var tempPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.svg");
             File.WriteAllBytes(tempPath, bytes);
             _tempFile = tempPath;
-            Browser.Navigate(new Uri(tempPath));
+            PreviewImage.Source = new BitmapImage(new Uri(tempPath));
+            ErrorText.Visibility = Visibility.Collapsed;
         }
         catch (Exception ex)
         {
             ErrorText.Text = $"SVG konnte nicht angezeigt werden: {ex.Message}";
             ErrorText.Visibility = Visibility.Visible;
         }
+    }
+
+    private static BitmapSource? DecodeSvgToBitmap(string base64)
+    {
+        try
+        {
+            var bytes = Convert.FromBase64String(base64);
+            using var ms = new MemoryStream(bytes);
+            var decoder = new SvgBitmapDecoder(ms, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
+            if (decoder.Frames.Count > 0)
+            {
+                return decoder.Frames[0];
+            }
+        }
+        catch
+        {
+            // ignore and fallback to file rendering
+        }
+
+        return null;
     }
 
     private void Window_KeyDown(object sender, KeyEventArgs e)

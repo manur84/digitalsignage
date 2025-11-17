@@ -171,6 +171,7 @@ class DisplayRenderer(QWidget):
         self.data_source_cache: Dict[str, list] = {}
         self._svg_widget = None
         self._rendering_svg_only = False
+        self._svg_temp_path: Optional[str] = None
 
     def setup_ui(self):
         """Setup the UI"""
@@ -394,6 +395,17 @@ class DisplayRenderer(QWidget):
                     try:
                         import base64
                         svg_bytes = base64.b64decode(svg_data_b64)
+                        # Write to temp file for reliable loading
+                        if self._svg_temp_path and os.path.isfile(self._svg_temp_path):
+                            try:
+                                os.remove(self._svg_temp_path)
+                            except Exception:
+                                pass
+                        temp_path = os.path.join(tempfile.gettempdir(), f"layout_{uuid.uuid4().hex}.svg")
+                        with open(temp_path, "wb") as f:
+                            f.write(svg_bytes)
+                        self._svg_temp_path = temp_path
+
                         if self._svg_widget:
                             try:
                                 self._svg_widget.hide()
@@ -401,7 +413,7 @@ class DisplayRenderer(QWidget):
                             except Exception:
                                 pass
                         self._svg_widget = QSvgWidget(parent=self)
-                        self._svg_widget.load(svg_bytes)
+                        self._svg_widget.load(temp_path)
                         self._svg_widget.setGeometry(0, 0, self.width(), self.height())
                         self._svg_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
                         self._svg_widget.setStyleSheet("background: transparent;")
@@ -413,7 +425,7 @@ class DisplayRenderer(QWidget):
                         self.elements.append(self._svg_widget)
                         self._rendering_svg_only = True
                         rendered_count += 1
-                        logger.info("SVG layout rendered to screen")
+                        logger.info("SVG layout rendered to screen from %s", temp_path)
                     except Exception as e:
                         failed_count += 1
                         logger.error(f"Failed to render SVG layout: {e}")

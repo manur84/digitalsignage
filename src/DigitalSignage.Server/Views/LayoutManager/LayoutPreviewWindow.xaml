@@ -31,13 +31,19 @@
         </Border>
 
         <Grid Grid.Row="1" Background="White">
-            <WebBrowser x:Name="Browser"/>
+            <Image x:Name="PreviewImage"
+                   Stretch="Uniform"
+                   SnapsToDevicePixels="True"
+                   RenderOptions.BitmapScalingMode="HighQuality"/>
             <TextBlock x:Name="ErrorText"
                        Foreground="Red"
                        FontSize="16"
                        HorizontalAlignment="Center"
                        VerticalAlignment="Center"
-                       Visibility="Collapsed"/>
+                       Visibility="Collapsed"
+                       TextWrapping="Wrap"
+                       TextAlignment="Center"
+                       Margin="24"/>
         </Grid>
     </Grid>
 </Window>
