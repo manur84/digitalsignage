@@ -202,7 +202,15 @@ class DisplayRenderer(QWidget):
             logger.info("Display renderer set to windowed mode")
 
     async def render_layout(self, layout: Dict[str, Any], data: Optional[Dict[str, Any]] = None):
-        """Render a display layout"""
+        """
+        Render a display layout with MANDATORY scaling to client display resolution
+        
+        CRITICAL SCALING LOGIC:
+        - Layout has designed resolution (e.g. 1920x1080)
+        - Client display has actual resolution (e.g. 1024x768, 1280x720, etc.)
+        - ALL elements MUST be scaled to fit client display resolution
+        - Scaling preserves aspect ratio and positions
+        """
         if not layout:
             logger.error("render_layout called with None layout")
             return
@@ -214,23 +222,38 @@ class DisplayRenderer(QWidget):
         layout_name = layout.get('Name', 'Unnamed')
         logger.info(f"Rendering layout: {layout_name}")
 
-        # Calculate scaling factors based on layout resolution vs display resolution
+        # === CRITICAL: CALCULATE SCALING FACTORS ===
+        # Layout resolution (designed/created at)
         layout_resolution = layout.get('Resolution', {})
         layout_width = layout_resolution.get('Width', 1920)
         layout_height = layout_resolution.get('Height', 1080)
 
-        # Get actual display resolution
+        # Client display resolution (actual screen)
         display_width = self.width()
         display_height = self.height()
 
-        # Calculate scale factors
+        # MANDATORY SCALING: Calculate scale factors
+        # Elements MUST be scaled to fit client display, regardless of layout design resolution
         scale_x = display_width / layout_width
         scale_y = display_height / layout_height
 
-        logger.info(f"Layout resolution: {layout_width}x{layout_height}, Display resolution: {display_width}x{display_height}")
-        logger.info(f"Scale factors: X={scale_x:.3f}, Y={scale_y:.3f}")
+        logger.info("=" * 70)
+        logger.info("LAYOUT SCALING ANALYSIS")
+        logger.info("=" * 70)
+        logger.info(f"Layout Design Resolution: {layout_width}x{layout_height}")
+        logger.info(f"Client Display Resolution: {display_width}x{display_height}")
+        logger.info(f"Scale Factors: X={scale_x:.4f}, Y={scale_y:.4f}")
+        
+        if abs(scale_x - 1.0) > 0.01 or abs(scale_y - 1.0) > 0.01:
+            logger.warning(f"⚠ SCALING REQUIRED: Layout will be scaled to fit display!")
+            logger.warning(f"   Elements will be repositioned and resized")
+        else:
+            logger.info("✓ No scaling needed - layout resolution matches display")
+        
+        logger.info("=" * 70)
 
         # Store scale factors for element creation
+        # CRITICAL: These are used by create_element() to scale positions and sizes
         self._scale_x = scale_x
         self._scale_y = scale_y
         self._rendering_png_only = False
@@ -253,7 +276,7 @@ class DisplayRenderer(QWidget):
                         logger.warning(f"Failed to stop datetime timer: {e}")
                 self._datetime_timers.clear()
 
-            # 2. Delete all tracked elements
+            # 2. Delete all tracked elements INCLUDING PNG label
             for element in self.elements:
                 try:
                     # Remove graphics effects (shadows) to free resources
@@ -268,9 +291,14 @@ class DisplayRenderer(QWidget):
                 except Exception as e:
                     logger.warning(f"Failed to delete element: {e}")
             self.elements.clear()
+            
+            # CRITICAL FIX: Reset PNG label references after cleanup
+            # This prevents "wrapped C/C++ object has been deleted" error
+            self._png_label = None
+            self._png_pixmap = None
+            self._rendering_png_only = False
 
             # 3. Find and delete any orphaned child widgets not in self.elements
-            # This catches widgets that may have been created but not tracked
             orphaned_widgets = self.findChildren(QWidget)
             for widget in orphaned_widgets:
                 # Skip status screen widgets
@@ -282,14 +310,13 @@ class DisplayRenderer(QWidget):
                 except Exception as e:
                     logger.warning(f"Failed to delete orphaned widget: {e}")
 
-            # 4. Reset background to default (clear palette and stylesheet)
-            # Reset palette to clear any background images
+            # 4. Reset background to default
             from PyQt5.QtGui import QPalette
             palette = QPalette()
             self.setPalette(palette)
             self.setAutoFillBackground(False)
 
-            # 5. Clear stylesheet to default (will be set again below)
+            # 5. Clear stylesheet to default
             self.setStyleSheet("background-color: white;")
 
             # 6. Force immediate update to clear display
@@ -297,7 +324,7 @@ class DisplayRenderer(QWidget):
 
             logger.debug("Complete layout cleanup finished")
 
-            # Set background (color and/or image)
+            # Set background (color and/or image) - SCALED if needed
             bg_color = layout.get('BackgroundColor', '#FFFFFF')
             bg_image = layout.get('BackgroundImage')
             bg_image_data = layout.get('BackgroundImageData')  # Base64 from server
@@ -328,34 +355,31 @@ class DisplayRenderer(QWidget):
                 if bg_pixmap is None and bg_image and isinstance(bg_image, str):
                     import os
                     if os.path.isfile(bg_image):
-                        # Use absolute path with file:/// protocol for Qt
                         abs_path = os.path.abspath(bg_image)
-                        # Qt requires forward slashes on all platforms
                         abs_path = abs_path.replace('\\', '/')
                         style += f"background-image: url(file:///{abs_path});"
                         style += "background-repeat: no-repeat;"
                         style += "background-position: center;"
-                        style += "background-size: cover;"  # Cover the entire widget
+                        style += "background-size: cover;"
                         logger.debug(f"Set background image from file: {bg_image}")
                     else:
                         logger.warning(f"Background image file not found: {bg_image}")
 
-                # If we have a pixmap from Base64, set it using palette
+                # If we have a pixmap from Base64, SCALE IT to client display size
                 if bg_pixmap and not bg_pixmap.isNull():
-                    # Scale to widget size
+                    # CRITICAL SCALING: Background image must fill entire client display
                     scaled_pixmap = bg_pixmap.scaled(
                         self.width(), self.height(),
-                        Qt.KeepAspectRatioByExpanding,
+                        Qt.KeepAspectRatioByExpanding,  # Fill entire screen
                         Qt.SmoothTransformation
                     )
 
-                    # Set as background using palette
-                    from PyQt5.QtGui import QPalette, QBrush
+                    from PyQt5.QtGui import QBrush
                     palette = self.palette()
                     palette.setBrush(QPalette.Background, QBrush(scaled_pixmap))
                     self.setPalette(palette)
                     self.setAutoFillBackground(True)
-                    logger.debug("Background image set from Base64 data")
+                    logger.info(f"✓ Background image scaled to {self.width()}x{self.height()}")
 
                 if style:
                     self.setStyleSheet(style)
@@ -366,13 +390,13 @@ class DisplayRenderer(QWidget):
                 logger.warning(f"Failed to set background: {e}")
                 self.setStyleSheet("background-color: #FFFFFF;")
 
-            # Render elements
+            # Render elements with MANDATORY scaling
             elements = layout.get('Elements', [])
             if not isinstance(elements, list):
                 logger.warning(f"Elements is not a list: {type(elements)}")
                 elements = []
 
-            # Sort elements by ZIndex to render in correct order (lower ZIndex first = background)
+            # Sort elements by ZIndex to render in correct order
             try:
                 elements_sorted = sorted(elements, key=lambda e: e.get('ZIndex', 0) if isinstance(e, dict) else 0)
                 logger.debug(f"Sorted {len(elements_sorted)} elements by ZIndex")
@@ -391,37 +415,51 @@ class DisplayRenderer(QWidget):
                     image = QImage()
                     if image.loadFromData(image_bytes):
                         self._png_pixmap = QPixmap.fromImage(image)
-                        if not self._png_label:
-                            self._png_label = QLabel(parent=self)
-                            self._png_label.setStyleSheet("background: transparent;")
+                        
+                        # CRITICAL FIX: Always create NEW label for PNG rendering
+                        # This prevents "wrapped C/C++ object has been deleted" error
+                        self._png_label = QLabel(parent=self)
+                        self._png_label.setStyleSheet("background: transparent;")
                         self._png_label.setGeometry(0, 0, self.width(), self.height())
-                        # FIX: Use setScaledContents(True) to enable automatic scaling to fit label size
-                        # This ensures the PNG always fills the entire screen
-                        self._png_label.setScaledContents(True)
-                        # Scale pixmap to screen size while maintaining aspect ratio
-                        # Use IgnoreAspectRatio to fill entire screen (alternative: KeepAspectRatioByExpanding)
+                        
+                        # CRITICAL SCALING FIX: Use KeepAspectRatioByExpanding to maintain aspect ratio
+                        # while filling the entire screen (crops overflow instead of stretching)
                         scaled = self._png_pixmap.scaled(
                             self.width(), 
                             self.height(), 
-                            Qt.IgnoreAspectRatio,  # Fill entire screen, stretch if needed
+                            Qt.KeepAspectRatioByExpanding,  # Maintain aspect ratio, fill screen
                             Qt.SmoothTransformation
                         )
+                        
+                        # Center the pixmap if it's larger than the label
                         self._png_label.setPixmap(scaled)
+                        self._png_label.setAlignment(Qt.AlignCenter)  # Center the image
+                        self._png_label.setScaledContents(False)  # Don't stretch content
                         self._png_label.show()
+                        
                         self.elements.append(self._png_label)
                         self._rendering_png_only = True
                         rendered_count += 1
-                        logger.info("PNG layout rendered to screen (scaled to fill)")
+                        
+                        logger.info(f"✓ PNG layout rendered: original={self._png_pixmap.width()}x{self._png_pixmap.height()}, "
+                                  f"scaled={scaled.width()}x{scaled.height()}, "
+                                  f"display={self.width()}x{self.height()}")
                     else:
                         failed_count += 1
                         logger.error("Failed to load PNG data for layout")
                 except Exception as e:
                     failed_count += 1
                     logger.error(f"Failed to render PNG layout: {e}")
+                    import traceback
+                    logger.error(traceback.format_exc())
 
             if not self._rendering_png_only:
+                logger.info(f"Rendering {len(elements_sorted)} elements with scaling factors X={scale_x:.4f}, Y={scale_y:.4f}")
+                
                 for element_data in elements_sorted:
                     try:
+                        # CRITICAL: create_element() uses self._scale_x and self._scale_y
+                        # to scale positions and sizes
                         element = self.create_element(element_data, data)
                         if element:
                             self.elements.append(element)
@@ -433,26 +471,45 @@ class DisplayRenderer(QWidget):
                         logger.error(f"Failed to create element: {e}")
                         failed_count += 1
 
-                logger.info(f"Layout '{layout_name}' rendered: {rendered_count} elements created, {failed_count} failed")
+                logger.info(f"✓ Layout '{layout_name}' rendered: {rendered_count} elements created, {failed_count} failed")
+                logger.info(f"   All elements scaled to client display resolution {display_width}x{display_height}")
                 self.update()
 
         except Exception as e:
             logger.error(f"Failed to render layout '{layout_name}': {e}")
+            import traceback
+            logger.error(traceback.format_exc())
 
     def resizeEvent(self, event):
+        """
+        Handle window resize events - RE-SCALE layout if window size changes
+        CRITICAL: This ensures layout always fits the window, even if resolution changes
+        """
         super().resizeEvent(event)
+        
+        # If PNG layout is being displayed, rescale it
         if hasattr(self, "_png_label") and self._png_label and self._png_pixmap:
-            # Rescale PNG pixmap to new window size using same scaling strategy as initial render
-            # Use IgnoreAspectRatio to fill entire screen (alternative: KeepAspectRatioByExpanding)
-            scaled = self._png_pixmap.scaled(
-                self.width(), 
-                self.height(), 
-                Qt.IgnoreAspectRatio,  # Fill entire screen, stretch if needed
-                Qt.SmoothTransformation
-            )
-            self._png_label.setGeometry(0, 0, self.width(), self.height())
-            self._png_label.setPixmap(scaled)
-            logger.debug(f"PNG layout rescaled to {self.width()}x{self.height()}")
+            try:
+                # CRITICAL SCALING: Rescale PNG to new window size
+                # Use KeepAspectRatioByExpanding to maintain aspect ratio while filling screen
+                scaled = self._png_pixmap.scaled(
+                    self.width(), 
+                    self.height(), 
+                    Qt.KeepAspectRatioByExpanding,  # Maintain aspect ratio, fill screen
+                    Qt.SmoothTransformation
+                )
+                self._png_label.setGeometry(0, 0, self.width(), self.height())
+                self._png_label.setPixmap(scaled)
+                self._png_label.setAlignment(Qt.AlignCenter)
+                
+                logger.info(f"✓ PNG layout rescaled: original={self._png_pixmap.width()}x{self._png_pixmap.height()}, "
+                          f"scaled={scaled.width()}x{scaled.height()}, "
+                          f"display={self.width()}x{self.height()}")
+            except Exception as e:
+                logger.error(f"Failed to rescale PNG layout on resize: {e}")
+                # Reset references on error
+                self._png_label = None
+                self._png_pixmap = None
 
     def create_element(self, element_data: Dict[str, Any], data: Optional[Dict[str, Any]]) -> Optional[QWidget]:
         """Create a UI element from element data"""
@@ -1647,8 +1704,6 @@ class DisplayRenderer(QWidget):
 
         except Exception as e:
             logger.error(f"Failed to create DataGrid element: {e}")
-            import traceback
-            logger.error(traceback.format_exc())
             return None
 
     def create_datasourcetext_element(
@@ -1803,7 +1858,7 @@ class DisplayRenderer(QWidget):
             x: Group X position (absolute, already scaled)
             y: Group Y position (absolute, already scaled)
             width: Group width (already scaled)
-            height: Group height (already scaled)
+            height: Group height (absolute, already scaled)
             element_data: Full element data dictionary (includes Children)
             data: Optional data for variable replacement
 

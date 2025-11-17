@@ -326,7 +326,9 @@ public class ClientService : IClientService, IDisposable
             }
 
             // Check if client already exists by MAC address
+            // Use AsNoTracking to avoid concurrency conflicts
             var existingClient = await dbContext.Clients
+                .AsNoTracking()
                 .FirstOrDefaultAsync(c => c.MacAddress == registerMessage.MacAddress, cancellationToken);
 
             RaspberryPiClient client;
@@ -344,9 +346,14 @@ public class ClientService : IClientService, IDisposable
                     _logger.LogInformation("Client MAC {MacAddress} changing ID from {OldId} to {NewId}",
                         client.MacAddress, client.Id, registerMessage.ClientId);
 
-                    // Remove old entity from database
-                    dbContext.Clients.Remove(existingClient);
-                    await dbContext.SaveChangesAsync(cancellationToken);
+                    // CRITICAL FIX: Load the entity for tracking before removal
+                    var trackedClient = await dbContext.Clients.FindAsync(new object[] { existingClient.Id }, cancellationToken);
+                    if (trackedClient != null)
+                    {
+                        // Remove old entity from database
+                        dbContext.Clients.Remove(trackedClient);
+                        await dbContext.SaveChangesAsync(cancellationToken);
+                    }
 
                     // Remove old ID from cache
                     _clients.TryRemove(client.Id, out _);
@@ -392,6 +399,9 @@ public class ClientService : IClientService, IDisposable
                 else
                 {
                     // Same ID, just update the properties
+                    // CRITICAL FIX: Attach the entity to track it for updates
+                    dbContext.Clients.Attach(client);
+                    
                     client.IpAddress = registerMessage.IpAddress ?? client.IpAddress;
                     client.LastSeen = DateTime.UtcNow;
                     client.Status = ClientStatus.Online;
@@ -415,6 +425,9 @@ public class ClientService : IClientService, IDisposable
                         deviceInfo.Uptime = registerMessage.DeviceInfo.Uptime;
                         client.DeviceInfo = deviceInfo;
                     }
+                    
+                    // Mark entity as modified
+                    dbContext.Entry(client).State = EntityState.Modified;
 
                     _logger.LogInformation("Re-registered existing client {ClientId} (MAC: {MacAddress})", client.Id, client.MacAddress);
                 }

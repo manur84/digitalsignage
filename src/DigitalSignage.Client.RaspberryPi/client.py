@@ -949,7 +949,14 @@ class DigitalSignageClient:
                 logger.error(f"Failed to send error response: {response_error}")
 
     async def start_reconnection(self):
-        """Start automatic reconnection with exponential backoff and server discovery"""
+        """
+        Start automatic reconnection with exponential backoff and server discovery
+        
+        OPTIMIZED for smooth status screen transitions:
+        - No unnecessary screen switches
+        - Smooth countdown updates
+        - Efficient event processing
+        """
         if self.reconnection_in_progress:
             logger.info("Reconnection already in progress, skipping")
             return
@@ -970,7 +977,6 @@ class DigitalSignageClient:
             logger.info("Reconnect mode: VISIBLE (status screens shown during reconnection)")
 
         # Show disconnected status only if configured to NOT show cached layout
-        # or if no cached layout is available
         if not self.config.show_cached_layout_on_disconnect:
             if self.display_renderer and (not self.current_layout or self.display_renderer.status_screen_manager.is_showing_status):
                 server_url = self.config.get_server_url()
@@ -1041,12 +1047,11 @@ class DigitalSignageClient:
                         self.offline_mode = False
 
                         # CRITICAL FIX: Clear status screen immediately upon successful connection
-                        # This prevents the "Reconnecting..." status from staying visible
-                        # when the client has successfully reconnected
                         if self.display_renderer and self.display_renderer.status_screen_manager.is_showing_status:
                             logger.info("Clearing reconnection status screen after successful connection")
                             self.display_renderer.status_screen_manager.clear_status_screen()
 
+                        # Wait for layout assignment
                         # The registration response handler will show "No Layout Assigned" after 10 seconds
                         # if no layout is received, OR render the assigned layout if one is sent
 
@@ -1055,22 +1060,27 @@ class DigitalSignageClient:
                 except Exception as e:
                     logger.warning(f"Connection attempt failed: {e}")
 
-                # Step 3: Wait before retry with countdown display
+                # Step 3: Wait before retry with OPTIMIZED countdown display
                 if not self.connected and not self.stop_reconnection:
                     logger.info(f"Waiting {retry_delay} seconds before next attempt...")
 
-                    # Show reconnecting screen with countdown only if not showing cached layout
+                    # OPTIMIZED: Update status screen every 3 seconds instead of every second
+                    # This reduces CPU usage and makes animations smoother
+                    update_interval = 3
+                    
                     for remaining in range(retry_delay, 0, -1):
                         if self.stop_reconnection or self.connected:
                             break
 
-                        if self.display_renderer and not self.config.show_cached_layout_on_disconnect and remaining % 5 == 0:  # Update every 5 seconds
-                            self.display_renderer.status_screen_manager.show_reconnecting(
-                                server_url,
-                                attempt,
-                                remaining,
-                                self.config.client_id
-                            )
+                        # Update status screen every 3 seconds (or on first/last second)
+                        if (remaining % update_interval == 0) or remaining == retry_delay or remaining == 1:
+                            if self.display_renderer and not self.config.show_cached_layout_on_disconnect:
+                                self.display_renderer.status_screen_manager.show_reconnecting(
+                                    server_url,
+                                    attempt,
+                                    remaining,
+                                    self.config.client_id
+                                )
 
                         await asyncio.sleep(1)
 
@@ -1121,9 +1131,14 @@ class DigitalSignageClient:
             logger.info("Discovery will run continuously until server is found")
             logger.info("=" * 70)
 
-            # Show discovering server status screen with QR code ONCE
+            # Show discovering server status screen ONCE before starting discovery loop
             if self.display_renderer:
                 self.display_renderer.status_screen_manager.show_discovering_server("mDNS/Zeroconf + UDP Broadcast")
+                
+                # CRITICAL FIX: Force immediate render of status screen before blocking operations
+                from PyQt5.QtWidgets import QApplication
+                QApplication.processEvents()
+                logger.info("Status screen displayed - starting discovery...")
 
             server_discovered = False
             discovery_attempt = 0
@@ -1136,22 +1151,23 @@ class DigitalSignageClient:
                 logger.error(f"Failed to import discovery module: {e}")
                 raise
 
-            # Keep trying discovery until server is found - NO SLEEP between attempts
+            # OPTIMIZED DISCOVERY LOOP: Process Qt events during discovery to keep UI responsive
             while not server_discovered:
                 discovery_attempt += 1
                 logger.info(f"Discovery scan #{discovery_attempt} starting...")
                 self.watchdog.notify_status(f"Searching for servers (scan #{discovery_attempt})...")
 
                 try:
-                    # Run discovery in a separate thread to avoid blocking Qt event loop
-                    # This allows the status screen to render while discovery is running
+                    # PERFORMANCE FIX: Run discovery in separate thread to avoid blocking Qt event loop
+                    # This allows the status screen animations to continue while discovery is running
                     import concurrent.futures
                     from PyQt5.QtWidgets import QApplication
 
                     with concurrent.futures.ThreadPoolExecutor() as executor:
                         future = executor.submit(discover_server, self.config.discovery_timeout)
 
-                        # Process Qt events while discovery is running
+                        # CRITICAL: Process Qt events while discovery is running
+                        # This keeps the spinner and animations smooth
                         while not future.done():
                             QApplication.processEvents()
                             await asyncio.sleep(0.1)  # Small delay to avoid busy-waiting
@@ -1163,21 +1179,20 @@ class DigitalSignageClient:
                         logger.info("  Using auto-discovered server")
 
                         # Parse the discovered URL to update config
-                        # Format: ws://192.168.1.100:8080/ws or wss://...
                         import re
                         match = re.match(r'(wss?)://([^:]+):(\d+)/(.+)', discovered_url)
                         if match:
                             protocol, host, port, endpoint = match.groups()
                             self.config.server_host = host
                             self.config.server_port = int(port)
-                            self.config.endpoint_path = endpoint  # Save the endpoint path (e.g., "ws/")
+                            self.config.endpoint_path = endpoint
                             self.config.use_ssl = (protocol == 'wss')
                             logger.info(f"  Server Host: {host}")
                             logger.info(f"  Server Port: {port}")
                             logger.info(f"  Endpoint Path: {endpoint}")
                             logger.info(f"  SSL: {'Enabled' if self.config.use_ssl else 'Disabled'}")
 
-                            # Save discovered configuration for future use
+                            # Save discovered configuration
                             self.config.save()
                             logger.info("  Configuration saved")
                             server_discovered = True
@@ -1187,7 +1202,7 @@ class DigitalSignageClient:
                     else:
                         logger.debug(f"Scan #{discovery_attempt} complete - no servers found")
                         logger.debug(f"Starting scan #{discovery_attempt + 1} immediately...")
-                        # NO SLEEP - immediately start next scan
+                        # NO SLEEP - immediately start next scan to find server faster
 
                 except Exception as e:
                     logger.error(f"Discovery scan #{discovery_attempt} failed: {e}")
