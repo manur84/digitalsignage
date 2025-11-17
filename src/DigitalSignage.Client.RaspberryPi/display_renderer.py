@@ -165,7 +165,8 @@ class DisplayRenderer(QWidget):
     def setup_ui(self):
         """Setup the UI"""
         self.setWindowTitle("Digital Signage Display")
-        self.setStyleSheet("background-color: white;")
+        # Match the status screen background to avoid white flashes during initial discovery
+        self.setStyleSheet("background-color: #1a1a2e;")
 
         if self.fullscreen:
             self.showFullScreen()

@@ -126,10 +126,18 @@ class StatusScreen(QWidget):
         self.animated_widgets = []  # Track animated widgets for cleanup
 
         self.setFixedSize(width, height)
+        self.setAttribute(Qt.WA_StyledBackground, True)  # Ensure the stylesheet paints the whole widget
+        self.setAutoFillBackground(True)
         self.setStyleSheet(f"background-color: {self.COLOR_BACKGROUND};")
 
         # Calculate scaled dimensions for responsive layout
         self._calculate_scaled_dimensions()
+
+    def paintEvent(self, event):
+        """Ensure the background is always painted (prevents white bleed-through on first render)"""
+        painter = QPainter(self)
+        painter.fillRect(self.rect(), QColor(self.COLOR_BACKGROUND))
+        super().paintEvent(event)
 
     def _calculate_scaled_dimensions(self):
         """
