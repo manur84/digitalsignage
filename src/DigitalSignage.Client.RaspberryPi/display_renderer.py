@@ -236,18 +236,18 @@ class DisplayRenderer(QWidget):
         scale_x = display_width / layout_width
         scale_y = display_height / layout_height
 
-            logger.info(f"Layout resolution: {layout_width}x{layout_height}, Display resolution: {display_width}x{display_height}")
-            logger.info(f"Scale factors: X={scale_x:.3f}, Y={scale_y:.3f}")
+        logger.info(f"Layout resolution: {layout_width}x{layout_height}, Display resolution: {display_width}x{display_height}")
+        logger.info(f"Scale factors: X={scale_x:.3f}, Y={scale_y:.3f}")
 
-            # Store scale factors for element creation
-            self._scale_x = scale_x
-            self._scale_y = scale_y
-            self._rendering_svg_only = False
+        # Store scale factors for element creation
+        self._scale_x = scale_x
+        self._scale_y = scale_y
+        self._rendering_svg_only = False
 
-            # Clear status screen when rendering actual layout
-            if self.status_screen_manager.is_showing_status:
-                logger.info("Clearing status screen to display layout")
-                self.status_screen_manager.clear_status_screen()
+        # Clear status screen when rendering actual layout
+        if self.status_screen_manager.is_showing_status:
+            logger.info("Clearing status screen to display layout")
+            self.status_screen_manager.clear_status_screen()
 
         try:
             # === COMPLETE CLEANUP OF OLD LAYOUT ===
