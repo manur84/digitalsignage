@@ -70,38 +70,41 @@ public class RemoteClientInstallerService
             var sshCommand = ssh.CreateCommand(installCommand);
             sshCommand.CommandTimeout = TimeSpan.FromMinutes(10);
 
-            var commandOutput = await Task.Run(() => sshCommand.Execute(), cancellationToken);
-            var output = (sshCommand.Result ?? commandOutput ?? string.Empty).Trim();
-            var error = sshCommand.Error?.Trim();
+            // Stream output live to progress log (stdout + stderr)
+            using var stdoutReader = new StreamReader(sshCommand.OutputStream);
+            using var stderrReader = new StreamReader(sshCommand.ExtendedOutputStream);
+            var asyncResult = sshCommand.BeginExecute();
 
-            // Send install.sh output to UI log
-            if (!string.IsNullOrWhiteSpace(output))
+            var stdoutTask = Task.Run(async () =>
             {
-                foreach (var line in output.Split('\n'))
+                while (!stdoutReader.EndOfStream)
                 {
-                    var trimmed = line.TrimEnd();
-                    if (!string.IsNullOrWhiteSpace(trimmed))
+                    var line = await stdoutReader.ReadLineAsync();
+                    if (!string.IsNullOrWhiteSpace(line))
                     {
-                        progress?.Report(trimmed);
+                        progress?.Report(line.TrimEnd());
                     }
                 }
-            }
+            }, cancellationToken);
 
-            if (!string.IsNullOrWhiteSpace(error))
+            var stderrTask = Task.Run(async () =>
             {
-                foreach (var line in error.Split('\n'))
+                while (!stderrReader.EndOfStream)
                 {
-                    var trimmed = line.TrimEnd();
-                    if (!string.IsNullOrWhiteSpace(trimmed))
+                    var line = await stderrReader.ReadLineAsync();
+                    if (!string.IsNullOrWhiteSpace(line))
                     {
-                        progress?.Report($"[stderr] {trimmed}");
+                        progress?.Report($"[stderr] {line.TrimEnd()}");
                     }
                 }
-            }
+            }, cancellationToken);
+
+            await Task.WhenAll(stdoutTask, stderrTask, Task.Run(() => sshCommand.EndExecute(asyncResult), cancellationToken));
 
             if (sshCommand.ExitStatus != 0)
             {
-                return Result.Failure($"install.sh failed with exit code {sshCommand.ExitStatus}: {error ?? output}");
+                var combinedError = (sshCommand.Error ?? sshCommand.Result ?? string.Empty).Trim();
+                return Result.Failure($"install.sh failed with exit code {sshCommand.ExitStatus}: {combinedError}");
             }
 
             progress?.Report("Installation completed successfully.");
@@ -207,13 +210,32 @@ rm -rf '{RemoteInstallDir}'
 rm -f '{RemoteServiceFile}'
 ";
 
+        var escapedScript = cleanupScript.Replace("'", "'\"'\"'");
         var commandText = isRoot
-            ? $"bash -lc \"{cleanupScript.Replace("\"", "\\\"")}\""
-            : $"printf '%s\\n' '{escapedPassword}' | sudo -S bash -lc \"{cleanupScript.Replace("\"", "\\\"")}\"";
+            ? $"bash -lc '{escapedScript}'"
+            : $"printf '%s\\n' '{escapedPassword}' | sudo -S bash -lc '{escapedScript}'";
 
         progress?.Report("Stopping service and removing previous install (if any)...");
         var cmd = ssh.CreateCommand(commandText);
         cmd.CommandTimeout = TimeSpan.FromSeconds(30);
-        await Task.Run(() => cmd.Execute(), cancellationToken);
+        var cleanupOutput = await Task.Run(() => cmd.Execute(), cancellationToken);
+        var combined = (cmd.Error ?? cleanupOutput ?? string.Empty).Trim();
+
+        if (!string.IsNullOrWhiteSpace(combined))
+        {
+            foreach (var line in combined.Split('\n'))
+            {
+                var trimmed = line.TrimEnd();
+                if (!string.IsNullOrWhiteSpace(trimmed))
+                {
+                    progress?.Report(trimmed);
+                }
+            }
+        }
+
+        if (cmd.ExitStatus != 0)
+        {
+            throw new InvalidOperationException($"Failed to prepare fresh install (exit {cmd.ExitStatus}): {combined}");
+        }
     }
 }
