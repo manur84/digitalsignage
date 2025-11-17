@@ -156,16 +156,15 @@ public class RemoteClientInstallerService
             normalizedPath = $"{RemoteInstallPath.TrimEnd('/')}/{normalizedPath.TrimStart('/')}";
         }
 
-        // Run through bash explicitly to avoid line-ending interpreter issues on uploaded scripts
-        var baseCommand = $"/bin/bash '{normalizedPath}'";
-
         // Root can execute directly without sudo.
         if (string.Equals(username, "root", StringComparison.OrdinalIgnoreCase))
         {
-            return baseCommand;
+            // Pre-seed install.sh interactive prompts (deployment mode = 1, reboot = y)
+            return $"printf '1\\ny\\n' | /bin/bash '{normalizedPath}'";
         }
 
+        // Run through bash via sudo; first line of input is the sudo password, remaining feed into install.sh.
         var escapedPassword = password.Replace("'", "'\"'\"'");
-        return $"echo '{escapedPassword}' | sudo -S {baseCommand}";
+        return $"printf '%s\\n1\\ny\\n' '{escapedPassword}' | sudo -S /bin/bash '{normalizedPath}'";
     }
 }
