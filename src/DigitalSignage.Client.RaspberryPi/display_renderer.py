@@ -249,6 +249,18 @@ class DisplayRenderer(QWidget):
         scale_x = display_width / layout_width
         scale_y = display_height / layout_height
 
+        # Ensure the renderer window matches the detected display size
+        # Avoids rendering into a default 640x480 window while scaling to a larger screen
+        if self.width() != display_width or self.height() != display_height:
+            logger.warning(
+                f"Renderer window size {self.width()}x{self.height()} differs from display {display_width}x{display_height} - resizing"
+            )
+            self.setGeometry(0, 0, display_width, display_height)
+            self.resize(display_width, display_height)
+            if self.fullscreen and not self.isFullScreen():
+                logger.info("Restoring fullscreen mode after resize")
+                self.showFullScreen()
+
         logger.info("=" * 70)
         logger.info("LAYOUT SCALING ANALYSIS")
         logger.info("=" * 70)
@@ -432,13 +444,13 @@ class DisplayRenderer(QWidget):
                         # This prevents "wrapped C/C++ object has been deleted" error
                         self._png_label = QLabel(parent=self)
                         self._png_label.setStyleSheet("background: transparent;")
-                        self._png_label.setGeometry(0, 0, self.width(), self.height())
+                        self._png_label.setGeometry(0, 0, display_width, display_height)
                         
                         # CRITICAL SCALING FIX: Use KeepAspectRatioByExpanding to maintain aspect ratio
                         # while filling the entire screen (crops overflow instead of stretching)
                         scaled = self._png_pixmap.scaled(
-                            self.width(), 
-                            self.height(), 
+                            display_width, 
+                            display_height, 
                             Qt.KeepAspectRatioByExpanding,  # Maintain aspect ratio, fill screen
                             Qt.SmoothTransformation
                         )
@@ -455,7 +467,7 @@ class DisplayRenderer(QWidget):
                         
                         logger.info(f"✓ PNG layout rendered: original={self._png_pixmap.width()}x{self._png_pixmap.height()}, "
                                   f"scaled={scaled.width()}x{scaled.height()}, "
-                                  f"display={self.width()}x{self.height()}")
+                                  f"display={display_width}x{display_height}")
                     else:
                         failed_count += 1
                         logger.error("Failed to load PNG data for layout")
