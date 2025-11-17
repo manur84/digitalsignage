@@ -169,6 +169,12 @@ public class RemoteClientInstallerService
 
             await Task.WhenAll(stdoutTask, stderrTask, endTask);
 
+            if (installMarkerSeen)
+            {
+                progress?.Report("Installations-Marker empfangen; beende Verbindung ohne weitere Prüfungen.");
+                return Result.Success("Installation abgeschlossen (Marker empfangen). Gerät rebootet ggf.");
+            }
+
             if (commandConnectionDropped)
             {
                 // If we saw the completion marker, consider install done without further checks
