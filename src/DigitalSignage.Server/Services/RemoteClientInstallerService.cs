@@ -71,8 +71,8 @@ public class RemoteClientInstallerService
             sshCommand.CommandTimeout = TimeSpan.FromMinutes(10);
 
             // Stream output live to progress log (stdout + stderr)
-            using var stdoutReader = new StreamReader(sshCommand.OutputStream);
-            using var stderrReader = new StreamReader(sshCommand.ExtendedOutputStream);
+            using var stdoutReader = new StreamReader(sshCommand.OutputStream ?? Stream.Null);
+            using var stderrReader = new StreamReader(sshCommand.ExtendedOutputStream ?? Stream.Null);
             var asyncResult = sshCommand.BeginExecute();
 
             var stdoutTask = Task.Run(async () =>
