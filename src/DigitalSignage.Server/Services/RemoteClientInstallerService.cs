@@ -56,11 +56,11 @@ public class RemoteClientInstallerService
             try
             {
                 ssh = CreateSshClient(host, port, username, password);
-                sftp = CreateSftpClient(host, port, username, password);
+        sftp = CreateSftpClient(host, port, username, password);
 
-                await ConnectWithTimeoutAsync(ssh, cancellationToken);
-                await ConnectWithTimeoutAsync(sftp, cancellationToken);
-            }
+        await ConnectWithTimeoutAsync(ssh, cancellationToken);
+        await ConnectWithTimeoutAsync(sftp, cancellationToken);
+    }
             catch (SshAuthenticationException ex)
             {
                 _logger.LogWarning(ex, "SSH authentication failed for {Host}", host);
@@ -221,6 +221,22 @@ public class RemoteClientInstallerService
         }
         catch (SocketException ex)
         {
+            // If we were already running install.sh, treat as connection drop (e.g., reboot)
+            if (installCommandStarted)
+            {
+                _logger.LogInformation(ex, "Socket error during install (likely reboot) for host {Host}", host);
+                var result = await HandleConnectionDropAsync(
+                    new SshConnectionException(ex.Message),
+                    installCommandStarted,
+                    host,
+                    port,
+                    username,
+                    password,
+                    progress,
+                    cancellationToken);
+                return result;
+            }
+
             _logger.LogError(ex, "Socket error during remote install for host {Host}", host);
             return Result.Failure($"Network error during installation: {ex.Message}", ex);
         }
@@ -398,7 +414,18 @@ rm -f '{RemoteServiceFile}'
         await Task.Run(() =>
         {
             cancellationToken.ThrowIfCancellationRequested();
-            client.Connect();
+            try
+            {
+                client.Connect();
+            }
+            catch (SocketException)
+            {
+                throw new SshConnectionException("SSH socket connection failed");
+            }
+            catch (SshConnectionException)
+            {
+                throw;
+            }
         }, cancellationToken);
     }
 
