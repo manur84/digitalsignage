@@ -412,59 +412,122 @@ class WebInterface:
             return {'error': str(e)}
 
     def _get_logs(self, level: str = 'ALL', lines: int = 100) -> Dict[str, Any]:
-        """Get recent log entries"""
+        """Get recent log entries from log file or journalctl"""
         try:
-            # Get logs from journalctl
-            cmd = ['journalctl', '-u', 'digitalsignage-client', '-n', str(lines), '--no-pager']
+            log_entries = []
 
+            # First, try to read from log file
+            log_file = Path.home() / '.digitalsignage' / 'logs' / 'client.log'
+
+            if log_file.exists():
+                try:
+                    with open(log_file, 'r', encoding='utf-8') as f:
+                        # Read all lines and get the last N lines
+                        all_lines = f.readlines()
+                        recent_lines = all_lines[-lines:] if len(all_lines) > lines else all_lines
+
+                        for line in recent_lines:
+                            line = line.strip()
+                            if not line:
+                                continue
+
+                            # Filter by level if specified
+                            if level != 'ALL' and level not in line:
+                                continue
+
+                            # Parse log line: "2025-11-17 01:02:05,974 - status_screen - DEBUG - Message"
+                            try:
+                                parts = line.split(' - ', 3)
+                                if len(parts) >= 4:
+                                    timestamp = parts[0]
+                                    log_level = parts[2]
+                                    message = parts[3]
+                                else:
+                                    timestamp = datetime.now().isoformat()
+                                    log_level = 'INFO'
+                                    message = line
+
+                                log_entries.append({
+                                    'timestamp': timestamp,
+                                    'level': log_level,
+                                    'message': message
+                                })
+                            except Exception as parse_error:
+                                # If parsing fails, add the raw line
+                                log_entries.append({
+                                    'timestamp': datetime.now().isoformat(),
+                                    'level': 'INFO',
+                                    'message': line
+                                })
+
+                    if log_entries:
+                        return {
+                            'logs': log_entries,
+                            'count': len(log_entries),
+                            'filtered_by': level,
+                            'source': 'file',
+                            'timestamp': datetime.utcnow().isoformat()
+                        }
+                except Exception as file_error:
+                    logger.warning(f"Failed to read log file: {file_error}")
+
+            # Fallback: Try journalctl if log file is empty or doesn't exist
+            cmd = ['journalctl', '-u', 'digitalsignage-client', '-n', str(lines), '--no-pager']
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
 
-            if result.returncode != 0:
-                return {'error': 'Failed to retrieve logs', 'logs': []}
-
-            # Parse log entries
-            log_entries = []
-            for line in result.stdout.strip().split('\n'):
-                if not line:
-                    continue
-
-                # Filter by level if specified
-                if level != 'ALL':
-                    if level not in line:
+            if result.returncode == 0 and result.stdout.strip():
+                # Parse journalctl output
+                for line in result.stdout.strip().split('\n'):
+                    if not line:
                         continue
 
-                # Try to parse timestamp, hostname, and message
-                parts = line.split(None, 4)
-                if len(parts) >= 5:
-                    timestamp = f"{parts[0]} {parts[1]} {parts[2]}"
-                    message = parts[4]
-                else:
-                    timestamp = datetime.now().isoformat()
-                    message = line
+                    # Filter by level if specified
+                    if level != 'ALL' and level not in line:
+                        continue
 
-                # Determine log level from message
-                log_level = 'INFO'
-                if 'ERROR' in message:
-                    log_level = 'ERROR'
-                elif 'WARNING' in message:
-                    log_level = 'WARNING'
-                elif 'DEBUG' in message:
-                    log_level = 'DEBUG'
-                elif 'CRITICAL' in message:
-                    log_level = 'CRITICAL'
+                    # Try to parse timestamp, hostname, and message
+                    parts = line.split(None, 4)
+                    if len(parts) >= 5:
+                        timestamp = f"{parts[0]} {parts[1]} {parts[2]}"
+                        message = parts[4]
+                    else:
+                        timestamp = datetime.now().isoformat()
+                        message = line
 
-                log_entries.append({
-                    'timestamp': timestamp,
-                    'level': log_level,
-                    'message': message
-                })
+                    # Determine log level from message
+                    log_level = 'INFO'
+                    if 'ERROR' in message:
+                        log_level = 'ERROR'
+                    elif 'WARNING' in message:
+                        log_level = 'WARNING'
+                    elif 'DEBUG' in message:
+                        log_level = 'DEBUG'
+                    elif 'CRITICAL' in message:
+                        log_level = 'CRITICAL'
 
+                    log_entries.append({
+                        'timestamp': timestamp,
+                        'level': log_level,
+                        'message': message
+                    })
+
+                return {
+                    'logs': log_entries,
+                    'count': len(log_entries),
+                    'filtered_by': level,
+                    'source': 'journalctl',
+                    'timestamp': datetime.utcnow().isoformat()
+                }
+
+            # No logs found from either source
             return {
-                'logs': log_entries,
-                'count': len(log_entries),
+                'logs': [],
+                'count': 0,
                 'filtered_by': level,
+                'source': 'none',
                 'timestamp': datetime.utcnow().isoformat()
             }
+
         except subprocess.TimeoutExpired:
             logger.error("journalctl command timed out")
             return {'error': 'Log retrieval timed out', 'logs': []}

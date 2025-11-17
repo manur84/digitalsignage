@@ -10,13 +10,29 @@ import traceback
 
 # Configure logging FIRST before any other imports
 import logging
+from logging.handlers import RotatingFileHandler
+from pathlib import Path
+
+# Create logs directory
+log_dir = Path.home() / '.digitalsignage' / 'logs'
+log_dir.mkdir(parents=True, exist_ok=True)
+log_file = log_dir / 'client.log'
+
+# Configure logging with both file and console handlers
+handlers = [
+    logging.StreamHandler(sys.stdout),
+    RotatingFileHandler(
+        log_file,
+        maxBytes=5*1024*1024,  # 5 MB
+        backupCount=3,
+        encoding='utf-8'
+    )
+]
+
 logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout),
-        logging.StreamHandler(sys.stderr)
-    ]
+    handlers=handlers
 )
 
 logger = logging.getLogger(__name__)
