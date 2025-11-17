@@ -17,6 +17,9 @@ Supported Element Types:
 """
 
 import logging
+import os
+import tempfile
+import uuid
 from typing import Dict, Any, Optional
 from io import BytesIO
 import locale

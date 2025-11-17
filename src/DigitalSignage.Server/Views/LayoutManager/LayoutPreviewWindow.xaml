@@ -31,10 +31,7 @@
         </Border>
 
         <Grid Grid.Row="1" Background="White">
-            <Image x:Name="PreviewImage"
-                   Stretch="Uniform"
-                   SnapsToDevicePixels="True"
-                   RenderOptions.BitmapScalingMode="HighQuality"/>
+            <WebBrowser x:Name="Browser"/>
             <TextBlock x:Name="ErrorText"
                        Foreground="Red"
                        FontSize="16"
