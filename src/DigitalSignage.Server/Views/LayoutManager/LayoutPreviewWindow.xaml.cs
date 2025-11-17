@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using System.Windows;
 using System.Windows.Input;
 using DigitalSignage.Core.Models;
@@ -9,7 +11,7 @@ namespace DigitalSignage.Server.Views.LayoutManager;
 public partial class LayoutPreviewWindow : Window
 {
     private readonly DisplayLayout _layout;
-    private string? _tempFile;
+    private readonly List<string> _tempFiles = new();
 
     public LayoutPreviewWindow(DisplayLayout layout)
     {
@@ -34,10 +36,14 @@ public partial class LayoutPreviewWindow : Window
         try
         {
             var bytes = Convert.FromBase64String(svgBase64);
-            var tempPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.svg");
-            File.WriteAllBytes(tempPath, bytes);
-            _tempFile = tempPath;
-            Browser.Navigate(new Uri(tempPath));
+            var svgText = Encoding.UTF8.GetString(bytes);
+
+            var htmlPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.html");
+            var html = BuildHtml(svgText);
+            File.WriteAllText(htmlPath, html, Encoding.UTF8);
+            _tempFiles.Add(htmlPath);
+
+            Browser.Navigate(new Uri(htmlPath));
             ErrorText.Visibility = Visibility.Collapsed;
         }
         catch (Exception ex)
@@ -45,6 +51,29 @@ public partial class LayoutPreviewWindow : Window
             ErrorText.Text = $"SVG konnte nicht angezeigt werden: {ex.Message}";
             ErrorText.Visibility = Visibility.Visible;
         }
+    }
+
+    private static string BuildHtml(string svgContent)
+    {
+        var sb = new StringBuilder();
+        sb.Append("""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        html, body { margin:0; padding:0; width:100%; height:100%; background:#111; overflow:hidden;}
+        svg { width:100%; height:100%; }
+    </style>
+</head>
+<body>
+""");
+        sb.Append(svgContent);
+        sb.Append("""
+</body>
+</html>
+""");
+        return sb.ToString();
     }
 
     private void Window_KeyDown(object sender, KeyEventArgs e)
@@ -60,11 +89,14 @@ public partial class LayoutPreviewWindow : Window
     protected override void OnClosed(EventArgs e)
     {
         base.OnClosed(e);
-        if (!string.IsNullOrWhiteSpace(_tempFile) && File.Exists(_tempFile))
+        foreach (var file in _tempFiles)
         {
             try
             {
-                File.Delete(_tempFile);
+                if (File.Exists(file))
+                {
+                    File.Delete(file);
+                }
             }
             catch
             {
