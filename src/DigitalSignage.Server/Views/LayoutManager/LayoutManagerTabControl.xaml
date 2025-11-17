@@ -1,0 +1,64 @@
+<UserControl x:Class="DigitalSignage.Server.Views.LayoutManager.LayoutManagerTabControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:viewmodels="clr-namespace:DigitalSignage.Server.ViewModels"
+             mc:Ignorable="d"
+             d:DesignHeight="600"
+             d:DesignWidth="1000"
+             d:DataContext="{d:DesignInstance Type=viewmodels:LayoutManagerViewModel}">
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Orientation="Vertical" Grid.Row="0" Margin="0,0,0,12">
+            <TextBlock Text="Layout Manager" FontSize="18" FontWeight="SemiBold"/>
+            <TextBlock Text="Importiere SVG-Dateien als Layouts, damit sie im Geräte-Tab zugewiesen werden können."
+                       Foreground="#555"
+                       Margin="0,4,0,0"/>
+        </StackPanel>
+
+        <StackPanel Orientation="Horizontal" Grid.Row="1" Margin="0,0,0,12">
+            <Button Content="📥 SVG importieren"
+                    Command="{Binding ImportSvgCommand}"
+                    Style="{StaticResource PrimaryButton}"
+                    Padding="12,6"
+                    Margin="0,0,8,0"/>
+            <Button Content="🔄 Aktualisieren"
+                    Command="{Binding LoadLayoutsCommand}"
+                    Style="{StaticResource SecondaryButton}"
+                    Padding="12,6"/>
+        </StackPanel>
+
+        <DataGrid Grid.Row="2"
+                  ItemsSource="{Binding Layouts}"
+                  SelectedItem="{Binding SelectedLayout}"
+                  AutoGenerateColumns="False"
+                  CanUserAddRows="False"
+                  IsReadOnly="True"
+                  Margin="0,0,0,12">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="200"/>
+                <DataGridTextColumn Header="Typ" Binding="{Binding LayoutType}" Width="80"/>
+                <DataGridTextColumn Header="Datei" Binding="{Binding SvgFileName}" Width="200"/>
+                <DataGridTextColumn Header="Geändert" Binding="{Binding Modified, StringFormat=yyyy-MM-dd HH:mm}" Width="140"/>
+                <DataGridTextColumn Header="Beschreibung" Binding="{Binding Description}" Width="*"/>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <StackPanel Orientation="Horizontal" Grid.Row="3" VerticalAlignment="Center">
+            <TextBlock Text="{Binding StatusMessage}" FontWeight="SemiBold"/>
+            <TextBlock Text="  •  "
+                       Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibilityConverter}}"
+                       Foreground="#777"/>
+            <TextBlock Text="Verarbeitung läuft..."
+                       Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibilityConverter}}"
+                       Foreground="#777"/>
+        </StackPanel>
+    </Grid>
+</UserControl>

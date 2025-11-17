@@ -35,6 +35,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     public LiveLogsViewModel LiveLogsViewModel { get; }
     public AlertsViewModel Alerts { get; }
     public SqlDataSourcesViewModel SqlDataSources { get; }
+    public LayoutManagerViewModel LayoutManager { get; }
 
     // Unified Status Text (aggregated from sub-ViewModels)
     [ObservableProperty]
@@ -44,6 +45,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         ServerManagementViewModel serverManagementViewModel,
         DiagnosticsViewModel diagnosticsViewModel,
         DeviceManagementViewModel deviceManagementViewModel,
+        LayoutManagerViewModel layoutManagerViewModel,
         PreviewViewModel previewViewModel,
         SchedulingViewModel schedulingViewModel,
         LogViewerViewModel logViewerViewModel,
@@ -64,6 +66,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
         // Existing Sub-ViewModels
         DeviceManagement = deviceManagementViewModel ?? throw new ArgumentNullException(nameof(deviceManagementViewModel));
+        LayoutManager = layoutManagerViewModel ?? throw new ArgumentNullException(nameof(layoutManagerViewModel));
         PreviewViewModel = previewViewModel ?? throw new ArgumentNullException(nameof(previewViewModel));
         SchedulingViewModel = schedulingViewModel ?? throw new ArgumentNullException(nameof(schedulingViewModel));
         LogViewerViewModel = logViewerViewModel ?? throw new ArgumentNullException(nameof(logViewerViewModel));

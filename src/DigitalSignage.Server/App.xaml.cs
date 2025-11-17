@@ -235,8 +235,9 @@ public partial class App : Application
                 services.AddSingleton<DiagnosticsViewModel>();
 
                 // Existing ViewModels
-                services.AddTransient<DeviceManagementViewModel>();
-                services.AddTransient<DiscoveredDevicesViewModel>();
+                services.AddSingleton<DeviceManagementViewModel>();
+                services.AddSingleton<DiscoveredDevicesViewModel>();
+                services.AddSingleton<LayoutManagerViewModel>();
                 services.AddTransient<ClientInstallerViewModel>();
                 services.AddTransient<PreviewViewModel>();
                 services.AddTransient<SchedulingViewModel>();

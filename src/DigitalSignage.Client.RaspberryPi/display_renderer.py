@@ -13,6 +13,7 @@ Supported Element Types:
 - datagrid: SQL data grid displays with paging and styling
 - datasourcetext: Templated text elements with SQL data binding
 - group: Container elements with child elements (grouped elements)
+- svg layout: fullscreen rendering for imported SVG layouts
 """
 
 import logging
@@ -20,16 +21,23 @@ from typing import Dict, Any, Optional
 from io import BytesIO
 import locale
 
-from PyQt5.QtWidgets import QWidget, QLabel, QGraphicsDropShadowEffect
+from PyQt5.QtWidgets import QWidget, QLabel, QGraphicsDropShadowEffect, QSizePolicy
 from PyQt5.QtCore import Qt, QRect, QTimer
 from PyQt5.QtGui import QPixmap, QFont, QColor, QPainter, QImage, QPen, QBrush
 import qrcode
 from datetime import datetime
 
+logger = logging.getLogger(__name__)
+
+try:
+    from PyQt5.QtSvg import QSvgWidget
+    HAS_QT_SVG = True
+except Exception as svg_err:
+    HAS_QT_SVG = False
+    logger.warning(f"QtSvg module not available, SVG layouts will be skipped: {svg_err}")
+
 # Import status screen manager
 from status_screen import StatusScreenManager
-
-logger = logging.getLogger(__name__)
 
 # Set German locale for datetime formatting
 try:
@@ -374,6 +382,26 @@ class DisplayRenderer(QWidget):
 
             rendered_count = 0
             failed_count = 0
+            svg_data_b64 = layout.get('SvgContentBase64') or layout.get('SvgContent')
+
+            if svg_data_b64:
+                if not HAS_QT_SVG:
+                    logger.error("Received SVG layout but QtSvg is unavailable on this client")
+                else:
+                    try:
+                        import base64
+                        svg_bytes = base64.b64decode(svg_data_b64)
+                        svg_widget = QSvgWidget(parent=self)
+                        svg_widget.load(svg_bytes)
+                        svg_widget.setGeometry(0, 0, self.width(), self.height())
+                        svg_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+                        svg_widget.show()
+                        self.elements.append(svg_widget)
+                        rendered_count += 1
+                        logger.info("SVG layout rendered to screen")
+                    except Exception as e:
+                        failed_count += 1
+                        logger.error(f"Failed to render SVG layout: {e}")
 
             for element_data in elements_sorted:
                 try:

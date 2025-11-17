@@ -110,6 +110,7 @@ public class LayoutService : ILayoutService, IDisposable
                 return Result<DisplayLayout>.Failure("Layout name is too long (maximum 200 characters)");
             }
 
+            EnsureLayoutDefaults(layout);
             layout.Id = Guid.NewGuid().ToString();
             layout.Created = DateTime.UtcNow;
             layout.Modified = DateTime.UtcNow;
@@ -179,6 +180,7 @@ public class LayoutService : ILayoutService, IDisposable
                 return Result<DisplayLayout>.Failure($"Layout '{layout.Id}' not found");
             }
 
+            EnsureLayoutDefaults(layout);
             layout.Modified = DateTime.UtcNow;
             _layouts[layout.Id] = layout;
             await SaveLayoutToDiskAsync(layout, cancellationToken);
@@ -285,6 +287,7 @@ public class LayoutService : ILayoutService, IDisposable
             var duplicate = JsonConvert.DeserializeObject<DisplayLayout>(
                 JsonConvert.SerializeObject(originalResult.Value))!;
 
+            EnsureLayoutDefaults(duplicate);
             duplicate.Id = Guid.NewGuid().ToString();
             duplicate.Name = newName;
             duplicate.Created = DateTime.UtcNow;
@@ -441,6 +444,7 @@ public class LayoutService : ILayoutService, IDisposable
                 var layout = JsonConvert.DeserializeObject<DisplayLayout>(json);
                 if (layout != null && !string.IsNullOrWhiteSpace(layout.Id))
                 {
+                    EnsureLayoutDefaults(layout);
                     _layouts[layout.Id] = layout;
                     loadedCount++;
                 }
@@ -462,7 +466,21 @@ public class LayoutService : ILayoutService, IDisposable
             }
         }
 
-        _logger.LogInformation("Loaded {LoadedCount} layouts, {FailedCount} failed", loadedCount, failedCount);
+            _logger.LogInformation("Loaded {LoadedCount} layouts, {FailedCount} failed", loadedCount, failedCount);
+    }
+
+    private void EnsureLayoutDefaults(DisplayLayout layout)
+    {
+        if (layout == null)
+        {
+            return;
+        }
+
+        layout.LayoutType = string.IsNullOrWhiteSpace(layout.LayoutType) ? "standard" : layout.LayoutType;
+        layout.Elements ??= new List<DisplayElement>();
+        layout.DataSources ??= new List<DataSource>();
+        layout.Metadata ??= new Dictionary<string, object>();
+        layout.Tags ??= new List<string>();
     }
 
     public Task<Result<List<DisplayLayout>>> GetLayoutsWithDataSourceAsync(Guid dataSourceId, CancellationToken cancellationToken = default)
