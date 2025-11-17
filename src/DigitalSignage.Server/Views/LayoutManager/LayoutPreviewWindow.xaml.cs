@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Text;
 using System.Windows;
 using System.Windows.Input;
@@ -9,6 +10,7 @@ namespace DigitalSignage.Server.Views.LayoutManager;
 public partial class LayoutPreviewWindow : Window
 {
     private readonly DisplayLayout _layout;
+    private string? _tempFile;
 
     public LayoutPreviewWindow(DisplayLayout layout)
     {
@@ -32,33 +34,17 @@ public partial class LayoutPreviewWindow : Window
 
         try
         {
-            var html = BuildHtml(svgBase64);
-            Browser.NavigateToString(html);
+            var bytes = Convert.FromBase64String(svgBase64);
+            var tempPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.svg");
+            File.WriteAllBytes(tempPath, bytes);
+            _tempFile = tempPath;
+            Browser.Navigate(new Uri(tempPath));
         }
         catch (Exception ex)
         {
             ErrorText.Text = $"SVG konnte nicht angezeigt werden: {ex.Message}";
             ErrorText.Visibility = Visibility.Visible;
         }
-    }
-
-    private static string BuildHtml(string base64)
-    {
-        var sb = new StringBuilder();
-        sb.Append("""
-<!DOCTYPE html><html><head><meta charset="utf-8">
-<style>
-html,body { margin:0; padding:0; width:100%; height:100%; background:#111; overflow:hidden;}
-object { width:100%; height:100%; }
-</style>
-</head><body>
-<object data="data:image/svg+xml;base64,
-""");
-        sb.Append(base64);
-        sb.Append("""
-" type="image/svg+xml"></object></body></html>
-""");
-        return sb.ToString();
     }
 
     private void Window_KeyDown(object sender, KeyEventArgs e)
@@ -70,4 +56,20 @@ object { width:100%; height:100%; }
     }
 
     private void Close_Click(object sender, RoutedEventArgs e) => Close();
+
+    protected override void OnClosed(EventArgs e)
+    {
+        base.OnClosed(e);
+        if (!string.IsNullOrWhiteSpace(_tempFile) && File.Exists(_tempFile))
+        {
+            try
+            {
+                File.Delete(_tempFile);
+            }
+            catch
+            {
+                // ignore cleanup errors
+            }
+        }
+    }
 }

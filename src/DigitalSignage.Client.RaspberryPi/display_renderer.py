@@ -169,6 +169,8 @@ class DisplayRenderer(QWidget):
 
         # Data source cache for datagrid elements
         self.data_source_cache: Dict[str, list] = {}
+        self._svg_widget = None
+        self._rendering_svg_only = False
 
     def setup_ui(self):
         """Setup the UI"""
@@ -228,17 +230,18 @@ class DisplayRenderer(QWidget):
         scale_x = display_width / layout_width
         scale_y = display_height / layout_height
 
-        logger.info(f"Layout resolution: {layout_width}x{layout_height}, Display resolution: {display_width}x{display_height}")
-        logger.info(f"Scale factors: X={scale_x:.3f}, Y={scale_y:.3f}")
+            logger.info(f"Layout resolution: {layout_width}x{layout_height}, Display resolution: {display_width}x{display_height}")
+            logger.info(f"Scale factors: X={scale_x:.3f}, Y={scale_y:.3f}")
 
-        # Store scale factors for element creation
-        self._scale_x = scale_x
-        self._scale_y = scale_y
+            # Store scale factors for element creation
+            self._scale_x = scale_x
+            self._scale_y = scale_y
+            self._rendering_svg_only = False
 
-        # Clear status screen when rendering actual layout
-        if self.status_screen_manager.is_showing_status:
-            logger.info("Clearing status screen to display layout")
-            self.status_screen_manager.clear_status_screen()
+            # Clear status screen when rendering actual layout
+            if self.status_screen_manager.is_showing_status:
+                logger.info("Clearing status screen to display layout")
+                self.status_screen_manager.clear_status_screen()
 
         try:
             # === COMPLETE CLEANUP OF OLD LAYOUT ===
@@ -391,36 +394,54 @@ class DisplayRenderer(QWidget):
                     try:
                         import base64
                         svg_bytes = base64.b64decode(svg_data_b64)
-                        svg_widget = QSvgWidget(parent=self)
-                        svg_widget.load(svg_bytes)
-                        svg_widget.setGeometry(0, 0, self.width(), self.height())
-                        svg_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-                        svg_widget.show()
-                        self.elements.append(svg_widget)
+                        if self._svg_widget:
+                            try:
+                                self._svg_widget.hide()
+                                self._svg_widget.deleteLater()
+                            except Exception:
+                                pass
+                        self._svg_widget = QSvgWidget(parent=self)
+                        self._svg_widget.load(svg_bytes)
+                        self._svg_widget.setGeometry(0, 0, self.width(), self.height())
+                        self._svg_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+                        self._svg_widget.setStyleSheet("background: transparent;")
+                        try:
+                            self._svg_widget.renderer().setAspectRatioMode(Qt.KeepAspectRatio)
+                        except Exception:
+                            pass
+                        self._svg_widget.show()
+                        self.elements.append(self._svg_widget)
+                        self._rendering_svg_only = True
                         rendered_count += 1
                         logger.info("SVG layout rendered to screen")
                     except Exception as e:
                         failed_count += 1
                         logger.error(f"Failed to render SVG layout: {e}")
 
-            for element_data in elements_sorted:
-                try:
-                    element = self.create_element(element_data, data)
-                    if element:
-                        self.elements.append(element)
-                        element.show()
-                        rendered_count += 1
-                    else:
+            if not self._rendering_svg_only:
+                for element_data in elements_sorted:
+                    try:
+                        element = self.create_element(element_data, data)
+                        if element:
+                            self.elements.append(element)
+                            element.show()
+                            rendered_count += 1
+                        else:
+                            failed_count += 1
+                    except Exception as e:
+                        logger.error(f"Failed to create element: {e}")
                         failed_count += 1
-                except Exception as e:
-                    logger.error(f"Failed to create element: {e}")
-                    failed_count += 1
 
             logger.info(f"Layout '{layout_name}' rendered: {rendered_count} elements created, {failed_count} failed")
             self.update()
 
         except Exception as e:
             logger.error(f"Failed to render layout '{layout_name}': {e}")
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if self._svg_widget:
+            self._svg_widget.setGeometry(0, 0, self.width(), self.height())
 
     def create_element(self, element_data: Dict[str, Any], data: Optional[Dict[str, Any]]) -> Optional[QWidget]:
         """Create a UI element from element data"""
