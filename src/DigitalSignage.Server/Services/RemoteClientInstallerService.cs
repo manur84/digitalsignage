@@ -146,7 +146,8 @@ public class RemoteClientInstallerService
 
     private string BuildInstallCommand(string username, string password)
     {
-        var baseCommand = $"cd '{RemoteInstallPath}' && ./install.sh";
+        // Run through bash explicitly to avoid line-ending interpreter issues on uploaded scripts
+        var baseCommand = $"cd '{RemoteInstallPath}' && /bin/bash install.sh";
 
         // Root can execute directly without sudo.
         if (string.Equals(username, "root", StringComparison.OrdinalIgnoreCase))
