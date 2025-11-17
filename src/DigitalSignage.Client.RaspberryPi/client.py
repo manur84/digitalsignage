@@ -1139,8 +1139,20 @@ class DigitalSignageClient:
                 self.watchdog.notify_status(f"Searching for servers (scan #{discovery_attempt})...")
 
                 try:
-                    # Run discovery with timeout - this will search continuously for the timeout duration
-                    discovered_url = discover_server(timeout=self.config.discovery_timeout)
+                    # Run discovery in a separate thread to avoid blocking Qt event loop
+                    # This allows the status screen to render while discovery is running
+                    import concurrent.futures
+                    from PyQt5.QtWidgets import QApplication
+
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        future = executor.submit(discover_server, self.config.discovery_timeout)
+
+                        # Process Qt events while discovery is running
+                        while not future.done():
+                            QApplication.processEvents()
+                            await asyncio.sleep(0.1)  # Small delay to avoid busy-waiting
+
+                        discovered_url = future.result()
 
                     if discovered_url:
                         logger.info(f"✓ SERVER FOUND: {discovered_url}")
