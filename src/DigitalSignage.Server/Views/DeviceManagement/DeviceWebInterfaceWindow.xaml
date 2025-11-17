@@ -10,12 +10,12 @@
         <Border Background="#222" Padding="8" Grid.Row="0">
             <DockPanel>
                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
-                    <TextBlock Text="Geräte Web Interface" FontSize="16" FontWeight="Bold" Foreground="White" Margin="0,0,16,0"/>
+                    <TextBlock Text="Geraete Web Interface" FontSize="16" FontWeight="Bold" Foreground="White" Margin="0,0,16,0"/>
                     <TextBlock x:Name="UrlText" Foreground="LightGray" VerticalAlignment="Center"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
-                    <Button Content="?" Width="40" Margin="0,0,8,0" Click="Refresh_Click" ToolTip="Neu laden"/>
-                    <Button Content="?" Width="60" Click="Close_Click" ToolTip="Schließen (Esc)"/>
+                    <Button Content="Refresh" Width="70" Margin="0,0,8,0" Click="Refresh_Click" ToolTip="Neu laden"/>
+                    <Button Content="Close" Width="70" Click="Close_Click" ToolTip="Schliessen (Esc)"/>
                 </StackPanel>
             </DockPanel>
         </Border>
