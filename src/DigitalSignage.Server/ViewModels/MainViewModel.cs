@@ -166,6 +166,37 @@ public partial class MainViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
+    private void ClientInstaller()
+    {
+        ClientInstallerViewModel? installerViewModel = null;
+        try
+        {
+            _logger.LogInformation("Opening client installer dialog");
+            StatusText = "Opening client installer...";
+
+            installerViewModel = _serviceProvider.GetRequiredService<ClientInstallerViewModel>();
+            installerViewModel.Initialize(DeviceManagement.DiscoveredDevices);
+
+            var dialog = new Views.Dialogs.ClientInstallerDialog(installerViewModel)
+            {
+                Owner = System.Windows.Application.Current.MainWindow
+            };
+
+            dialog.ShowDialog();
+            StatusText = "Client installer closed";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error opening client installer dialog");
+            StatusText = $"Error opening client installer: {ex.Message}";
+        }
+        finally
+        {
+            installerViewModel?.Dispose();
+        }
+    }
+
+    [RelayCommand]
     private async Task SystemDiagnostics()
     {
         try
