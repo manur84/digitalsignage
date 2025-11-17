@@ -6,6 +6,7 @@ using Renci.SshNet;
 using Renci.SshNet.Sftp;
 using Renci.SshNet.Common;
 using System.Net.Sockets;
+using System.Linq;
 
 namespace DigitalSignage.Server.Services;
 
@@ -143,23 +144,13 @@ public class RemoteClientInstallerService
             progress?.Report("Installation completed successfully.");
             return Result.Success("Client installed successfully.");
         }
+        catch (AggregateException ex) when (TryUnwrapSshConnection(ex, out var sshEx))
+        {
+            return await HandleConnectionDropAsync(sshEx, installCommandStarted, host, port, username, password, progress, cancellationToken);
+        }
         catch (SshConnectionException ex)
         {
-            // If the connection dropped after we started the install command, assume reboot and wait for service
-            if (installCommandStarted)
-            {
-                _logger.LogInformation(ex, "SSH connection dropped during install (likely reboot) for host {Host}", host);
-                var serviceUp = await WaitForRebootAndServiceAsync(host, port, username, password, progress, cancellationToken);
-                if (serviceUp)
-                {
-                    return Result.Success("Installation completed and service is running after reboot.");
-                }
-
-                return Result.Failure("Device reboot detected, but the client service did not come online in time.", ex);
-            }
-
-            _logger.LogError(ex, "SSH connection dropped during install for host {Host}", host);
-            return Result.Failure("SSH connection was aborted by the server during installation. Verify network stability and retry.", ex);
+            return await HandleConnectionDropAsync(ex, installCommandStarted, host, port, username, password, progress, cancellationToken);
         }
         catch (SshAuthenticationException ex)
         {
@@ -361,6 +352,40 @@ rm -f '{RemoteServiceFile}'
         {
             _logger.LogWarning(ex, "Ignoring {Resource} dispose failure during cleanup", name);
         }
+    }
+
+    private async Task<Result> HandleConnectionDropAsync(
+        SshConnectionException ex,
+        bool installCommandStarted,
+        string host,
+        int port,
+        string username,
+        string password,
+        IProgress<string>? progress,
+        CancellationToken cancellationToken)
+    {
+        // If the connection dropped after we started the install command, assume reboot and wait for service
+        if (installCommandStarted)
+        {
+            _logger.LogInformation(ex, "SSH connection dropped during install (likely reboot) for host {Host}", host);
+            var serviceUp = await WaitForRebootAndServiceAsync(host, port, username, password, progress, cancellationToken);
+            if (serviceUp)
+            {
+                return Result.Success("Installation completed and service is running after reboot.");
+            }
+
+            return Result.Failure("Device reboot detected, but the client service did not come online in time.", ex);
+        }
+
+        _logger.LogError(ex, "SSH connection dropped during install for host {Host}", host);
+        return Result.Failure("SSH connection was aborted by the server during installation. Verify network/firewall and retry.", ex);
+    }
+
+    private static bool TryUnwrapSshConnection(AggregateException aggregate, out SshConnectionException sshEx)
+    {
+        var flattened = aggregate.Flatten();
+        sshEx = flattened.InnerExceptions.OfType<SshConnectionException>().FirstOrDefault();
+        return sshEx != null;
     }
 
     private async Task<bool> WaitForRebootAndServiceAsync(
