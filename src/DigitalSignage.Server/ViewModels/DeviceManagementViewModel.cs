@@ -547,6 +547,37 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
         }
     }
 
+    [RelayCommand]
+    private void OpenClientInstaller()
+    {
+        ClientInstallerViewModel? installerViewModel = null;
+        try
+        {
+            _logger.LogInformation("Opening client installer");
+            StatusMessage = "Opening client installer...";
+
+            installerViewModel = _serviceProvider.GetRequiredService<ClientInstallerViewModel>();
+            installerViewModel.Initialize(DiscoveredDevices);
+
+            var dialog = new Views.Dialogs.ClientInstallerDialog(installerViewModel)
+            {
+                Owner = System.Windows.Application.Current.MainWindow
+            };
+
+            dialog.ShowDialog();
+            StatusMessage = "Client installer closed";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Failed to open client installer: {ex.Message}";
+            _logger.LogError(ex, "Failed to open client installer dialog");
+        }
+        finally
+        {
+            installerViewModel?.Dispose();
+        }
+    }
+
     private bool CanExecuteClientCommand()
     {
         return SelectedClient != null && !IsLoading;

@@ -237,6 +237,7 @@ public partial class App : Application
                 // Existing ViewModels
                 services.AddTransient<DeviceManagementViewModel>();
                 services.AddTransient<DiscoveredDevicesViewModel>();
+                services.AddTransient<ClientInstallerViewModel>();
                 services.AddTransient<PreviewViewModel>();
                 services.AddTransient<SchedulingViewModel>();
                 services.AddTransient<LogViewerViewModel>();
@@ -281,6 +282,7 @@ public partial class App : Application
                 services.AddSingleton<QueryCacheService>();
                 services.AddSingleton<AlertService>();
                 services.AddSingleton<BackupService>();
+                services.AddSingleton<RemoteClientInstallerService>();
                 services.AddSingleton<NetworkScannerService>();
                 services.AddSingleton<SystemDiagnosticsService>();
                 services.AddSingleton<ThemeService>();

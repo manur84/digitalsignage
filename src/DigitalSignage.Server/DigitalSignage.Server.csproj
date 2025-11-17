@@ -17,6 +17,7 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.0" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.0" />
     <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="8.0.0" />
+    <PackageReference Include="SSH.NET" Version="2020.0.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -48,6 +49,14 @@
     <Folder Include="Models\" />
     <Folder Include="Services\" />
     <Folder Include="Controls\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\DigitalSignage.Client.RaspberryPi\**\*.*"
+             Exclude="..\DigitalSignage.Client.RaspberryPi\.git\**;..\DigitalSignage.Client.RaspberryPi\.claude\**;..\DigitalSignage.Client.RaspberryPi\.tmp\**">
+      <Link>ClientInstaller\%(RecursiveDir)%(FileName)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>
