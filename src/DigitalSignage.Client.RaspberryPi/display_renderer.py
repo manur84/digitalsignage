@@ -382,40 +382,40 @@ class DisplayRenderer(QWidget):
 
             rendered_count = 0
             failed_count = 0
-        png_data_b64 = layout.get('PngContentBase64') or layout.get('PngContent')
+            png_data_b64 = layout.get('PngContentBase64') or layout.get('PngContent')
 
-        if png_data_b64:
-            try:
-                import base64
-                image_bytes = base64.b64decode(png_data_b64)
-                image = QImage()
-                if image.loadFromData(image_bytes):
-                    self._png_pixmap = QPixmap.fromImage(image)
-                    if not self._png_label:
-                        self._png_label = QLabel(parent=self)
-                        self._png_label.setStyleSheet("background: transparent;")
-                    self._png_label.setGeometry(0, 0, self.width(), self.height())
-                    self._png_label.setScaledContents(False)
-                    scaled = self._png_pixmap.scaled(self.width(), self.height(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
-                    self._png_label.setPixmap(scaled)
-                    self._png_label.show()
-                    self.elements.append(self._png_label)
-                    self._rendering_png_only = True
-                    rendered_count += 1
-                    logger.info("PNG layout rendered to screen")
-                else:
-                    failed_count += 1
-                    logger.error("Failed to load PNG data for layout")
-            except Exception as e:
-                failed_count += 1
-                logger.error(f"Failed to render PNG layout: {e}")
-
-        if not self._rendering_png_only:
-            for element_data in elements_sorted:
+            if png_data_b64:
                 try:
-                    element = self.create_element(element_data, data)
-                    if element:
-                        self.elements.append(element)
+                    import base64
+                    image_bytes = base64.b64decode(png_data_b64)
+                    image = QImage()
+                    if image.loadFromData(image_bytes):
+                        self._png_pixmap = QPixmap.fromImage(image)
+                        if not self._png_label:
+                            self._png_label = QLabel(parent=self)
+                            self._png_label.setStyleSheet("background: transparent;")
+                        self._png_label.setGeometry(0, 0, self.width(), self.height())
+                        self._png_label.setScaledContents(False)
+                        scaled = self._png_pixmap.scaled(self.width(), self.height(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                        self._png_label.setPixmap(scaled)
+                        self._png_label.show()
+                        self.elements.append(self._png_label)
+                        self._rendering_png_only = True
+                        rendered_count += 1
+                        logger.info("PNG layout rendered to screen")
+                    else:
+                        failed_count += 1
+                        logger.error("Failed to load PNG data for layout")
+                except Exception as e:
+                    failed_count += 1
+                    logger.error(f"Failed to render PNG layout: {e}")
+
+            if not self._rendering_png_only:
+                for element_data in elements_sorted:
+                    try:
+                        element = self.create_element(element_data, data)
+                        if element:
+                            self.elements.append(element)
                             element.show()
                             rendered_count += 1
                         else:
@@ -424,8 +424,8 @@ class DisplayRenderer(QWidget):
                         logger.error(f"Failed to create element: {e}")
                         failed_count += 1
 
-            logger.info(f"Layout '{layout_name}' rendered: {rendered_count} elements created, {failed_count} failed")
-            self.update()
+                logger.info(f"Layout '{layout_name}' rendered: {rendered_count} elements created, {failed_count} failed")
+                self.update()
 
         except Exception as e:
             logger.error(f"Failed to render layout '{layout_name}': {e}")
