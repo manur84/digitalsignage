@@ -30,8 +30,9 @@
             </StackPanel>
         </Border>
 
-        <Grid Grid.Row="1" Background="White">
-            <WebBrowser x:Name="Browser"/>
+        <Grid Grid.Row="1" Background="Black">
+            <Canvas x:Name="PreviewCanvas"
+                    Background="Black"/>
             <TextBlock x:Name="ErrorText"
                        Foreground="Red"
                        FontSize="16"

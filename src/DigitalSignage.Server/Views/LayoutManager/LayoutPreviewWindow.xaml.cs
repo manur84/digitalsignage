@@ -1,9 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Text;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using DigitalSignage.Core.Models;
 
 namespace DigitalSignage.Server.Views.LayoutManager;
@@ -12,18 +13,20 @@ public partial class LayoutPreviewWindow : Window
 {
     private readonly DisplayLayout _layout;
     private readonly List<string> _tempFiles = new();
+    private ImageSource? _imageSource;
 
     public LayoutPreviewWindow(DisplayLayout layout)
     {
         _layout = layout ?? throw new ArgumentNullException(nameof(layout));
         InitializeComponent();
         Loaded += OnLoaded;
+        SizeChanged += OnSizeChanged;
         MouseDoubleClick += (_, _) => Close();
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
-        TitleText.Text = $"{_layout.Name} ({_layout.SvgFileName ?? "SVG"})";
+        TitleText.Text = $"{_layout.Name} ({_layout.SvgFileName ?? "Layout"})";
 
         var pngBase64 = _layout.PngContentBase64;
         if (string.IsNullOrWhiteSpace(pngBase64))
@@ -35,45 +38,42 @@ public partial class LayoutPreviewWindow : Window
 
         try
         {
-            var htmlPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.html");
-            var html = BuildHtml(pngBase64);
-            File.WriteAllText(htmlPath, html, Encoding.UTF8);
-            _tempFiles.Add(htmlPath);
-
-            // Using NavigateToString often strips resources; Navigate with file:// to keep base URL
-            Browser.Navigate(new Uri(htmlPath));
+            var bytes = Convert.FromBase64String(pngBase64);
+            using var ms = new MemoryStream(bytes);
+            var bitmap = new BitmapImage();
+            bitmap.BeginInit();
+            bitmap.CacheOption = BitmapCacheOption.OnLoad;
+            bitmap.StreamSource = ms;
+            bitmap.EndInit();
+            bitmap.Freeze();
+            _imageSource = bitmap;
+            DrawImage();
             ErrorText.Visibility = Visibility.Collapsed;
         }
         catch (Exception ex)
         {
-            ErrorText.Text = $"SVG konnte nicht angezeigt werden: {ex.Message}";
+            ErrorText.Text = $"Bild konnte nicht angezeigt werden: {ex.Message}";
             ErrorText.Visibility = Visibility.Visible;
         }
     }
 
-    private static string BuildHtml(string pngBase64)
+    private void OnSizeChanged(object sender, SizeChangedEventArgs e) => DrawImage();
+
+    private void DrawImage()
     {
-        var sb = new StringBuilder();
-        sb.Append("""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <style>
-        html, body { margin:0; padding:0; width:100%; height:100%; background:#111; overflow:hidden;}
-        img { width:100vw; height:100vh; display:block; object-fit:contain; background:#111; }
-    </style>
-</head>
-<body>
-    <img src="data:image/png;base64,
-""");
-        sb.Append(pngBase64);
-        sb.Append("""
-"/>
-</body>
-</html>
-""");
-        return sb.ToString();
+        if (_imageSource == null || PreviewCanvas == null) return;
+
+        PreviewCanvas.Children.Clear();
+
+        var img = new System.Windows.Controls.Image
+        {
+            Source = _imageSource,
+            Stretch = Stretch.Uniform,
+            Width = PreviewCanvas.ActualWidth > 0 ? PreviewCanvas.ActualWidth : double.NaN,
+            Height = PreviewCanvas.ActualHeight > 0 ? PreviewCanvas.ActualHeight : double.NaN
+        };
+
+        PreviewCanvas.Children.Add(img);
     }
 
     private void Window_KeyDown(object sender, KeyEventArgs e)
