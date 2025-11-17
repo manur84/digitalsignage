@@ -8,16 +8,15 @@ public class DisplayLayout
     public string Id { get; set; } = Guid.NewGuid().ToString();
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
-    public string LayoutType { get; set; } = "png"; // png (preferred), legacy svg
+    public string LayoutType { get; set; } = "png"; // png (preferred)
     public string Version { get; set; } = "1.0";
     public DateTime Created { get; set; } = DateTime.UtcNow;
     public DateTime Modified { get; set; } = DateTime.UtcNow;
     public Resolution Resolution { get; set; } = new();
     public string? BackgroundImage { get; set; }
     public string? BackgroundColor { get; set; } = "#FFFFFF";
-    public string? SvgContentBase64 { get; set; }
     public string? PngContentBase64 { get; set; }
-    public string? SvgFileName { get; set; }
+    public string? FileName { get; set; }
     public List<DisplayElement> Elements { get; set; } = new();
     public List<DataSource> DataSources { get; set; } = new();
     public Dictionary<string, object> Metadata { get; set; } = new();

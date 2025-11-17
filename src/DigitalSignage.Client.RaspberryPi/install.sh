@@ -614,7 +614,6 @@ apt-get install -y -qq \
     python3-venv \
     python3-pil \
     python3-pyqt5 \
-    python3-pyqt5.qtsvg \
     python3-pyqt5.qtmultimedia \
     python3-psutil \
     sqlite3 \

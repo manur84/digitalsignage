@@ -26,7 +26,7 @@ public partial class LayoutPreviewWindow : Window
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
-        TitleText.Text = $"{_layout.Name} ({_layout.SvgFileName ?? "Layout"})";
+        TitleText.Text = $"{_layout.Name} ({_layout.FileName ?? "Layout"})";
 
         var pngBase64 = _layout.PngContentBase64;
         if (string.IsNullOrWhiteSpace(pngBase64))

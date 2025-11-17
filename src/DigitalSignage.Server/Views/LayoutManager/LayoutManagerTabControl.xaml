@@ -24,8 +24,8 @@
         </StackPanel>
 
         <StackPanel Orientation="Horizontal" Grid.Row="1" Margin="0,0,0,12">
-            <Button Content="📥 PNG/SVG importieren"
-                    Command="{Binding ImportSvgCommand}"
+            <Button Content="📥 PNG importieren"
+                    Command="{Binding ImportLayoutCommand}"
                     Style="{StaticResource PrimaryButton}"
                     Padding="12,6"
                     Margin="0,0,8,0"/>
@@ -52,7 +52,7 @@
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="200"/>
                 <DataGridTextColumn Header="Typ" Binding="{Binding LayoutType}" Width="80"/>
-                <DataGridTextColumn Header="Datei" Binding="{Binding SvgFileName}" Width="200"/>
+                <DataGridTextColumn Header="Datei" Binding="{Binding FileName}" Width="200"/>
                 <DataGridTextColumn Header="Geändert" Binding="{Binding Modified, StringFormat=yyyy-MM-dd HH:mm}" Width="140"/>
                 <DataGridTextColumn Header="Beschreibung" Binding="{Binding Description}" Width="*"/>
             </DataGrid.Columns>

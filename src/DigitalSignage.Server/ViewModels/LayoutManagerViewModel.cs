@@ -8,9 +8,6 @@ using System;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
-using System.Drawing;
-using System.Drawing.Imaging;
-using Svg;
 
 namespace DigitalSignage.Server.ViewModels;
 
@@ -53,12 +50,12 @@ public partial class LayoutManagerViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task ImportSvg()
+    private async Task ImportLayout()
     {
         var dialog = new OpenFileDialog
         {
-            Filter = "PNG oder SVG Dateien (*.png;*.svg)|*.png;*.svg",
-            Title = "Layout importieren",
+            Filter = "PNG Dateien (*.png)|*.png",
+            Title = "PNG-Layout importieren",
             Multiselect = true
         };
 
@@ -74,7 +71,7 @@ public partial class LayoutManagerViewModel : ObservableObject
 
         foreach (var file in dialog.FileNames)
         {
-            var imported = await ImportSingleSvgAsync(file);
+            var imported = await ImportSingleLayoutAsync(file);
             if (imported)
             {
                 successCount++;
@@ -192,7 +189,7 @@ public partial class LayoutManagerViewModel : ObservableObject
         }
     }
 
-    private async Task<bool> ImportSingleSvgAsync(string filePath)
+    private async Task<bool> ImportSingleLayoutAsync(string filePath)
     {
         try
         {
@@ -216,8 +213,7 @@ public partial class LayoutManagerViewModel : ObservableObject
                 Name = Path.GetFileNameWithoutExtension(fileName),
                 Description = $"Layout importiert aus {fileName}",
                 LayoutType = "png",
-                SvgContentBase64 = null,
-                SvgFileName = fileName,
+                FileName = fileName,
                 BackgroundColor = "#FFFFFF"
             };
 
@@ -227,12 +223,8 @@ public partial class LayoutManagerViewModel : ObservableObject
             }
             else
             {
-                layout.PngContentBase64 = ConvertSvgToPngBase64(bytes);
-                if (string.IsNullOrWhiteSpace(layout.PngContentBase64))
-                {
-                    _logger.LogWarning("Failed to convert SVG to PNG for {File}", fileName);
-                    return false;
-                }
+                _logger.LogWarning("Unsupported file type for layout import: {Ext}", extension);
+                return false;
             }
 
             layout.Tags.Add("png");
@@ -254,26 +246,4 @@ public partial class LayoutManagerViewModel : ObservableObject
         }
     }
 
-    private string? ConvertSvgToPngBase64(byte[] svgBytes)
-    {
-        try
-        {
-            using var stream = new MemoryStream(svgBytes);
-            var svgDoc = SvgDocument.Open<SvgDocument>(stream);
-            if (svgDoc == null) return null;
-
-            var width = svgDoc.Width != null ? (int)svgDoc.Width.Value : 1920;
-            var height = svgDoc.Height != null ? (int)svgDoc.Height.Value : 1080;
-            using var bitmap = new Bitmap(width, height);
-            svgDoc.Draw(bitmap);
-            using var ms = new MemoryStream();
-            bitmap.Save(ms, ImageFormat.Png);
-            return Convert.ToBase64String(ms.ToArray());
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed converting SVG to PNG");
-            return null;
-        }
-    }
 }

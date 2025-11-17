@@ -13,7 +13,7 @@ Supported Element Types:
 - datagrid: SQL data grid displays with paging and styling
 - datasourcetext: Templated text elements with SQL data binding
 - group: Container elements with child elements (grouped elements)
-- svg layout: fullscreen rendering for imported SVG layouts
+- png layout: fullscreen rendering for imported PNG layouts
 """
 
 import logging
@@ -31,13 +31,6 @@ import qrcode
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
-
-try:
-    from PyQt5.QtSvg import QSvgWidget
-    HAS_QT_SVG = True
-except Exception as svg_err:
-    HAS_QT_SVG = False
-    logger.warning(f"QtSvg module not available, SVG layouts will be skipped: {svg_err}")
 
 # Import status screen manager
 from status_screen import StatusScreenManager
@@ -172,11 +165,9 @@ class DisplayRenderer(QWidget):
 
         # Data source cache for datagrid elements
         self.data_source_cache: Dict[str, list] = {}
-        self._svg_widget = None
-        self._rendering_svg_only = False
-        self._svg_temp_path: Optional[str] = None
         self._png_label: Optional[QLabel] = None
         self._png_pixmap: Optional[QPixmap] = None
+        self._rendering_png_only = False
 
     def setup_ui(self):
         """Setup the UI"""
@@ -242,7 +233,7 @@ class DisplayRenderer(QWidget):
         # Store scale factors for element creation
         self._scale_x = scale_x
         self._scale_y = scale_y
-        self._rendering_svg_only = False
+        self._rendering_png_only = False
 
         # Clear status screen when rendering actual layout
         if self.status_screen_manager.is_showing_status:
@@ -391,84 +382,40 @@ class DisplayRenderer(QWidget):
 
             rendered_count = 0
             failed_count = 0
-            png_data_b64 = layout.get('PngContentBase64') or layout.get('PngContent')
+        png_data_b64 = layout.get('PngContentBase64') or layout.get('PngContent')
 
-            if png_data_b64:
-                try:
-                    import base64
-                    image_bytes = base64.b64decode(png_data_b64)
-                    image = QImage()
-                    if image.loadFromData(image_bytes):
-                        self._png_pixmap = QPixmap.fromImage(image)
-                        if not self._png_label:
-                            self._png_label = QLabel(parent=self)
-                            self._png_label.setStyleSheet("background: transparent;")
-                        self._png_label.setGeometry(0, 0, self.width(), self.height())
-                        self._png_label.setScaledContents(False)
-                        scaled = self._png_pixmap.scaled(self.width(), self.height(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
-                        self._png_label.setPixmap(scaled)
-                        self._png_label.show()
-                        self.elements.append(self._png_label)
-                        self._rendering_svg_only = True
-                        rendered_count += 1
-                        logger.info("PNG layout rendered to screen")
-                    else:
-                        failed_count += 1
-                        logger.error("Failed to load PNG data for layout")
-                except Exception as e:
-                    failed_count += 1
-                    logger.error(f"Failed to render PNG layout: {e}")
-            else:
-                svg_data_b64 = layout.get('SvgContentBase64') or layout.get('SvgContent')
-
-            if not png_data_b64 and svg_data_b64:
-                if not HAS_QT_SVG:
-                    logger.error("Received SVG layout but QtSvg is unavailable on this client")
+        if png_data_b64:
+            try:
+                import base64
+                image_bytes = base64.b64decode(png_data_b64)
+                image = QImage()
+                if image.loadFromData(image_bytes):
+                    self._png_pixmap = QPixmap.fromImage(image)
+                    if not self._png_label:
+                        self._png_label = QLabel(parent=self)
+                        self._png_label.setStyleSheet("background: transparent;")
+                    self._png_label.setGeometry(0, 0, self.width(), self.height())
+                    self._png_label.setScaledContents(False)
+                    scaled = self._png_pixmap.scaled(self.width(), self.height(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                    self._png_label.setPixmap(scaled)
+                    self._png_label.show()
+                    self.elements.append(self._png_label)
+                    self._rendering_png_only = True
+                    rendered_count += 1
+                    logger.info("PNG layout rendered to screen")
                 else:
-                    try:
-                        import base64
-                        svg_bytes = base64.b64decode(svg_data_b64)
-                        # Write to temp file for reliable loading
-                        if self._svg_temp_path and os.path.isfile(self._svg_temp_path):
-                            try:
-                                os.remove(self._svg_temp_path)
-                            except Exception:
-                                pass
-                        temp_path = os.path.join(tempfile.gettempdir(), f"layout_{uuid.uuid4().hex}.svg")
-                        with open(temp_path, "wb") as f:
-                            f.write(svg_bytes)
-                        self._svg_temp_path = temp_path
+                    failed_count += 1
+                    logger.error("Failed to load PNG data for layout")
+            except Exception as e:
+                failed_count += 1
+                logger.error(f"Failed to render PNG layout: {e}")
 
-                        if self._svg_widget:
-                            try:
-                                self._svg_widget.hide()
-                                self._svg_widget.deleteLater()
-                            except Exception:
-                                pass
-                        self._svg_widget = QSvgWidget(parent=self)
-                        self._svg_widget.load(temp_path)
-                        self._svg_widget.setGeometry(0, 0, self.width(), self.height())
-                        self._svg_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-                        self._svg_widget.setStyleSheet("background: transparent;")
-                        try:
-                            self._svg_widget.renderer().setAspectRatioMode(Qt.KeepAspectRatio)
-                        except Exception:
-                            pass
-                        self._svg_widget.show()
-                        self.elements.append(self._svg_widget)
-                        self._rendering_svg_only = True
-                        rendered_count += 1
-                        logger.info("SVG layout rendered to screen from %s", temp_path)
-                    except Exception as e:
-                        failed_count += 1
-                        logger.error(f"Failed to render SVG layout: {e}")
-
-            if not self._rendering_svg_only:
-                for element_data in elements_sorted:
-                    try:
-                        element = self.create_element(element_data, data)
-                        if element:
-                            self.elements.append(element)
+        if not self._rendering_png_only:
+            for element_data in elements_sorted:
+                try:
+                    element = self.create_element(element_data, data)
+                    if element:
+                        self.elements.append(element)
                             element.show()
                             rendered_count += 1
                         else:
@@ -485,8 +432,6 @@ class DisplayRenderer(QWidget):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        if hasattr(self, "_svg_widget") and self._svg_widget:
-            self._svg_widget.setGeometry(0, 0, self.width(), self.height())
         if hasattr(self, "_png_label") and self._png_label and self._png_pixmap:
             scaled = self._png_pixmap.scaled(self.width(), self.height(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
             self._png_label.setGeometry(0, 0, self.width(), self.height())
