@@ -47,8 +47,4 @@ public interface ILayoutService
     /// </summary>
     Task<Result<DisplayLayout>> ImportLayoutAsync(string jsonData, CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Gets all layouts that use a specific data source
-    /// </summary>
-    Task<Result<List<DisplayLayout>>> GetLayoutsWithDataSourceAsync(Guid dataSourceId, CancellationToken cancellationToken = default);
 }

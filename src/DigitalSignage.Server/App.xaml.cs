@@ -250,7 +250,6 @@ public partial class App : Application
                 services.AddTransient<TokenManagementViewModel>();
                 services.AddTransient<SystemDiagnosticsViewModel>();
                 services.AddTransient<DataMappingViewModel>();
-                services.AddTransient<SqlDataSourcesViewModel>();
 
                 // Register LiveLogsViewModel as singleton with shared log collection
                 services.AddSingleton<LiveLogsViewModel>(sp =>
@@ -288,10 +287,6 @@ public partial class App : Application
                 services.AddSingleton<SystemDiagnosticsService>();
                 services.AddSingleton<ThemeService>();
                 services.AddSingleton<RateLimitingService>();
-
-                // SQL Data Source Services
-                services.AddSingleton<ISqlDataSourceService, SqlDataSourceService>();
-                services.AddSingleton<DataSourceManager>();
                 services.AddScoped<DataSourceRepository>();
 
                 // Register Background Services
@@ -301,7 +296,6 @@ public partial class App : Application
                 services.AddHostedService<MdnsDiscoveryService>();
                 services.AddHostedService<MessageHandlerService>();
                 services.AddHostedService<AlertMonitoringService>();
-                services.AddHostedService<ClientDataUpdateService>();
 
                 // Register Windows
                 services.AddTransient<Views.MainWindow>();

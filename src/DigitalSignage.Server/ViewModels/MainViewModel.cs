@@ -34,7 +34,6 @@ public partial class MainViewModel : ObservableObject, IDisposable
     public LogViewerViewModel LogViewerViewModel { get; }
     public LiveLogsViewModel LiveLogsViewModel { get; }
     public AlertsViewModel Alerts { get; }
-    public SqlDataSourcesViewModel SqlDataSources { get; }
     public LayoutManagerViewModel LayoutManager { get; }
 
     // Unified Status Text (aggregated from sub-ViewModels)
@@ -51,7 +50,6 @@ public partial class MainViewModel : ObservableObject, IDisposable
         LogViewerViewModel logViewerViewModel,
         LiveLogsViewModel liveLogsViewModel,
         AlertsViewModel alertsViewModel,
-        SqlDataSourcesViewModel sqlDataSourcesViewModel,
         SettingsViewModel settingsViewModel,
         BackupService backupService,
         ThemeService themeService,
@@ -72,7 +70,6 @@ public partial class MainViewModel : ObservableObject, IDisposable
         LogViewerViewModel = logViewerViewModel ?? throw new ArgumentNullException(nameof(logViewerViewModel));
         LiveLogsViewModel = liveLogsViewModel ?? throw new ArgumentNullException(nameof(liveLogsViewModel));
         Alerts = alertsViewModel ?? throw new ArgumentNullException(nameof(alertsViewModel));
-        SqlDataSources = sqlDataSourcesViewModel ?? throw new ArgumentNullException(nameof(sqlDataSourcesViewModel));
 
         _settingsViewModel = settingsViewModel ?? throw new ArgumentNullException(nameof(settingsViewModel));
         _backupService = backupService ?? throw new ArgumentNullException(nameof(backupService));

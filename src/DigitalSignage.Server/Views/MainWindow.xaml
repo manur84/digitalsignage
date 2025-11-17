@@ -8,7 +8,6 @@
         xmlns:scheduling="clr-namespace:DigitalSignage.Server.Views.Scheduling"
         xmlns:preview="clr-namespace:DigitalSignage.Server.Views.Preview"
         xmlns:alerts="clr-namespace:DigitalSignage.Server.Views.Alerts"
-        xmlns:sqldatasources="clr-namespace:DigitalSignage.Server.Views.SqlDataSources"
         xmlns:layoutmanager="clr-namespace:DigitalSignage.Server.Views.LayoutManager"
         mc:Ignorable="d"
         Title="Digital Signage Manager"
@@ -104,11 +103,6 @@
             <!-- Devices Tab -->
             <TabItem Header="Devices">
                 <devicemgmt:DeviceManagementTabControl DataContext="{Binding DeviceManagement}"/>
-            </TabItem>
-
-            <!-- SQL Data Sources Tab -->
-            <TabItem Header="SQL Data Sources">
-                <sqldatasources:SqlDataSourcesTabControl DataContext="{Binding SqlDataSources}"/>
             </TabItem>
 
             <!-- Scheduling Tab -->

@@ -284,8 +284,8 @@ public partial class DisplayElement : ObservableObject
                 break;
 
             case "datagrid":
-                // SQL Data Source DataGrid element
-                EnsureProperty("DataSourceId", Guid.Empty);        // Links to SqlDataSource
+                // DataGrid element can bind to an external data source identifier
+                EnsureProperty("DataSourceId", Guid.Empty);
                 EnsureProperty("RowsPerPage", 10);                 // Number of rows to display
                 EnsureProperty("AutoScroll", false);               // Enable automatic scrolling
                 EnsureProperty("ScrollInterval", 5);               // Seconds between scrolls

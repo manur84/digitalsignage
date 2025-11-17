@@ -483,40 +483,6 @@ public class LayoutService : ILayoutService, IDisposable
         layout.Tags ??= new List<string>();
     }
 
-    public Task<Result<List<DisplayLayout>>> GetLayoutsWithDataSourceAsync(Guid dataSourceId, CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            ThrowIfDisposed();
-
-            if (dataSourceId == Guid.Empty)
-            {
-                return Task.FromResult(Result<List<DisplayLayout>>.Failure("Data source ID cannot be empty"));
-            }
-
-            var layoutsWithDataSource = _layouts.Values
-                .Where(layout =>
-                    layout.LinkedDataSourceIds != null &&
-                    layout.LinkedDataSourceIds.Contains(dataSourceId))
-                .ToList();
-
-            _logger.LogInformation("Found {Count} layouts using data source {DataSourceId}",
-                layoutsWithDataSource.Count, dataSourceId);
-
-            return Task.FromResult(Result<List<DisplayLayout>>.Success(layoutsWithDataSource));
-        }
-        catch (ObjectDisposedException ex)
-        {
-            _logger.LogError(ex, "LayoutService has been disposed");
-            return Task.FromResult(Result<List<DisplayLayout>>.Failure("Service is no longer available", ex));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting layouts with data source {DataSourceId}", dataSourceId);
-            return Task.FromResult(Result<List<DisplayLayout>>.Failure($"Failed to retrieve layouts: {ex.Message}", ex));
-        }
-    }
-
     private string GetLayoutFilePath(string layoutId)
     {
         // Sanitize layoutId to prevent path traversal

@@ -22,7 +22,7 @@ public class DisplayLayout
     public Dictionary<string, object> Metadata { get; set; } = new();
 
     /// <summary>
-    /// List of SQL Data Source IDs linked to this layout (for datagrid elements)
+    /// Legacy linked data source IDs for datagrid elements (no longer used)
     /// </summary>
     public List<Guid> LinkedDataSourceIds { get; set; } = new();
 

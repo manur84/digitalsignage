@@ -1561,9 +1561,9 @@ class DisplayRenderer(QWidget):
         properties: Dict[str, Any]
     ) -> Optional[QWidget]:
         """
-        Create a DataGrid element for SQL Data Source display.
+        Create a DataGrid element for external data display.
         Properties expected:
-        - DataSourceId: GUID of the SQL data source
+        - DataSourceId: Identifier of the data source
         - RowsPerPage: Number of rows to display
         - ShowHeader: Whether to show column headers
         - AutoScroll: Enable automatic scrolling

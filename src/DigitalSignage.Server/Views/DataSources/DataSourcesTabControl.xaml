@@ -17,7 +17,7 @@
         <Border Grid.Column="0" Background="White" BorderBrush="#CCCCCC" BorderThickness="0,0,1,0">
             <DockPanel>
                 <StackPanel DockPanel.Dock="Top" Margin="8">
-                    <Button Content="Add SQL Data Source"
+                    <Button Content="Add Data Source"
                             Command="{Binding DataSourceViewModel.AddDataSourceCommand}"
                             Style="{StaticResource PrimaryButton}"
                             Margin="0,0,0,4"/>
@@ -39,7 +39,7 @@
                 <TextBlock Text="Data Source Configuration" FontSize="20" FontWeight="Bold" Margin="0,0,0,16"/>
 
                 <!-- Show when no data source is selected -->
-                <TextBlock Text="No data source selected. Click 'Add SQL Data Source' or 'Add Static Data Source' to begin."
+                <TextBlock Text="No data source selected. Click 'Add Data Source' or 'Add Static Data Source' to begin."
                           Foreground="Gray"
                           Margin="0,8"
                           TextWrapping="Wrap">
