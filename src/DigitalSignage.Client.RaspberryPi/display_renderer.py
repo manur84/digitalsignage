@@ -228,9 +228,21 @@ class DisplayRenderer(QWidget):
         layout_width = layout_resolution.get('Width', 1920)
         layout_height = layout_resolution.get('Height', 1080)
 
-        # Client display resolution (actual screen)
-        display_width = self.width()
-        display_height = self.height()
+        # CRITICAL FIX: Get ACTUAL display resolution from Qt Screen, not widget size
+        # Problem: self.width()/height() returns widget size which may be wrong
+        # Solution: Use QApplication.primaryScreen() to get real display resolution
+        from PyQt5.QtWidgets import QApplication
+        screen = QApplication.primaryScreen()
+        if screen:
+            screen_geometry = screen.geometry()
+            display_width = screen_geometry.width()
+            display_height = screen_geometry.height()
+            logger.debug(f"Using actual screen resolution from Qt: {display_width}x{display_height}")
+        else:
+            # Fallback to widget size if screen not available
+            display_width = self.width()
+            display_height = self.height()
+            logger.warning(f"Could not get screen geometry, using widget size: {display_width}x{display_height}")
 
         # MANDATORY SCALING: Calculate scale factors
         # Elements MUST be scaled to fit client display, regardless of layout design resolution
