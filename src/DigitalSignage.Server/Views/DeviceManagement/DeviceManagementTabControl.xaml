@@ -30,6 +30,101 @@
                 </Grid.RowDefinitions>
 
                 <!-- Toolbar -->
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="12,8">
+                    <TextBlock Text="Registered Devices" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,16,0"/>
+                    <Button Content="🔄 Refresh" Command="{Binding LoadClientsCommand}" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0"/>
+                    <Button Content="❌ Remove" Command="{Binding RemoveClientCommand}" Style="{StaticResource SecondaryButton}" Padding="8,6" ToolTip="Remove selected device"/>
+                </StackPanel>
+
+                <!-- DataGrid -->
+                <DataGrid Grid.Row="1"
+                     ItemsSource="{Binding Clients}"
+                     SelectedItem="{Binding SelectedClient}"
+                     AutoGenerateColumns="False"
+                     CanUserAddRows="False"
+                     IsReadOnly="True"
+                     SelectionMode="Single"
+                     Margin="12,0">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Name" Binding="{Binding DeviceInfo.Hostname}" Width="150"/>
+                    <DataGridTextColumn Header="IP Address" Binding="{Binding IpAddress}" Width="120"/>
+                    <DataGridTemplateColumn Header="Status" Width="100">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal">
+                                    <Ellipse Width="10" Height="10" Margin="0,0,8,0">
+                                        <Ellipse.Style>
+                                            <Style TargetType="Ellipse">
+                                                <Setter Property="Fill" Value="Gray"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Status}" Value="Online">
+                                                        <Setter Property="Fill" Value="LimeGreen"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding Status}" Value="Offline">
+                                                        <Setter Property="Fill" Value="Red"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Ellipse.Style>
+                                    </Ellipse>
+                                    <TextBlock Text="{Binding Status}" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTextColumn Header="Resolution" Width="100">
+                        <DataGridTextColumn.Binding>
+                            <MultiBinding StringFormat="{}{0}x{1}">
+                                <Binding Path="DeviceInfo.ScreenWidth"/>
+                                <Binding Path="DeviceInfo.ScreenHeight"/>
+                            </MultiBinding>
+                        </DataGridTextColumn.Binding>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Header="Last Seen" Binding="{Binding LastSeen, StringFormat='{}{0:dd.MM.yyyy HH:mm}'}" Width="120"/>
+                    <DataGridTextColumn Header="Assigned Layout" Binding="{Binding AssignedLayoutName}" Width="150"/>
+                    <DataGridTemplateColumn Header="Web Interface" Width="100">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Button Content="Open"
+                                        Command="{Binding DataContext.OpenWebInterfaceCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                        Padding="8,4"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+
+                <!-- Status Bar -->
+                <Border Grid.Row="2" Background="#F0F0F0" BorderBrush="#CCCCCC" BorderThickness="0,1,0,0" Padding="12,8">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{Binding StatusMessage}" FontSize="12" Foreground="#666666" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="1"
+                                   Text="{Binding ClientStatusSummary}"
+                                   FontSize="12"
+                                   Foreground="#666666"
+                                   Margin="16,0,0,0"
+                                   VerticalAlignment="Center"/>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <!-- Splitter -->
+            <GridSplitter Grid.Row="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                          Background="#CCCCCC" ResizeBehavior="PreviousAndNext"/>
+
+            <!-- Discovered Devices Section -->
+            <Grid Grid.Row="2" DataContext="{Binding DiscoveredDevices}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Toolbar -->
                 <Border Grid.Row="0" Background="#E3F2FD" BorderBrush="#2196F3" BorderThickness="0,2,0,0" Padding="12,8">
                     <Grid>
                         <Grid.ColumnDefinitions>
@@ -39,22 +134,16 @@
                         </Grid.ColumnDefinitions>
 
                         <StackPanel Grid.Column="0" Orientation="Horizontal">
-                            <TextBlock Text="Discovered Devices" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,16,0"/>
-                            <Button Content="Scan Network" Command="{Binding ScanNetworkCommand}"
+                            <TextBlock Text="🔍 Discovered Devices" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,16,0"/>
+                            <Button Content="🔍 Scan Network" Command="{Binding ScanNetworkCommand}"
                                     Style="{StaticResource PrimaryButton}" Margin="0,0,8,0"
                                     IsEnabled="{Binding IsScanning, Converter={StaticResource InverseBooleanConverter}}"/>
-                            <Button Content="Register" Command="{Binding RegisterDeviceCommand}"
+                            <Button Content="➕ Register" Command="{Binding RegisterDeviceCommand}"
                                     Margin="0,0,8,0" Padding="8,6"
                                     ToolTip="Register selected discovered device"/>
-                            <Button Content="Clear" Command="{Binding ClearDiscoveredDevicesCommand}"
+                            <Button Content="🗑 Clear" Command="{Binding ClearDiscoveredDevicesCommand}"
                                     Style="{StaticResource SecondaryButton}" Padding="8,6"
                                     ToolTip="Clear all discovered devices"/>
-                        </StackPanel>
-
-                        <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
-                            <Button Content="Client Installer..." Padding="12,6"
-                                    Style="{StaticResource PrimaryButton}"
-                                    Command="{Binding DataContext.OpenClientInstallerCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
                         </StackPanel>
 
                         <TextBlock Grid.Column="2" VerticalAlignment="Center" Margin="8,0">
@@ -212,4 +301,3 @@
         </Border>
     </Grid>
 </UserControl>
-
