@@ -612,6 +612,7 @@ apt-get install -y -qq \
     python3 \
     python3-pip \
     python3-venv \
+    python3-pil \
     python3-pyqt5 \
     python3-pyqt5.qtsvg \
     python3-pyqt5.qtmultimedia \
