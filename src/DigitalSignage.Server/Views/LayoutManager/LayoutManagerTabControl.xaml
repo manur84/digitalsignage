@@ -33,6 +33,11 @@
                     Command="{Binding LoadLayoutsCommand}"
                     Style="{StaticResource SecondaryButton}"
                     Padding="12,6"/>
+            <Button Content="🗑 Layout löschen"
+                    Command="{Binding DeleteLayoutCommand}"
+                    Style="{StaticResource SecondaryButton}"
+                    Padding="12,6"
+                    Margin="8,0,0,0"/>
         </StackPanel>
 
         <DataGrid Grid.Row="2"
@@ -41,7 +46,9 @@
                   AutoGenerateColumns="False"
                   CanUserAddRows="False"
                   IsReadOnly="True"
-                  Margin="0,0,0,12">
+                  Margin="0,0,0,12"
+                  x:Name="LayoutsDataGrid"
+                  MouseDoubleClick="LayoutsDataGrid_MouseDoubleClick">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="200"/>
                 <DataGridTextColumn Header="Typ" Binding="{Binding LayoutType}" Width="80"/>

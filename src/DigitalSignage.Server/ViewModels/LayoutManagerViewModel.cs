@@ -28,6 +28,9 @@ public partial class LayoutManagerViewModel : ObservableObject
 
     public ObservableCollection<DisplayLayout> Layouts { get; } = new();
 
+    [ObservableProperty]
+    private bool _canDelete;
+
     public LayoutManagerViewModel(
         ILayoutService layoutService,
         DeviceManagementViewModel deviceManagementViewModel,
@@ -89,6 +92,70 @@ public partial class LayoutManagerViewModel : ObservableObject
         IsBusy = false;
     }
 
+    [RelayCommand(CanExecute = nameof(CanDeleteLayout))]
+    private async Task DeleteLayout()
+    {
+        if (SelectedLayout == null) return;
+
+        IsBusy = true;
+        var layout = SelectedLayout;
+        try
+        {
+            var result = await _layoutService.DeleteLayoutAsync(layout.Id);
+            if (result.IsFailure)
+            {
+                StatusMessage = $"Löschen fehlgeschlagen: {result.ErrorMessage}";
+                _logger.LogError("Failed to delete layout {LayoutId}: {Error}", layout.Id, result.ErrorMessage);
+                return;
+            }
+
+            Layouts.Remove(layout);
+            _logger.LogInformation("Deleted layout {LayoutId}", layout.Id);
+            StatusMessage = $"Layout '{layout.Name}' gelöscht";
+
+            _ = _deviceManagementViewModel.LoadLayoutsCommand.ExecuteAsync(null);
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Fehler beim Löschen: {ex.Message}";
+            _logger.LogError(ex, "DeleteLayout failed for {LayoutId}", layout.Id);
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    public bool CanDeleteLayout() => SelectedLayout != null && !IsBusy;
+
+    public void OpenLayoutPreview(DisplayLayout? layout)
+    {
+        var target = layout ?? SelectedLayout;
+        if (target == null) return;
+
+        try
+        {
+            var window = new Views.LayoutManager.LayoutPreviewWindow(target);
+            window.ShowDialog();
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Vorschau konnte nicht geöffnet werden: {ex.Message}";
+            _logger.LogError(ex, "Failed to open layout preview for {LayoutId}", target.Id);
+        }
+    }
+
+    partial void OnSelectedLayoutChanged(DisplayLayout? value)
+    {
+        CanDelete = value != null;
+        DeleteLayoutCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnIsBusyChanged(bool value)
+    {
+        DeleteLayoutCommand.NotifyCanExecuteChanged();
+    }
+
     private async Task LoadLayoutsAsync()
     {
         try
@@ -108,6 +175,7 @@ public partial class LayoutManagerViewModel : ObservableObject
                 Layouts.Add(layout);
             }
 
+            CanDelete = Layouts.Any();
             StatusMessage = $"Layouts geladen: {Layouts.Count}";
         }
         catch (Exception ex)
