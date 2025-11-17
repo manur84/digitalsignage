@@ -136,8 +136,21 @@ class WebInterface:
                     'show_cached_layout_on_disconnect': self.client.config.show_cached_layout_on_disconnect,
                     'auto_discover': self.client.config.auto_discover,
                     'fullscreen': self.client.config.fullscreen,
+                    'server_host': self.client.config.server_host,
+                    'server_port': self.client.config.server_port,
+                    'endpoint_path': self.client.config.endpoint_path,
+                    'use_ssl': self.client.config.use_ssl,
+                    'verify_ssl': self.client.config.verify_ssl,
                     'remote_logging_enabled': self.client.config.remote_logging_enabled,
+                    'remote_logging_level': self.client.config.remote_logging_level,
+                    'remote_logging_batch_size': self.client.config.remote_logging_batch_size,
+                    'remote_logging_batch_interval': self.client.config.remote_logging_batch_interval,
                     'log_level': self.client.config.log_level,
+                    'discovery_timeout': self.client.config.discovery_timeout,
+                    'burn_in_protection_enabled': self.client.config.burn_in_protection_enabled,
+                    'burn_in_pixel_shift_interval': self.client.config.burn_in_pixel_shift_interval,
+                    'burn_in_pixel_shift_max': self.client.config.burn_in_pixel_shift_max,
+                    'burn_in_screensaver_timeout': self.client.config.burn_in_screensaver_timeout,
                     'timestamp': datetime.utcnow().isoformat()
                 })
             except Exception as e:
@@ -163,10 +176,46 @@ class WebInterface:
                     updated_fields.append('show_cached_layout_on_disconnect')
                     logger.info(f"Updated show_cached_layout_on_disconnect to {self.client.config.show_cached_layout_on_disconnect}")
 
+                if 'server_host' in data and data['server_host']:
+                    self.client.config.server_host = str(data['server_host'])
+                    updated_fields.append('server_host')
+                    logger.info(f"Updated server_host to {self.client.config.server_host}")
+
+                if 'server_port' in data:
+                    try:
+                        self.client.config.server_port = int(data['server_port'])
+                        updated_fields.append('server_port')
+                        logger.info(f"Updated server_port to {self.client.config.server_port}")
+                    except Exception:
+                        logger.warning(f"Invalid server_port provided: {data['server_port']}")
+
+                if 'endpoint_path' in data:
+                    self.client.config.endpoint_path = str(data['endpoint_path'])
+                    updated_fields.append('endpoint_path')
+                    logger.info(f"Updated endpoint_path to {self.client.config.endpoint_path}")
+
+                if 'use_ssl' in data:
+                    self.client.config.use_ssl = bool(data['use_ssl'])
+                    updated_fields.append('use_ssl')
+                    logger.info(f"Updated use_ssl to {self.client.config.use_ssl}")
+
+                if 'verify_ssl' in data:
+                    self.client.config.verify_ssl = bool(data['verify_ssl'])
+                    updated_fields.append('verify_ssl')
+                    logger.info(f"Updated verify_ssl to {self.client.config.verify_ssl}")
+
                 if 'auto_discover' in data:
                     self.client.config.auto_discover = bool(data['auto_discover'])
                     updated_fields.append('auto_discover')
                     logger.info(f"Updated auto_discover to {self.client.config.auto_discover}")
+
+                if 'discovery_timeout' in data:
+                    try:
+                        self.client.config.discovery_timeout = float(data['discovery_timeout'])
+                        updated_fields.append('discovery_timeout')
+                        logger.info(f"Updated discovery_timeout to {self.client.config.discovery_timeout}")
+                    except Exception:
+                        logger.warning(f"Invalid discovery_timeout provided: {data['discovery_timeout']}")
 
                 if 'fullscreen' in data:
                     self.client.config.fullscreen = bool(data['fullscreen'])
@@ -178,10 +227,60 @@ class WebInterface:
                     updated_fields.append('remote_logging_enabled')
                     logger.info(f"Updated remote_logging_enabled to {self.client.config.remote_logging_enabled}")
 
+                if 'remote_logging_level' in data:
+                    self.client.config.remote_logging_level = str(data['remote_logging_level'])
+                    updated_fields.append('remote_logging_level')
+                    logger.info(f"Updated remote_logging_level to {self.client.config.remote_logging_level}")
+
+                if 'remote_logging_batch_size' in data:
+                    try:
+                        self.client.config.remote_logging_batch_size = int(data['remote_logging_batch_size'])
+                        updated_fields.append('remote_logging_batch_size')
+                        logger.info(f"Updated remote_logging_batch_size to {self.client.config.remote_logging_batch_size}")
+                    except Exception:
+                        logger.warning(f"Invalid remote_logging_batch_size provided: {data['remote_logging_batch_size']}")
+
+                if 'remote_logging_batch_interval' in data:
+                    try:
+                        self.client.config.remote_logging_batch_interval = float(data['remote_logging_batch_interval'])
+                        updated_fields.append('remote_logging_batch_interval')
+                        logger.info(f"Updated remote_logging_batch_interval to {self.client.config.remote_logging_batch_interval}")
+                    except Exception:
+                        logger.warning(f"Invalid remote_logging_batch_interval provided: {data['remote_logging_batch_interval']}")
+
                 if 'log_level' in data:
                     self.client.config.log_level = str(data['log_level'])
                     updated_fields.append('log_level')
                     logger.info(f"Updated log_level to {self.client.config.log_level}")
+
+                if 'burn_in_protection_enabled' in data:
+                    self.client.config.burn_in_protection_enabled = bool(data['burn_in_protection_enabled'])
+                    updated_fields.append('burn_in_protection_enabled')
+                    logger.info(f"Updated burn_in_protection_enabled to {self.client.config.burn_in_protection_enabled}")
+
+                if 'burn_in_pixel_shift_interval' in data:
+                    try:
+                        self.client.config.burn_in_pixel_shift_interval = int(data['burn_in_pixel_shift_interval'])
+                        updated_fields.append('burn_in_pixel_shift_interval')
+                        logger.info(f"Updated burn_in_pixel_shift_interval to {self.client.config.burn_in_pixel_shift_interval}")
+                    except Exception:
+                        logger.warning(f"Invalid burn_in_pixel_shift_interval provided: {data['burn_in_pixel_shift_interval']}")
+
+                if 'burn_in_pixel_shift_max' in data:
+                    try:
+                        self.client.config.burn_in_pixel_shift_max = int(data['burn_in_pixel_shift_max'])
+                        updated_fields.append('burn_in_pixel_shift_max')
+                        logger.info(f"Updated burn_in_pixel_shift_max to {self.client.config.burn_in_pixel_shift_max}")
+                    except Exception:
+                        logger.warning(f"Invalid burn_in_pixel_shift_max provided: {data['burn_in_pixel_shift_max']}")
+
+                if 'burn_in_screensaver_timeout' in data:
+                    try:
+                        self.client.config.burn_in_screensaver_timeout = int(data['burn_in_screensaver_timeout'])
+                        updated_fields.append('burn_in_screensaver_timeout')
+                        logger.info(f"Updated burn_in_screensaver_timeout to {self.client.config.burn_in_screensaver_timeout}")
+                    except Exception:
+                        logger.warning(f"Invalid burn_in_screensaver_timeout provided: {data['burn_in_screensaver_timeout']}")
 
                 # Save configuration to file
                 self.client.config.save()
@@ -431,16 +530,16 @@ class WebInterface:
                             if not line:
                                 continue
 
-                            # Filter by level if specified
-                            if level != 'ALL' and level not in line:
-                                continue
+                        # Filter by level if specified
+                        if level != 'ALL' and level not in line:
+                            continue
 
-                            # Parse log line: "2025-11-17 01:02:05,974 - status_screen - DEBUG - Message"
-                            try:
-                                parts = line.split(' - ', 3)
-                                if len(parts) >= 4:
-                                    timestamp = parts[0]
-                                    log_level = parts[2]
+                        # Parse log line: "2025-11-17 01:02:05,974 - status_screen - DEBUG - Message"
+                        try:
+                            parts = line.split(' - ', 3)
+                            if len(parts) >= 4:
+                                timestamp = parts[0]
+                                log_level = parts[2]
                                     message = parts[3]
                                 else:
                                     timestamp = datetime.now().isoformat()
@@ -462,7 +561,7 @@ class WebInterface:
 
                     if log_entries:
                         return {
-                            'logs': log_entries,
+                            'logs': list(reversed(log_entries)),
                             'count': len(log_entries),
                             'filtered_by': level,
                             'source': 'file',
@@ -512,7 +611,7 @@ class WebInterface:
                     })
 
                 return {
-                    'logs': log_entries,
+                    'logs': list(reversed(log_entries)),
                     'count': len(log_entries),
                     'filtered_by': level,
                     'source': 'journalctl',

@@ -217,6 +217,11 @@
             border-left: 3px solid #4A90E2;
             background: rgba(30, 30, 30, 0.5);
             border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 10px;
+            cursor: context-menu;
         }
 
         .log-entry.ERROR {
@@ -268,6 +273,15 @@
         .log-message {
             color: #E0E0E0;
             margin-left: 10px;
+            flex: 1;
+            white-space: pre-wrap;
+        }
+
+        .log-copy-hint {
+            color: #7A7A7A;
+            font-size: 0.75em;
+            margin-left: 6px;
+            white-space: nowrap;
         }
 
         .filter-buttons {
@@ -568,7 +582,7 @@
 
         <!-- Logs -->
         <div class="card">
-            <h2><span class="icon">📝</span> Recent Logs</h2>
+            <h2><span class="icon">📜</span> Recent Logs <span style="font-size:0.7em;color:#B0B0B0;margin-left:8px;">Newest first · right-click to copy</span></h2>
             <div class="auto-refresh">
                 <label class="switch">
                     <input type="checkbox" id="autoRefresh" checked>
@@ -577,10 +591,10 @@
                 <span>Auto-refresh (every 10 seconds)</span>
             </div>
             <div class="filter-buttons">
-                <button class="filter-btn active" onclick="filterLogs('ALL')">All</button>
-                <button class="filter-btn" onclick="filterLogs('INFO')">Info</button>
-                <button class="filter-btn" onclick="filterLogs('WARNING')">Warning</button>
-                <button class="filter-btn" onclick="filterLogs('ERROR')">Error</button>
+                <button class="filter-btn active" onclick="filterLogs('ALL', event)">All</button>
+                <button class="filter-btn" onclick="filterLogs('INFO', event)">Info</button>
+                <button class="filter-btn" onclick="filterLogs('WARNING', event)">Warning</button>
+                <button class="filter-btn" onclick="filterLogs('ERROR', event)">Error</button>
             </div>
             <div class="log-container" id="logContainer">
                 <div class="loading">
@@ -614,30 +628,6 @@
             </div>
         </div>
 
-        <!-- Help -->
-        <div class="card">
-            <h2><span class="icon">❓</span> Help & Troubleshooting</h2>
-            <div class="help-section">
-                <h3>How to assign a layout to this device:</h3>
-                <ol>
-                    <li>Open the Digital Signage Management Server in your browser</li>
-                    <li>Navigate to <strong>Device Management</strong> tab</li>
-                    <li>Find this device using its <strong>Client ID</strong> or <strong>IP Address</strong></li>
-                    <li>Select a layout from the <strong>Assigned Layout</strong> dropdown</li>
-                    <li>The device will automatically receive and display the new layout</li>
-                </ol>
-            </div>
-            <div class="help-section" style="margin-top: 20px;">
-                <h3>Troubleshooting:</h3>
-                <ol>
-                    <li><strong>Device not showing in server?</strong> Check network connection and verify server URL is correct</li>
-                    <li><strong>Layout not displaying?</strong> Use "Restart Client" button above to refresh the display</li>
-                    <li><strong>Performance issues?</strong> Use "Clear Cache" to free up disk space</li>
-                    <li><strong>Connection problems?</strong> Check that the server is running and firewall allows connections</li>
-                </ol>
-            </div>
-        </div>
-
         <footer>
             <p>Digital Signage Client Dashboard v1.0</p>
             <p class="last-updated" id="lastUpdated"></p>
@@ -661,6 +651,30 @@
                     startAutoRefresh();
                 } else {
                     stopAutoRefresh();
+                }
+            });
+
+            // Context menu copy for log entries
+            const logContainer = document.getElementById('logContainer');
+            logContainer.addEventListener('contextmenu', async function(e) {
+                const entry = e.target.closest('.log-entry');
+                if (!entry) {
+                    return;
+                }
+
+                e.preventDefault();
+                const text = entry.dataset.copy || entry.innerText;
+
+                try {
+                    await navigator.clipboard.writeText(text);
+                    const hint = entry.querySelector('.log-copy-hint');
+                    if (hint) {
+                        const original = hint.textContent;
+                        hint.textContent = 'Copied!';
+                        setTimeout(() => hint.textContent = 'Right-click to copy', 1200);
+                    }
+                } catch (err) {
+                    console.error('Failed to copy log line', err);
                 }
             });
         });
@@ -865,13 +879,33 @@
                 const data = await response.json();
 
                 if (data.logs && data.logs.length > 0) {
-                    const html = data.logs.map(log => `
-                        <div class="log-entry ${log.level}">
-                            <span class="log-timestamp">${log.timestamp}</span>
-                            <span class="log-level ${log.level}">${log.level}</span>
-                            <span class="log-message">${log.message}</span>
-                        </div>
-                    `).join('');
+                    const sortedLogs = [...data.logs].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                    const html = sortedLogs.map(log => {
+                        const safeTimestamp = (log.timestamp || '').toString().replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                        const safeLevel = (log.level || '').toString().replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                        const safeMessage = (log.message || '').toString()
+                            .replace(/&/g, '&amp;')
+                            .replace(/</g, '&lt;')
+                            .replace(/>/g, '&gt;');
+
+                        const copyText = `${log.timestamp} [${log.level}] ${log.message}`;
+                        const safeCopy = copyText
+                            .replace(/&/g, '&amp;')
+                            .replace(/"/g, '&quot;')
+                            .replace(/</g, '&lt;')
+                            .replace(/>/g, '&gt;');
+
+                        return `
+                            <div class="log-entry ${safeLevel}" data-copy="${safeCopy}">
+                                <div style="flex:1;">
+                                    <span class="log-timestamp">${safeTimestamp}</span>
+                                    <span class="log-level ${safeLevel}">${safeLevel}</span>
+                                    <span class="log-message">${safeMessage}</span>
+                                </div>
+                                <span class="log-copy-hint">Right-click to copy</span>
+                            </div>
+                        `;
+                    }).join('');
                     document.getElementById('logContainer').innerHTML = html;
                 } else {
                     document.getElementById('logContainer').innerHTML =
@@ -884,14 +918,16 @@
             }
         }
 
-        function filterLogs(level) {
+        function filterLogs(level, clickEvent) {
             currentLogFilter = level;
 
             // Update button states
             document.querySelectorAll('.filter-btn').forEach(btn => {
                 btn.classList.remove('active');
             });
-            event.target.classList.add('active');
+            if (clickEvent && clickEvent.target) {
+                clickEvent.target.classList.add('active');
+            }
 
             loadLogs();
         }
@@ -947,23 +983,30 @@
 
                 const html = `
                     <div class="info-item">
-                        <div class="info-label">Disconnect Behavior</div>
+                        <div class="info-label">Server</div>
                         <div class="info-value">
+                            <input type="text" id="serverHost" value="${data.server_host || ''}" placeholder="Server host" style="width: 55%; padding: 8px; border-radius: 6px; border: 1px solid #4A90E2; background: #222; color: #fff;">
+                            <input type="number" id="serverPort" value="${data.server_port || 8080}" min="1" max="65535" style="width: 35%; padding: 8px; border-radius: 6px; border: 1px solid #4A90E2; background: #222; color: #fff; margin-left: 8px;">
+                        </div>
+                        <div class="info-value" style="margin-top: 8px;">
+                            <input type="text" id="endpointPath" value="${data.endpoint_path || ''}" placeholder="Endpoint path (e.g. ws/)" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #4A90E2; background: #222; color: #fff;">
+                        </div>
+                        <div style="margin-top: 10px; font-size: 0.9em;">
                             <label class="switch">
-                                <input type="checkbox" id="showCachedLayout" ${data.show_cached_layout_on_disconnect ? 'checked' : ''}>
+                                <input type="checkbox" id="useSSL" ${data.use_ssl ? 'checked' : ''}>
                                 <span class="slider"></span>
                             </label>
-                            <span style="margin-left: 10px; font-size: 0.9em;">
-                                Show cached layout when disconnected
-                            </span>
-                        </div>
-                        <div style="margin-top: 10px; font-size: 0.8em; color: #B0B0B0;">
-                            When enabled: Shows last cached layout during disconnection<br>
-                            When disabled: Shows reconnection status screen
+                            <span style="margin-left: 10px;">Use HTTPS/WSS</span>
+                            <br>
+                            <label class="switch" style="margin-top: 8px;">
+                                <input type="checkbox" id="verifySSL" ${data.verify_ssl ? 'checked' : ''}>
+                                <span class="slider"></span>
+                            </label>
+                            <span style="margin-left: 10px;">Verify certificates</span>
                         </div>
                     </div>
                     <div class="info-item">
-                        <div class="info-label">Auto-Discovery</div>
+                        <div class="info-label">Connection Behavior</div>
                         <div class="info-value">
                             <label class="switch">
                                 <input type="checkbox" id="autoDiscover" ${data.auto_discover ? 'checked' : ''}>
@@ -973,9 +1016,22 @@
                                 Automatically discover server
                             </span>
                         </div>
+                        <div class="info-value" style="margin-top: 8px;">
+                            <label class="switch">
+                                <input type="checkbox" id="showCachedLayout" ${data.show_cached_layout_on_disconnect ? 'checked' : ''}>
+                                <span class="slider"></span>
+                            </label>
+                            <span style="margin-left: 10px; font-size: 0.9em;">
+                                Show cached layout when disconnected
+                            </span>
+                        </div>
+                        <div class="info-value" style="margin-top: 10px;">
+                            <label class="info-label" style="color:#B0B0B0; font-size:0.8em;">Discovery timeout (seconds)</label>
+                            <input type="number" step="0.5" min="1" id="discoveryTimeout" value="${data.discovery_timeout || 5}" style="width: 120px; padding: 6px; border-radius: 6px; border: 1px solid #4A90E2; background: #222; color: #fff;">
+                        </div>
                     </div>
                     <div class="info-item">
-                        <div class="info-label">Fullscreen Mode</div>
+                        <div class="info-label">Display</div>
                         <div class="info-value">
                             <label class="switch">
                                 <input type="checkbox" id="fullscreen" ${data.fullscreen ? 'checked' : ''}>
@@ -987,8 +1043,16 @@
                         </div>
                     </div>
                     <div class="info-item">
-                        <div class="info-label">Remote Logging</div>
-                        <div class="info-value">
+                        <div class="info-label">Logging</div>
+                        <div class="info-value" style="margin-bottom: 8px;">
+                            <select id="logLevel" style="padding: 8px; border-radius: 6px; background: #333; color: #fff; border: 1px solid #4A90E2; width: 100%;">
+                                <option value="DEBUG" ${data.log_level === 'DEBUG' ? 'selected' : ''}>Debug</option>
+                                <option value="INFO" ${data.log_level === 'INFO' ? 'selected' : ''}>Info</option>
+                                <option value="WARNING" ${data.log_level === 'WARNING' ? 'selected' : ''}>Warning</option>
+                                <option value="ERROR" ${data.log_level === 'ERROR' ? 'selected' : ''}>Error</option>
+                            </select>
+                        </div>
+                        <div class="info-value" style="margin-bottom: 8px;">
                             <label class="switch">
                                 <input type="checkbox" id="remoteLogging" ${data.remote_logging_enabled ? 'checked' : ''}>
                                 <span class="slider"></span>
@@ -997,16 +1061,49 @@
                                 Send logs to server
                             </span>
                         </div>
+                        <div class="info-value" style="margin-bottom: 8px;">
+                            <select id="remoteLogLevel" style="padding: 8px; border-radius: 6px; background: #333; color: #fff; border: 1px solid #4A90E2; width: 100%;">
+                                <option value="DEBUG" ${data.remote_logging_level === 'DEBUG' ? 'selected' : ''}>Remote Debug</option>
+                                <option value="INFO" ${data.remote_logging_level === 'INFO' ? 'selected' : ''}>Remote Info</option>
+                                <option value="WARNING" ${data.remote_logging_level === 'WARNING' ? 'selected' : ''}>Remote Warning</option>
+                                <option value="ERROR" ${data.remote_logging_level === 'ERROR' ? 'selected' : ''}>Remote Error</option>
+                            </select>
+                        </div>
+                        <div class="info-value" style="display:flex; gap:10px;">
+                            <div style="flex:1;">
+                                <label class="info-label" style="color:#B0B0B0; font-size:0.8em;">Batch size</label>
+                                <input type="number" min="1" id="remoteLogBatchSize" value="${data.remote_logging_batch_size || 50}" style="width:100%; padding:6px; border-radius:6px; border:1px solid #4A90E2; background:#222; color:#fff;">
+                            </div>
+                            <div style="flex:1;">
+                                <label class="info-label" style="color:#B0B0B0; font-size:0.8em;">Batch every (s)</label>
+                                <input type="number" step="0.5" min="1" id="remoteLogBatchInterval" value="${data.remote_logging_batch_interval || 5}" style="width:100%; padding:6px; border-radius:6px; border:1px solid #4A90E2; background:#222; color:#fff;">
+                            </div>
+                        </div>
                     </div>
                     <div class="info-item">
-                        <div class="info-label">Log Level</div>
+                        <div class="info-label">Burn-in Protection</div>
+                        <div class="info-value" style="margin-bottom: 8px;">
+                            <label class="switch">
+                                <input type="checkbox" id="burnInEnabled" ${data.burn_in_protection_enabled ? 'checked' : ''}>
+                                <span class="slider"></span>
+                            </label>
+                            <span style="margin-left: 10px; font-size: 0.9em;">
+                                Enable burn-in protection
+                            </span>
+                        </div>
+                        <div class="info-value" style="display:flex; gap:10px; margin-bottom: 8px;">
+                            <div style="flex:1;">
+                                <label class="info-label" style="color:#B0B0B0; font-size:0.8em;">Pixel shift interval (s)</label>
+                                <input type="number" min="10" id="burnInInterval" value="${data.burn_in_pixel_shift_interval || 300}" style="width:100%; padding:6px; border-radius:6px; border:1px solid #4A90E2; background:#222; color:#fff;">
+                            </div>
+                            <div style="flex:1;">
+                                <label class="info-label" style="color:#B0B0B0; font-size:0.8em;">Pixel shift max</label>
+                                <input type="number" min="1" id="burnInShiftMax" value="${data.burn_in_pixel_shift_max || 5}" style="width:100%; padding:6px; border-radius:6px; border:1px solid #4A90E2; background:#222; color:#fff;">
+                            </div>
+                        </div>
                         <div class="info-value">
-                            <select id="logLevel" style="padding: 8px; border-radius: 6px; background: #333; color: #fff; border: 1px solid #4A90E2;">
-                                <option value="DEBUG" ${data.log_level === 'DEBUG' ? 'selected' : ''}>Debug</option>
-                                <option value="INFO" ${data.log_level === 'INFO' ? 'selected' : ''}>Info</option>
-                                <option value="WARNING" ${data.log_level === 'WARNING' ? 'selected' : ''}>Warning</option>
-                                <option value="ERROR" ${data.log_level === 'ERROR' ? 'selected' : ''}>Error</option>
-                            </select>
+                            <label class="info-label" style="color:#B0B0B0; font-size:0.8em;">Screensaver timeout (s)</label>
+                            <input type="number" min="60" id="burnInScreensaver" value="${data.burn_in_screensaver_timeout || 3600}" style="width:100%; padding:6px; border-radius:6px; border:1px solid #4A90E2; background:#222; color:#fff;">
                         </div>
                     </div>
                 `;
@@ -1023,10 +1120,23 @@
             try {
                 const settings = {
                     show_cached_layout_on_disconnect: document.getElementById('showCachedLayout').checked,
+                    server_host: document.getElementById('serverHost').value,
+                    server_port: parseInt(document.getElementById('serverPort').value, 10),
+                    endpoint_path: document.getElementById('endpointPath').value,
+                    use_ssl: document.getElementById('useSSL').checked,
+                    verify_ssl: document.getElementById('verifySSL').checked,
                     auto_discover: document.getElementById('autoDiscover').checked,
+                    discovery_timeout: parseFloat(document.getElementById('discoveryTimeout').value),
                     fullscreen: document.getElementById('fullscreen').checked,
                     remote_logging_enabled: document.getElementById('remoteLogging').checked,
-                    log_level: document.getElementById('logLevel').value
+                    remote_logging_level: document.getElementById('remoteLogLevel').value,
+                    remote_logging_batch_size: parseInt(document.getElementById('remoteLogBatchSize').value, 10),
+                    remote_logging_batch_interval: parseFloat(document.getElementById('remoteLogBatchInterval').value),
+                    log_level: document.getElementById('logLevel').value,
+                    burn_in_protection_enabled: document.getElementById('burnInEnabled').checked,
+                    burn_in_pixel_shift_interval: parseInt(document.getElementById('burnInInterval').value, 10),
+                    burn_in_pixel_shift_max: parseInt(document.getElementById('burnInShiftMax').value, 10),
+                    burn_in_screensaver_timeout: parseInt(document.getElementById('burnInScreensaver').value, 10)
                 };
 
                 const response = await fetch('/api/settings', {
