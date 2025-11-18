@@ -167,7 +167,8 @@ log_message "Checking for existing X11 display..."
 DETECTED_DISPLAY=""
 if command -v ps &>/dev/null; then
     # Look for Xorg process and extract display number (e.g., ":1")
-    XORG_DISPLAY=$(ps aux | grep '[X]org' | grep -oP ':\d+' | head -1)
+    # Use awk to find arguments matching :N pattern (where N is digits only)
+    XORG_DISPLAY=$(ps aux | grep '[X]org' | awk '{for(i=1;i<=NF;i++) if($i ~ /^:[0-9]+$/) print $i}' | head -1)
     if [ -n "$XORG_DISPLAY" ]; then
         log_message "✓ Detected Xorg running on $XORG_DISPLAY"
         DETECTED_DISPLAY="$XORG_DISPLAY"
