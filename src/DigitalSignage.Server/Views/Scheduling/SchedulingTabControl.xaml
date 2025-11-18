@@ -28,14 +28,17 @@
                 </StackPanel>
                 <ListBox ItemsSource="{Binding SchedulingViewModel.Schedules}"
                          SelectedItem="{Binding SchedulingViewModel.SelectedSchedule}"
-                         Margin="8,0">
+                         Margin="8,0"
+                         VirtualizingStackPanel.IsVirtualizing="True"
+                         VirtualizingStackPanel.VirtualizationMode="Recycling"
+                         ScrollViewer.IsDeferredScrollingEnabled="True">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
                             <StackPanel Orientation="Vertical" Margin="0,4">
                                 <TextBlock FontWeight="SemiBold">
                                     <Run Text="{Binding Name, Mode=OneWay}"/>
                                 </TextBlock>
-                                <TextBlock Text="{Binding StartTime, StringFormat='{}⏰ {0} - '}" FontSize="11" Foreground="#666">
+                                <TextBlock Text="{Binding StartTime, StringFormat='{}⏰ {0} - ' }" FontSize="11" Foreground="#666">
                                     <Run Text="{Binding EndTime, Mode=OneWay}"/>
                                 </TextBlock>
                                 <TextBlock Text="{Binding Priority, StringFormat='{}Priority: {0}'}" FontSize="10" Foreground="#999"/>

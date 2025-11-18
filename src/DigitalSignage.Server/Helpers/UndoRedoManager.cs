@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using System.Reflection;
+using System.Collections.Concurrent;
 
 namespace DigitalSignage.Server.Helpers;
 
@@ -11,38 +13,36 @@ public interface IUndoRedoCommand
 
 public class UndoRedoManager
 {
-    private readonly Stack<IUndoRedoCommand> _undoStack = new();
-    private readonly Stack<IUndoRedoCommand> _redoStack = new();
+    // Use LinkedList for O(1) head/tail operations
+    private readonly LinkedList<IUndoRedoCommand> _undoList = new();
+    private readonly LinkedList<IUndoRedoCommand> _redoList = new();
     private readonly int _maxStackSize;
 
     public event EventHandler? StateChanged;
 
-    public bool CanUndo => _undoStack.Count > 0;
-    public bool CanRedo => _redoStack.Count > 0;
-    public string? NextUndoDescription => CanUndo ? _undoStack.Peek().Description : null;
-    public string? NextRedoDescription => CanRedo ? _redoStack.Peek().Description : null;
+    public bool CanUndo => _undoList.Count > 0;
+    public bool CanRedo => _redoList.Count > 0;
+    public string? NextUndoDescription => CanUndo ? _undoList.First!.Value.Description : null;
+    public string? NextRedoDescription => CanRedo ? _redoList.First!.Value.Description : null;
 
     public UndoRedoManager(int maxStackSize = 100)
     {
-        _maxStackSize = maxStackSize;
+        _maxStackSize = Math.Max(1, maxStackSize);
     }
 
     public void ExecuteCommand(IUndoRedoCommand command)
     {
         command.Execute();
-        _undoStack.Push(command);
-        _redoStack.Clear();
 
-        // Limit stack size
-        if (_undoStack.Count > _maxStackSize)
+        // Push to undo (front)
+        _undoList.AddFirst(command);
+        // Clear redo on new command
+        _redoList.Clear();
+
+        // Enforce capacity by removing the oldest (tail)
+        if (_undoList.Count > _maxStackSize)
         {
-            var items = _undoStack.ToList();
-            items.RemoveAt(items.Count - 1);
-            _undoStack.Clear();
-            foreach (var item in items.AsEnumerable().Reverse())
-            {
-                _undoStack.Push(item);
-            }
+            _undoList.RemoveLast();
         }
 
         OnStateChanged();
@@ -52,10 +52,14 @@ public class UndoRedoManager
     {
         if (!CanUndo) return;
 
-        var command = _undoStack.Pop();
-        command.Undo();
-        _redoStack.Push(command);
+        var node = _undoList.First!;
+        _undoList.RemoveFirst();
 
+        var command = node.Value;
+        command.Undo();
+
+        // Push to redo
+        _redoList.AddFirst(command);
         OnStateChanged();
     }
 
@@ -63,17 +67,21 @@ public class UndoRedoManager
     {
         if (!CanRedo) return;
 
-        var command = _redoStack.Pop();
-        command.Execute();
-        _undoStack.Push(command);
+        var node = _redoList.First!;
+        _redoList.RemoveFirst();
 
+        var command = node.Value;
+        command.Execute();
+
+        // Push back to undo
+        _undoList.AddFirst(command);
         OnStateChanged();
     }
 
     public void Clear()
     {
-        _undoStack.Clear();
-        _redoStack.Clear();
+        _undoList.Clear();
+        _redoList.Clear();
         OnStateChanged();
     }
 
@@ -109,12 +117,19 @@ public class PropertyChangeCommand : IUndoRedoCommand
     private readonly object _oldValue;
     private readonly object _newValue;
 
+    // Cache PropertyInfo to avoid repeated reflection lookups
+    private static readonly ConcurrentDictionary<(Type type, string name), PropertyInfo?> PropertyCache = new();
+    private readonly PropertyInfo? _propertyInfo;
+
     public PropertyChangeCommand(object target, string propertyName, object oldValue, object newValue)
     {
-        _target = target;
-        _propertyName = propertyName;
+        _target = target ?? throw new ArgumentNullException(nameof(target));
+        _propertyName = propertyName ?? throw new ArgumentNullException(nameof(propertyName));
         _oldValue = oldValue;
         _newValue = newValue;
+
+        var key = (_target.GetType(), _propertyName);
+        _propertyInfo = PropertyCache.GetOrAdd(key, k => k.type.GetProperty(k.name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic));
     }
 
     public void Execute()
@@ -129,8 +144,16 @@ public class PropertyChangeCommand : IUndoRedoCommand
 
     private void SetProperty(object value)
     {
-        var property = _target.GetType().GetProperty(_propertyName);
-        property?.SetValue(_target, value);
+        if (_propertyInfo != null)
+        {
+            _propertyInfo.SetValue(_target, value);
+        }
+        else
+        {
+            // Fallback if property not found (should be rare)
+            var prop = _target.GetType().GetProperty(_propertyName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            prop?.SetValue(_target, value);
+        }
     }
 
     public string Description => $"Change {_propertyName}";

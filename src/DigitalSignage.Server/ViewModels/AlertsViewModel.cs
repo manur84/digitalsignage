@@ -26,10 +26,12 @@ public partial class AlertsViewModel : ObservableObject, IDisposable
     private readonly ILogger<AlertsViewModel> _logger;
     private readonly ILogger<AlertRuleEditorViewModel> _alertRuleEditorLogger;
     private readonly IDialogService _dialogService;
+    private readonly ISynchronizationContext _syncContext;
     private CancellationTokenSource? _pollingCts;
     private CancellationTokenSource? _filterChangeCts;
     private Task? _initializationTask;
     private Task? _pollingTask;
+    private Task? _filterChangeTask; // Track filter change work
     private bool _disposed = false;
 
     [ObservableProperty]
@@ -63,12 +65,14 @@ public partial class AlertsViewModel : ObservableObject, IDisposable
         AlertService alertService,
         IDbContextFactory<DigitalSignageDbContext> contextFactory,
         IDialogService dialogService,
+        ISynchronizationContext syncContext,
         ILogger<AlertsViewModel> logger,
         ILogger<AlertRuleEditorViewModel> alertRuleEditorLogger)
     {
         _alertService = alertService ?? throw new ArgumentNullException(nameof(alertService));
         _contextFactory = contextFactory ?? throw new ArgumentNullException(nameof(contextFactory));
         _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
+        _syncContext = syncContext ?? throw new ArgumentNullException(nameof(syncContext));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _alertRuleEditorLogger = alertRuleEditorLogger ?? throw new ArgumentNullException(nameof(alertRuleEditorLogger));
 
@@ -90,23 +94,17 @@ public partial class AlertsViewModel : ObservableObject, IDisposable
         {
             _logger.LogError(ex, "Failed to initialize AlertsViewModel");
 
-            // Try to show error in UI (if dispatcher is available)
             try
             {
-                var dispatcher = Application.Current?.Dispatcher;
-                if (dispatcher != null)
+                await _syncContext.RunOnUiThreadAsync(async () =>
                 {
-                    await dispatcher.InvokeAsync(async () =>
-                    {
-                        await _dialogService.ShowErrorAsync(
-                            $"Failed to load alerts: {ex.Message}",
-                            "Initialization Error");
-                    });
-                }
+                    await _dialogService.ShowErrorAsync(
+                        $"Failed to load alerts: {ex.Message}",
+                        "Initialization Error");
+                });
             }
             catch
             {
-                // If UI is not available, just log
                 _logger.LogError("Failed to show initialization error in UI");
             }
         }
@@ -138,7 +136,6 @@ public partial class AlertsViewModel : ObservableObject, IDisposable
     {
         _pollingCts = new CancellationTokenSource();
 
-        // Track the polling task instead of fire-and-forget
         _pollingTask = Task.Run(async () =>
         {
             try
@@ -148,29 +145,7 @@ public partial class AlertsViewModel : ObservableObject, IDisposable
                     try
                     {
                         await Task.Delay(5000, _pollingCts.Token);
-
-                        // Check if Application.Current is available (may be null during shutdown or tests)
-                        var dispatcher = Application.Current?.Dispatcher;
-                        if (dispatcher != null)
-                        {
-                            // Check if already on UI thread to avoid unnecessary context switch
-                            if (dispatcher.CheckAccess())
-                            {
-                                await LoadAlertsAsync();
-                            }
-                            else
-                            {
-                                await dispatcher.InvokeAsync(async () =>
-                                {
-                                    await LoadAlertsAsync();
-                                });
-                            }
-                        }
-                        else
-                        {
-                            // If no dispatcher available, skip this polling cycle
-                            _logger?.LogWarning("Application.Current is null during alerts polling - skipping cycle");
-                        }
+                        await _syncContext.RunOnUiThreadAsync(LoadAlertsAsync, _pollingCts.Token);
                     }
                     catch (OperationCanceledException)
                     {
@@ -706,50 +681,28 @@ public partial class AlertsViewModel : ObservableObject, IDisposable
     /// </summary>
     partial void OnSelectedFilterChanged(AlertFilterType value)
     {
-        // Cancel previous filter change
         _filterChangeCts?.Cancel();
         _filterChangeCts?.Dispose();
         _filterChangeCts = new CancellationTokenSource();
 
         var cts = _filterChangeCts;
 
-        _ = Task.Run(async () =>
+        _filterChangeTask = Task.Run(async () =>
         {
             try
             {
-                // Debounce: Wait 300ms to see if user changes filter again
                 await Task.Delay(300, cts.Token);
-
-                // Load alerts on UI thread
-                var dispatcher = Application.Current?.Dispatcher;
-                if (dispatcher != null)
-                {
-                    await dispatcher.InvokeAsync(async () =>
-                    {
-                        try
-                        {
-                            await LoadAlertsAsync();
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogError(ex, "Failed to reload alerts after filter change");
-                            await _dialogService.ShowErrorAsync(
-                                $"Failed to reload alerts: {ex.Message}",
-                                "Error");
-                        }
-                    });
-                }
+                await _syncContext.RunOnUiThreadAsync(LoadAlertsAsync, cts.Token);
             }
             catch (OperationCanceledException)
             {
-                // User changed filter again - ignore
                 _logger.LogDebug("Filter change cancelled (user changed filter again)");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Unexpected error in filter change handler");
             }
-        });
+        }, cts.Token);
     }
 
     /// <summary>
@@ -757,47 +710,28 @@ public partial class AlertsViewModel : ObservableObject, IDisposable
     /// </summary>
     partial void OnFilterTextChanged(string value)
     {
-        // Cancel previous filter text change
         _filterChangeCts?.Cancel();
         _filterChangeCts?.Dispose();
         _filterChangeCts = new CancellationTokenSource();
 
         var cts = _filterChangeCts;
 
-        _ = Task.Run(async () =>
+        _filterChangeTask = Task.Run(async () =>
         {
             try
             {
-                // Debounce: Wait 300ms for user to finish typing
                 await Task.Delay(300, cts.Token);
-
-                // Load alerts on UI thread
-                var dispatcher = Application.Current?.Dispatcher;
-                if (dispatcher != null)
-                {
-                    await dispatcher.InvokeAsync(async () =>
-                    {
-                        try
-                        {
-                            await LoadAlertsAsync();
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogError(ex, "Failed to reload alerts after filter text change");
-                        }
-                    });
-                }
+                await _syncContext.RunOnUiThreadAsync(LoadAlertsAsync, cts.Token);
             }
             catch (OperationCanceledException)
             {
-                // User changed text again - ignore
                 _logger.LogDebug("Filter text change cancelled");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Unexpected error in filter text change handler");
             }
-        });
+        }, cts.Token);
     }
 
     /// <summary>
@@ -844,10 +778,26 @@ public partial class AlertsViewModel : ObservableObject, IDisposable
         // Stop polling gracefully
         await StopPollingAsync();
 
-        // Cancel filter changes
+        // Cancel filter changes and wait for completion
         _filterChangeCts?.Cancel();
         _filterChangeCts?.Dispose();
         _filterChangeCts = null;
+
+        if (_filterChangeTask != null)
+        {
+            try
+            {
+                await _filterChangeTask.WaitAsync(TimeSpan.FromSeconds(5));
+            }
+            catch (TimeoutException)
+            {
+                _logger.LogWarning("Filter change task did not complete within timeout");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error waiting for filter change task to complete");
+            }
+        }
 
         _logger.LogInformation("AlertsViewModel disposed asynchronously");
 

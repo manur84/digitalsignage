@@ -199,7 +199,8 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
         }
 
         // 3. Close all client connections gracefully
-        var closeTasks = _clients.Values.Select(async socket =>
+        var socketsSnapshot = _clients.Values.ToList();
+        var closeTasks = socketsSnapshot.Select(async socket =>
         {
             try
             {
@@ -220,14 +221,20 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
         try
         {
             await Task.WhenAll(closeTasks);
-            _logger.LogInformation("All {Count} client connections closed", _clients.Count);
+            _logger.LogInformation("All {Count} client connections closed", socketsSnapshot.Count);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Error waiting for client connections to close");
         }
 
-        // 4. Wait for accept clients task to complete (with 10s timeout)
+        // 4. Dispose all sockets and clear dictionary
+        foreach (var socket in socketsSnapshot)
+        {
+            try { socket.Dispose(); } catch { }
+        }
+
+        // 5. Wait for accept clients task to complete (with 10s timeout)
         if (_acceptClientsTask != null)
         {
             try
@@ -245,7 +252,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
             }
         }
 
-        // 5. Wait for all client handler tasks to complete (with 10s timeout)
+        // 6. Wait for all client handler tasks to complete (with 10s timeout)
         var handlerTasks = _clientHandlerTasks.Values.ToArray();
         if (handlerTasks.Length > 0)
         {
@@ -265,11 +272,11 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
             }
         }
 
-        // 6. Clear clients dictionary and handler tasks
+        // 7. Clear clients dictionary and handler tasks
         _clients.Clear();
         _clientHandlerTasks.Clear();
 
-        // 7. Dispose cancellation token source
+        // 8. Dispose cancellation token source
         _cancellationTokenSource?.Dispose();
         _cancellationTokenSource = null;
         _acceptClientsTask = null;
@@ -645,6 +652,12 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
                 _httpListener?.Close();
                 ((IDisposable?)_httpListener)?.Dispose();
                 _cancellationTokenSource?.Dispose();
+
+                // Dispose any remaining sockets
+                foreach (var socket in _clients.Values.ToList())
+                {
+                    try { socket.Dispose(); } catch { }
+                }
 
                 _logger.LogInformation("WebSocketCommunicationService disposed");
             }

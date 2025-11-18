@@ -104,7 +104,7 @@ public partial class AlertRuleEditorViewModel : ObservableObject
         {
             try
             {
-                var config = JsonDocument.Parse(rule.Configuration);
+                using var config = JsonDocument.Parse(rule.Configuration);
 
                 // Load type-specific configuration
                 switch (rule.RuleType)

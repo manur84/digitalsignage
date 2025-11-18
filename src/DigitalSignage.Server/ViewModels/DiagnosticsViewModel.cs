@@ -199,19 +199,25 @@ public partial class DiagnosticsViewModel : ObservableObject, IDisposable
                 if (System.IO.Directory.Exists(logsPath))
                 {
                     var files = System.IO.Directory.GetFiles(logsPath, "*.log");
-                    foreach (var file in files)
-                    {
-                        try
-                        {
-                            System.IO.File.Delete(file);
-                        }
-                        catch
-                        {
-                            // Skip files that are in use
-                        }
-                    }
+                    var deleted = 0;
 
-                    StatusText = $"Cleared {files.Length} log files";
+                    await Task.Run(() =>
+                    {
+                        foreach (var file in files)
+                        {
+                            try
+                            {
+                                System.IO.File.Delete(file);
+                                deleted++;
+                            }
+                            catch
+                            {
+                                // Skip files that are in use
+                            }
+                        }
+                    });
+
+                    StatusText = $"Cleared {deleted} log files";
                     _logger.LogInformation("Log files cleared by user");
                 }
                 else

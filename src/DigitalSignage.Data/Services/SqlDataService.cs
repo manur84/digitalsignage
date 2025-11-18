@@ -83,6 +83,8 @@ public class SqlDataService : ISqlDataService
 
         try
         {
+            // Sanitize connection string - whitelist allowed keys
+            connectionString = SanitizeConnectionString(connectionString);
             // Apply connection pooling settings to connection string
             connectionString = ApplyConnectionPoolSettings(connectionString);
 
@@ -156,6 +158,51 @@ public class SqlDataService : ISqlDataService
     }
 
     /// <summary>
+    /// Rebuild the connection string using a whitelist of allowed properties to prevent injection of unwanted keys.
+    /// </summary>
+    private string SanitizeConnectionString(string connectionString)
+    {
+        try
+        {
+            var src = new SqlConnectionStringBuilder(connectionString);
+            var dst = new SqlConnectionStringBuilder
+            {
+                DataSource = src.DataSource,
+                InitialCatalog = src.InitialCatalog,
+                IntegratedSecurity = src.IntegratedSecurity,
+                Encrypt = src.Encrypt,
+                TrustServerCertificate = src.TrustServerCertificate,
+                ConnectTimeout = src.ConnectTimeout,
+                PersistSecurityInfo = false,
+            };
+
+            // Only copy credentials when not using Integrated Security
+            if (!dst.IntegratedSecurity)
+            {
+                dst.UserID = src.UserID;
+                dst.Password = src.Password;
+            }
+
+            // Optional: application intent and MARS can be safely copied if set
+            if (src.ContainsKey("ApplicationIntent"))
+            {
+                dst["ApplicationIntent"] = src["ApplicationIntent"];
+            }
+            if (src.ContainsKey("MultipleActiveResultSets"))
+            {
+                dst["MultipleActiveResultSets"] = src["MultipleActiveResultSets"];
+            }
+
+            return dst.ConnectionString;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to sanitize connection string, using original");
+            return connectionString; // Fallback to original if parsing fails
+        }
+    }
+
+    /// <summary>
     /// Applies connection pooling settings to connection string if not already present
     /// </summary>
     private string ApplyConnectionPoolSettings(string connectionString)
@@ -224,10 +271,13 @@ public class SqlDataService : ISqlDataService
         try
         {
             _logger.LogDebug("Testing SQL connection");
+            // Sanitize + apply pooling before opening
+            connectionString = ApplyConnectionPoolSettings(SanitizeConnectionString(connectionString));
+
             await using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync(cancellationToken);
 
-            var isOpen = connection.State == ConnectionState.Open;
+            var isOpen = connection.State == System.Data.ConnectionState.Open;
             if (isOpen)
             {
                 _logger.LogInformation("SQL connection test successful");
@@ -339,6 +389,62 @@ public class SqlDataService : ISqlDataService
         }
     }
 
+    // New overload for schema-based validation without requiring a full query text
+    public async Task<List<string>> GetColumnsAsync(
+        string connectionString,
+        string tableName,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            throw new ArgumentException("connectionString is required", nameof(connectionString));
+        }
+        if (string.IsNullOrWhiteSpace(tableName))
+        {
+            throw new ArgumentException("tableName is required", nameof(tableName));
+        }
+
+        try
+        {
+            await using var connection = new SqlConnection(ApplyConnectionPoolSettings(SanitizeConnectionString(connectionString)));
+            await connection.OpenAsync(cancellationToken);
+
+            // Parse optional schema
+            string? schema = null;
+            var tn = tableName.Trim();
+            if (tn.Contains('.'))
+            {
+                var parts = tn.Split('.', StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length == 2)
+                {
+                    schema = parts[0];
+                    tn = parts[1];
+                }
+            }
+
+            // Sanitize identifiers
+            bool IsValidIdent(string s) => s.All(c => char.IsLetterOrDigit(c) || c == '_');
+            if (!IsValidIdent(tn) || (schema != null && !IsValidIdent(schema)))
+            {
+                _logger.LogWarning("Invalid identifier in table reference: {Table}", tableName);
+                return new List<string>();
+            }
+
+            string sql = @"SELECT COLUMN_NAME
+                           FROM INFORMATION_SCHEMA.COLUMNS
+                           WHERE TABLE_NAME = @TableName" + (schema != null ? " AND TABLE_SCHEMA = @Schema" : "") + @"
+                           ORDER BY ORDINAL_POSITION";
+
+            var columns = await connection.QueryAsync<string>(sql, new { TableName = tn, Schema = schema });
+            return columns.ToList();
+        }
+        catch (SqlException ex)
+        {
+            _logger.LogError(ex, "SQL error retrieving columns for {Table}", tableName);
+            throw;
+        }
+    }
+
     /// <summary>
     /// Retrieves static data from a DataSource configured with StaticData type
     /// </summary>
@@ -357,7 +463,7 @@ public class SqlDataService : ISqlDataService
             _logger.LogDebug("Parsing static data from DataSource {DataSourceId}", dataSource.Id);
 
             // Parse JSON data
-            var jsonDocument = JsonDocument.Parse(dataSource.StaticData);
+            using var jsonDocument = JsonDocument.Parse(dataSource.StaticData);
             var resultDict = new Dictionary<string, object>();
 
             // Convert JSON to dictionary
@@ -428,7 +534,7 @@ public class SqlDataService : ISqlDataService
         try
         {
             _logger.LogDebug("Testing static data JSON validity");
-            var jsonDocument = JsonDocument.Parse(dataSource.StaticData);
+            using var jsonDocument = JsonDocument.Parse(dataSource.StaticData);
             _logger.LogInformation("Static data JSON is valid");
             return await Task.FromResult(true);
         }
@@ -446,7 +552,7 @@ public class SqlDataService : ISqlDataService
 
     /// <summary>
     /// Converts JSON element to appropriate .NET type
-    /// </summary>
+    /// </summary]
     private object ConvertJsonValue(JsonElement element)
     {
         return element.ValueKind switch

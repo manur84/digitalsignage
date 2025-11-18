@@ -119,6 +119,7 @@ public class NetworkScannerService : IDisposable
 
             // Get local network information
             var localIPs = GetLocalIPAddresses();
+            var localIpStrings = new HashSet<string>(localIPs.Select(ip => ip.ToString()));
             _logger.LogInformation("Found {Count} local network interface(s)", localIPs.Length);
 
             foreach (var localIP in localIPs)
@@ -133,8 +134,8 @@ public class NetworkScannerService : IDisposable
                     {
                         var ip = $"{subnet}.{i}";
 
-                        // Skip local IP
-                        if (localIPs.Any(local => local.ToString() == ip))
+                        // Skip local IP using O(1) HashSet lookup
+                        if (localIpStrings.Contains(ip))
                             continue;
 
                         tasks.Add(ScanHostAsync(ip, scanMode, cancellationToken));

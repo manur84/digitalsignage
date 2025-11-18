@@ -10,6 +10,7 @@ using System.Collections.Specialized;
 using System.Diagnostics;
 using System.Linq;
 using DigitalSignage.Server.Views.DeviceManagement; // hinzugefügt
+using DigitalSignage.Server.Services;
 
 namespace DigitalSignage.Server.ViewModels;
 
@@ -19,6 +20,7 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
     private readonly ILayoutService _layoutService;
     private readonly ILogger<DeviceManagementViewModel> _logger;
     private readonly IServiceProvider _serviceProvider;
+    private readonly ISynchronizationContext _syncContext;
     private bool _disposed = false;
 
     [ObservableProperty]
@@ -70,13 +72,15 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
         ILayoutService layoutService,
         DiscoveredDevicesViewModel discoveredDevicesViewModel,
         ILogger<DeviceManagementViewModel> logger,
-        IServiceProvider serviceProvider)
+        IServiceProvider serviceProvider,
+        ISynchronizationContext syncContext)
     {
         _clientService = clientService ?? throw new ArgumentNullException(nameof(clientService));
         _layoutService = layoutService ?? throw new ArgumentNullException(nameof(layoutService));
         DiscoveredDevices = discoveredDevicesViewModel ?? throw new ArgumentNullException(nameof(discoveredDevicesViewModel));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+        _syncContext = syncContext ?? throw new ArgumentNullException(nameof(syncContext));
 
         Clients.CollectionChanged += Clients_CollectionChanged;
 
@@ -616,35 +620,17 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
     private void OnClientConnected(object? sender, string clientId)
     {
         _logger.LogInformation("Client connected event received: {ClientId}", clientId);
-
-        var dispatcher = System.Windows.Application.Current?.Dispatcher;
-        if (dispatcher == null) return;
-
-        // Check if already on UI thread to avoid unnecessary context switch
-        if (dispatcher.CheckAccess())
+        _ = _syncContext.RunOnUiThreadAsync(async () =>
         {
-            _ = LoadClientsCommand.ExecuteAsync(null);
+            await LoadClientsCommand.ExecuteAsync(null);
             StatusMessage = $"Client {clientId} connected";
-        }
-        else
-        {
-            dispatcher.InvokeAsync(async () =>
-            {
-                await LoadClientsCommand.ExecuteAsync(null);
-                StatusMessage = $"Client {clientId} connected";
-            });
-        }
+        });
     }
 
     private void OnClientDisconnected(object? sender, string clientId)
     {
         _logger.LogInformation("Client disconnected event received: {ClientId}", clientId);
-
-        var dispatcher = System.Windows.Application.Current?.Dispatcher;
-        if (dispatcher == null) return;
-
-        // Check if already on UI thread to avoid unnecessary context switch
-        if (dispatcher.CheckAccess())
+        _ = _syncContext.RunOnUiThreadAsync(() =>
         {
             var client = Clients.FirstOrDefault(c => c.Id == clientId);
             if (client != null)
@@ -653,41 +639,16 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
                 StatusMessage = $"Client {client.Name} disconnected";
                 RaiseClientStatusSummaryChanged();
             }
-        }
-        else
-        {
-            dispatcher.InvokeAsync(() =>
-            {
-                var client = Clients.FirstOrDefault(c => c.Id == clientId);
-                if (client != null)
-                {
-                    client.Status = ClientStatus.Offline;
-                    StatusMessage = $"Client {client.Name} disconnected";
-                    RaiseClientStatusSummaryChanged();
-                }
-            });
-        }
+        });
     }
 
     private void OnClientStatusChanged(object? sender, string clientId)
     {
         _logger.LogDebug("Client status changed event received: {ClientId}", clientId);
-
-        var dispatcher = System.Windows.Application.Current?.Dispatcher;
-        if (dispatcher == null) return;
-
-        // Check if already on UI thread to avoid unnecessary context switch
-        if (dispatcher.CheckAccess())
+        _ = _syncContext.RunOnUiThreadAsync(async () =>
         {
-            _ = LoadClientsCommand.ExecuteAsync(null);
-        }
-        else
-        {
-            dispatcher.InvokeAsync(async () =>
-            {
-                await LoadClientsCommand.ExecuteAsync(null);
-            });
-        }
+            await LoadClientsCommand.ExecuteAsync(null);
+        });
     }
 
     /// <summary>
@@ -741,10 +702,29 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
             return "No registered devices";
         }
 
-        var online = Clients.Count(c => c.Status == ClientStatus.Online || c.Status == ClientStatus.Updating);
-        var offline = Clients.Count(c => c.Status == ClientStatus.Offline || c.Status == ClientStatus.Disconnected || c.Status == ClientStatus.OfflineRecovery);
-        var connecting = Clients.Count(c => c.Status == ClientStatus.Connecting);
-        var errors = Clients.Count(c => c.Status == ClientStatus.Error);
+        int online = 0, offline = 0, connecting = 0, errors = 0;
+
+        foreach (var client in Clients)
+        {
+            switch (client.Status)
+            {
+                case ClientStatus.Online:
+                case ClientStatus.Updating:
+                    online++;
+                    break;
+                case ClientStatus.Offline:
+                case ClientStatus.Disconnected:
+                case ClientStatus.OfflineRecovery:
+                    offline++;
+                    break;
+                case ClientStatus.Connecting:
+                    connecting++;
+                    break;
+                case ClientStatus.Error:
+                    errors++;
+                    break;
+            }
+        }
 
         var segments = new List<string>
         {

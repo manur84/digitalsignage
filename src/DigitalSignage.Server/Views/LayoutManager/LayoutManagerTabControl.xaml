@@ -48,7 +48,11 @@
                   IsReadOnly="True"
                   Margin="0,0,0,12"
                   x:Name="LayoutsDataGrid"
-                  MouseDoubleClick="LayoutsDataGrid_MouseDoubleClick">
+                  MouseDoubleClick="LayoutsDataGrid_MouseDoubleClick"
+                  VirtualizingPanel.IsVirtualizing="True"
+                  VirtualizingPanel.VirtualizationMode="Recycling"
+                  EnableRowVirtualization="True"
+                  EnableColumnVirtualization="True">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="200"/>
                 <DataGridTextColumn Header="Typ" Binding="{Binding LayoutType}" Width="80"/>

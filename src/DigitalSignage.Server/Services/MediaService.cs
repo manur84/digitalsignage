@@ -132,84 +132,97 @@ public class MediaService : IMediaService
         }
     }
 
-    public Task<Result> DeleteMediaAsync(string fileName, CancellationToken cancellationToken = default)
+    public async Task<Result> DeleteMediaAsync(string fileName, CancellationToken cancellationToken = default)
     {
         try
         {
             if (string.IsNullOrWhiteSpace(fileName))
             {
                 _logger.LogWarning("DeleteMediaAsync called with null or empty filename");
-                return Task.FromResult(Result.Failure("Filename cannot be empty"));
+                return Result.Failure("Filename cannot be empty");
             }
 
             // Validate path traversal
             if (fileName.Contains("..") || Path.GetFileName(fileName) != fileName)
             {
                 _logger.LogWarning("Attempted path traversal attack with filename: {FileName}", fileName);
-                return Task.FromResult(Result.Failure("Invalid filename"));
+                return Result.Failure("Invalid filename");
             }
 
             var filePath = Path.Combine(_mediaDirectory, fileName);
             if (File.Exists(filePath))
             {
-                File.Delete(filePath);
+                await Task.Run(() => File.Delete(filePath), cancellationToken);
                 _logger.LogInformation("Deleted media file: {FileName}", fileName);
-                return Task.FromResult(Result.Success());
+                return Result.Success();
             }
 
             _logger.LogDebug("Media file not found for deletion: {FileName}", fileName);
-            return Task.FromResult(Result.Failure($"Media file '{fileName}' not found"));
+            return Result.Failure($"Media file '{fileName}' not found");
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning("Delete media operation cancelled for {FileName}", fileName);
+            return Result.Failure("Operation was cancelled");
         }
         catch (IOException ex)
         {
             _logger.LogError(ex, "I/O error while deleting media file {FileName}", fileName);
-            return Task.FromResult(Result.Failure($"Failed to delete media file: {ex.Message}", ex));
+            return Result.Failure($"Failed to delete media file: {ex.Message}", ex);
         }
         catch (UnauthorizedAccessException ex)
         {
             _logger.LogError(ex, "Access denied while deleting media file {FileName}", fileName);
-            return Task.FromResult(Result.Failure($"Access denied: {ex.Message}", ex));
+            return Result.Failure($"Access denied: {ex.Message}", ex);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unexpected error while deleting media file {FileName}", fileName);
-            return Task.FromResult(Result.Failure($"Failed to delete media file: {ex.Message}", ex));
+            return Result.Failure($"Failed to delete media file: {ex.Message}", ex);
         }
     }
 
-    public Task<Result<List<string>>> GetAllMediaFilesAsync(CancellationToken cancellationToken = default)
+    public async Task<Result<List<string>>> GetAllMediaFilesAsync(CancellationToken cancellationToken = default)
     {
         try
         {
             if (!Directory.Exists(_mediaDirectory))
             {
                 _logger.LogWarning("Media directory does not exist: {Directory}", _mediaDirectory);
-                return Task.FromResult(Result<List<string>>.Success(new List<string>()));
+                return Result<List<string>>.Success(new List<string>());
             }
 
-            var files = Directory.GetFiles(_mediaDirectory)
-                .Select(Path.GetFileName)
-                .Where(f => f != null)
-                .Cast<string>()
-                .ToList();
+            var files = await Task.Run(() =>
+            {
+                return Directory.GetFiles(_mediaDirectory)
+                    .Select(Path.GetFileName)
+                    .Where(f => f != null)
+                    .Cast<string>()
+                    .ToList();
+            }, cancellationToken);
 
             _logger.LogDebug("Found {Count} media files", files.Count);
-            return Task.FromResult(Result<List<string>>.Success(files));
+            return Result<List<string>>.Success(files);
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning("Get all media files operation was cancelled");
+            return Result<List<string>>.Failure("Operation was cancelled");
         }
         catch (IOException ex)
         {
             _logger.LogError(ex, "I/O error while listing media files");
-            return Task.FromResult(Result<List<string>>.Failure($"Failed to list media files: {ex.Message}", ex));
+            return Result<List<string>>.Failure($"Failed to list media files: {ex.Message}", ex);
         }
         catch (UnauthorizedAccessException ex)
         {
             _logger.LogError(ex, "Access denied while listing media files");
-            return Task.FromResult(Result<List<string>>.Failure($"Access denied: {ex.Message}", ex));
+            return Result<List<string>>.Failure($"Access denied: {ex.Message}", ex);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unexpected error while listing media files");
-            return Task.FromResult(Result<List<string>>.Failure($"Failed to list media files: {ex.Message}", ex));
+            return Result<List<string>>.Failure($"Failed to list media files: {ex.Message}", ex);
         }
     }
 

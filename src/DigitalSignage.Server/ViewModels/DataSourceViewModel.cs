@@ -5,6 +5,7 @@ using DigitalSignage.Core.Models;
 using DigitalSignage.Server.Services;
 using Serilog;
 using System.Collections.ObjectModel;
+using System.Text.RegularExpressions;
 
 namespace DigitalSignage.Server.ViewModels;
 
@@ -44,6 +45,16 @@ public partial class DataSourceViewModel : ObservableObject
 
     [ObservableProperty]
     private string _generatedQuery = string.Empty;
+
+    // Schema discovery UI state
+    [ObservableProperty]
+    private ObservableCollection<string> _availableColumns = new();
+
+    [ObservableProperty]
+    private string _selectedAvailableColumn = string.Empty;
+
+    [ObservableProperty]
+    private bool _isLoadingColumns = false;
 
     public ObservableCollection<DataSource> DataSources { get; } = new();
 
@@ -256,6 +267,93 @@ public partial class DataSourceViewModel : ObservableObject
         return true;
     }
 
+    // Identifier validation: letters, digits, underscore; allow dot for schema-qualified names
+    private static readonly Regex IdentifierRegex = new("^[A-Za-z_][A-Za-z0-9_]*$");
+
+    private bool IsValidIdentifier(string name)
+    {
+        return IdentifierRegex.IsMatch(name);
+    }
+
+    private string? BuildSafeTableReference(string table)
+    {
+        if (string.IsNullOrWhiteSpace(table)) return null;
+        var parts = table.Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (parts.Length == 0 || parts.Length > 3) return null; // [db].[schema].[table] not fully supported, but allow up to 3 parts
+        foreach (var p in parts)
+        {
+            if (!IsValidIdentifier(p)) return null;
+        }
+        // Quote each part with square brackets for SQL Server
+        return string.Join('.', parts.Select(p => $"[{p}]"));
+    }
+
+    private string BuildSafeColumns(string rawColumns)
+    {
+        if (string.IsNullOrWhiteSpace(rawColumns) || rawColumns.Trim() == "*")
+        {
+            return "*";
+        }
+
+        var requested = rawColumns
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToList();
+
+        var safeList = new List<string>();
+
+        // If we have a whitelist from the database, enforce it strictly
+        var hasWhitelist = AvailableColumns != null && AvailableColumns.Count > 0;
+        var whitelist = hasWhitelist
+            ? new HashSet<string>(AvailableColumns, StringComparer.OrdinalIgnoreCase)
+            : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var col in requested)
+        {
+            var c = col;
+            // Handle simple aliasing like "Name as N" by splitting and validating identifier part only
+            string ident = c;
+            string? alias = null;
+
+            var parts = c.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length >= 3 && parts[1].Equals("AS", StringComparison.OrdinalIgnoreCase))
+            {
+                ident = parts[0];
+                alias = parts[2];
+            }
+
+            if (!IsValidIdentifier(ident))
+            {
+                _logger.Warning("Rejected invalid column identifier: {Column}", ident);
+                continue;
+            }
+
+            if (hasWhitelist && !whitelist.Contains(ident))
+            {
+                _logger.Warning("Rejected non-whitelisted column: {Column}", ident);
+                continue;
+            }
+
+            var quoted = $"[{ident}]";
+            if (!string.IsNullOrEmpty(alias))
+            {
+                if (IsValidIdentifier(alias))
+                {
+                    quoted += $" AS [{alias}]";
+                }
+            }
+            safeList.Add(quoted);
+        }
+
+        if (safeList.Count == 0)
+        {
+            // Fallback: if nothing valid, use * but warn
+            TestResult = "ℹ️ No valid columns selected; using *";
+            return "*";
+        }
+
+        return string.Join(", ", safeList);
+    }
+
     [RelayCommand]
     private void GenerateQuery()
     {
@@ -267,30 +365,39 @@ public partial class DataSourceViewModel : ObservableObject
                 return;
             }
 
-            // Validate all user inputs for SQL injection attempts
-            if (!ValidateSqlInput(QueryColumns, "Columns") ||
-                !ValidateSqlInput(QueryTableName, "Table Name") ||
-                !ValidateSqlInput(QueryWhereClause, "Where Clause") ||
+            // Validate all user inputs for SQL injection attempts (where/order by still basic validation)
+            if (!ValidateSqlInput(QueryWhereClause, "Where Clause") ||
                 !ValidateSqlInput(QueryOrderBy, "Order By"))
             {
                 GeneratedQuery = "-- Query validation failed due to dangerous SQL patterns";
                 return;
             }
 
+            // Strictly validate and quote table name
+            var safeTable = BuildSafeTableReference(QueryTableName.Trim());
+            if (safeTable == null)
+            {
+                GeneratedQuery = "-- Invalid table name (only letters, digits, underscore; optional schema)";
+                TestResult = "❌ Invalid table identifier";
+                return;
+            }
+
+            // Strictly validate and quote columns (use whitelist if loaded)
+            var safeColumns = BuildSafeColumns(QueryColumns ?? "*");
+
             // Build the SELECT clause
-            var columns = string.IsNullOrWhiteSpace(QueryColumns) ? "*" : QueryColumns.Trim();
-            var query = $"SELECT {columns}";
+            var query = $"SELECT {safeColumns}";
 
             // Add FROM clause
-            query += $"\nFROM {QueryTableName.Trim()}";
+            query += $"\nFROM {safeTable}";
 
-            // Add WHERE clause if provided
+            // Add WHERE clause if provided (kept as-is but pre-validated for dangerous tokens)
             if (!string.IsNullOrWhiteSpace(QueryWhereClause))
             {
                 query += $"\nWHERE {QueryWhereClause.Trim()}";
             }
 
-            // Add ORDER BY clause if provided
+            // Add ORDER BY clause if provided (kept as-is but pre-validated for dangerous tokens)
             if (!string.IsNullOrWhiteSpace(QueryOrderBy))
             {
                 query += $"\nORDER BY {QueryOrderBy.Trim()}";
@@ -354,5 +461,103 @@ public partial class DataSourceViewModel : ObservableObject
             _logger.Error(ex, "Failed to parse query");
             TestResult = $"Query loaded but parsing failed: {ex.Message}";
         }
+    }
+
+    [RelayCommand]
+    private async Task LoadColumnsForTable()
+    {
+        AvailableColumns.Clear();
+
+        if (SelectedDataSource == null)
+        {
+            TestResult = "Please select a data source first.";
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(QueryTableName))
+        {
+            TestResult = "Please enter a table name to load columns.";
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(SelectedDataSource.ConnectionString))
+        {
+            TestResult = "Connection string is empty.";
+            return;
+        }
+
+        IsLoadingColumns = true;
+        try
+        {
+            List<string> cols;
+            if (_dataService is ISqlDataService sql)
+            {
+                cols = await sql.GetColumnsAsync(SelectedDataSource.ConnectionString, QueryTableName);
+            }
+            else
+            {
+                // Fallback: build temporary query for provider that only supports DataSource-based discovery
+                var temp = new DataSource
+                {
+                    ConnectionString = SelectedDataSource.ConnectionString,
+                    Query = $"SELECT * FROM {QueryTableName}",
+                    Type = DataSourceType.SQL
+                };
+                cols = await _dataService.GetColumnsAsync(temp);
+            }
+
+            foreach (var c in cols)
+            {
+                if (!string.IsNullOrWhiteSpace(c))
+                {
+                    AvailableColumns.Add(c);
+                }
+            }
+
+            TestResult = cols.Count > 0
+                ? $"✅ Loaded {cols.Count} columns from '{QueryTableName}'."
+                : $"ℹ️ No columns found for '{QueryTableName}'.";
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Failed to load columns for table {Table}", QueryTableName);
+            TestResult = $"❌ Error loading columns: {ex.Message}";
+        }
+        finally
+        {
+            IsLoadingColumns = false;
+        }
+    }
+
+    [RelayCommand]
+    private void AddSelectedColumn()
+    {
+        if (string.IsNullOrWhiteSpace(SelectedAvailableColumn))
+        {
+            return;
+        }
+
+        var current = (QueryColumns ?? string.Empty).Trim();
+        if (string.IsNullOrEmpty(current) || current == "*")
+        {
+            QueryColumns = SelectedAvailableColumn;
+            return;
+        }
+
+        // Avoid duplicates
+        var parts = current.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).ToList();
+        if (!parts.Contains(SelectedAvailableColumn, StringComparer.OrdinalIgnoreCase))
+        {
+            parts.Add(SelectedAvailableColumn);
+            QueryColumns = string.Join(", ", parts);
+        }
+    }
+
+    [RelayCommand]
+    private void AddAllColumns()
+    {
+        if (AvailableColumns.Count == 0)
+        {
+            return;
+        }
+        QueryColumns = string.Join(", ", AvailableColumns);
     }
 }

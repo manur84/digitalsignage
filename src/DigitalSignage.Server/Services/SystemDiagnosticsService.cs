@@ -93,18 +93,20 @@ public class SystemDiagnosticsService
                     info.DatabaseSize = fileInfo.Length;
                 }
 
-                // Count tables and rows
-                var deviceCount = await context.Clients.CountAsync();
-                var layoutCount = await context.DisplayLayouts.CountAsync();
-                var mediaCount = await context.MediaFiles.CountAsync();
-                var scheduleCount = await context.LayoutSchedules.CountAsync();
+                // Count tables and rows (in parallel)
+                var deviceCountTask = context.Clients.CountAsync();
+                var layoutCountTask = context.DisplayLayouts.CountAsync();
+                var mediaCountTask = context.MediaFiles.CountAsync();
+                var scheduleCountTask = context.LayoutSchedules.CountAsync();
+
+                await Task.WhenAll(deviceCountTask, layoutCountTask, mediaCountTask, scheduleCountTask);
 
                 info.TableCounts = new Dictionary<string, int>
                 {
-                    { "Devices", deviceCount },
-                    { "Layouts", layoutCount },
-                    { "Media", mediaCount },
-                    { "Schedules", scheduleCount }
+                    { "Devices", deviceCountTask.Result },
+                    { "Layouts", layoutCountTask.Result },
+                    { "Media", mediaCountTask.Result },
+                    { "Schedules", scheduleCountTask.Result }
                 };
 
                 // Get last backup info
@@ -379,8 +381,6 @@ public class SystemDiagnosticsService
             // Memory usage
             info.MemoryUsageMB = currentProcess.WorkingSet64 / (1024.0 * 1024.0);
             info.PrivateMemoryMB = currentProcess.PrivateMemorySize64 / (1024.0 * 1024.0);
-
-            // Thread count
             info.ThreadCount = currentProcess.Threads.Count;
 
             // Disk usage (database drive)
@@ -431,21 +431,62 @@ public class SystemDiagnosticsService
                 // Calculate total log size
                 info.TotalLogSizeMB = logFiles.Sum(f => new FileInfo(f).Length) / (1024.0 * 1024.0);
 
-                // Analyze recent errors (today's log)
+                // Analyze recent errors (today's log) using streaming, single-pass
                 var todayLog = logFiles.FirstOrDefault(f => f.Contains(DateTime.Now.ToString("yyyyMMdd")));
                 if (todayLog != null && File.Exists(todayLog))
                 {
-                    var logContent = File.ReadAllText(todayLog);
-                    info.ErrorsLastHour = CountLogLevel(logContent, "Error", TimeSpan.FromHours(1));
-                    info.WarningsLastHour = CountLogLevel(logContent, "Warning", TimeSpan.FromHours(1));
-                    info.ErrorsToday = CountLogLevel(logContent, "Error", TimeSpan.FromDays(1));
-                    info.WarningsToday = CountLogLevel(logContent, "Warning", TimeSpan.FromDays(1));
+                    var now = DateTime.Now;
+                    var oneHourAgo = now - TimeSpan.FromHours(1);
+                    var todayStart = now.Date;
 
-                    // Find last critical error
-                    info.LastCriticalError = FindLastCriticalError(logContent);
+                    int errorsLastHour = 0, warningsLastHour = 0, errorsToday = 0, warningsToday = 0;
+                    string? lastCritical = null;
+
+                    foreach (var line in File.ReadLines(todayLog))
+                    {
+                        // Extract timestamp (format: 2025-11-14 12:34:56)
+                        DateTime timestamp;
+                        var tsMatch = System.Text.RegularExpressions.Regex.Match(line, @"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}");
+                        if (tsMatch.Success && DateTime.TryParse(tsMatch.Value, out var parsed))
+                        {
+                            timestamp = parsed;
+                        }
+                        else
+                        {
+                            // If no timestamp, treat as today
+                            timestamp = now;
+                        }
+
+                        var isError = line.Contains("[Error]", StringComparison.OrdinalIgnoreCase);
+                        var isWarning = line.Contains("[Warning]", StringComparison.OrdinalIgnoreCase);
+                        var isCritical = isError || line.Contains("[Fatal]", StringComparison.OrdinalIgnoreCase);
+
+                        if (isError)
+                        {
+                            if (timestamp >= oneHourAgo) errorsLastHour++;
+                            if (timestamp >= todayStart) errorsToday++;
+                        }
+                        else if (isWarning)
+                        {
+                            if (timestamp >= oneHourAgo) warningsLastHour++;
+                            if (timestamp >= todayStart) warningsToday++;
+                        }
+
+                        if (isCritical)
+                        {
+                            // Track last critical line encountered
+                            lastCritical = line.Length > 200 ? line.Substring(0, 200) + "..." : line;
+                        }
+                    }
+
+                    info.ErrorsLastHour = errorsLastHour;
+                    info.WarningsLastHour = warningsLastHour;
+                    info.ErrorsToday = errorsToday;
+                    info.WarningsToday = warningsToday;
+                    info.LastCriticalError = lastCritical;
                 }
 
-                if (info.ErrorsLastHour > 10)
+                if         (info.ErrorsLastHour > 10)
                 {
                     info.Status = HealthStatus.Warning;
                     info.Message = $"{info.ErrorsLastHour} errors in the last hour";

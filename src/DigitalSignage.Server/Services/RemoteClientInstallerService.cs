@@ -523,25 +523,28 @@ fi
     private async Task PrepareCleanInstallAsync(SshClient ssh, string username, string password, CancellationToken cancellationToken, IProgress<string>? progress)
     {
         var isRoot = string.Equals(username, "root", StringComparison.OrdinalIgnoreCase);
-        var escapedPassword = password.Replace("'", "'\"'\"'");
 
         // Normalize to LF to avoid CR issues on target bash
-        var cleanupScript = $@"
+        var cleanupScript = @"
 set -e
-if systemctl is-active --quiet {RemoteServiceName} 2>/dev/null; then
-  systemctl stop {RemoteServiceName}
+if systemctl is-active --quiet digitalsignage-client 2>/dev/null; then
+  systemctl stop digitalsignage-client
 fi
-if systemctl is-enabled --quiet {RemoteServiceName} 2>/dev/null; then
-  systemctl disable {RemoteServiceName}
+if systemctl is-enabled --quiet digitalsignage-client 2>/dev/null; then
+  systemctl disable digitalsignage-client
 fi
-rm -rf '{RemoteInstallDir}'
-rm -f '{RemoteServiceFile}'
+rm -rf '/opt/digitalsignage-client'
+rm -f '/etc/systemd/system/digitalsignage-client.service'
 ".Replace("\r\n", "\n").Replace("\r", "\n");
+
+        // Base64-encode password locally and decode remotely to avoid shell metacharacters issues
+        var passwordB64 = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(password ?? string.Empty));
+        var remotePasswordExpr = $"echo '{passwordB64}' | base64 -d";
 
         var escapedScript = cleanupScript.Replace("'", "'\"'\"'");
         var commandText = isRoot
             ? $"bash -lc '{escapedScript}'"
-            : $"printf '%s\\n' '{escapedPassword}' | sudo -S bash -lc '{escapedScript}'";
+            : $"{remotePasswordExpr} | sudo -S bash -lc '{escapedScript}'";
 
         progress?.Report("Stopping service and removing previous install (if any)...");
         var cmd = ssh.CreateCommand(commandText);
@@ -732,10 +735,10 @@ rm -f '{RemoteServiceFile}'
             using var ssh = CreateSshClient(host, port, username, password);
             await ConnectWithTimeoutAsync(ssh, cancellationToken);
 
-            var escapedPassword = password.Replace("'", "'\"'\"'");
-            var sudoPrefix = string.Equals(username, "root", StringComparison.OrdinalIgnoreCase)
-                ? string.Empty
-                : $"printf '%s\\n' '{escapedPassword}' | sudo -S ";
+            var isRoot = string.Equals(username, "root", StringComparison.OrdinalIgnoreCase);
+            var passwordB64 = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(password ?? string.Empty));
+            var remotePasswordExpr = $"echo '{passwordB64}' | base64 -d";
+            var sudoPrefix = isRoot ? string.Empty : $"{remotePasswordExpr} | sudo -S ";
 
             var checkCmd = ssh.CreateCommand($"{sudoPrefix}systemctl is-active --quiet {RemoteServiceName}");
             checkCmd.CommandTimeout = TimeSpan.FromSeconds(10);

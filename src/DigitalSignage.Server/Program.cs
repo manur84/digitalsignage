@@ -333,11 +333,18 @@ public class Program
 
             if (!string.IsNullOrEmpty(exePath))
             {
+                var fullExePath = Path.GetFullPath(exePath);
+                // Validate: must be rooted, exist, and be an .exe
+                if (!Path.IsPathRooted(fullExePath) || !File.Exists(fullExePath) || !string.Equals(Path.GetExtension(fullExePath), ".exe", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidOperationException("Invalid restart executable path");
+                }
+
                 Process.Start(new ProcessStartInfo
                 {
-                    FileName = exePath,
+                    FileName = fullExePath,
                     UseShellExecute = true,
-                    WorkingDirectory = Environment.CurrentDirectory
+                    WorkingDirectory = Path.GetDirectoryName(fullExePath) ?? Environment.CurrentDirectory
                 });
             }
         }

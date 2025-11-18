@@ -13,12 +13,13 @@ namespace DigitalSignage.Server.ViewModels;
 /// <summary>
 /// ViewModel for displaying detailed device information
 /// </summary>
-public partial class DeviceDetailViewModel : ObservableObject
+public partial class DeviceDetailViewModel : ObservableObject, IDisposable
 {
     private readonly ILogger<DeviceDetailViewModel> _logger;
     private readonly IDialogService _dialogService;
     private readonly System.Timers.Timer _refreshTimer;
     private RaspberryPiClient? _client;
+    private bool _disposed;
 
     #region Observable Properties
 
@@ -289,7 +290,7 @@ public partial class DeviceDetailViewModel : ObservableObject
         {
             _logger.LogInformation("Pinging device at {IpAddress}", IpAddress);
 
-            var ping = new Ping();
+            using var ping = new Ping();
             var stopwatch = Stopwatch.StartNew();
             var reply = await ping.SendPingAsync(IpAddress, 5000); // 5 second timeout
             stopwatch.Stop();
@@ -368,5 +369,18 @@ public partial class DeviceDetailViewModel : ObservableObject
     partial void OnIsPingInProgressChanged(bool value)
     {
         PingDeviceCommand.NotifyCanExecuteChanged();
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        try
+        {
+            _refreshTimer.Stop();
+            _refreshTimer.Dispose();
+        }
+        catch { }
+        _disposed = true;
+        GC.SuppressFinalize(this);
     }
 }

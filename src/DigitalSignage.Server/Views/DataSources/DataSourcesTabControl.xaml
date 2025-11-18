@@ -119,26 +119,47 @@
 
                                 <!-- Table Name -->
                                 <TextBlock Text="Table Name:" Margin="0,0,0,4"/>
-                                <TextBox Text="{Binding DataSourceViewModel.QueryTableName, UpdateSourceTrigger=PropertyChanged}"
-                                        Margin="0,0,0,8"
-                                        ToolTip="Enter the name of the database table"/>
+                                <DockPanel Margin="0,0,0,8">
+                                    <TextBox Text="{Binding DataSourceViewModel.QueryTableName, UpdateSourceTrigger=PropertyChanged}"
+                                            ToolTip="Enter the name of the database table"
+                                            DockPanel.Dock="Left"
+                                            MinWidth="220"/>
+                                    <Button Content="Load Columns"
+                                            Command="{Binding DataSourceViewModel.LoadColumnsForTableCommand}"
+                                            Margin="8,0,0,0"
+                                            IsEnabled="{Binding DataSourceViewModel.IsLoadingColumns, Converter={StaticResource InverseBooleanConverter}}"
+                                            Style="{StaticResource SecondaryButton}"/>
+                                </DockPanel>
 
-                                <!-- Columns -->
+                                <!-- Columns + Picker -->
                                 <TextBlock Text="Columns:" Margin="0,0,0,4"/>
-                                <TextBox Text="{Binding DataSourceViewModel.QueryColumns, UpdateSourceTrigger=PropertyChanged}"
-                                        Margin="0,0,0,8"
-                                        ToolTip="Enter column names separated by commas, or * for all columns"/>
+                                <DockPanel>
+                                    <TextBox Text="{Binding DataSourceViewModel.QueryColumns, UpdateSourceTrigger=PropertyChanged}"
+                                            ToolTip="Enter column names separated by commas, or * for all columns"
+                                            DockPanel.Dock="Left"
+                                            MinWidth="220"/>
+                                    <ComboBox ItemsSource="{Binding DataSourceViewModel.AvailableColumns}"
+                                              SelectedItem="{Binding DataSourceViewModel.SelectedAvailableColumn}"
+                                              Width="200"
+                                              Margin="8,0,0,0"/>
+                                    <Button Content="Add"
+                                            Command="{Binding DataSourceViewModel.AddSelectedColumnCommand}"
+                                            Margin="8,0,0,0"
+                                            Style="{StaticResource SecondaryButton}"/>
+                                    <Button Content="Add all"
+                                            Command="{Binding DataSourceViewModel.AddAllColumnsCommand}"
+                                            Margin="8,0,0,0"
+                                            Style="{StaticResource SecondaryButton}"/>
+                                </DockPanel>
 
                                 <!-- WHERE Clause -->
-                                <TextBlock Text="WHERE Clause (optional):" Margin="0,0,0,4"/>
+                                <TextBlock Text="WHERE Clause (optional):" Margin="0,8,0,4"/>
                                 <TextBox Text="{Binding DataSourceViewModel.QueryWhereClause, UpdateSourceTrigger=PropertyChanged}"
-                                        Margin="0,0,0,8"
                                         ToolTip="Example: status = 'active' AND created_at > '2024-01-01'"/>
 
                                 <!-- ORDER BY -->
-                                <TextBlock Text="ORDER BY (optional):" Margin="0,0,0,4"/>
+                                <TextBlock Text="ORDER BY (optional):" Margin="0,8,0,4"/>
                                 <TextBox Text="{Binding DataSourceViewModel.QueryOrderBy, UpdateSourceTrigger=PropertyChanged}"
-                                        Margin="0,0,0,12"
                                         ToolTip="Example: created_at DESC, name ASC"/>
 
                                 <!-- Generate Button -->
@@ -146,7 +167,8 @@
                                        Command="{Binding DataSourceViewModel.GenerateQueryCommand}"
                                        Style="{StaticResource PrimaryButton}"
                                        HorizontalAlignment="Left"
-                                       Padding="20,8"/>
+                                       Padding="20,8"
+                                       Margin="0,12,0,0"/>
 
                                 <!-- Generated Query Preview -->
                                 <TextBlock Text="Generated Query:" Margin="0,16,0,4" FontWeight="SemiBold"/>

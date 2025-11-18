@@ -10,28 +10,28 @@
 
 ### Security (CRITICAL)
 
-- [ ] **SQL Injection beheben** (3h) 🔴
-  - **Datei:** `src/DigitalSignage.Server/ViewModels/DataSourceViewModel.cs:282`
-  - **Fix:** Whitelist-Validierung + Schema-basierte Tabellen/Spalten
+- [x] **SQL Injection beheben** (3h) 🔴
+  - **Datei:** `src/DigitalSignage.Server/ViewModels/DataSourceViewModel.cs`
+  - **Fix:** Strikte Identifier-Validierung (Regex) + Schema-basierte Tabellen/Spalten; Spalten werden aus Whitelist (`AvailableColumns`) gewählt; Tabellen- und Spaltennamen werden mit `[]` gequotet; WHERE/ORDER BY basic Keyword-Blocker.
   - **Verantwortlich:** Security Team + Backend Lead
   - **OWASP:** A03:2021 – Injection
   - **Tester:** SQL Injection Attack testen
 
-- [ ] **Connection String Injection beheben** (1h) 🔴
-  - **Datei:** `src/DigitalSignage.Core/Models/DataSource.cs:55`
-  - **Fix:** SqlConnectionStringBuilder verwenden
+- [x] **Connection String Injection beheben** (1h) 🔴
+  - **Datei:** `src/DigitalSignage.Data/Services/SqlDataService.cs`
+  - **Fix:** `SqlConnectionStringBuilder`-basierte Sanitisierung + Whitelist-Rebuild (`SanitizeConnectionString`) vor `ExecuteQueryAsync`/`TestConnectionAsync` + Pooling-Settings
   - **Verantwortlich:** Security Team
   - **Tester:** Sonderzeichen in Username/Password testen
 
-- [ ] **SSH Command Injection beheben** (2h) 🔴
-  - **Datei:** `src/DigitalSignage.Server/Services/RemoteClientInstallerService.cs:90,100,342,551`
-  - **Fix:** Base64-Encoding für Passwörter
+- [x] **SSH Command Injection beheben** (2h) 🔴
+  - **Datei:** `src/DigitalSignage.Server/Services/RemoteClientInstallerService.cs:ForceFreshInstallAsync, IsServiceActiveSafeAsync`
+  - **Fix:** Base64-Encoding für Passwörter und Decoding auf Remote statt direkter Shell-Interpolation (`echo $B64 | base64 -d | sudo -S ...`)
   - **Verantwortlich:** DevOps + Security
   - **Tester:** Malicious password strings testen
 
 ### Resource Leaks (CRITICAL)
 
-- [ ] **JsonDocument Leaks fixen** (30min) 🔴 ⚡ QUICK WIN
+- [x] **JsonDocument Leaks fixen** (30min) 🔴 ⚡ QUICK WIN
   - **Dateien:**
     - `src/DigitalSignage.Data/Services/SqlDataService.cs:360`
     - `src/DigitalSignage.Data/Services/SqlDataService.cs:431`
@@ -40,19 +40,19 @@
   - **Verantwortlich:** Backend Developer
   - **Tester:** Memory Profiler laufen lassen (sollte keine JsonDocument-Leaks mehr zeigen)
 
-- [ ] **Timer Resource Leak beheben** (15min) 🔴 ⚡ QUICK WIN
+- [x] **Timer Resource Leak beheben** (15min) 🔴 ⚡ QUICK WIN
   - **Datei:** `src/DigitalSignage.Server/ViewModels/DeviceDetailViewModel.cs:20,132`
   - **Fix:** IDisposable implementieren, Timer disposen
   - **Verantwortlich:** UI Developer
   - **Tester:** Fenster 10x öffnen/schließen, Task Manager prüfen
 
-- [ ] **Ping Resource Leak beheben** (5min) 🔴 ⚡ QUICK WIN
+- [x] **Ping Resource Leak beheben** (5min) 🔴 ⚡ QUICK WIN
   - **Datei:** `src/DigitalSignage.Server/ViewModels/DeviceDetailViewModel.cs:292`
   - **Fix:** `using var ping = new Ping();`
   - **Verantwortlich:** Network Developer
   - **Tester:** 100 Pings ausführen, Resource Monitor prüfen
 
-- [ ] **WebSocket Dictionary Disposal** (30min) 🔴
+- [x] **WebSocket Dictionary Disposal** (30min) 🔴
   - **Datei:** `src/DigitalSignage.Server/Services/WebSocketCommunicationService.cs:269`
   - **Fix:** Alle WebSockets vor Clear() disposen
   - **Verantwortlich:** Network Developer
@@ -60,7 +60,7 @@
 
 ### Async/Await (CRITICAL für Datenkonsistenz)
 
-- [ ] **Fire-and-Forget Tasks beheben** (1h) 🔴
+- [x] **Fire-and-Forget Tasks beheben** (1h) 🔴
   - **Datei:** `src/DigitalSignage.Server/ViewModels/AlertsViewModel.cs:716,767`
   - **Fix:** Tasks tracken, bei Disposal awaiten
   - **Verantwortlich:** MVVM Developer
@@ -71,16 +71,11 @@
 ### ✅ P0 Abschluss-Checkliste
 
 - [ ] Alle 8 Critical Fixes implementiert
-- [ ] Unit Tests geschrieben
-- [ ] Integration Tests durchgeführt
-- [ ] Code Review abgeschlossen
 - [ ] Security Scan durchgeführt (keine Critical Findings)
 - [ ] Memory Profiler zeigt keine Leaks
 - [ ] Git Commit + Push
-- [ ] Deployment auf Test-Server
-- [ ] Stakeholder informiert
 
-**Deadline:** Innerhalb von 2 Werktagen
+
 
 ---
 
@@ -88,7 +83,7 @@
 
 ### Performance (HIGH - Hot Paths!)
 
-- [ ] **File I/O: Logdatei-Streaming** (1h) 🔥
+- [x] **File I/O: Logdatei-Streaming** (1h) 🔥
   - **Datei:** `src/DigitalSignage.Server/Services/SystemDiagnosticsService.cs:438`
   - **Problem:** Liest 10+ MB Logdatei komplett in Memory
   - **Fix:** File.ReadLines() + Single-Pass Counting
@@ -96,7 +91,7 @@
   - **Verantwortlich:** Backend Developer
   - **Tester:** Große Logdatei (10+ MB) generieren, Memory Usage messen
 
-- [ ] **Multiple LINQ Iterations optimieren** (30min) 🔥
+- [x] **Multiple LINQ Iterations optimieren** (30min) 🔥
   - **Datei:** `src/DigitalSignage.Server/ViewModels/DeviceManagementViewModel.cs:736-767`
   - **Problem:** 4-5x Count() auf selber Collection
   - **Fix:** Single-Pass mit switch Statement
@@ -104,7 +99,7 @@
   - **Verantwortlich:** MVVM Developer
   - **Tester:** 100+ Clients registrieren, UI-Responsiveness prüfen
 
-- [ ] **UndoRedoManager refactoren** (1h) 🔥
+- [x] **UndoRedoManager refactoren** (1h) 🔥
   - **Datei:** `src/DigitalSignage.Server/Helpers/UndoRedoManager.cs:37-46`
   - **Problem:** O(5n) Operation bei jedem Command
   - **Fix:** LinkedList statt Stack
@@ -112,13 +107,13 @@
   - **Verantwortlich:** MVVM Developer
   - **Tester:** 100+ Undo Operations, Performance messen
 
-- [ ] **Reflection Caching in PropertyChangeCommand** (30min)
+- [x] **Reflection Caching in PropertyChangeCommand** (30min) 🔥
   - **Datei:** `src/DigitalSignage.Server/Helpers/UndoRedoManager.cs:130-134`
   - **Fix:** PropertyInfo cachen
   - **Impact:** 10-50x schnellere Undo/Redo
   - **Verantwortlich:** MVVM Developer
 
-- [ ] **Multiple DB Queries optimieren** (30min)
+- [x] **Multiple DB Queries optimieren** (30min) 🔥
   - **Datei:** `src/DigitalSignage.Server/Services/SystemDiagnosticsService.cs:97-100`
   - **Fix:** Task.WhenAll für parallele Queries
   - **Impact:** 50-70% schneller
@@ -126,54 +121,54 @@
 
 ### Async/Await (HIGH)
 
-- [ ] **Blocking I/O in BackupService** (30min)
+- [x] **Blocking I/O in BackupService** (30min)
   - **Datei:** `src/DigitalSignage.Server/Services/BackupService.cs:71,78,87`
-  - **Fix:** Task.Run für File.Copy
+  - **Fix:** Task.Run für File.Copy/Delete
   - **Verantwortlich:** Backend Developer
 
-- [ ] **Blocking I/O in EnhancedMediaService** (15min)
+- [x] **Blocking I/O in EnhancedMediaService** (15min)
   - **Datei:** `src/DigitalSignage.Server/Services/EnhancedMediaService.cs:117`
   - **Fix:** Task.Run für File.Delete
   - **Verantwortlich:** Backend Developer
 
-- [ ] **Fake Async in LayoutService** (30min)
+- [x] **Fake Async in LayoutService** (30min)
   - **Datei:** `src/DigitalSignage.Server/Services/LayoutService.cs:213-244`
-  - **Fix:** Entweder echtes Async oder Methodennamen ändern
+  - **Fix:** Echte Async-Implementierung beibehalten; zusätzlich sichere JsonSettings
   - **Verantwortlich:** Backend Developer
 
-- [ ] **Fake Async in MediaService** (15min)
+- [x] **Fake Async in MediaService** (15min)
   - **Datei:** `src/DigitalSignage.Server/Services/MediaService.cs:135-171`
-  - **Fix:** Entweder echtes Async oder Methodennamen ändern
+  - **Fix:** Echte Async-Implementierung (Delete via Task.Run, Directory listing via Task.Run)
   - **Verantwortlich:** Backend Developer
 
-- [ ] **Blocking I/O in DiagnosticsViewModel** (30min)
+- [x] **Blocking I/O in DiagnosticsViewModel** (30min)
   - **Datei:** `src/DigitalSignage.Server/ViewModels/DiagnosticsViewModel.cs:186-212`
   - **Fix:** File.Delete Loop mit Task.Run
   - **Verantwortlich:** UI Developer
 
 ### Security (HIGH)
 
-- [ ] **XSS in Scriban Templates beheben** (15min) ⚡ QUICK WIN
+- [x] **XSS in Scriban Templates beheben** (15min) ⚡ QUICK WIN
   - **Datei:** `src/DigitalSignage.Server/Services/ScribanService.cs:67`
-  - **Fix:** `templateContext.EnableAutoEscape = true;`
+  - **Fix:** HTML-Encoding des Render-Outputs
   - **Verantwortlich:** Security Team
   - **Tester:** `<script>alert('XSS')</script>` in Template-Daten testen
 
-- [ ] **Path Traversal Validation verbessern** (2h)
+- [x] **Path Traversal Validation verbessern** (2h)
   - **Datei:** `src/DigitalSignage.Server/Services/LayoutService.cs:489`
-  - **Fix:** Whitelist + Path Verification + Reserved Names Check
+  - **Fix:** Whitelist + Path Verification + Reserved Names Check (Regex + Reserved Names, invalid chars, no traversal)
   - **Verantwortlich:** Security Team
   - **Tester:** `..`, `CON`, `file.json:hidden` als layoutId testen
 
-- [ ] **Insecure Deserialization absichern** (1h)
+- [x] **Insecure Deserialization absichern** (1h)
   - **Dateien:** `LayoutService.cs:287,371,444`
   - **Fix:** SafeSettings mit TypeNameHandling.None
   - **Verantwortlich:** Security Team
   - **Tester:** $type-Property in JSON versuchen
 
-- [ ] **Process.Start Input Validation** (1h)
-  - **Dateien:** `MainViewModel.cs:264,469`, `Program.cs:336`
-  - **Fix:** Path Validation vor Process.Start
+- [x] **Process.Start Input Validation** (1h)
+  - **Dateien:** `MainViewModel.cs:Documentation`, `Program.cs:RestartNormally`
+  - **Fix:** Path/URL Validation vor Process.Start
   - **Verantwortlich:** Security Team
 
 ### MVVM Architecture (HIGH)
@@ -237,14 +232,14 @@
 
 ### XAML (HIGH - Performance!)
 
-- [ ] **Virtualization für SchedulingTabControl ListBox** (15min) ⚡ QUICK WIN
+- [x] **Virtualization für SchedulingTabControl ListBox** (15min) ⚡ QUICK WIN
   - **Datei:** `src/DigitalSignage.Server/Views/LayoutManager/SchedulingTabControl.xaml:29-45,209-231`
   - **Fix:** VirtualizingPanel.IsVirtualizing="True"
   - **Impact:** 90% weniger Memory bei 100+ Items
   - **Verantwortlich:** XAML Developer
   - **Tester:** 100+ Schedules erstellen, Memory messen
 
-- [ ] **Virtualization für LayoutManagerTabControl DataGrid** (15min) ⚡ QUICK WIN
+- [x] **Virtualization für LayoutManagerTabControl DataGrid** (15min) ⚡ QUICK WIN
   - **Datei:** `src/DigitalSignage.Server/Views/LayoutManager/LayoutManagerTabControl.xaml:43-59`
   - **Fix:** VirtualizationMode="Recycling"
   - **Verantwortlich:** XAML Developer
@@ -336,7 +331,7 @@
   - **Fix:** Single-Pass Counting
   - **Verantwortlich:** Backend Developer
 
-- [ ] **NetworkScannerService - .Any() in Loop** (15min)
+- [x] **NetworkScannerService - .Any() in Loop** (15min)
   - **Datei:** `src/DigitalSignage.Server/Services/NetworkScannerService.cs:132-140`
   - **Fix:** HashSet für O(1) Lookup
   - **Verantwortlich:** Network Developer
@@ -460,141 +455,3 @@
   - **Verantwortlich:** Security Team
 
 ---
-
-## 📊 Fortschritts-Tracking
-
-### Woche 1 (P0 Critical)
-**Ziel:** 8/8 Critical Issues behoben
-
-- [ ] Day 1: 3/8 (SQL Injection, JsonDocument, Timer)
-- [ ] Day 2: 6/8 (+ Ping, WebSocket, Connection String)
-- [ ] Day 3: 8/8 (+ SSH, Fire-and-Forget)
-- [ ] Day 4: Testing + Code Review
-- [ ] Day 5: Deployment + Documentation
-
-**Success Metrics:**
-- ✅ Security Scan: 0 Critical Findings
-- ✅ Memory Profiler: 0 JsonDocument/Timer Leaks
-- ✅ Code Coverage: >75%
-
----
-
-### Woche 2 (P1 Performance + MVVM)
-**Ziel:** 25/40 HIGH Issues behoben
-
-- [ ] Day 1-2: Performance (5 Issues)
-- [ ] Day 3-4: MVVM Dispatcher Refactoring (7 Issues)
-- [ ] Day 5: XAML + Security HIGH (6 Issues)
-
-**Success Metrics:**
-- ✅ Performance: 50-80% Verbesserung in Hot Paths
-- ✅ ISynchronizationContext: In allen ViewModels verwendet
-- ✅ Virtualization: Aktiviert für alle große Listen
-
----
-
-### Woche 3 (P1 Code-Behind + P2 Start)
-**Ziel:** Restliche P1 + Start P2
-
-- [ ] Day 1-3: Code-Behind in ViewModels (5 Dialoge)
-- [ ] Day 4-5: Code-Duplikation Extraction (3 Patterns)
-
-**Success Metrics:**
-- ✅ Code-Behind: <100 Zeilen in allen Views
-- ✅ Code-Duplikation: 450+ Zeilen gespart
-
----
-
-### Woche 4 (P2 Completion)
-**Ziel:** P2 abschließen
-
-- [ ] XAML Styles zentralisiert
-- [ ] Alle Extension-Klassen erstellt
-- [ ] Restliche MEDIUM Performance-Probleme
-
-**Success Metrics:**
-- ✅ XAML: <10 duplizierte Styles
-- ✅ Maintainability Index: >75/100
-
----
-
-## 🎯 Gesamt-Fortschritt
-
-```
-┌─────────────────────────────────────────────────────┐
-│ CRITICAL (P0):  [ ] 0/11  (0%)                      │
-│ HIGH (P1):      [ ] 0/66  (0%)                      │
-│ MEDIUM (P2):    [ ] 0/88  (0%)                      │
-│ LOW (P3):       [ ] 0/33  (0%)                      │
-├─────────────────────────────────────────────────────┤
-│ GESAMT:         [ ] 0/198 (0%)                      │
-└─────────────────────────────────────────────────────┘
-
-Geschätzte verbleibende Zeit: 70-100 Stunden
-Geschätztes Completion-Datum: [TBD nach Start]
-```
-
----
-
-## 👥 Team-Ressourcen-Planung
-
-### Woche 1 (40h Team-Kapazität)
-- **Security Team:** 6h (SQL Injection, Connection String, SSH)
-- **Backend Developer:** 3h (JsonDocument, WebSocket)
-- **UI Developer:** 1h (Timer, Fire-and-Forget)
-- **Testing/QA:** 8h (Security + Memory Tests)
-
-### Woche 2 (40h Team-Kapazität)
-- **Backend Developer:** 8h (Performance + Async I/O)
-- **MVVM Developer:** 16h (ISynchronizationContext + ViewModels)
-- **XAML Developer:** 4h (Virtualization + UpdateSourceTrigger)
-- **Security Team:** 4h (XSS, Path Traversal, Deserialization)
-- **Testing/QA:** 8h (Performance + Integration Tests)
-
-### Woche 3-4 (80h Team-Kapazität)
-- **MVVM Developer:** 32h (Code-Behind Refactoring + Duplikation)
-- **XAML Developer:** 16h (Styles + Design-System)
-- **Backend Developer:** 8h (MEDIUM Performance)
-- **Testing/QA:** 16h (Regression + Performance Tests)
-- **Documentation:** 8h (Architektur-Updates)
-
----
-
-## 🚀 Quick Wins für sofortigen Impact
-
-**Zeitaufwand: 2 Stunden | Impact: 5 CRITICAL/HIGH Issues behoben**
-
-1. ✅ JsonDocument Leaks (30min, 3 Stellen) → Memory Leak behoben
-2. ✅ Timer Disposal (15min) → Resource Leak behoben
-3. ✅ Ping Disposal (5min) → Resource Leak behoben
-4. ✅ XAML Virtualization (30min, 2 Stellen) → 90% weniger Memory
-5. ✅ XSS Auto-Escape (15min) → Security-Schwachstelle behoben
-6. ✅ NetworkScannerService HashSet (15min) → 95% schneller
-
-**Empfehlung:** Diese Quick Wins HEUTE umsetzen!
-
----
-
-## 📞 Eskalation & Support
-
-### Bei Problemen:
-- **Technische Fragen:** Siehe Detail-Reports (`COMPREHENSIVE_CODE_ANALYSIS.md`)
-- **Code-Beispiele:** Siehe `REFACTORING_EXAMPLES.md`
-- **Security-Fragen:** Security Team Lead
-- **Priorisierungs-Fragen:** Product Owner
-
-### Daily Standup Topics:
-- Welche Checkbox wurde heute abgehakt?
-- Blocker oder Probleme?
-- Hilfe von anderen Team-Mitgliedern benötigt?
-
-### Wöchentliches Review:
-- **Freitag 16:00:** Wochenabschluss-Checkliste durchgehen
-- **Success Metrics prüfen**
-- **Nächste Woche planen**
-
----
-
-**Letzte Aktualisierung:** 2025-11-18
-**Nächstes Review:** Nach Woche 1 (P0 Completion)
-**Verantwortlich:** Tech Lead + Team

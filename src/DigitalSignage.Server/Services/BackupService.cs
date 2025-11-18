@@ -66,16 +66,16 @@ public class BackupService
                 _logger.LogInformation("Created target directory: {Directory}", targetDirectory);
             }
 
-            // Copy main database file
+            // Copy main database file (avoid blocking thread)
             _logger.LogInformation("Copying database file from {Source} to {Target}", sourcePath, targetPath);
-            File.Copy(sourcePath, targetPath, overwrite: true);
+            await Task.Run(() => File.Copy(sourcePath, targetPath, overwrite: true));
 
             // Also copy WAL (Write-Ahead Log) file if it exists
             var sourceWalPath = $"{sourcePath}-wal";
             if (File.Exists(sourceWalPath))
             {
                 var targetWalPath = $"{targetPath}-wal";
-                File.Copy(sourceWalPath, targetWalPath, overwrite: true);
+                await Task.Run(() => File.Copy(sourceWalPath, targetWalPath, overwrite: true));
                 _logger.LogInformation("Copied WAL file");
             }
 
@@ -84,7 +84,7 @@ public class BackupService
             if (File.Exists(sourceShmPath))
             {
                 var targetShmPath = $"{targetPath}-shm";
-                File.Copy(sourceShmPath, targetShmPath, overwrite: true);
+                await Task.Run(() => File.Copy(sourceShmPath, targetShmPath, overwrite: true));
                 _logger.LogInformation("Copied SHM file");
             }
 
@@ -155,7 +155,7 @@ public class BackupService
             if (File.Exists(targetPath))
             {
                 _logger.LogInformation("Creating safety backup of current database: {SafetyBackup}", safetyBackupPath);
-                File.Copy(targetPath, safetyBackupPath, overwrite: true);
+                await Task.Run(() => File.Copy(targetPath, safetyBackupPath, overwrite: true));
                 _logger.LogInformation("Safety backup created successfully");
             }
 
@@ -165,25 +165,25 @@ public class BackupService
 
             if (File.Exists(walPath))
             {
-                File.Delete(walPath);
+                await Task.Run(() => File.Delete(walPath));
                 _logger.LogInformation("Deleted existing WAL file");
             }
 
             if (File.Exists(shmPath))
             {
-                File.Delete(shmPath);
+                await Task.Run(() => File.Delete(shmPath));
                 _logger.LogInformation("Deleted existing SHM file");
             }
 
             // Restore from backup
             _logger.LogInformation("Copying backup file to database location");
-            File.Copy(backupPath, targetPath, overwrite: true);
+            await Task.Run(() => File.Copy(backupPath, targetPath, overwrite: true));
 
             // Copy WAL file if it exists
             var backupWalPath = $"{backupPath}-wal";
             if (File.Exists(backupWalPath))
             {
-                File.Copy(backupWalPath, walPath, overwrite: true);
+                await Task.Run(() => File.Copy(backupWalPath, walPath, overwrite: true));
                 _logger.LogInformation("Restored WAL file");
             }
 
@@ -191,7 +191,7 @@ public class BackupService
             var backupShmPath = $"{backupPath}-shm";
             if (File.Exists(backupShmPath))
             {
-                File.Copy(backupShmPath, shmPath, overwrite: true);
+                await Task.Run(() => File.Copy(backupShmPath, shmPath, overwrite: true));
                 _logger.LogInformation("Restored SHM file");
             }
 
@@ -205,7 +205,7 @@ public class BackupService
                 if (File.Exists(safetyBackupPath))
                 {
                     _logger.LogWarning("Attempting to rollback using safety backup");
-                    File.Copy(safetyBackupPath, targetPath, overwrite: true);
+                    await Task.Run(() => File.Copy(safetyBackupPath, targetPath, overwrite: true));
                 }
 
                 return Result.Failure("Database restore verification failed. Rolled back to previous state.");
@@ -225,7 +225,7 @@ public class BackupService
                     if (File.Exists(safetyBackupPath))
                     {
                         _logger.LogWarning("Attempting to rollback using safety backup");
-                        File.Copy(safetyBackupPath, targetPath, overwrite: true);
+                        await Task.Run(() => File.Copy(safetyBackupPath, targetPath, overwrite: true));
                     }
 
                     return Result.Failure("Restored database is not valid. Rolled back to previous state.");
@@ -241,7 +241,7 @@ public class BackupService
                 if (File.Exists(safetyBackupPath))
                 {
                     _logger.LogWarning("Attempting to rollback using safety backup");
-                    File.Copy(safetyBackupPath, targetPath, overwrite: true);
+                    await Task.Run(() => File.Copy(safetyBackupPath, targetPath, overwrite: true));
                 }
 
                 return Result.Failure($"Restored database connection failed: {dbEx.Message}. Rolled back to previous state.");

@@ -2,6 +2,7 @@ using DigitalSignage.Core.Interfaces;
 using Microsoft.Extensions.Logging;
 using Scriban;
 using System.Collections.Concurrent;
+using System.Net;
 
 namespace DigitalSignage.Server.Services;
 
@@ -66,9 +67,12 @@ public class ScribanService : IScribanService
 
             var result = await template.RenderAsync(templateContext);
 
+            // Safety: HTML-encode the output to reduce XSS risk when rendering in HTML UIs
+            var safeResult = WebUtility.HtmlEncode(result);
+
             _logger.LogDebug("Successfully processed template with {DataCount} variables", data?.Count ?? 0);
 
-            return result;
+            return safeResult;
         }
         catch (Exception ex)
         {

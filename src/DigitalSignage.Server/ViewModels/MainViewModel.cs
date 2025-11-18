@@ -5,6 +5,7 @@ using DigitalSignage.Server.Services;
 using DigitalSignage.Server.Views;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using System.Text.RegularExpressions;
 
 namespace DigitalSignage.Server.ViewModels;
 
@@ -158,10 +159,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error opening token management window");
-            StatusText = $"Error opening token management: {ex.Message}";
+            StatusText = $"Error opening client management: {ex.Message}";
             await _dialogService.ShowErrorAsync(
-                $"Failed to open token management window:\n\n{ex.Message}",
-                "Token Management Error");
+                $"Failed to open client management window:\n\n{ex.Message}",
+                "Client Management Error");
         }
     }
 
@@ -261,15 +262,34 @@ public partial class MainViewModel : ObservableObject, IDisposable
             // Try to open docs folder or README
             if (System.IO.Directory.Exists(docsPath))
             {
-                System.Diagnostics.Process.Start("explorer.exe", docsPath);
+                // Validate directory path (must be within base directory)
+                var fullDocsPath = System.IO.Path.GetFullPath(docsPath);
+                var fullBase = System.IO.Path.GetFullPath(AppDomain.CurrentDomain.BaseDirectory);
+                if (!fullDocsPath.StartsWith(fullBase, StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidOperationException("Invalid documentation path");
+                }
+
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "explorer.exe",
+                    Arguments = fullDocsPath,
+                    UseShellExecute = true
+                });
                 StatusText = "Opened documentation folder";
             }
             else
             {
-                // Open GitHub docs
+                // Open GitHub docs with validation
+                var url = "https://github.com/manur84/digitalsignage/tree/main/docs";
+                if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+                {
+                    throw new InvalidOperationException("Invalid documentation URL");
+                }
+
                 System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
                 {
-                    FileName = "https://github.com/manur84/digitalsignage/tree/main/docs",
+                    FileName = uri.ToString(),
                     UseShellExecute = true
                 });
                 StatusText = "Opened online documentation";

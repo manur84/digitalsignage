@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using System.Collections.Concurrent;
 using System.IO;
+using System.Text.RegularExpressions;
 
 namespace DigitalSignage.Server.Services;
 
@@ -15,6 +16,24 @@ public class LayoutService : ILayoutService, IDisposable
     private readonly ILogger<LayoutService> _logger;
     private readonly SemaphoreSlim _fileLock = new(1, 1);
     private bool _disposed = false;
+
+    // Safe settings for JSON (no type names)
+    private static readonly JsonSerializerSettings SafeJsonSettings = new()
+    {
+        TypeNameHandling = TypeNameHandling.None,
+        MetadataPropertyHandling = MetadataPropertyHandling.Ignore,
+        NullValueHandling = NullValueHandling.Ignore,
+        Formatting = Formatting.Indented
+    };
+
+    // Allowed ID: letters, numbers, dash, underscore; 1..100 chars
+    private static readonly Regex LayoutIdRegex = new("^[A-Za-z0-9_-]{1,100}$", RegexOptions.Compiled);
+    private static readonly HashSet<string> ReservedFileNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "CON","PRN","AUX","NUL",
+        "COM1","COM2","COM3","COM4","COM5","COM6","COM7","COM8","COM9",
+        "LPT1","LPT2","LPT3","LPT4","LPT5","LPT6","LPT7","LPT8","LPT9"
+    };
 
     public LayoutService(ILogger<LayoutService> logger)
     {
@@ -67,6 +86,12 @@ public class LayoutService : ILayoutService, IDisposable
             {
                 _logger.LogWarning("GetLayoutByIdAsync called with null or empty layoutId");
                 return Task.FromResult(Result<DisplayLayout>.Failure("Layout ID cannot be empty"));
+            }
+
+            if (!IsValidLayoutId(layoutId, out var reason))
+            {
+                _logger.LogWarning("Invalid layoutId provided: {LayoutId}. Reason: {Reason}", layoutId, reason);
+                return Task.FromResult(Result<DisplayLayout>.Failure($"Invalid layout ID: {reason}"));
             }
 
             if (_layouts.TryGetValue(layoutId, out var layout))
@@ -164,6 +189,11 @@ public class LayoutService : ILayoutService, IDisposable
                 return Result<DisplayLayout>.Failure("Layout ID cannot be empty");
             }
 
+            if (!IsValidLayoutId(layout.Id, out var reason))
+            {
+                return Result<DisplayLayout>.Failure($"Invalid layout ID: {reason}");
+            }
+
             if (string.IsNullOrWhiteSpace(layout.Name))
             {
                 return Result<DisplayLayout>.Failure("Layout name is required");
@@ -222,6 +252,12 @@ public class LayoutService : ILayoutService, IDisposable
                 return Task.FromResult(Result.Failure("Layout ID cannot be empty"));
             }
 
+            if (!IsValidLayoutId(layoutId, out var reason))
+            {
+                _logger.LogWarning("Invalid layoutId provided for deletion: {LayoutId}. Reason: {Reason}", layoutId, reason);
+                return Task.FromResult(Result.Failure($"Invalid layout ID: {reason}"));
+            }
+
             if (_layouts.TryRemove(layoutId, out _))
             {
                 var filePath = GetLayoutFilePath(layoutId);
@@ -268,6 +304,11 @@ public class LayoutService : ILayoutService, IDisposable
                 return Result<DisplayLayout>.Failure("Layout ID cannot be empty");
             }
 
+            if (!IsValidLayoutId(layoutId, out var reason))
+            {
+                return Result<DisplayLayout>.Failure($"Invalid layout ID: {reason}");
+            }
+
             if (string.IsNullOrWhiteSpace(newName))
             {
                 return Result<DisplayLayout>.Failure("New layout name is required");
@@ -285,7 +326,7 @@ public class LayoutService : ILayoutService, IDisposable
             }
 
             var duplicate = JsonConvert.DeserializeObject<DisplayLayout>(
-                JsonConvert.SerializeObject(originalResult.Value))!;
+                JsonConvert.SerializeObject(originalResult.Value, SafeJsonSettings), SafeJsonSettings)!;
 
             EnsureLayoutDefaults(duplicate);
             duplicate.Id = Guid.NewGuid().ToString();
@@ -330,13 +371,18 @@ public class LayoutService : ILayoutService, IDisposable
                 return Result<string>.Failure("Layout ID cannot be empty");
             }
 
+            if (!IsValidLayoutId(layoutId, out var reason))
+            {
+                return Result<string>.Failure($"Invalid layout ID: {reason}");
+            }
+
             var layoutResult = await GetLayoutByIdAsync(layoutId, cancellationToken);
             if (layoutResult.IsFailure)
             {
                 return Result<string>.Failure($"Failed to get layout: {layoutResult.ErrorMessage}", layoutResult.Exception);
             }
 
-            var json = JsonConvert.SerializeObject(layoutResult.Value, Formatting.Indented);
+            var json = JsonConvert.SerializeObject(layoutResult.Value, SafeJsonSettings);
             _logger.LogInformation("Exported layout {LayoutId}", layoutId);
             return Result<string>.Success(json);
         }
@@ -368,7 +414,7 @@ public class LayoutService : ILayoutService, IDisposable
                 return Result<DisplayLayout>.Failure("JSON data cannot be empty");
             }
 
-            var layout = JsonConvert.DeserializeObject<DisplayLayout>(jsonData);
+            var layout = JsonConvert.DeserializeObject<DisplayLayout>(jsonData, SafeJsonSettings);
             if (layout == null)
             {
                 return Result<DisplayLayout>.Failure("Invalid layout JSON: deserialization returned null");
@@ -407,7 +453,7 @@ public class LayoutService : ILayoutService, IDisposable
         try
         {
             var filePath = GetLayoutFilePath(layout.Id);
-            var json = JsonConvert.SerializeObject(layout, Formatting.Indented);
+            var json = JsonConvert.SerializeObject(layout, SafeJsonSettings);
             await File.WriteAllTextAsync(filePath, json, cancellationToken);
             _logger.LogDebug("Saved layout {LayoutId} to {FilePath}", layout.Id, filePath);
         }
@@ -441,7 +487,7 @@ public class LayoutService : ILayoutService, IDisposable
             try
             {
                 var json = File.ReadAllText(file);
-                var layout = JsonConvert.DeserializeObject<DisplayLayout>(json);
+                var layout = JsonConvert.DeserializeObject<DisplayLayout>(json, SafeJsonSettings);
                 if (layout != null && !string.IsNullOrWhiteSpace(layout.Id))
                 {
                     EnsureLayoutDefaults(layout);
@@ -488,6 +534,48 @@ public class LayoutService : ILayoutService, IDisposable
         // Sanitize layoutId to prevent path traversal
         var sanitizedId = Path.GetFileName(layoutId);
         return Path.Combine(_dataDirectory, $"{sanitizedId}.json");
+    }
+
+    private static bool IsValidLayoutId(string layoutId, out string reason)
+    {
+        reason = string.Empty;
+
+        // Must not contain path separators or colon
+        if (layoutId != Path.GetFileName(layoutId))
+        {
+            reason = "Path traversal detected";
+            return false;
+        }
+
+        // Must match allowed pattern and length
+        if (!LayoutIdRegex.IsMatch(layoutId))
+        {
+            reason = "ID must contain only letters, numbers, '-', '_' and be <= 100 chars";
+            return false;
+        }
+
+        // Must not be reserved name
+        if (ReservedFileNames.Contains(layoutId))
+        {
+            reason = "Reserved file name";
+            return false;
+        }
+
+        // Must not contain any invalid file name characters
+        if (layoutId.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+        {
+            reason = "Contains invalid file name characters";
+            return false;
+        }
+
+        // No trailing dot or space
+        if (layoutId.EndsWith(" ") || layoutId.EndsWith("."))
+        {
+            reason = "Must not end with space or dot";
+            return false;
+        }
+
+        return true;
     }
 
     /// <summary>

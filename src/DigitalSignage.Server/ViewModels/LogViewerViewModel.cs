@@ -23,6 +23,7 @@ public partial class LogViewerViewModel : ObservableObject, IDisposable
     private readonly LogStorageService _logStorageService;
     private readonly IClientService _clientService;
     private readonly ILogger<LogViewerViewModel> _logger;
+    private readonly ISynchronizationContext _syncContext;
     private bool _disposed = false;
     private System.Timers.Timer? _searchDebounceTimer;
 
@@ -86,11 +87,13 @@ public partial class LogViewerViewModel : ObservableObject, IDisposable
     public LogViewerViewModel(
         LogStorageService logStorageService,
         IClientService clientService,
-        ILogger<LogViewerViewModel> logger)
+        ILogger<LogViewerViewModel> logger,
+        ISynchronizationContext syncContext)
     {
         _logStorageService = logStorageService ?? throw new ArgumentNullException(nameof(logStorageService));
         _clientService = clientService ?? throw new ArgumentNullException(nameof(clientService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _syncContext = syncContext ?? throw new ArgumentNullException(nameof(syncContext));
 
         // Setup filtered collection view
         FilteredLogs = CollectionViewSource.GetDefaultView(Logs);
@@ -124,11 +127,7 @@ public partial class LogViewerViewModel : ObservableObject, IDisposable
 
     private void OnLogReceived(object? sender, LogEntry logEntry)
     {
-        // Add to collection on UI thread - check if already on UI thread first
-        var dispatcher = System.Windows.Application.Current?.Dispatcher;
-        if (dispatcher == null) return;
-
-        if (dispatcher.CheckAccess())
+        _ = _syncContext.RunOnUiThreadAsync(() =>
         {
             Logs.Add(logEntry);
             LogCount = Logs.Count;
@@ -141,24 +140,7 @@ public partial class LogViewerViewModel : ObservableObject, IDisposable
 
             // Refresh filter
             FilteredLogs.Refresh();
-        }
-        else
-        {
-            dispatcher.InvokeAsync(() =>
-            {
-                Logs.Add(logEntry);
-                LogCount = Logs.Count;
-
-                // Update available clients if needed
-                if (!AvailableClients.Contains(logEntry.ClientId))
-                {
-                    AvailableClients.Add(logEntry.ClientId);
-                }
-
-                // Refresh filter
-                FilteredLogs.Refresh();
-            });
-        }
+        });
     }
 
     private bool FilterLogEntry(object obj)
@@ -296,11 +278,10 @@ public partial class LogViewerViewModel : ObservableObject, IDisposable
         // Debounce search to avoid excessive filtering
         _searchDebounceTimer?.Stop();
         _searchDebounceTimer = new System.Timers.Timer(300);
-        _searchDebounceTimer.Elapsed += (s, e) =>
+        _searchDebounceTimer.Elapsed += async (s, e) =>
         {
             _searchDebounceTimer?.Stop();
-            var dispatcher = System.Windows.Application.Current?.Dispatcher;
-            dispatcher?.InvokeAsync(() =>
+            await _syncContext.RunOnUiThreadAsync(() =>
             {
                 FilteredLogs.Refresh();
                 UpdateStatusText();
@@ -374,7 +355,7 @@ public partial class LogViewerViewModel : ObservableObject, IDisposable
 
     private async Task RefreshLogsAsync()
     {
-        await Task.Run(() =>
+        await Task.Run(async () =>
         {
             var logs = _logStorageService.GetAllLogs()
                 .OrderBy(log => log.Timestamp)
@@ -388,11 +369,7 @@ public partial class LogViewerViewModel : ObservableObject, IDisposable
                 .OrderBy(s => s)
                 .ToList();
 
-            var dispatcher = System.Windows.Application.Current?.Dispatcher;
-            if (dispatcher == null) return;
-
-            // Check if already on UI thread to avoid unnecessary context switch
-            if (dispatcher.CheckAccess())
+            await _syncContext.RunOnUiThreadAsync(() =>
             {
                 Logs.Clear();
                 foreach (var log in logs)
@@ -408,27 +385,7 @@ public partial class LogViewerViewModel : ObservableObject, IDisposable
                 {
                     AvailableSources.Add(source);
                 }
-            }
-            else
-            {
-                dispatcher.InvokeAsync(() =>
-                {
-                    Logs.Clear();
-                    foreach (var log in logs)
-                    {
-                        Logs.Add(log);
-                    }
-                    LogCount = Logs.Count;
-
-                    // Update available sources
-                    AvailableSources.Clear();
-                    AvailableSources.Add(string.Empty); // "All Sources"
-                    foreach (var source in sources)
-                    {
-                        AvailableSources.Add(source);
-                    }
-                });
-            }
+            });
         });
     }
 
@@ -446,11 +403,7 @@ public partial class LogViewerViewModel : ObservableObject, IDisposable
 
             var clients = clientsResult.Value;
 
-            var dispatcher = System.Windows.Application.Current?.Dispatcher;
-            if (dispatcher == null) return;
-
-            // Check if already on UI thread to avoid unnecessary context switch
-            if (dispatcher.CheckAccess())
+            await _syncContext.RunOnUiThreadAsync(() =>
             {
                 AvailableClients.Clear();
                 AvailableClients.Add("All Clients");
@@ -465,26 +418,7 @@ public partial class LogViewerViewModel : ObservableObject, IDisposable
                 {
                     SelectedClientId = "All Clients";
                 }
-            }
-            else
-            {
-                await dispatcher.InvokeAsync(() =>
-                {
-                    AvailableClients.Clear();
-                    AvailableClients.Add("All Clients");
-
-                    foreach (var client in clients.OrderBy(c => c.Name))
-                    {
-                        AvailableClients.Add(client.Id);
-                    }
-
-                    // Set default selection
-                    if (SelectedClientId == null && AvailableClients.Any())
-                    {
-                        SelectedClientId = "All Clients";
-                    }
-                });
-            }
+            });
         }
         catch (Exception ex)
         {
@@ -542,7 +476,7 @@ public partial class LogViewerViewModel : ObservableObject, IDisposable
                     var csv = new StringBuilder();
 
                     // Add header with filter information
-                    csv.AppendLine($"# Digital Signage Logs Export");
+                    csv.AppendLine("# Digital Signage Logs Export");
                     csv.AppendLine($"# Generated: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
                     csv.AppendLine($"# Total Logs: {logsToExport.Count}");
 
@@ -573,8 +507,7 @@ public partial class LogViewerViewModel : ObservableObject, IDisposable
 
                     await File.WriteAllTextAsync(saveFileDialog.FileName, csv.ToString());
 
-                    var dispatcher = System.Windows.Application.Current?.Dispatcher;
-                    dispatcher?.InvokeAsync(() =>
+                    await _syncContext.RunOnUiThreadAsync(() =>
                     {
                         StatusText = $"Exported {logsToExport.Count} logs to {Path.GetFileName(saveFileDialog.FileName)}";
                         _logger.LogInformation("Exported {Count} logs to CSV: {FileName}", logsToExport.Count, saveFileDialog.FileName);
@@ -637,8 +570,7 @@ public partial class LogViewerViewModel : ObservableObject, IDisposable
                     var fullExport = header.ToString() + exportText;
                     await File.WriteAllTextAsync(saveFileDialog.FileName, fullExport);
 
-                    var dispatcher = System.Windows.Application.Current?.Dispatcher;
-                    dispatcher?.InvokeAsync(() =>
+                    await _syncContext.RunOnUiThreadAsync(() =>
                     {
                         StatusText = $"Exported {logsToExport.Count} logs to {Path.GetFileName(saveFileDialog.FileName)}";
                         _logger.LogInformation("Exported {Count} logs to text: {FileName}", logsToExport.Count, saveFileDialog.FileName);
@@ -701,16 +633,15 @@ public partial class LogViewerViewModel : ObservableObject, IDisposable
                         })
                     };
 
-                    var options = new JsonSerializerOptions
+                    var options = new System.Text.Json.JsonSerializerOptions
                     {
                         WriteIndented = true
                     };
 
-                    var json = JsonSerializer.Serialize(exportData, options);
+                    var json = System.Text.Json.JsonSerializer.Serialize(exportData, options);
                     await File.WriteAllTextAsync(saveFileDialog.FileName, json);
 
-                    var dispatcher = System.Windows.Application.Current?.Dispatcher;
-                    dispatcher?.InvokeAsync(() =>
+                    await _syncContext.RunOnUiThreadAsync(() =>
                     {
                         StatusText = $"Exported {logsToExport.Count} logs to {Path.GetFileName(saveFileDialog.FileName)}";
                         _logger.LogInformation("Exported {Count} logs to JSON: {FileName}", logsToExport.Count, saveFileDialog.FileName);

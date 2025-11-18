@@ -273,6 +273,9 @@ public partial class App : Application
                 services.AddSingleton<ICommunicationService, WebSocketCommunicationService>();
                 services.AddSingleton<IDialogService, DialogService>();
 
+                // NEW: synchronization context abstraction for UI dispatching
+                services.AddSingleton<ISynchronizationContext, WpfSynchronizationContextService>();
+
                 // Register ThumbnailService and EnhancedMediaService for both interface and concrete type
                 services.AddSingleton<ThumbnailService>();
                 services.AddSingleton<EnhancedMediaService>();
