@@ -162,8 +162,25 @@ log_message "=========================================="
 # Check if X11 is already running and accessible
 log_message "Checking for existing X11 display..."
 
-# Try multiple displays in order of preference
-DISPLAY_CANDIDATES=(":0" ":1" "${DISPLAY}")
+# First, try to detect which display the Xorg server is actually running on
+# This is more reliable than guessing :0 or :1
+DETECTED_DISPLAY=""
+if command -v ps &>/dev/null; then
+    # Look for Xorg process and extract display number (e.g., ":1")
+    XORG_DISPLAY=$(ps aux | grep '[X]org' | grep -oP ':\d+' | head -1)
+    if [ -n "$XORG_DISPLAY" ]; then
+        log_message "✓ Detected Xorg running on $XORG_DISPLAY"
+        DETECTED_DISPLAY="$XORG_DISPLAY"
+    fi
+fi
+
+# Build candidate list with detected display first, then fallbacks
+if [ -n "$DETECTED_DISPLAY" ]; then
+    DISPLAY_CANDIDATES=("$DETECTED_DISPLAY" ":0" ":1" "${DISPLAY}")
+else
+    DISPLAY_CANDIDATES=(":0" ":1" "${DISPLAY}")
+fi
+
 X11_FOUND=false
 
 for DISPLAY_TEST in "${DISPLAY_CANDIDATES[@]}"; do
