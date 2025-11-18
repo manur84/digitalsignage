@@ -1405,14 +1405,55 @@ def main():
             test_mode()
             sys.exit(0)
 
+        # CRITICAL FIX: Configure Qt environment BEFORE creating QApplication
+        # This prevents X11/OpenGL crashes on Raspberry Pi
+        logger.info("Configuring Qt environment for Raspberry Pi...")
+
+        # Disable OpenGL acceleration - use software rendering to prevent crashes
+        # This fixes "X connection broken" errors on Pi
+        os.environ.setdefault('QT_XCB_GL_INTEGRATION', 'none')
+
+        # Ensure we use XCB platform plugin (X11)
+        os.environ.setdefault('QT_QPA_PLATFORM', 'xcb')
+
+        # Disable GPU acceleration in Qt WebEngine (if used)
+        os.environ.setdefault('QTWEBENGINE_CHROMIUM_FLAGS', '--disable-gpu')
+
+        # Set Qt to use software rendering
+        os.environ.setdefault('QT_QUICK_BACKEND', 'software')
+
+        logger.info("Qt environment configured:")
+        logger.info(f"  QT_XCB_GL_INTEGRATION = {os.environ.get('QT_XCB_GL_INTEGRATION')}")
+        logger.info(f"  QT_QPA_PLATFORM = {os.environ.get('QT_QPA_PLATFORM')}")
+        logger.info(f"  QT_QUICK_BACKEND = {os.environ.get('QT_QUICK_BACKEND')}")
+
         logger.info("Loading configuration...")
         config = Config.load()
         logger.info(f"Configuration loaded - Server: {config.server_host}:{config.server_port}")
 
         logger.info("Creating Qt application...")
         # Create Qt application for display rendering
-        app = QApplication(sys.argv)
-        logger.info("Qt application created successfully")
+        # CRITICAL: This must happen AFTER setting environment variables
+        try:
+            app = QApplication(sys.argv)
+            logger.info("Qt application created successfully")
+        except Exception as qt_error:
+            logger.error("=" * 70)
+            logger.error("FATAL: Failed to create Qt application")
+            logger.error("=" * 70)
+            logger.error(f"Error: {qt_error}")
+            logger.error("")
+            logger.error("This usually means:")
+            logger.error("  1. X11 display server is not running")
+            logger.error("  2. DISPLAY environment variable is not set")
+            logger.error("  3. OpenGL/graphics driver issue")
+            logger.error("")
+            logger.error("Troubleshooting:")
+            logger.error("  - Check DISPLAY: echo $DISPLAY")
+            logger.error("  - Start X11: sudo systemctl start lightdm")
+            logger.error("  - Check graphics: vcgencmd get_mem gpu")
+            logger.error("=" * 70)
+            raise
 
         logger.info("Initializing Digital Signage Client...")
         # Create and start client
@@ -1440,32 +1481,55 @@ def main():
         # CRITICAL FIX: Force window to front after creation (especially important after boot)
         # Problem: PyQt5 window may be created but not visible on HDMI after reboot
         # Solution: Explicitly raise and activate window multiple times with delay
-        client.display_renderer.raise_()
-        client.display_renderer.activateWindow()
-        client.display_renderer.setFocus()
+        try:
+            client.display_renderer.raise_()
+            client.display_renderer.activateWindow()
+            client.display_renderer.setFocus()
+            logger.debug("Initial window activation completed")
+        except Exception as e:
+            logger.warning(f"Initial window activation failed: {e}, continuing anyway")
 
         # Additional fix: Use QTimer to re-raise window after event loop starts
         # This ensures window is visible even if desktop is still loading
         def ensure_window_visible():
-            logger.info("Ensuring display window is visible and on top...")
-            client.display_renderer.raise_()
-            client.display_renderer.activateWindow()
-            client.display_renderer.setFocus()
-            client.display_renderer.showFullScreen() if config.fullscreen else client.display_renderer.show()
-            # If a status screen is active, raise it again so it stays above the renderer
             try:
-                ssm = client.display_renderer.status_screen_manager
-                if ssm and ssm.status_screen:
-                    ssm.status_screen.raise_()
-                    ssm.status_screen.activateWindow()
-                    ssm.status_screen.showFullScreen()
-                    logger.info("Status screen re-raised above display renderer")
+                logger.info("Ensuring display window is visible and on top...")
+                client.display_renderer.raise_()
+                client.display_renderer.activateWindow()
+                client.display_renderer.setFocus()
+
+                # Re-apply fullscreen/windowed mode
+                if config.fullscreen:
+                    if not client.display_renderer.isFullScreen():
+                        client.display_renderer.showFullScreen()
+                        logger.debug("  Re-applied fullscreen mode")
+                else:
+                    client.display_renderer.show()
+                    logger.debug("  Re-applied windowed mode")
+
+                # If a status screen is active, raise it again so it stays above the renderer
+                try:
+                    ssm = client.display_renderer.status_screen_manager
+                    if ssm and ssm.status_screen:
+                        ssm.status_screen.raise_()
+                        ssm.status_screen.activateWindow()
+                        ssm.status_screen.showFullScreen()
+                        logger.debug("  Status screen re-raised above display renderer")
+                except Exception as status_error:
+                    logger.warning(f"  Could not re-raise status screen: {status_error}")
+
+                logger.info("✓ Display window visibility ensured")
             except Exception as e:
-                logger.warning(f"Could not re-raise status screen: {e}")
-            logger.info("Display window visibility ensured")
+                logger.error(f"Failed to ensure window visibility: {e}")
+                import traceback
+                logger.error(traceback.format_exc())
 
         # Schedule window visibility check after 2 seconds (when event loop is running)
-        QTimer.singleShot(2000, ensure_window_visible)
+        try:
+            QTimer.singleShot(2000, ensure_window_visible)
+            logger.debug("Scheduled delayed window visibility check (2s)")
+        except Exception as e:
+            logger.warning(f"Failed to schedule delayed window check: {e}")
 
         logger.info("Display renderer created and shown")
 

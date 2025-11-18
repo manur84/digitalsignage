@@ -171,35 +171,80 @@ class DisplayRenderer(QWidget):
 
     def setup_ui(self):
         """Setup the UI"""
-        self.setWindowTitle("Digital Signage Display")
-        # Match the status screen background to avoid white flashes during initial discovery
-        self.setStyleSheet("background-color: #1a1a2e;")
-        self.setAutoFillBackground(True)
-        palette = self.palette()
-        palette.setColor(self.backgroundRole(), QColor("#1a1a2e"))
-        self.setPalette(palette)
+        try:
+            self.setWindowTitle("Digital Signage Display")
+            # Match the status screen background to avoid white flashes during initial discovery
+            self.setStyleSheet("background-color: #1a1a2e;")
+            self.setAutoFillBackground(True)
+            palette = self.palette()
+            palette.setColor(self.backgroundRole(), QColor("#1a1a2e"))
+            self.setPalette(palette)
 
-        if self.fullscreen:
-            self.showFullScreen()
-            self.setCursor(Qt.BlankCursor)  # Hide cursor
+            if self.fullscreen:
+                logger.info("Setting up fullscreen display...")
 
-            # CRITICAL FIX: Force window to be visible and on top after boot
-            # Problem: Window may be created but not visible on HDMI display after reboot
-            # Solution: Explicitly raise, activate and ensure window is on top
-            self.raise_()
-            self.activateWindow()
-            self.setWindowState(Qt.WindowFullScreen | Qt.WindowActive)
+                # CRITICAL FIX: Set window flags BEFORE showing to prevent X11 crashes
+                # Problem: Setting flags after show() can cause X11 to crash on Pi
+                # Solution: Configure window FIRST, then show
+                try:
+                    self.setWindowFlags(Qt.Window | Qt.FramelessWindowHint)
+                    logger.debug("  Window flags set (frameless)")
+                except Exception as e:
+                    logger.warning(f"  Failed to set window flags: {e}, continuing anyway")
 
-            # Additional fix: Set window flags to ensure it stays on top initially
-            self.setWindowFlags(Qt.Window | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
+                # Hide cursor
+                try:
+                    self.setCursor(Qt.BlankCursor)
+                    logger.debug("  Cursor hidden")
+                except Exception as e:
+                    logger.warning(f"  Failed to hide cursor: {e}, continuing anyway")
 
-            logger.info("Display renderer set to fullscreen with window activation")
-        else:
-            self.resize(1920, 1080)
-            self.show()
-            self.raise_()
-            self.activateWindow()
-            logger.info("Display renderer set to windowed mode")
+                # Show fullscreen
+                try:
+                    self.showFullScreen()
+                    logger.debug("  Fullscreen mode activated")
+                except Exception as e:
+                    logger.error(f"  Failed to show fullscreen: {e}")
+                    # Fallback to maximized window
+                    try:
+                        self.showMaximized()
+                        logger.info("  Fallback: Using maximized window instead")
+                    except Exception as max_error:
+                        logger.error(f"  Fallback also failed: {max_error}")
+                        # Last resort: just show the window
+                        self.show()
+
+                # Activate window (try multiple times with delay)
+                # This ensures the window is visible even if desktop is still loading
+                try:
+                    self.raise_()
+                    self.activateWindow()
+                    logger.debug("  Window raised and activated")
+                except Exception as e:
+                    logger.warning(f"  Failed to activate window: {e}, continuing anyway")
+
+                logger.info("✓ Display renderer set to fullscreen mode")
+            else:
+                logger.info("Setting up windowed display...")
+                self.resize(1920, 1080)
+                self.show()
+                self.raise_()
+                self.activateWindow()
+                logger.info("✓ Display renderer set to windowed mode")
+
+        except Exception as e:
+            logger.error(f"Failed to setup UI: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            # Try to at least show SOMETHING
+            try:
+                logger.warning("Attempting emergency fallback: basic window")
+                self.resize(800, 600)
+                self.show()
+                logger.info("Emergency fallback window created")
+            except Exception as fallback_error:
+                logger.error(f"Emergency fallback also failed: {fallback_error}")
+                raise  # Can't continue without a window
 
     async def render_layout(self, layout: Dict[str, Any], data: Optional[Dict[str, Any]] = None):
         """
