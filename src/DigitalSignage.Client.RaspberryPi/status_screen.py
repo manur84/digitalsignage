@@ -772,6 +772,7 @@ class StatusScreenManager:
         self.status_screen: Optional[StatusScreen] = None
         self.is_showing_status = False
         self._transition_timer = None  # Timer for smooth transitions
+        self._keep_alive_timer = None  # Timer to keep status screen on top
 
     def show_discovering_server(self, discovery_method: str = "Auto-Discovery"):
         """Show discovering server screen with smooth transition"""
@@ -831,6 +832,12 @@ class StatusScreenManager:
 
     def clear_status_screen(self):
         """Clear the status screen and prepare for layout display with smooth fade-out"""
+        # Stop keep-alive timer first
+        if self._keep_alive_timer:
+            self._keep_alive_timer.stop()
+            self._keep_alive_timer = None
+            logger.debug("Status screen keep-alive timer stopped")
+
         if self.status_screen:
             try:
                 # Stop any transition timer
@@ -840,14 +847,14 @@ class StatusScreenManager:
 
                 # Clean up animated widgets
                 self.status_screen.clear_screen()
-                
+
                 # Hide and schedule deletion
                 self.status_screen.hide()
-                
+
                 # Schedule deletion after a short delay to ensure smooth transition
                 from PyQt5.QtCore import QTimer
                 QTimer.singleShot(100, lambda: self._delete_status_screen())
-                
+
             except Exception as e:
                 logger.warning(f"Failed to clear status screen: {e}")
 
@@ -873,6 +880,36 @@ class StatusScreenManager:
 
         # CRITICAL FIX: Do NOT call processEvents() when using qasync
         # qasync automatically processes Qt events via the integrated event loop
+
+        # Start keep-alive timer to ensure status screen stays visible
+        self._start_keep_alive_timer()
+
+    def _start_keep_alive_timer(self):
+        """Start a timer to periodically re-raise the status screen to keep it visible"""
+        # Stop existing timer if any
+        if self._keep_alive_timer:
+            self._keep_alive_timer.stop()
+            self._keep_alive_timer = None
+
+        # Create new timer
+        from PyQt5.QtCore import QTimer
+        self._keep_alive_timer = QTimer()
+        self._keep_alive_timer.timeout.connect(self._keep_status_screen_on_top)
+        self._keep_alive_timer.start(1000)  # Re-raise every 1 second
+        logger.debug("Status screen keep-alive timer started (1s interval)")
+
+    def _keep_status_screen_on_top(self):
+        """Periodically called to ensure status screen stays on top"""
+        if self.status_screen and self.is_showing_status:
+            try:
+                # Re-raise the status screen to keep it above other windows
+                self.status_screen.raise_()
+                self.status_screen.activateWindow()
+                # Ensure it's still fullscreen
+                if not self.status_screen.isFullScreen():
+                    self.status_screen.showFullScreen()
+            except Exception as e:
+                logger.warning(f"Failed to keep status screen on top: {e}")
 
     def _ensure_status_screen(self):
         """Ensure status screen widget exists - OPTIMIZED for smooth creation"""
