@@ -15,6 +15,7 @@ using DigitalSignage.Server.Helpers;
 using DigitalSignage.Core.Interfaces;
 using DigitalSignage.Data;
 using DigitalSignage.Data.Services;
+using DigitalSignage.Server.Views;
 using Serilog;
 using static DigitalSignage.Server.Services.MessageHandlerService;
 
@@ -390,17 +391,27 @@ For detailed diagnostics, run:
             return;
         }
 
+        var originalShutdownMode = ShutdownMode;
+        SplashScreenWindow? splash = null;
+
         try
         {
+            ShutdownMode = ShutdownMode.OnExplicitShutdown; // Prevent the splash from becoming MainWindow
+            splash = SplashScreenWindow.ShowSplash("Digital Signage Server wird gestartet...");
+
             Log.Information("Starting application host...");
             await _host.StartAsync();
             Log.Information("Application host started successfully");
 
+            splash?.SetStatus("UI wird initialisiert...");
             Log.Information("Creating main window...");
             var mainWindow = _host.Services.GetRequiredService<Views.MainWindow>();
 
             // Set as application main window
             MainWindow = mainWindow;
+            ShutdownMode = originalShutdownMode; // restore default shutdown behavior
+
+            splash?.CloseSafely();
 
             mainWindow.WindowState = WindowState.Maximized;
             mainWindow.Show();
@@ -413,6 +424,9 @@ For detailed diagnostics, run:
         }
         catch (Exception ex)
         {
+            splash?.CloseSafely();
+            ShutdownMode = originalShutdownMode;
+
             Log.Fatal(ex, "Fatal error during startup");
 
             var emergencyLogPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "startup-error.txt");

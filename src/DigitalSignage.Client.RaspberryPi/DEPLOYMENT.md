@@ -171,6 +171,22 @@ sudo journalctl -u digitalsignage-client -f
 sudo journalctl -u digitalsignage-client -n 100
 ```
 
+## Optional: Branded Splash / Silent Boot on the Pi
+
+Hide boot messages and show your logo while the client starts:
+
+```bash
+cd /opt/digitalsignage-client
+sudo ./setup-splash-screen.sh /path/to/digisign-logo.png  # defaults to /digisign-logo.png
+sudo reboot
+```
+
+What the script does (idempotent):
+- Adds `disable_splash=1` to `/boot/config.txt`
+- Appends splash-friendly flags to `/boot/cmdline.txt` (keeps your existing entries)
+- Installs Plymouth with the PIX theme and swaps in your logo
+- Centers/scales the image for any resolution and shows it on boot/shutdown
+
 ## Installation (First Time)
 
 For a fresh installation on a new Raspberry Pi:

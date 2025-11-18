@@ -67,4 +67,12 @@
     </None>
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="..\..\digisign-logo.png"
+          Link="Assets\digisign-logo.png"
+          Condition="Exists('..\..\digisign-logo.png')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>
