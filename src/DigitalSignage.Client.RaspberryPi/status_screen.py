@@ -884,16 +884,49 @@ class StatusScreenManager:
 
     def __init__(self, display_renderer):
         """
-        Initialize status screen manager
+        Initialize status screen manager - EAGER creation to avoid Qt event loop deadlock
 
         Args:
             display_renderer: The DisplayRenderer instance to use for showing status screens
         """
         self.display_renderer = display_renderer
-        self.status_screen: Optional[StatusScreen] = None
         self.is_showing_status = False
         self._transition_timer = None  # Timer for smooth transitions
         self._keep_alive_timer = None  # Timer to keep status screen on top
+
+        # CRITICAL FIX: Create status screen IMMEDIATELY (not lazy)
+        # Qt Top-Level widgets MUST be created BEFORE event loop starts
+        # Creating them during event loop execution causes deadlock
+        logger.info("Creating status screen immediately (eager creation)...")
+
+        # Get screen dimensions
+        from PyQt5.QtWidgets import QApplication
+        screen = QApplication.primaryScreen()
+        if screen:
+            screen_geometry = screen.geometry()
+            width = screen_geometry.width()
+            height = screen_geometry.height()
+        else:
+            width = display_renderer.width()
+            height = display_renderer.height()
+
+        # Create status screen as Top-Level window (parent=None)
+        # This MUST happen before event loop starts
+        self.status_screen = StatusScreen(width, height, parent=None)
+
+        # Configure window flags
+        from PyQt5.QtCore import Qt
+        self.status_screen.setWindowFlags(
+            Qt.Window |
+            Qt.FramelessWindowHint |
+            Qt.WindowStaysOnTopHint
+        )
+
+        # Set geometry and hide initially
+        self.status_screen.setGeometry(0, 0, width, height)
+        self.status_screen.hide()  # Hidden until needed
+
+        logger.info(f"Status screen created eagerly: {width}x{height} (hidden)")
 
     def show_discovering_server(self, discovery_method: str = "Auto-Discovery"):
         """Show discovering server screen with smooth transition"""
@@ -962,7 +995,7 @@ class StatusScreenManager:
         await asyncio.sleep(5)
 
     def clear_status_screen(self):
-        """Clear the status screen and prepare for layout display with smooth fade-out"""
+        """Clear the status screen and prepare for layout display - EAGER mode (hide, not delete)"""
         # CRITICAL: Set flag FIRST to prevent race conditions with timers
         self.is_showing_status = False
 
@@ -984,31 +1017,26 @@ class StatusScreenManager:
                 # Clean up animated widgets
                 self.status_screen.clear_screen()
 
-                # Hide and schedule deletion
+                # EAGER MODE: Just hide, don't delete (will be reused next time)
                 self.status_screen.hide()
-
-                # Schedule deletion after a short delay to ensure smooth transition
-                from PyQt5.QtCore import QTimer
-                QTimer.singleShot(100, lambda: self._delete_status_screen())
+                logger.debug("Status screen hidden (eager mode - will be reused)")
 
             except Exception as e:
                 logger.warning(f"Failed to clear status screen: {e}")
 
-        logger.info("Status screen cleared (is_showing_status=False)")
-
-    def _delete_status_screen(self):
-        """Delete the status screen widget"""
-        if self.status_screen:
-            try:
-                self.status_screen.deleteLater()
-                self.status_screen = None
-            except Exception as e:
-                logger.warning(f"Failed to delete status screen: {e}")
+        logger.info("Status screen cleared and hidden (is_showing_status=False)")
 
     def _smooth_transition(self):
-        """Apply smooth transition effect to status screen updates"""
+        """Apply smooth transition effect to status screen updates - EAGER mode"""
         if not self.status_screen:
+            logger.error("CRITICAL: Status screen should exist in eager mode!")
             return
+
+        # Show the status screen (was hidden in __init__)
+        logger.debug("Showing status screen (was hidden)...")
+        self.status_screen.showFullScreen()
+        self.status_screen.raise_()
+        self.status_screen.activateWindow()
 
         # Force immediate repaint for smooth appearance
         self.status_screen.repaint()
@@ -1050,80 +1078,15 @@ class StatusScreenManager:
                 logger.warning(f"Failed to keep status screen on top: {e}")
 
     def _ensure_status_screen(self):
-        """Ensure status screen widget exists - OPTIMIZED for smooth creation"""
-        # If status screen exists and is valid, clear it for reuse instead of recreating
+        """Ensure status screen widget exists - SIMPLIFIED (eager creation)"""
+        # Status screen was already created in __init__
+        # Just clear it for reuse
         if self.status_screen:
             try:
-                # Clear existing content instead of destroying and recreating
                 self.status_screen.clear_screen()
-                logger.debug("Reusing existing status screen (cleared for new content)")
-                return
+                logger.debug("Status screen cleared for reuse")
             except Exception as e:
-                logger.warning(f"Failed to clear existing status screen, recreating: {e}")
-                try:
-                    self.status_screen.deleteLater()
-                except Exception:
-                    pass
-                self.status_screen = None
-
-        # Create new status screen only if needed
-        logger.info("Creating new status screen...")
-
-        # Get the actual screen dimensions
-        from PyQt5.QtWidgets import QApplication
-        screen = QApplication.primaryScreen()
-        if screen:
-            screen_geometry = screen.geometry()
-            width = screen_geometry.width()
-            height = screen_geometry.height()
-            logger.info(f"Using screen dimensions: {width}x{height}")
+                logger.error(f"Failed to clear status screen: {e}")
         else:
-            width = self.display_renderer.width()
-            height = self.display_renderer.height()
-            logger.warning(f"Could not get screen geometry, using widget dimensions: {width}x{height}")
-
-        # Create fresh status screen as a TOP-LEVEL window (not a child)
-        logger.debug("Creating StatusScreen object...")
-        self.status_screen = StatusScreen(width, height, parent=None)
-        logger.debug("✓ StatusScreen object created")
-
-        # Set window flags for frameless fullscreen overlay
-        from PyQt5.QtCore import Qt
-        logger.debug("Setting window flags...")
-        self.status_screen.setWindowFlags(
-            Qt.Window |
-            Qt.FramelessWindowHint |
-            Qt.WindowStaysOnTopHint
-        )
-        logger.debug("✓ Window flags set")
-
-        # Hide the mouse cursor
-        logger.debug("Hiding cursor...")
-        self.status_screen.setCursor(Qt.BlankCursor)
-        logger.debug("✓ Cursor hidden")
-
-        # Position at top-left and size to screen
-        logger.debug(f"Setting geometry: 0,0 {width}x{height}...")
-        self.status_screen.setGeometry(0, 0, width, height)
-        logger.debug(f"✓ Geometry set: 0,0 {width}x{height}")
-
-        # Show as fullscreen
-        logger.debug("Calling showFullScreen()...")
-        self.status_screen.showFullScreen()
-        logger.debug("✓ showFullScreen() returned")
-
-        logger.debug("Calling raise_()...")
-        self.status_screen.raise_()
-        logger.debug("✓ raise_() returned")
-
-        logger.debug("Calling activateWindow()...")
-        self.status_screen.activateWindow()
-        logger.debug("✓ activateWindow() returned")
-
-        # CRITICAL FIX: Do NOT call processEvents() when using qasync
-        # qasync automatically processes Qt events via the integrated event loop
-        logger.debug("Calling repaint()...")
-        self.status_screen.repaint()
-        logger.debug("✓ repaint() returned")
-
-        logger.info(f"Status screen created: size={width}x{height}, visible={self.status_screen.isVisible()}")
+            logger.error("CRITICAL: Status screen should have been created in __init__!")
+            raise RuntimeError("Status screen not initialized - this should never happen")
