@@ -386,6 +386,8 @@ REQUIRED_FILES=(
     "client.py"
     "config.py"
     "config_txt_manager.py"
+    "boot_logo_manager.py"
+    "shutdown_logo_display.py"
     "discovery.py"
     "device_manager.py"
     "display_renderer.py"
@@ -395,8 +397,8 @@ REQUIRED_FILES=(
     "web_interface.py"
     "burn_in_protection.py"
     "start-with-display.sh"
-       "setup-splash-screen.sh"
-        "digisign-logo.png"
+    "setup-splash-screen.sh"
+    "digisign-logo.png"
 )
 
 COPIED_COUNT=0
@@ -447,7 +449,7 @@ echo "----------------------------------------"
 
     # Check if critical files are missing
     CRITICAL_MISSING=false
-    for file in "client.py" "display_renderer.py" "config.py"; do
+    for file in "client.py" "display_renderer.py" "config.py" "boot_logo_manager.py" "shutdown_logo_display.py"; do
         if [[ " ${MISSING_FILES[@]} " =~ " ${file} " ]]; then
             CRITICAL_MISSING=true
             break
@@ -535,15 +537,17 @@ else
     show_warning "setup-splash-screen.sh not found; skipping splash setup"
 fi
 
-# [9/10] Install systemd service
-show_step "Installing systemd service..."
+# [9/10] Install systemd services
+show_step "Installing systemd services..."
+
+# Main client service
 if [ -f "$SCRIPT_DIR/digitalsignage-client.service" ]; then
     sed "s/INSTALL_USER/$ACTUAL_USER/g" "$SCRIPT_DIR/digitalsignage-client.service" | \
     sed "s|/usr/bin/python3|$VENV_DIR/bin/python3|g" > /tmp/digitalsignage-client.service
 
     cp /tmp/digitalsignage-client.service "$SERVICE_FILE"
     rm /tmp/digitalsignage-client.service
-    show_success "Service file installed"
+    show_success "Service file installed: $SERVICE_FILE"
 else
     show_warning "digitalsignage-client.service not found, creating basic service..."
     cat > "$SERVICE_FILE" <<EOF
@@ -575,6 +579,19 @@ StandardError=journal
 WantedBy=graphical.target
 EOF
     show_success "Basic service file created"
+fi
+
+# Shutdown logo service (for graceful shutdown with branded logo)
+SHUTDOWN_SERVICE_FILE="/etc/systemd/system/digitalsignage-client-shutdown.service"
+if [ -f "$SCRIPT_DIR/digitalsignage-client-shutdown.service" ]; then
+    sed "s/INSTALL_USER/$ACTUAL_USER/g" "$SCRIPT_DIR/digitalsignage-client-shutdown.service" | \
+    sed "s|/usr/bin/python3|$VENV_DIR/bin/python3|g" > /tmp/digitalsignage-client-shutdown.service
+
+    cp /tmp/digitalsignage-client-shutdown.service "$SHUTDOWN_SERVICE_FILE"
+    rm /tmp/digitalsignage-client-shutdown.service
+    show_success "Shutdown service file installed: $SHUTDOWN_SERVICE_FILE"
+else
+    show_info "digitalsignage-client-shutdown.service not found (optional)"
 fi
 
 systemctl daemon-reload

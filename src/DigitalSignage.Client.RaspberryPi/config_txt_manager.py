@@ -277,6 +277,35 @@ def setup_custom_boot_logo(logo_path: str = None) -> bool:
     """
     Setup a custom boot logo for Raspberry Pi.
 
+    Uses the BootLogoManager class from boot_logo_manager.py for comprehensive setup.
+
+    Args:
+        logo_path: Path to the custom logo image. If None, auto-discovers it.
+
+    Returns:
+        True if successful, False otherwise.
+    """
+    try:
+        # Try to use the dedicated boot_logo_manager if available
+        try:
+            from boot_logo_manager import BootLogoManager
+
+            manager = BootLogoManager(logo_path)
+            return manager.setup_all()
+
+        except ImportError:
+            logger.warning("boot_logo_manager module not available, using fallback method")
+            return _setup_boot_logo_fallback(logo_path)
+
+    except Exception as e:
+        logger.error(f"Failed to setup boot logo: {e}")
+        return False
+
+
+def _setup_boot_logo_fallback(logo_path: str = None) -> bool:
+    """
+    Fallback method to setup boot logo without boot_logo_manager dependency.
+
     Args:
         logo_path: Path to the custom logo image. If None, creates a black image.
 
@@ -284,6 +313,8 @@ def setup_custom_boot_logo(logo_path: str = None) -> bool:
         True if successful, False otherwise.
     """
     try:
+        import shutil
+
         boot_dirs = ["/boot", "/boot/firmware"]
         boot_dir = None
 
@@ -301,30 +332,46 @@ def setup_custom_boot_logo(logo_path: str = None) -> bool:
 
         if logo_path and os.path.exists(logo_path):
             # Copy custom logo
-            import shutil
             shutil.copy2(logo_path, splash_path)
             logger.info(f"Custom boot logo copied to {splash_path}")
         else:
-            # Create a black splash screen to hide boot messages
-            try:
-                from PIL import Image
-                # Create a black 1920x1080 image
-                img = Image.new('RGB', (1920, 1080), color='black')
-                img.save(splash_path)
-                logger.info(f"Black splash screen created at {splash_path}")
-            except ImportError:
-                logger.warning("PIL not available, cannot create splash screen")
-                # Try to create using ImageMagick if available
+            # Try to find logo in standard locations
+            logo_candidates = [
+                "/opt/digitalsignage-client/digisign-logo.png",
+                Path.home() / "digitalsignage/src/DigitalSignage.Client.RaspberryPi/digisign-logo.png",
+                "/digisign-logo.png",
+            ]
+
+            logo_found = False
+            for candidate in logo_candidates:
+                candidate_path = Path(candidate)
+                if candidate_path.exists():
+                    shutil.copy2(str(candidate_path), splash_path)
+                    logger.info(f"Boot logo copied from {candidate_path} to {splash_path}")
+                    logo_found = True
+                    break
+
+            if not logo_found:
+                # Create a black splash screen to hide boot messages
                 try:
-                    subprocess.run(
-                        ["convert", "-size", "1920x1080", "xc:black", splash_path],
-                        check=True,
-                        capture_output=True
-                    )
-                    logger.info(f"Black splash screen created using ImageMagick at {splash_path}")
-                except (subprocess.CalledProcessError, FileNotFoundError):
-                    logger.error("Neither PIL nor ImageMagick available to create splash screen")
-                    return False
+                    from PIL import Image
+                    # Create a black 1920x1080 image
+                    img = Image.new('RGB', (1920, 1080), color='black')
+                    img.save(splash_path)
+                    logger.info(f"Black splash screen created at {splash_path}")
+                except ImportError:
+                    logger.warning("PIL not available, cannot create splash screen")
+                    # Try to create using ImageMagick if available
+                    try:
+                        subprocess.run(
+                            ["convert", "-size", "1920x1080", "xc:black", splash_path],
+                            check=True,
+                            capture_output=True
+                        )
+                        logger.info(f"Black splash screen created using ImageMagick at {splash_path}")
+                    except (subprocess.CalledProcessError, FileNotFoundError):
+                        logger.error("Neither PIL nor ImageMagick available to create splash screen")
+                        return False
 
         # Update cmdline.txt to use the splash screen
         cmdline_path = os.path.join(boot_dir, "cmdline.txt")
@@ -333,15 +380,23 @@ def setup_custom_boot_logo(logo_path: str = None) -> bool:
                 with open(cmdline_path, 'r') as f:
                     cmdline = f.read().strip()
 
-                # Add quiet and splash parameters if not present
-                if "quiet" not in cmdline:
-                    cmdline += " quiet"
-                if "splash" not in cmdline:
-                    cmdline += " splash"
-                if "logo.nologo" not in cmdline:
-                    cmdline += " logo.nologo"
-                if "vt.global_cursor_default=0" not in cmdline:
-                    cmdline += " vt.global_cursor_default=0"
+                # Kernel parameters for quiet boot with splash
+                boot_params = {
+                    "quiet": True,
+                    "splash": True,
+                    "logo.nologo": True,
+                    "vt.global_cursor_default=0": True,
+                    "loglevel=1": True,
+                    "plymouth.ignore-serial-consoles": True,
+                }
+
+                # Add missing parameters
+                tokens = cmdline.split()
+                for param in boot_params.keys():
+                    if param not in tokens:
+                        tokens.append(param)
+
+                cmdline = " ".join(tokens)
 
                 with open(cmdline_path, 'w') as f:
                     f.write(cmdline + "\n")
@@ -351,10 +406,29 @@ def setup_custom_boot_logo(logo_path: str = None) -> bool:
                 logger.error(f"Failed to update cmdline.txt: {e}")
                 return False
 
+        # Update config.txt to disable default splash
+        config_path = os.path.join(boot_dir, "config.txt")
+        if os.path.exists(config_path):
+            try:
+                with open(config_path, 'r') as f:
+                    config_lines = f.readlines()
+
+                if not any("disable_splash" in line for line in config_lines):
+                    config_lines.append("\n# Disable default rainbow splash\n")
+                    config_lines.append("disable_splash=1\n")
+
+                with open(config_path, 'w') as f:
+                    f.writelines(config_lines)
+
+                logger.info("Updated config.txt to disable default splash")
+            except Exception as e:
+                logger.error(f"Failed to update config.txt: {e}")
+                return False
+
         return True
 
     except Exception as e:
-        logger.error(f"Failed to setup boot logo: {e}")
+        logger.error(f"Failed to setup boot logo (fallback): {e}")
         return False
 
 

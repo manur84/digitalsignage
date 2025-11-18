@@ -1,0 +1,37 @@
+[Unit]
+Description=Digital Signage Client - Shutdown Logo Display
+Documentation=man:systemd.special(7)
+DefaultDependencies=no
+Before=shutdown.target umount.target final.target
+Conflicts=shutdown.target
+
+# Only run on actual Raspberry Pi devices with displays
+ConditionVirtualization=!container
+ConditionPathExists=/opt/digitalsignage-client/shutdown_logo_display.py
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+WorkingDirectory=/opt/digitalsignage-client
+
+# Setup environment for X11 if available
+Environment="DISPLAY=:0"
+Environment="XAUTHORITY=/home/INSTALL_USER/.Xauthority"
+
+# Show shutdown logo
+ExecStart=/opt/digitalsignage-client/venv/bin/python3 /opt/digitalsignage-client/shutdown_logo_display.py
+
+# Cleanup on timeout
+TimeoutStopSec=35
+
+# Don't restart on exit
+RemainAfterExit=yes
+
+# Capture output
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ds-shutdown
+
+[Install]
+WantedBy=shutdown.target
