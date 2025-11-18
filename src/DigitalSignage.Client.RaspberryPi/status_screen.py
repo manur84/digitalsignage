@@ -151,7 +151,6 @@ class StatusScreen(QWidget):
         self.setPalette(palette)
 
         # CRITICAL FIX: Hide cursor to prevent mouse pointer appearing on touch
-        from PyQt5.QtCore import Qt
         self.setCursor(Qt.BlankCursor)
 
         # Calculate scaled dimensions for responsive layout
@@ -915,7 +914,6 @@ class StatusScreenManager:
         self.status_screen = StatusScreen(width, height, parent=None)
 
         # Configure window flags
-        from PyQt5.QtCore import Qt
         self.status_screen.setWindowFlags(
             Qt.Window |
             Qt.FramelessWindowHint |
