@@ -1207,8 +1207,8 @@ if [ "$DEPLOYMENT_MODE" = "1" ] && [ -f "$INSTALL_DIR/setup-splash-screen.sh" ] 
     echo ""
 
     if [ "$NON_INTERACTIVE" = "1" ]; then
-        REPLY="n"
-        echo "Non-interactive mode: Skipping splash screen setup (run manually later)"
+        REPLY="y"
+        echo "Non-interactive mode: Auto-configuring splash screen (logo detected)"
     else
         read -p "Configure boot splash screen now? (y/N): " -n 1 -r
         echo ""

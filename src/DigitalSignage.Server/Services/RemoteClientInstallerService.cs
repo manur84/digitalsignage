@@ -403,12 +403,18 @@ fi
             progress?.Report("Logo und Skript gefunden. Richte Splash-Screen ein...");
 
             // Run splash screen setup
+            // IMPORTANT: Copy logo to /digisign-logo.png first (Plymouth expects it there)
             var splashScript = $@"
 set -e
 cd '{RemoteInstallDir}'
 if [ -f ./digisign-logo.png ] && [ -f ./setup-splash-screen.sh ]; then
+    # Copy logo to root directory for Plymouth
+    cp ./digisign-logo.png /digisign-logo.png
+    chmod 644 /digisign-logo.png
+
+    # Make setup script executable and run it
     chmod +x ./setup-splash-screen.sh
-    ./setup-splash-screen.sh ./digisign-logo.png
+    ./setup-splash-screen.sh /digisign-logo.png
     echo 'SPLASH_SETUP_SUCCESS'
 else
     echo 'SPLASH_SETUP_FAILED'
