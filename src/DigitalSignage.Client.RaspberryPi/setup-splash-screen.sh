@@ -53,11 +53,13 @@ require_logo() {
 }
 
 append_config_txt() {
-  if ! grep -Eq '^disable_splash=1' "$CONFIG_TXT"; then
-    echo "disable_splash=1" >>"$CONFIG_TXT"
-    echo "Added disable_splash=1 to $CONFIG_TXT"
+  # CRITICAL FIX: REMOVE/COMMENT disable_splash=1 to ENABLE Plymouth splash screen
+  # disable_splash=1 DISABLES the splash screen - we want it ENABLED!
+  if grep -Eq '^disable_splash=1' "$CONFIG_TXT"; then
+    sed -i 's/^disable_splash=1/#disable_splash=1 # Commented by Digital Signage setup/' "$CONFIG_TXT"
+    echo "Commented out disable_splash=1 in $CONFIG_TXT (enables splash screen)"
   else
-    echo "disable_splash=1 already present in $CONFIG_TXT"
+    echo "disable_splash not found or already disabled in $CONFIG_TXT"
   fi
 }
 

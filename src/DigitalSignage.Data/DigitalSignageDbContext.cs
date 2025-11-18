@@ -135,6 +135,11 @@ public class DigitalSignageDbContext : DbContext
             entity.Property(e => e.BackgroundImage).HasMaxLength(500);
             entity.Property(e => e.BackgroundColor).HasMaxLength(20);
 
+            // CRITICAL FIX: Add missing properties that are in the model
+            entity.Property(e => e.FileName).HasMaxLength(500);
+            entity.Property(e => e.PngContentBase64); // TEXT for Base64 string
+            entity.Property(e => e.LayoutType).HasMaxLength(50);
+
             // Store Resolution as JSON
             entity.OwnsOne(e => e.Resolution, r =>
             {
