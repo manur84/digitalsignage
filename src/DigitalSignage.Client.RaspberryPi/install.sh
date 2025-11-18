@@ -1088,9 +1088,12 @@ if [ "$DEPLOYMENT_MODE" = "1" ]; then
     mkdir -p "$LXDE_AUTOSTART_DIR"
 
     # Create LXDE autostart override (this REPLACES default autostart behavior)
+    # NOTE: The Digital Signage client is started by systemd service, NOT by LXDE autostart!
+    # This prevents duplicate instances and ensures proper service management
     cat > "$LXDE_AUTOSTART_DIR/autostart" <<'EOF'
 # Digital Signage - LXDE Autostart Override
 # This file PREVENTS default desktop components (terminal, taskbar, etc.)
+# The Digital Signage client is started by systemd, not here!
 
 # Screen settings
 @xset s off
@@ -1102,12 +1105,11 @@ if [ "$DEPLOYMENT_MODE" = "1" ]; then
 
 # CRITICAL: Do NOT start lxterminal (default behavior)
 # CRITICAL: Do NOT start pcmanfm desktop
-# CRITICAL: Start Digital Signage client ONLY
-@/opt/digitalsignage-client/start-with-display.sh
+# CRITICAL: Do NOT start digitalsignage client here - systemd service handles it!
 EOF
 
     chown "$ACTUAL_USER:$ACTUAL_USER" "$LXDE_AUTOSTART_DIR/autostart"
-    show_success "LXDE autostart configured (terminal DISABLED, Digital Signage ONLY)"
+    show_success "LXDE autostart configured (terminal/desktop DISABLED, screen settings ONLY)"
 
     # Also disable pcmanfm desktop (file manager/desktop icons) to keep it clean
     PCMANFM_CONFIG="$USER_HOME/.config/pcmanfm/LXDE-pi/desktop-items-0.conf"
@@ -1138,34 +1140,39 @@ EOF
         show_warning "config_txt_manager.py not found; skipping config.txt update"
     fi
 
-    # BACKUP SOLUTION: .xinitrc and .bash_profile for boot-to-console setups
-    # This ensures X11 auto-starts even if LXDE desktop is disabled
-    if [ ! -f "$USER_HOME/.xinitrc" ] || ! grep -q "start-with-display.sh" "$USER_HOME/.xinitrc"; then
+    # BACKUP SOLUTION: .xinitrc for boot-to-console setups
+    # This only starts LXDE desktop environment - systemd service will start the client!
+    # NOTE: With B4 (Desktop Autologin), this file is NOT used - LXDE starts automatically
+    if [ ! -f "$USER_HOME/.xinitrc" ] || ! grep -q "Digital Signage" "$USER_HOME/.xinitrc"; then
         cat > "$USER_HOME/.xinitrc" <<'EOF'
 #!/bin/sh
 # Digital Signage Client - X11 startup configuration
+# NOTE: Client is started by systemd service, not here!
 xset -dpms
 xset s off
 xset s noblank
 unclutter -idle 0.1 -root &
-exec /opt/digitalsignage-client/start-with-display.sh
+# Start LXDE desktop environment (client will be started by systemd)
+exec startlxde-pi
 EOF
         chown "$ACTUAL_USER:$ACTUAL_USER" "$USER_HOME/.xinitrc"
         chmod +x "$USER_HOME/.xinitrc"
-        show_success ".xinitrc created (backup X11 config)"
+        show_success ".xinitrc created (X11 settings + LXDE startup)"
     fi
 
-    # Auto-start X11 on tty1 login (works with boot-to-console)
+    # Auto-start X11 on tty1 login (works with boot-to-console mode B2)
+    # NOTE: With B4 (Desktop Autologin), this is not needed but doesn't hurt
     if [ ! -f "$USER_HOME/.bash_profile" ] || ! grep -q "startx" "$USER_HOME/.bash_profile"; then
         cat >> "$USER_HOME/.bash_profile" <<'EOF'
 
 # Auto-start X11 on tty1 login for Digital Signage
+# Only used with boot-to-console mode (B2), not with Desktop Autologin (B4)
 if [ -z "$DISPLAY" ] && [ "$(tty)" = "/dev/tty1" ]; then
     exec startx
 fi
 EOF
         chown "$ACTUAL_USER:$ACTUAL_USER" "$USER_HOME/.bash_profile"
-        show_success ".bash_profile configured (auto-start X11 on tty1)"
+        show_success ".bash_profile configured (auto-start X11 on tty1 for console mode)"
     fi
 
     echo ""

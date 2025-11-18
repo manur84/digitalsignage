@@ -1,12 +1,29 @@
 #!/bin/bash
 #
-# Enable Automatic X11 Start on Raspberry Pi OS
-# For production Digital Signage deployments with physical displays
+# DEPRECATED: This script is no longer needed!
+# The install.sh script now handles all auto-login and X11 configuration automatically.
+#
+# Please use: sudo ./install.sh
+#
+# This script is kept for backward compatibility but should not be used for new installations.
 #
 
 echo "========================================================================"
-echo "Raspberry Pi Digital Signage - X11 Auto-Start Setup"
+echo "DEPRECATED SCRIPT"
 echo "========================================================================"
+echo ""
+echo "WARNING: This script (enable-autologin-x11.sh) is deprecated!"
+echo ""
+echo "The install.sh script now handles all auto-login configuration automatically."
+echo "Please run: sudo ./install.sh"
+echo ""
+echo "Do you want to continue anyway? (NOT recommended) [y/N]: "
+read -n 1 -r
+echo ""
+if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    echo "Aborted. Please run: sudo ./install.sh"
+    exit 0
+fi
 echo ""
 
 # Check if running as root
