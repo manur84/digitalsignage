@@ -172,6 +172,10 @@ public class RemoteClientInstallerService
             // Wenn install.sh durch ist, immer als Erfolg behandeln und Verbindung schließen.
             if (installMarkerSeen)
             {
+                // FEATURE: Nach erfolgreicher Installation auch Splash-Screen einrichten (falls Logo verfügbar)
+                progress?.Report("Installation abgeschlossen. Prüfe Splash-Screen-Setup...");
+                await SetupSplashScreenAsync(ssh, username, password, cancellationToken, progress);
+
                 progress?.Report("Installations-Marker empfangen; Verbindung wird beendet.");
                 return Result.Success("Installation abgeschlossen (Marker empfangen). Gerät rebootet ggf.");
             }
@@ -186,6 +190,10 @@ public class RemoteClientInstallerService
             {
                 throw commandException;
             }
+
+            // FEATURE: Nach erfolgreicher Installation auch Splash-Screen einrichten (falls Logo verfügbar)
+            progress?.Report("Installation abgeschlossen. Prüfe Splash-Screen-Setup...");
+            await SetupSplashScreenAsync(ssh, username, password, cancellationToken, progress);
 
             // Auch ohne Marker: nach regulärem Ende als Erfolg melden und beenden.
             progress?.Report("install.sh beendet; Verbindung wird beendet.");
@@ -334,6 +342,81 @@ public class RemoteClientInstallerService
         }
 
         return $"sudo /bin/bash '{normalizedPath}'";
+    }
+
+    /// <summary>
+    /// Configures boot splash screen with the DigitalSignage logo after installation.
+    /// </summary>
+    private async Task SetupSplashScreenAsync(SshClient ssh, string username, string password, CancellationToken cancellationToken, IProgress<string>? progress)
+    {
+        try
+        {
+            var isRoot = string.Equals(username, "root", StringComparison.OrdinalIgnoreCase);
+            var escapedPassword = password.Replace("'", "'\"'\"'");
+
+            // Check if logo and setup script exist in install directory
+            var checkScript = $@"
+set -e
+if [ -f '{RemoteInstallDir}/digisign-logo.png' ] && [ -f '{RemoteInstallDir}/setup-splash-screen.sh' ]; then
+    echo 'SPLASH_AVAILABLE'
+else
+    echo 'SPLASH_NOT_AVAILABLE'
+fi
+".Replace("\r\n", "\n").Replace("\r", "\n");
+
+            var escapedCheck = checkScript.Replace("'", "'\"'\"'");
+            var checkCommand = isRoot
+                ? $"bash -lc '{escapedCheck}'"
+                : $"printf '%s\\n' '{escapedPassword}' | sudo -S bash -lc '{escapedCheck}'";
+
+            var checkCmd = ssh.CreateCommand(checkCommand);
+            checkCmd.CommandTimeout = TimeSpan.FromSeconds(10);
+            var checkResult = await Task.Run(() => checkCmd.Execute(), cancellationToken);
+
+            if (checkResult?.Contains("SPLASH_NOT_AVAILABLE", StringComparison.OrdinalIgnoreCase) == true)
+            {
+                progress?.Report("Splash-Screen-Setup übersprungen (Logo oder Skript nicht gefunden)");
+                return;
+            }
+
+            progress?.Report("Logo und Skript gefunden. Richte Splash-Screen ein...");
+
+            // Run splash screen setup
+            var splashScript = $@"
+set -e
+cd '{RemoteInstallDir}'
+if [ -f ./digisign-logo.png ] && [ -f ./setup-splash-screen.sh ]; then
+    chmod +x ./setup-splash-screen.sh
+    ./setup-splash-screen.sh ./digisign-logo.png
+    echo 'SPLASH_SETUP_SUCCESS'
+else
+    echo 'SPLASH_SETUP_FAILED'
+fi
+".Replace("\r\n", "\n").Replace("\r", "\n");
+
+            var escapedSplash = splashScript.Replace("'", "'\"'\"'");
+            var splashCommand = isRoot
+                ? $"bash -lc '{escapedSplash}'"
+                : $"printf '%s\\n' '{escapedPassword}' | sudo -S bash -lc '{escapedSplash}'";
+
+            var splashCmd = ssh.CreateCommand(splashCommand);
+            splashCmd.CommandTimeout = TimeSpan.FromSeconds(60);
+            var splashOutput = await Task.Run(() => splashCmd.Execute(), cancellationToken);
+
+            if (splashOutput?.Contains("SPLASH_SETUP_SUCCESS", StringComparison.OrdinalIgnoreCase) == true)
+            {
+                progress?.Report("✓ Splash-Screen erfolgreich eingerichtet");
+            }
+            else
+            {
+                progress?.Report("⚠ Splash-Screen-Setup fehlgeschlagen (nicht kritisch)");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Splash screen setup failed (non-critical)");
+            progress?.Report("⚠ Splash-Screen-Setup übersprungen (Fehler, nicht kritisch)");
+        }
     }
 
     private async Task ForceFreshInstallAsync(SshClient ssh, string username, string password, CancellationToken cancellationToken, IProgress<string>? progress)
