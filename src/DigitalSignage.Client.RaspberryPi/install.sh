@@ -27,12 +27,10 @@ NC='\033[0m' # No Color
 INSTALL_DIR="/opt/digitalsignage-client"
 SERVICE_NAME="digitalsignage-client"
 SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
-# Default to non-interactive (auto-answers) unless DS_NONINTERACTIVE=0 is set from outside
-NON_INTERACTIVE=${DS_NONINTERACTIVE:-1}
-COMPLETE_MARKER="__DS_INSTALL_COMPLETE__"
-echo "==============================================================="
+
+echo "════════════════════════════════════════════════════════════"
 echo "  Digital Signage Client - Smart Installer"
-echo "==============================================================="
+echo "════════════════════════════════════════════════════════════"
 echo ""
 
 # Check if running as root
@@ -70,7 +68,7 @@ echo ""
 # ========================================
 
 echo "Detecting installation status..."
-echo "---------------------------------------------------------------"
+echo "────────────────────────────────────────────────────────────"
 
 MODE="INSTALL"
 GIT_REPO_EXISTS=false
@@ -80,61 +78,51 @@ CONFIG_EXISTS=false
 
 # Check for existing installation
 if [ -d "$INSTALL_DIR" ]; then
-    echo -e "${GREEN}[OK]${NC} Installation directory found: $INSTALL_DIR"
+    echo -e "${GREEN}✓${NC} Installation directory found: $INSTALL_DIR"
 
     if [ -d "$INSTALL_DIR/.git" ]; then
         GIT_REPO_EXISTS=true
-        echo -e "${GREEN}[OK]${NC} Git repository exists"
+        echo -e "${GREEN}✓${NC} Git repository exists"
     fi
 
     if [ -d "$VENV_DIR" ]; then
         VENV_EXISTS=true
-        echo -e "${GREEN}[OK]${NC} Virtual environment exists"
+        echo -e "${GREEN}✓${NC} Virtual environment exists"
     fi
 
     if [ -f "$INSTALL_DIR/config.py" ]; then
         CONFIG_EXISTS=true
-        echo -e "${GREEN}[OK]${NC} Configuration file exists"
+        echo -e "${GREEN}✓${NC} Configuration file exists"
     fi
 else
-    echo -e "${YELLOW}[!]${NC} No installation directory found"
+    echo -e "${YELLOW}✗${NC} No installation directory found"
 fi
 
 if [ -f "$SERVICE_FILE" ]; then
     SERVICE_INSTALLED=true
-    echo -e "${GREEN}[OK]${NC} Service installed"
+    echo -e "${GREEN}✓${NC} Service installed"
 
     if systemctl is-active --quiet $SERVICE_NAME; then
-        echo -e "${GREEN}[OK]${NC} Service running"
+        echo -e "${GREEN}✓${NC} Service running"
     else
-        echo -e "${YELLOW}[!]${NC} Service not running"
+        echo -e "${YELLOW}⚠${NC} Service not running"
     fi
 else
-    echo -e "${YELLOW}[!]${NC} Service not installed"
+    echo -e "${YELLOW}✗${NC} Service not installed"
 fi
 
 # Determine MODE
 if [ -d "$INSTALL_DIR" ] && [ "$SERVICE_INSTALLED" = true ]; then
     MODE="UPDATE"
     echo ""
-    echo -e "${BLUE}Mode: [*] UPDATE${NC}"
+    echo -e "${BLUE}Mode: 🔄 UPDATE${NC}"
 else
     MODE="INSTALL"
     echo ""
-    echo -e "${BLUE}Mode: [*] INSTALL${NC}"
+    echo -e "${BLUE}Mode: 📦 INSTALL${NC}"
 fi
 
-# Remote installer can explicitly force UPDATE mode via environment variable
-if [ "$DS_UPDATE_MODE" = "1" ]; then
-    MODE="UPDATE"
-    echo -e "${BLUE}Remote installer: forcing UPDATE mode${NC}"
-# Otherwise, force fresh install in non-interactive mode to avoid hanging prompts
-elif [ "$NON_INTERACTIVE" = "1" ]; then
-    MODE="INSTALL"
-    echo -e "${BLUE}Non-interactive: forcing fresh INSTALL${NC}"
-fi
-
-echo "==============================================================="
+echo "════════════════════════════════════════════════════════════"
 echo ""
 
 # ========================================
@@ -152,21 +140,21 @@ function show_step() {
 
 function check_error() {
     if [ $? -ne 0 ]; then
-        echo -e "${RED}[X] Error: $1${NC}"
+        echo -e "${RED}✗ Error: $1${NC}"
         exit 1
     fi
 }
 
 function show_success() {
-    echo -e "${GREEN}[OK] $1${NC}"
+    echo -e "${GREEN}✓ $1${NC}"
 }
 
 function show_warning() {
-    echo -e "${YELLOW}[!] $1${NC}"
+    echo -e "${YELLOW}⚠ $1${NC}"
 }
 
 function show_info() {
-    echo -e "${BLUE}[i] $1${NC}"
+    echo -e "${BLUE}ℹ $1${NC}"
 }
 
 # ========================================
@@ -226,9 +214,9 @@ check_hdmi_display() {
 if [ "$MODE" = "UPDATE" ]; then
     TOTAL_STEPS=9
 
-    echo "==============================================================="
+    echo "════════════════════════════════════════════════════════════"
     echo "  UPDATE MODE - Updating Existing Installation"
-    echo "==============================================================="
+    echo "════════════════════════════════════════════════════════════"
     echo ""
 
     # [1/9] Stop service
@@ -308,12 +296,12 @@ if [ "$MODE" = "UPDATE" ]; then
         if [ -f "$SCRIPT_DIR/$file" ]; then
             if cp "$SCRIPT_DIR/$file" "$INSTALL_DIR/" 2>/dev/null; then
                 ((COPIED_COUNT++))
-                echo "  [OK] $file"
+                echo "  ✓ $file"
             else
-                echo -e "  ${YELLOW}[!] Failed to copy: $file${NC}"
+                echo -e "  ${YELLOW}⚠ Failed to copy: $file${NC}"
             fi
         else
-            echo -e "  ${RED}[X] Missing: $file${NC}"
+            echo -e "  ${RED}✗ Missing: $file${NC}"
             MISSING_FILES+=("$file")
         fi
     done
@@ -326,7 +314,6 @@ if [ "$MODE" = "UPDATE" ]; then
         "fix-installation.sh"
         "enable-autologin-x11.sh"
         "check-autostart.sh"
-        "setup-splash-screen.sh"
         "TROUBLESHOOTING.md"
     )
 
@@ -339,7 +326,7 @@ if [ "$MODE" = "UPDATE" ]; then
 
     if [ ${#MISSING_FILES[@]} -gt 0 ]; then
         echo ""
-        echo -e "${YELLOW}[!] Warning: Some files were not found in source:${NC}"
+        echo -e "${YELLOW}⚠ Warning: Some files were not found in source:${NC}"
         for file in "${MISSING_FILES[@]}"; do
             echo "  - $file"
         done
@@ -355,16 +342,16 @@ if [ "$MODE" = "UPDATE" ]; then
         done
 
         if [ "$CRITICAL_MISSING" = true ]; then
-            echo -e "${RED}[X] Critical files missing - cannot continue!${NC}"
+            echo -e "${RED}✗ Critical files missing - cannot continue!${NC}"
             echo ""
-            echo -e "${BLUE}[*] TROUBLESHOOTING:${NC}"
+            echo -e "${BLUE}💡 TROUBLESHOOTING:${NC}"
             echo "  1. Go to your repository: cd ~/digitalsignage"
             echo "  2. Update repository: git pull"
             echo "  3. Run install.sh: cd src/DigitalSignage.Client.RaspberryPi && sudo ./install.sh"
             echo ""
             exit 1
         else
-            echo -e "${YELLOW}[!] Non-critical files missing, continuing...${NC}"
+            echo -e "${YELLOW}⚠ Non-critical files missing, continuing...${NC}"
         fi
     fi
 
@@ -448,25 +435,32 @@ if [ "$MODE" = "UPDATE" ]; then
     # [9/9] Configure and restart service
     show_step "Configuring client..."
 
-    # Check if config.py exists and needs configuration
-    if [ -f "$INSTALL_DIR/config.py" ]; then
+    # Check if config.json exists and needs configuration
+    if [ -f "$INSTALL_DIR/config.json" ]; then
         # Check if server_host is still localhost (needs configuration)
-        if grep -q 'server_host: str = "localhost"' "$INSTALL_DIR/config.py" 2>/dev/null; then
-            if [ "$NON_INTERACTIVE" = "1" ]; then
-                echo -e "${YELLOW}Non-interactive: skipping config prompts (configure later)${NC}"
-                show_info "Edit config.py manually: sudo nano $INSTALL_DIR/config.py"
+        if grep -q '"server_host": "localhost"' "$INSTALL_DIR/config.json" 2>/dev/null; then
+            echo ""
+            echo -e "${YELLOW}Client needs configuration:${NC}"
+            echo ""
+            read -p "Enter server IP address (e.g., 192.168.0.100): " SERVER_IP
+            read -p "Enter registration token (from server): " REG_TOKEN
+
+            if [ -n "$SERVER_IP" ] && [ -n "$REG_TOKEN" ]; then
+                # Update config.json
+                python3 << EOF
+import json
+with open("$INSTALL_DIR/config.json", "r") as f:
+    config = json.load(f)
+config["server_host"] = "$SERVER_IP"
+config["registration_token"] = "$REG_TOKEN"
+config["auto_discover"] = True
+with open("$INSTALL_DIR/config.json", "w") as f:
+    json.dump(config, f, indent=2)
+EOF
+                show_success "Configuration updated"
             else
-                echo ""
-                echo -e "${YELLOW}Client needs configuration:${NC}"
-                echo ""
-                echo "Please edit $INSTALL_DIR/config.py manually to set:"
-                echo "  - server_host (currently: localhost)"
-                echo "  - registration_token (required for first connection)"
-                echo ""
-                show_info "After editing, restart service: sudo systemctl restart $SERVICE_NAME"
+                show_warning "Configuration skipped - you can edit $INSTALL_DIR/config.json manually"
             fi
-        else
-            show_info "Configuration appears to be set up"
         fi
     fi
 
@@ -481,9 +475,9 @@ if [ "$MODE" = "UPDATE" ]; then
     fi
 
     echo ""
-    echo "==============================================================="
+    echo "════════════════════════════════════════════════════════════"
     echo -e "${GREEN}  UPDATE COMPLETE!${NC}"
-    echo "==============================================================="
+    echo "════════════════════════════════════════════════════════════"
     echo ""
     echo "Service Status:"
     systemctl status $SERVICE_NAME --no-pager -l || true
@@ -508,9 +502,9 @@ fi
 # INSTALL MODE
 # ========================================
 
-echo "==============================================================="
+echo "════════════════════════════════════════════════════════════"
 echo "  INSTALL MODE - Fresh Installation"
-echo "==============================================================="
+echo "════════════════════════════════════════════════════════════"
 echo ""
 
 # Check for existing installation and prompt
@@ -523,13 +517,8 @@ if [ -d "$INSTALL_DIR" ] || [ "$SERVICE_INSTALLED" = true ]; then
     echo "  - Install fresh version"
     echo "  - Enable and start the service automatically"
     echo ""
-    if [ "$NON_INTERACTIVE" = "1" ]; then
-        REPLY="y"
-        echo "Non-interactive: skipping fresh install confirmation"
-    else
-        read -p "Continue with installation? (y/N): " -n 1 -r
-        echo
-    fi
+    read -p "Continue with installation? (y/N): " -n 1 -r
+    echo
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
         echo "Installation cancelled."
         exit 0
@@ -564,9 +553,9 @@ if [ -d "$INSTALL_DIR" ] || [ "$SERVICE_INSTALLED" = true ]; then
 fi
 
 # Update code from repository (if in git repo)
-echo "---------------------------------------------------------------"
+echo "────────────────────────────────────────────────────────────"
 echo "Updating code from repository..."
-echo "---------------------------------------------------------------"
+echo "────────────────────────────────────────────────────────────"
 echo ""
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -588,9 +577,9 @@ else
 fi
 
 echo ""
-echo "==============================================================="
+echo "════════════════════════════════════════════════════════════"
 echo "  Installing Digital Signage Client"
-echo "==============================================================="
+echo "════════════════════════════════════════════════════════════"
 echo ""
 
 # [1/10] Update package lists
@@ -604,8 +593,8 @@ apt-get install -y -qq \
     python3 \
     python3-pip \
     python3-venv \
-    python3-pil \
     python3-pyqt5 \
+    python3-pyqt5.qtsvg \
     python3-pyqt5.qtmultimedia \
     python3-psutil \
     sqlite3 \
@@ -636,7 +625,7 @@ if python3 -c "import PyQt5" 2>/dev/null; then
     PYQT5_VERSION=$(python3 -c "from PyQt5.QtCore import PYQT_VERSION_STR; print(PYQT_VERSION_STR)" 2>/dev/null)
     show_success "PyQt5 $PYQT5_VERSION installed"
 else
-    echo -e "${RED}[X] PyQt5 installation failed${NC}"
+    echo -e "${RED}✗ PyQt5 installation failed${NC}"
     exit 1
 fi
 
@@ -700,12 +689,12 @@ for file in "${REQUIRED_FILES[@]}"; do
     if [ -f "$SCRIPT_DIR/$file" ]; then
         if cp "$SCRIPT_DIR/$file" "$INSTALL_DIR/" 2>/dev/null; then
             ((COPIED_COUNT++))
-            echo "  [OK] $file"
+            echo "  ✓ $file"
         else
-            echo -e "  ${YELLOW}[!] Failed to copy: $file${NC}"
+            echo -e "  ${YELLOW}⚠ Failed to copy: $file${NC}"
         fi
     else
-        echo -e "  ${RED}[X] Missing: $file${NC}"
+        echo -e "  ${RED}✗ Missing: $file${NC}"
         MISSING_FILES+=("$file")
     fi
 done
@@ -718,7 +707,6 @@ OPTIONAL_FILES=(
     "fix-installation.sh"
     "enable-autologin-x11.sh"
     "check-autostart.sh"
-    "setup-splash-screen.sh"
     "TROUBLESHOOTING.md"
 )
 
@@ -729,15 +717,9 @@ for file in "${OPTIONAL_FILES[@]}"; do
     fi
 done
 
-# Copy digisign-logo.png if it exists (for splash screen)
-if [ -f "$SCRIPT_DIR/../../digisign-logo.png" ]; then
-    cp "$SCRIPT_DIR/../../digisign-logo.png" "$INSTALL_DIR/"
-    show_info "Logo copied to $INSTALL_DIR/digisign-logo.png"
-fi
-
 if [ ${#MISSING_FILES[@]} -gt 0 ]; then
     echo ""
-    echo -e "${YELLOW}[!] Warning: Some files were not found in source:${NC}"
+    echo -e "${YELLOW}⚠ Warning: Some files were not found in source:${NC}"
     for file in "${MISSING_FILES[@]}"; do
         echo "  - $file"
     done
@@ -753,15 +735,15 @@ if [ ${#MISSING_FILES[@]} -gt 0 ]; then
     done
 
     if [ "$CRITICAL_MISSING" = true ]; then
-        echo -e "${RED}[X] Critical files missing - cannot continue!${NC}"
+        echo -e "${RED}✗ Critical files missing - cannot continue!${NC}"
         echo ""
-        echo -e "${BLUE}[*] TROUBLESHOOTING:${NC}"
+        echo -e "${BLUE}💡 TROUBLESHOOTING:${NC}"
         echo "  1. Clone repository to home directory: cd ~ && git clone https://github.com/manur84/digitalsignage.git"
         echo "  2. Run install.sh: cd digitalsignage/src/DigitalSignage.Client.RaspberryPi && sudo ./install.sh"
         echo ""
         exit 1
     else
-        echo -e "${YELLOW}[!] Non-critical files missing, continuing...${NC}"
+        echo -e "${YELLOW}⚠ Non-critical files missing, continuing...${NC}"
     fi
 fi
 
@@ -803,7 +785,7 @@ for file in "${REQUIRED_FILES[@]}"; do
 done
 
 if [ ${#VERIFY_MISSING[@]} -gt 0 ]; then
-    echo -e "${RED}[X] Verification failed, missing: ${VERIFY_MISSING[*]}${NC}"
+    echo -e "${RED}✗ Verification failed, missing: ${VERIFY_MISSING[*]}${NC}"
     exit 1
 fi
 
@@ -893,9 +875,9 @@ show_success "Autostart configured"
 
 # Verify installation
 echo ""
-echo "==============================================================="
+echo "════════════════════════════════════════════════════════════"
 echo "  Verifying Installation"
-echo "==============================================================="
+echo "════════════════════════════════════════════════════════════"
 echo ""
 
 # Check PyQt5
@@ -921,9 +903,9 @@ fi
 
 # Pre-flight check
 echo ""
-echo "==============================================================="
+echo "════════════════════════════════════════════════════════════"
 echo "  Pre-Flight Check"
-echo "==============================================================="
+echo "════════════════════════════════════════════════════════════"
 echo ""
 echo "Testing client startup before enabling service..."
 echo ""
@@ -935,9 +917,9 @@ else
     TEST_EXIT_CODE=$?
     echo ""
     if [ $TEST_EXIT_CODE -eq 124 ]; then
-        echo -e "${RED}[X] Pre-flight check timed out${NC}"
+        echo -e "${RED}✗ Pre-flight check timed out${NC}"
     else
-        echo -e "${RED}[X] Pre-flight check failed (exit code: $TEST_EXIT_CODE)${NC}"
+        echo -e "${RED}✗ Pre-flight check failed (exit code: $TEST_EXIT_CODE)${NC}"
     fi
     echo ""
     echo "Check startup log: sudo cat /var/log/digitalsignage-client-startup.log"
@@ -948,51 +930,61 @@ fi
 
 # Client Configuration
 echo ""
-echo "==============================================================="
+echo "════════════════════════════════════════════════════════════"
 echo "  Client Configuration"
-echo "==============================================================="
+echo "════════════════════════════════════════════════════════════"
 echo ""
 
-# Check if config.py exists
-if [ -f "$INSTALL_DIR/config.py" ]; then
-    if [ "$NON_INTERACTIVE" = "1" ]; then
-        echo -e "${YELLOW}Non-interactive: skipping server IP/token prompts (configure later)${NC}"
-        echo "Configure manually: sudo nano $INSTALL_DIR/config.py"
+# Check if config.json exists and configure it
+if [ -f "$INSTALL_DIR/config.json" ]; then
+    echo -e "${YELLOW}Configure Digital Signage Client:${NC}"
+    echo ""
+    echo "The client needs to know where to find the server."
+    echo ""
+    read -p "Enter server IP address (e.g., 192.168.0.100): " SERVER_IP
+    read -p "Enter registration token (from server): " REG_TOKEN
+
+    if [ -n "$SERVER_IP" ] && [ -n "$REG_TOKEN" ]; then
+        # Update config.json
+        python3 << EOF
+import json
+with open("$INSTALL_DIR/config.json", "r") as f:
+    config = json.load(f)
+config["server_host"] = "$SERVER_IP"
+config["registration_token"] = "$REG_TOKEN"
+config["auto_discover"] = True
+with open("$INSTALL_DIR/config.json", "w") as f:
+    json.dump(config, f, indent=2)
+EOF
+        show_success "Configuration saved"
     else
-        echo -e "${YELLOW}Configure Digital Signage Client:${NC}"
-        echo ""
-        echo "The client needs to know where to find the server."
-        echo ""
-        echo "Please edit the configuration file manually:"
-        echo "  sudo nano $INSTALL_DIR/config.py"
-        echo ""
-        echo "Required settings:"
-        echo "  - server_host: IP address of the server (e.g., 192.168.0.100)"
-        echo "  - registration_token: Token from the server"
-        echo ""
-        show_info "Auto-discovery is enabled by default (auto_discover=True)"
+        show_warning "Configuration skipped"
+        echo "You can configure manually: sudo nano $INSTALL_DIR/config.json"
     fi
     echo ""
 fi
 
 # Start service
 echo ""
-echo "==============================================================="
+echo "════════════════════════════════════════════════════════════"
 echo "  Starting Service"
-echo "==============================================================="
+echo "════════════════════════════════════════════════════════════"
 echo ""
 
-systemctl daemon-reload
-systemctl enable $SERVICE_NAME 2>/dev/null || true
-systemctl restart $SERVICE_NAME 2>/dev/null || true
-show_success "Service enabled and started"
-show_info "Client will auto-start via systemd (see systemctl status $SERVICE_NAME)"
+# CRITICAL FIX: Do NOT enable/start service at boot
+# Problem: systemd service runs on Xvfb (:99) = invisible on HDMI display (:0)
+# Solution: Desktop autostart will launch client on real display (:0)
+systemctl disable $SERVICE_NAME 2>/dev/null || true
+systemctl stop $SERVICE_NAME 2>/dev/null || true
+show_success "Service installed (manual control only)"
+show_info "✓ Client will auto-start via Desktop on REAL display (:0)"
+show_info "  Systemd service disabled to prevent Xvfb conflict"
 
 # Display Configuration (only for fresh install)
 echo ""
-echo "==============================================================="
+echo "════════════════════════════════════════════════════════════"
 echo "  Display Configuration"
-echo "==============================================================="
+echo "════════════════════════════════════════════════════════════"
 echo ""
 
 set +e
@@ -1027,13 +1019,8 @@ echo "  1) PRODUCTION MODE - For HDMI displays"
 echo "  2) DEVELOPMENT MODE - For headless/testing"
 echo ""
 
-if [ "$NON_INTERACTIVE" = "1" ]; then
-    DEPLOYMENT_MODE=1
-    echo "Non-interactive: selecting PRODUCTION MODE (1)"
-else
-    read -p "Enter choice [1/2] (default: $RECOMMENDED_MODE): " DEPLOYMENT_MODE
-    DEPLOYMENT_MODE=${DEPLOYMENT_MODE:-$RECOMMENDED_MODE}
-fi
+read -p "Enter choice [1/2] (default: $RECOMMENDED_MODE): " DEPLOYMENT_MODE
+DEPLOYMENT_MODE=${DEPLOYMENT_MODE:-$RECOMMENDED_MODE}
 
 if [ "$DEPLOYMENT_MODE" = "1" ]; then
     echo ""
@@ -1074,12 +1061,9 @@ if [ "$DEPLOYMENT_MODE" = "1" ]; then
     mkdir -p "$LXDE_AUTOSTART_DIR"
 
     # Create LXDE autostart override (this REPLACES default autostart behavior)
-    # NOTE: The Digital Signage client is started by systemd service, NOT by LXDE autostart!
-    # This prevents duplicate instances and ensures proper service management
     cat > "$LXDE_AUTOSTART_DIR/autostart" <<'EOF'
 # Digital Signage - LXDE Autostart Override
 # This file PREVENTS default desktop components (terminal, taskbar, etc.)
-# The Digital Signage client is started by systemd, not here!
 
 # Screen settings
 @xset s off
@@ -1091,11 +1075,12 @@ if [ "$DEPLOYMENT_MODE" = "1" ]; then
 
 # CRITICAL: Do NOT start lxterminal (default behavior)
 # CRITICAL: Do NOT start pcmanfm desktop
-# CRITICAL: Do NOT start digitalsignage client here - systemd service handles it!
+# CRITICAL: Start Digital Signage client ONLY
+@/opt/digitalsignage-client/start-with-display.sh
 EOF
 
     chown "$ACTUAL_USER:$ACTUAL_USER" "$LXDE_AUTOSTART_DIR/autostart"
-    show_success "LXDE autostart configured (terminal/desktop DISABLED, screen settings ONLY)"
+    show_success "LXDE autostart configured (terminal DISABLED, Digital Signage ONLY)"
 
     # Also disable pcmanfm desktop (file manager/desktop icons) to keep it clean
     PCMANFM_CONFIG="$USER_HOME/.config/pcmanfm/LXDE-pi/desktop-items-0.conf"
@@ -1126,54 +1111,43 @@ EOF
         show_warning "config_txt_manager.py not found; skipping config.txt update"
     fi
 
-    # BACKUP SOLUTION: .xinitrc for boot-to-console setups
-    # This only starts LXDE desktop environment - systemd service will start the client!
-    # NOTE: With B4 (Desktop Autologin), this file is NOT used - LXDE starts automatically
-    if [ ! -f "$USER_HOME/.xinitrc" ] || ! grep -q "Digital Signage" "$USER_HOME/.xinitrc"; then
+    # BACKUP SOLUTION: .xinitrc and .bash_profile for boot-to-console setups
+    # This ensures X11 auto-starts even if LXDE desktop is disabled
+    if [ ! -f "$USER_HOME/.xinitrc" ] || ! grep -q "start-with-display.sh" "$USER_HOME/.xinitrc"; then
         cat > "$USER_HOME/.xinitrc" <<'EOF'
 #!/bin/sh
 # Digital Signage Client - X11 startup configuration
-# NOTE: Client is started by systemd service, not here!
 xset -dpms
 xset s off
 xset s noblank
 unclutter -idle 0.1 -root &
-# Start LXDE desktop environment (client will be started by systemd)
-exec startlxde-pi
+exec /opt/digitalsignage-client/start-with-display.sh
 EOF
         chown "$ACTUAL_USER:$ACTUAL_USER" "$USER_HOME/.xinitrc"
         chmod +x "$USER_HOME/.xinitrc"
-        show_success ".xinitrc created (X11 settings + LXDE startup)"
+        show_success ".xinitrc created (backup X11 config)"
     fi
 
-    # Auto-start X11 on tty1 login (works with boot-to-console mode B2)
-    # NOTE: With B4 (Desktop Autologin), this is not needed but doesn't hurt
+    # Auto-start X11 on tty1 login (works with boot-to-console)
     if [ ! -f "$USER_HOME/.bash_profile" ] || ! grep -q "startx" "$USER_HOME/.bash_profile"; then
         cat >> "$USER_HOME/.bash_profile" <<'EOF'
 
 # Auto-start X11 on tty1 login for Digital Signage
-# Only used with boot-to-console mode (B2), not with Desktop Autologin (B4)
 if [ -z "$DISPLAY" ] && [ "$(tty)" = "/dev/tty1" ]; then
     exec startx
 fi
 EOF
         chown "$ACTUAL_USER:$ACTUAL_USER" "$USER_HOME/.bash_profile"
-        show_success ".bash_profile configured (auto-start X11 on tty1 for console mode)"
+        show_success ".bash_profile configured (auto-start X11 on tty1)"
     fi
 
     echo ""
     if [ "$NEEDS_REBOOT" = true ]; then
         echo -e "${YELLOW}IMPORTANT: Reboot required${NC}"
         echo ""
-        if [ "$NON_INTERACTIVE" = "1" ]; then
-            REPLY="y"
-            echo "Non-interactive: auto-confirm reboot"
-        else
-            read -p "Reboot now? (y/N): " -n 1 -r
-            echo
-        fi
+        read -p "Reboot now? (y/N): " -n 1 -r
+        echo
         if [[ $REPLY =~ ^[Yy]$ ]]; then
-            echo "$COMPLETE_MARKER"
             echo "Rebooting in 3 seconds..."
             sleep 3
             reboot
@@ -1182,68 +1156,18 @@ EOF
         fi
     else
         show_success "No reboot required - system ready"
-        echo "$COMPLETE_MARKER"
     fi
 else
     echo ""
     show_info "DEVELOPMENT MODE selected"
     echo "Service uses Xvfb virtual display (via start-with-display.sh)"
-    echo "$COMPLETE_MARKER"
 fi
 
-
-# ========================================
-# [OPTIONAL] Configure Splash Screen
-# ========================================
-
-if [ "$DEPLOYMENT_MODE" = "1" ] && [ -f "$INSTALL_DIR/setup-splash-screen.sh" ] && [ -f "$INSTALL_DIR/digisign-logo.png" ]; then
-    echo ""
-    echo "---------------------------------------------------------------"
-    echo "Optional: Configure Boot Splash Screen"
-    echo "---------------------------------------------------------------"
-    echo ""
-    echo "A boot splash screen can display your logo during startup instead of"
-    echo "the default Raspberry Pi boot messages."
-    echo ""
-
-    if [ "$NON_INTERACTIVE" = "1" ]; then
-        REPLY="y"
-        echo "Non-interactive mode: Auto-configuring splash screen (logo detected)"
-    else
-        read -p "Configure boot splash screen now? (y/N): " -n 1 -r
-        echo ""
-    fi
-
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        echo ""
-        echo "Setting up splash screen..."
-
-        # Copy logo to root for Plymouth
-        cp "$INSTALL_DIR/digisign-logo.png" /digisign-logo.png
-        chmod 644 /digisign-logo.png
-
-        # Run splash screen setup
-        if bash "$INSTALL_DIR/setup-splash-screen.sh" /digisign-logo.png; then
-            show_success "Splash screen configured successfully!"
-            echo ""
-            echo "Your logo will appear during boot after reboot."
-            NEEDS_REBOOT=true
-        else
-            show_warning "Splash screen setup failed. You can run it manually later:"
-            echo "  sudo $INSTALL_DIR/setup-splash-screen.sh /digisign-logo.png"
-        fi
-    else
-        echo ""
-        show_info "Splash screen setup skipped."
-        echo "You can configure it later with:"
-        echo "  sudo $INSTALL_DIR/setup-splash-screen.sh $INSTALL_DIR/digisign-logo.png"
-    fi
-fi
 # Final summary
 echo ""
-echo "==============================================================="
+echo "════════════════════════════════════════════════════════════"
 echo -e "${GREEN}  INSTALLATION COMPLETE!${NC}"
-echo "==============================================================="
+echo "════════════════════════════════════════════════════════════"
 echo ""
 echo "Installation Paths:"
 echo "  Installation: $INSTALL_DIR"
@@ -1253,7 +1177,7 @@ echo "  Service:      $SERVICE_FILE"
 echo ""
 echo "Next Steps:"
 echo "  1. Edit config:   sudo nano $INSTALL_DIR/config.py"
-echo "  2. Set server_host (e.g., 192.168.0.100) and registration_token"
+echo "  2. Set server_host, server_port, registration_token"
 echo "  3. Restart:       sudo systemctl restart $SERVICE_NAME"
 if [ "$DEPLOYMENT_MODE" = "1" ] && [ "$NEEDS_REBOOT" = true ]; then
     echo "  4. Reboot:        sudo reboot"
@@ -1264,8 +1188,4 @@ echo "  Status:       sudo systemctl status $SERVICE_NAME"
 echo "  Logs:         sudo journalctl -u $SERVICE_NAME -f"
 echo "  Restart:      sudo systemctl restart $SERVICE_NAME"
 echo "  Diagnose:     sudo $INSTALL_DIR/diagnose.sh"
-if [ -f "$INSTALL_DIR/setup-splash-screen.sh" ]; then
-echo "  Splash:       sudo $INSTALL_DIR/setup-splash-screen.sh /digisign-logo.png"
-fi
 echo ""
-
