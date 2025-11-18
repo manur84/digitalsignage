@@ -59,7 +59,7 @@ start_xvfb_fallback() {
 
     for i in $(seq 1 10); do
         if xset -display :99 q &>/dev/null; then
-            log_message "�o\" Xvfb fallback ready on DISPLAY=:99"
+            log_message "Xvfb fallback ready on DISPLAY=:99"
             return 0
         fi
         sleep 1
@@ -324,4 +324,4 @@ log_message ""
 
 # Use exec to replace this shell with the Python process
 # This ensures signals are properly forwarded
-exec $PYTHON_EXE $INSTALL_DIR/client.py 2>&1 | tee -a "$LOG_FILE"
+exec $PYTHON_EXE $INSTALL_DIR/client.py
