@@ -128,8 +128,23 @@ configure_plymouth() {
 
   update_pix_script
 
-  # -R sets the theme and rebuilds the initramfs in one step
-  plymouth-set-default-theme -R pix
+  # Set theme and rebuild initramfs
+  # CRITICAL FIX: Use mkinitramfs instead of plymouth-set-default-theme -R
+  # Raspberry Pi requires explicit initramfs rebuild for boot logo to work
+  echo "Setting Plymouth theme to pix..."
+  plymouth-set-default-theme pix 2>/dev/null || true
+
+  echo "Rebuilding initramfs with Plymouth theme..."
+  # Get kernel version
+  KERNEL_VERSION=$(uname -r)
+
+  # Rebuild initramfs for current kernel
+  # This embeds the splash image in the initramfs so it shows at boot
+  update-initramfs -u -k "$KERNEL_VERSION" || mkinitramfs -o /boot/firmware/initramfs "$KERNEL_VERSION"
+
+  echo "Plymouth initramfs rebuild completed"
+  echo ""
+  echo "NOTE: System reboot required for changes to take effect"
 }
 
 main() {

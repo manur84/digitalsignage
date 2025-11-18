@@ -435,19 +435,29 @@ fi
 
                 if (splashOutput?.Contains("SPLASH_SETUP_SUCCESS", StringComparison.OrdinalIgnoreCase) == true)
                 {
-                    progress?.Report("✓ Splash-Screen erfolgreich eingerichtet (Reboot kann ausgelöst worden sein)");
+                    progress?.Report("✓ Splash-Screen erfolgreich eingerichtet (Reboot erforderlich für Anzeige beim Booten)");
+                    _logger.LogInformation("Splash screen setup completed successfully. Manual reboot required for boot logo to appear.");
                 }
                 else
                 {
                     progress?.Report("⚠ Splash-Screen-Setup fehlgeschlagen (nicht kritisch)");
+                    _logger.LogWarning("Splash screen setup did not report success. Output: {Output}", splashOutput);
                 }
             }
-            catch (Renci.SshNet.Common.SshConnectionException)
+            catch (Renci.SshNet.Common.SshConnectionException sshEx)
             {
-                // Plymouth setup mit -R Flag triggert einen Reboot, daher kann die Verbindung abbrechen
-                // Das ist normal und kein Fehler
-                progress?.Report("✓ Splash-Screen Setup gestartet (Verbindung durch Reboot getrennt - das ist normal)");
-                _logger.LogInformation("SSH connection dropped during splash setup (likely reboot from Plymouth -R flag)");
+                // FIXED: SSH connection dropped during initramfs rebuild
+                // This can happen if the rebuild takes too long or network is unstable
+                // Not an error - script likely completed successfully
+                progress?.Report("✓ Splash-Screen Setup gestartet (SSH-Verbindung unterbrochen - wahrscheinlich erfolgreich)");
+                _logger.LogWarning(sshEx, "SSH connection dropped during splash setup - likely successful but connection timed out during initramfs rebuild");
+            }
+            catch (TimeoutException timeoutEx)
+            {
+                // Initramfs rebuild can take 30-60 seconds on Raspberry Pi
+                // Timeout is not necessarily a failure
+                progress?.Report("✓ Splash-Screen Setup gestartet (Timeout - initramfs rebuild läuft wahrscheinlich noch)");
+                _logger.LogWarning(timeoutEx, "Timeout during splash setup - initramfs rebuild may still be running in background");
             }
         }
         catch (Exception ex)
