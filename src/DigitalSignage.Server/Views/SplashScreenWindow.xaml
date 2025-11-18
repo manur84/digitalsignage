@@ -1,41 +1,275 @@
 <Window x:Class="DigitalSignage.Server.Views.SplashScreenWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:viewmodels="clr-namespace:DigitalSignage.Server.ViewModels"
+        xmlns:converters="clr-namespace:DigitalSignage.Server.Converters"
         WindowStyle="None"
         ResizeMode="NoResize"
         AllowsTransparency="True"
         ShowInTaskbar="False"
         Topmost="True"
         Background="Transparent"
-        Width="520"
-        Height="320"
+        Width="600"
+        Height="400"
         WindowStartupLocation="CenterScreen">
-    <Border Background="#F7FFFFFF"
-            BorderBrush="#1A000000"
-            BorderThickness="1"
-            CornerRadius="14"
-            Padding="24"
-            SnapsToDevicePixels="True">
-        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Width="440">
-            <Image x:Name="LogoImage"
-                   Height="150"
-                   Stretch="Uniform"
-                   HorizontalAlignment="Center"
-                   Margin="0,0,0,10"/>
-            <TextBlock x:Name="StatusText"
-                       Text="Digital Signage startet..."
-                       FontSize="17"
-                       FontWeight="SemiBold"
-                       Foreground="#222"
-                       TextAlignment="Center"
-                       TextWrapping="Wrap"
-                       HorizontalAlignment="Center"/>
-            <TextBlock Text="Bitte warten ..."
-                       FontSize="13"
-                       Foreground="#666"
-                       TextAlignment="Center"
-                       Margin="0,6,0,0"
-                       HorizontalAlignment="Center"/>
-        </StackPanel>
+
+    <Window.Resources>
+        <!-- Converters -->
+        <converters:ProgressWidthConverter x:Key="ProgressWidthConverter"/>
+        <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+        <!-- Rotating spinner animation -->
+        <Storyboard x:Key="SpinnerAnimation" RepeatBehavior="Forever">
+            <DoubleAnimation Storyboard.TargetName="SpinnerRotation"
+                           Storyboard.TargetProperty="Angle"
+                           From="0" To="360"
+                           Duration="0:0:1.5"
+                           AutoReverse="False"/>
+        </Storyboard>
+
+        <!-- Pulse animation for logo -->
+        <Storyboard x:Key="PulseAnimation" RepeatBehavior="Forever">
+            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="LogoScaleTransform"
+                                         Storyboard.TargetProperty="ScaleX">
+                <EasingDoubleKeyFrame KeyTime="0:0:0" Value="1.0"/>
+                <EasingDoubleKeyFrame KeyTime="0:0:1" Value="1.05">
+                    <EasingDoubleKeyFrame.EasingFunction>
+                        <SineEase EasingMode="EaseInOut"/>
+                    </EasingDoubleKeyFrame.EasingFunction>
+                </EasingDoubleKeyFrame>
+                <EasingDoubleKeyFrame KeyTime="0:0:2" Value="1.0">
+                    <EasingDoubleKeyFrame.EasingFunction>
+                        <SineEase EasingMode="EaseInOut"/>
+                    </EasingDoubleKeyFrame.EasingFunction>
+                </EasingDoubleKeyFrame>
+            </DoubleAnimationUsingKeyFrames>
+            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="LogoScaleTransform"
+                                         Storyboard.TargetProperty="ScaleY">
+                <EasingDoubleKeyFrame KeyTime="0:0:0" Value="1.0"/>
+                <EasingDoubleKeyFrame KeyTime="0:0:1" Value="1.05">
+                    <EasingDoubleKeyFrame.EasingFunction>
+                        <SineEase EasingMode="EaseInOut"/>
+                    </EasingDoubleKeyFrame.EasingFunction>
+                </EasingDoubleKeyFrame>
+                <EasingDoubleKeyFrame KeyTime="0:0:2" Value="1.0">
+                    <EasingDoubleKeyFrame.EasingFunction>
+                        <SineEase EasingMode="EaseInOut"/>
+                    </EasingDoubleKeyFrame.EasingFunction>
+                </EasingDoubleKeyFrame>
+            </DoubleAnimationUsingKeyFrames>
+        </Storyboard>
+
+        <!-- Fade in animation -->
+        <Storyboard x:Key="FadeInAnimation">
+            <DoubleAnimation Storyboard.TargetName="MainBorder"
+                           Storyboard.TargetProperty="Opacity"
+                           From="0" To="1"
+                           Duration="0:0:0.5"/>
+        </Storyboard>
+
+        <!-- Indeterminate progress animation -->
+        <Storyboard x:Key="IndeterminateAnimation" RepeatBehavior="Forever">
+            <DoubleAnimation Storyboard.TargetName="IndeterminateTransform"
+                           Storyboard.TargetProperty="X"
+                           From="-100" To="560"
+                           Duration="0:0:1.5"
+                           AutoReverse="False"/>
+        </Storyboard>
+    </Window.Resources>
+
+    <Window.Triggers>
+        <EventTrigger RoutedEvent="Loaded">
+            <BeginStoryboard Storyboard="{StaticResource FadeInAnimation}"/>
+            <BeginStoryboard Storyboard="{StaticResource SpinnerAnimation}"/>
+            <BeginStoryboard Storyboard="{StaticResource PulseAnimation}"/>
+            <BeginStoryboard Storyboard="{StaticResource IndeterminateAnimation}"/>
+        </EventTrigger>
+    </Window.Triggers>
+
+    <!-- Outer glow shadow -->
+    <Border Background="Transparent" Margin="20">
+        <Border.Effect>
+            <DropShadowEffect Color="#000000" Direction="270" ShadowDepth="0"
+                            BlurRadius="30" Opacity="0.4"/>
+        </Border.Effect>
+
+        <!-- Main container with modern glassmorphism effect -->
+        <Border x:Name="MainBorder"
+                Background="#F0FFFFFF"
+                BorderBrush="#30000000"
+                BorderThickness="1"
+                CornerRadius="16"
+                Padding="0"
+                SnapsToDevicePixels="True">
+
+            <Border.Effect>
+                <DropShadowEffect Color="#000000" Direction="270" ShadowDepth="2"
+                                BlurRadius="15" Opacity="0.15"/>
+            </Border.Effect>
+
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Content area -->
+                <StackPanel Grid.Row="0"
+                          HorizontalAlignment="Center"
+                          VerticalAlignment="Center"
+                          Margin="40">
+
+                    <!-- Logo with animation -->
+                    <Grid Height="140" Margin="0,0,0,20">
+                        <Image x:Name="LogoImage"
+                               Stretch="Uniform"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               RenderTransformOrigin="0.5,0.5">
+                            <Image.RenderTransform>
+                                <ScaleTransform x:Name="LogoScaleTransform" ScaleX="1" ScaleY="1"/>
+                            </Image.RenderTransform>
+                        </Image>
+                    </Grid>
+
+                    <!-- Status message -->
+                    <TextBlock Text="{Binding StatusMessage, FallbackValue='Digital Signage wird gestartet...'}"
+                               FontSize="20"
+                               FontWeight="SemiBold"
+                               Foreground="#1a1a2e"
+                               TextAlignment="Center"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,8"
+                               HorizontalAlignment="Center"/>
+
+                    <!-- Detail message -->
+                    <TextBlock Text="{Binding DetailMessage, FallbackValue=''}"
+                               FontSize="14"
+                               Foreground="#666666"
+                               TextAlignment="Center"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,24"
+                               HorizontalAlignment="Center"
+                               MinHeight="20"/>
+
+                    <!-- Progress section -->
+                    <Grid Width="460" Margin="0,0,0,20">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Progress percentage -->
+                        <Grid Grid.Row="0" Margin="0,0,0,8">
+                            <TextBlock Text="Initialisierung..."
+                                     FontSize="13"
+                                     Foreground="#888888"
+                                     HorizontalAlignment="Left"/>
+
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                <TextBlock Text="{Binding Progress, StringFormat='{}{0:F0}'}"
+                                         FontSize="13"
+                                         FontWeight="SemiBold"
+                                         Foreground="#1a1a2e"/>
+                                <TextBlock Text="%"
+                                         FontSize="13"
+                                         FontWeight="SemiBold"
+                                         Foreground="#1a1a2e"
+                                         Margin="2,0,0,0"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Progress bar with modern styling -->
+                        <Grid Grid.Row="1">
+                            <!-- Background track -->
+                            <Border Background="#E0E0E0"
+                                  CornerRadius="4"
+                                  Height="8"/>
+
+                            <!-- Progress fill with gradient -->
+                            <Border x:Name="ProgressFill"
+                                  CornerRadius="4"
+                                  Height="8"
+                                  HorizontalAlignment="Left">
+                                <Border.Width>
+                                    <MultiBinding Converter="{StaticResource ProgressWidthConverter}">
+                                        <Binding Path="Progress"/>
+                                        <Binding ElementName="ProgressFill" Path="Parent.ActualWidth"/>
+                                    </MultiBinding>
+                                </Border.Width>
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                        <GradientStop Color="#667eea" Offset="0"/>
+                                        <GradientStop Color="#764ba2" Offset="1"/>
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                            </Border>
+
+                            <!-- Indeterminate animation overlay -->
+                            <Grid x:Name="IndeterminateOverlay"
+                                  Visibility="{Binding IsIndeterminate, Converter={StaticResource BoolToVisibilityConverter}}">
+                                <Border CornerRadius="4" Height="8" ClipToBounds="True">
+                                    <Border x:Name="IndeterminateBar"
+                                          Width="100"
+                                          Height="8"
+                                          CornerRadius="4"
+                                          HorizontalAlignment="Left"
+                                          RenderTransformOrigin="0.5,0.5">
+                                        <Border.Background>
+                                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                                <GradientStop Color="#80667eea" Offset="0"/>
+                                                <GradientStop Color="#667eea" Offset="0.5"/>
+                                                <GradientStop Color="#80667eea" Offset="1"/>
+                                            </LinearGradientBrush>
+                                        </Border.Background>
+                                        <Border.RenderTransform>
+                                            <TranslateTransform x:Name="IndeterminateTransform" X="-100"/>
+                                        </Border.RenderTransform>
+                                    </Border>
+                                </Border>
+                            </Grid>
+                        </Grid>
+                    </Grid>
+
+                    <!-- Spinner -->
+                    <Viewbox Width="48" Height="48" Margin="0,10,0,0">
+                        <Canvas Width="48" Height="48">
+                            <Path Data="M24,4 A20,20 0 1,1 4,24"
+                                  Stroke="#667eea"
+                                  StrokeThickness="4"
+                                  StrokeStartLineCap="Round"
+                                  StrokeEndLineCap="Round"
+                                  Fill="Transparent"
+                                  RenderTransformOrigin="0.5,0.5">
+                                <Path.RenderTransform>
+                                    <RotateTransform x:Name="SpinnerRotation" Angle="0" CenterX="24" CenterY="24"/>
+                                </Path.RenderTransform>
+                            </Path>
+                        </Canvas>
+                    </Viewbox>
+                </StackPanel>
+
+                <!-- Footer with version info -->
+                <Border Grid.Row="1"
+                       Background="#10000000"
+                       BorderBrush="#20000000"
+                       BorderThickness="0,1,0,0"
+                       Padding="20,12"
+                       CornerRadius="0,0,16,16">
+                    <Grid>
+                        <TextBlock Text="Digital Signage Server"
+                                 FontSize="11"
+                                 Foreground="#666666"
+                                 HorizontalAlignment="Left"
+                                 VerticalAlignment="Center"/>
+
+                        <TextBlock Text="v1.0.0 - .NET 8.0"
+                                 FontSize="11"
+                                 Foreground="#888888"
+                                 HorizontalAlignment="Right"
+                                 VerticalAlignment="Center"/>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Border>
     </Border>
 </Window>

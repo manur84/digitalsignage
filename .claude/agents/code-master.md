@@ -1,7 +1,7 @@
 ---
 name: code-master
 description: c# code master
-model: opus
+model: sonnet
 ---
 
 # Digital Signage System - Claude Code Agent Instructions

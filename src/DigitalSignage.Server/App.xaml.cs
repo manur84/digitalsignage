@@ -293,6 +293,10 @@ public partial class App : Application
                 services.AddSingleton<RateLimitingService>();
                 services.AddScoped<DataSourceRepository>();
 
+                // Register MemoryCache and StartupCacheService
+                services.AddMemoryCache();
+                services.AddSingleton<StartupCacheService>();
+
                 // Register Background Services
                 services.AddHostedService<DataRefreshService>();
                 services.AddHostedService<HeartbeatMonitoringService>();
@@ -402,28 +406,101 @@ For detailed diagnostics, run:
             ShutdownMode = ShutdownMode.OnExplicitShutdown; // Prevent the splash from becoming MainWindow
             splash = SplashScreenWindow.ShowSplash("Digital Signage Server wird gestartet...");
 
-            Log.Information("Starting application host...");
-            await _host.StartAsync();
-            Log.Information("Application host started successfully");
+            // Create progress manager for detailed startup tracking
+            var progressManager = new StartupProgressManager(splash);
 
-            splash?.SetStatus("UI wird initialisiert...");
-            Log.Information("Creating main window...");
-            var mainWindow = _host.Services.GetRequiredService<Views.MainWindow>();
+            // Define startup steps with weights
+            progressManager.DefineSteps(
+                new StartupStep("Starte Hosting-Dienste...", weight: 2.0, "Initialisiere IHost Container"),
+                new StartupStep("Lade Datenquellen...", weight: 1.0, "Initialisiere Data Sources"),
+                new StartupStep("Starte WebSocket Server...", weight: 1.5, "Port 8080-8083"),
+                new StartupStep("Initialisiere Background Services...", weight: 2.0, "DataRefresh, Heartbeat, Discovery..."),
+                new StartupStep("Lade Media-Cache...", weight: 1.0, "Thumbnails und Previews"),
+                new StartupStep("Erstelle Hauptfenster...", weight: 1.5, "UI Initialisierung"),
+                new StartupStep("Registriere Event Handler...", weight: 0.5, "Screenshot Events"),
+                new StartupStep("Finalisiere Startup...", weight: 0.5, "Letzte Prüfungen")
+            );
 
-            // Set as application main window
-            MainWindow = mainWindow;
-            ShutdownMode = originalShutdownMode; // restore default shutdown behavior
+            // Step 1: Start application host
+            await progressManager.ExecuteStepAsync(async () =>
+            {
+                Log.Information("Starting application host...");
+                await _host.StartAsync();
+                Log.Information("Application host started successfully");
+            });
 
+            // Step 2: Load data sources (simulated cache warming)
+            await progressManager.ExecuteStepAsync(async () =>
+            {
+                // Give background services time to initialize
+                await Task.Delay(100);
+            });
+
+            // Step 3: WebSocket server startup (already started by host)
+            await progressManager.ExecuteStepAsync(async () =>
+            {
+                await Task.Delay(100);
+            });
+
+            // Step 4: Background services (already started by host)
+            await progressManager.ExecuteStepAsync(async () =>
+            {
+                await Task.Delay(150);
+            });
+
+            // Step 5: Media and data cache warming
+            await progressManager.ExecuteStepAsync(async () =>
+            {
+                try
+                {
+                    var cacheService = _host.Services.GetService<StartupCacheService>();
+                    if (cacheService != null)
+                    {
+                        await cacheService.WarmupCachesAsync();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning(ex, "Cache warming skipped");
+                }
+            });
+
+            // Step 6: Create main window
+            Views.MainWindow? mainWindow = null;
+            await progressManager.ExecuteStepAsync(() =>
+            {
+                Log.Information("Creating main window...");
+                mainWindow = _host.Services.GetRequiredService<Views.MainWindow>();
+                MainWindow = mainWindow;
+                ShutdownMode = originalShutdownMode;
+            });
+
+            // Step 7: Register event handlers
+            await progressManager.ExecuteStepAsync(() =>
+            {
+                MessageHandlerService.ScreenshotReceived += OnScreenshotReceived;
+                Log.Information("Screenshot event handler registered");
+            });
+
+            // Step 8: Finalize
+            await progressManager.ExecuteStepAsync(async () =>
+            {
+                await Task.Delay(100);
+            });
+
+            // Complete startup
+            await progressManager.CompleteAsync();
+
+            // Close splash and show main window
             splash?.CloseSafely();
 
-            mainWindow.WindowState = WindowState.Maximized;
-            mainWindow.Show();
-            mainWindow.Activate();
-            Log.Information("Main window displayed successfully");
-
-            // Subscribe to screenshot events
-            MessageHandlerService.ScreenshotReceived += OnScreenshotReceived;
-            Log.Information("Screenshot event handler registered");
+            if (mainWindow != null)
+            {
+                mainWindow.WindowState = WindowState.Maximized;
+                mainWindow.Show();
+                mainWindow.Activate();
+                Log.Information("Main window displayed successfully");
+            }
         }
         catch (Exception ex)
         {
