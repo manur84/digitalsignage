@@ -124,8 +124,12 @@ else
     echo -e "${BLUE}Mode: [*] INSTALL${NC}"
 fi
 
-# Force fresh install in non-interactive mode to avoid hanging prompts during remote installs
-if [ "$NON_INTERACTIVE" = "1" ]; then
+# Remote installer can explicitly force UPDATE mode via environment variable
+if [ "$DS_UPDATE_MODE" = "1" ]; then
+    MODE="UPDATE"
+    echo -e "${BLUE}Remote installer: forcing UPDATE mode${NC}"
+# Otherwise, force fresh install in non-interactive mode to avoid hanging prompts
+elif [ "$NON_INTERACTIVE" = "1" ]; then
     MODE="INSTALL"
     echo -e "${BLUE}Non-interactive: forcing fresh INSTALL${NC}"
 fi
