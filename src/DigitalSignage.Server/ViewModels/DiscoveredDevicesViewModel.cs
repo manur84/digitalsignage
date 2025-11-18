@@ -17,6 +17,7 @@ public partial class DiscoveredDevicesViewModel : ObservableObject, IDisposable
     private readonly NetworkScannerService _scannerService;
     private readonly IClientService _clientService;
     private readonly ILogger<DiscoveredDevicesViewModel> _logger;
+    private readonly ISynchronizationContext _syncContext;
     private System.Timers.Timer? _autoRefreshTimer;
     private bool _disposed = false;
 
@@ -49,11 +50,13 @@ public partial class DiscoveredDevicesViewModel : ObservableObject, IDisposable
     public DiscoveredDevicesViewModel(
         NetworkScannerService scannerService,
         IClientService clientService,
-        ILogger<DiscoveredDevicesViewModel> logger)
+        ILogger<DiscoveredDevicesViewModel> logger,
+        ISynchronizationContext syncContext)
     {
         _scannerService = scannerService ?? throw new ArgumentNullException(nameof(scannerService));
         _clientService = clientService ?? throw new ArgumentNullException(nameof(clientService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _syncContext = syncContext ?? throw new ArgumentNullException(nameof(syncContext));
 
         // Subscribe to scanner events
         _scannerService.DeviceDiscovered += OnDeviceDiscovered;
@@ -111,7 +114,7 @@ public partial class DiscoveredDevicesViewModel : ObservableObject, IDisposable
     /// </summary>
     private void OnDeviceDiscovered(object? sender, DiscoveredDevice device)
     {
-        Application.Current?.Dispatcher.Invoke(() =>
+        _ = _syncContext.RunOnUiThreadAsync(() =>
         {
             // Check if device already exists
             var existing = DiscoveredDevices.FirstOrDefault(d => d.IpAddress == device.IpAddress);
@@ -130,7 +133,7 @@ public partial class DiscoveredDevicesViewModel : ObservableObject, IDisposable
     /// </summary>
     private void OnScanningStatusChanged(object? sender, bool isScanning)
     {
-        Application.Current?.Dispatcher.Invoke(() =>
+        _ = _syncContext.RunOnUiThreadAsync(() =>
         {
             IsScanning = isScanning;
             ScanStatusMessage = isScanning ? "Scanning network..." : $"Scan complete. Found {DiscoveredDeviceCount} device(s)";

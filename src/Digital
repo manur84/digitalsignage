@@ -1,0 +1,14 @@
+Signage.Server\ViewModels\DiscoveredDevicesViewModel.cs
+[ObservableProperty]
+private int _autoRefreshInterval = 60; // seconds
+
+public int AutoRefreshInterval
+{
+    get => _autoRefreshInterval;
+    set
+    {
+        SetProperty(ref _autoRefreshInterval, value);
+        UpdateAutoRefreshTimer();
+        _logger.LogInformation("Auto-refresh interval changed to {Interval}s", value);
+    }
+}

@@ -7,6 +7,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Net.NetworkInformation;
 using System.Windows;
+using DigitalSignage.Server.Services;
 
 namespace DigitalSignage.Server.ViewModels;
 
@@ -17,6 +18,7 @@ public partial class DeviceDetailViewModel : ObservableObject, IDisposable
 {
     private readonly ILogger<DeviceDetailViewModel> _logger;
     private readonly IDialogService _dialogService;
+    private readonly ISynchronizationContext _syncContext;
     private readonly System.Timers.Timer _refreshTimer;
     private RaspberryPiClient? _client;
     private bool _disposed;
@@ -124,10 +126,11 @@ public partial class DeviceDetailViewModel : ObservableObject, IDisposable
     /// </summary>
     public event EventHandler? CloseRequested;
 
-    public DeviceDetailViewModel(ILogger<DeviceDetailViewModel> logger, IDialogService dialogService)
+    public DeviceDetailViewModel(ILogger<DeviceDetailViewModel> logger, IDialogService dialogService, ISynchronizationContext syncContext)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
+        _syncContext = syncContext ?? throw new ArgumentNullException(nameof(syncContext));
 
         // Setup auto-refresh timer (every 5 seconds)
         _refreshTimer = new System.Timers.Timer(5000);
@@ -135,7 +138,7 @@ public partial class DeviceDetailViewModel : ObservableObject, IDisposable
         {
             if (IsAutoRefreshEnabled && _client != null)
             {
-                await Application.Current.Dispatcher.InvokeAsync(() =>
+                await _syncContext.RunOnUiThreadAsync(() =>
                 {
                     LoadDeviceInfo(_client);
                 });

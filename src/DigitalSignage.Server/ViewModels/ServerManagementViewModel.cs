@@ -4,6 +4,7 @@ using DigitalSignage.Core.Interfaces;
 using DigitalSignage.Core.Models;
 using Microsoft.Extensions.Logging;
 using System.Collections.ObjectModel;
+using DigitalSignage.Server.Services;
 
 namespace DigitalSignage.Server.ViewModels;
 
@@ -17,6 +18,7 @@ public partial class ServerManagementViewModel : ObservableObject, IDisposable
     private readonly ICommunicationService _communicationService;
     private readonly ILogger<ServerManagementViewModel> _logger;
     private readonly IDialogService _dialogService;
+    private readonly ISynchronizationContext _syncContext;
     private bool _disposed = false;
 
     [ObservableProperty]
@@ -37,11 +39,13 @@ public partial class ServerManagementViewModel : ObservableObject, IDisposable
         IClientService clientService,
         ICommunicationService communicationService,
         IDialogService dialogService,
+        ISynchronizationContext syncContext,
         ILogger<ServerManagementViewModel> logger)
     {
         _clientService = clientService ?? throw new ArgumentNullException(nameof(clientService));
         _communicationService = communicationService ?? throw new ArgumentNullException(nameof(communicationService));
         _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
+        _syncContext = syncContext ?? throw new ArgumentNullException(nameof(syncContext));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
         // Subscribe to communication events
@@ -153,26 +157,14 @@ public partial class ServerManagementViewModel : ObservableObject, IDisposable
 
             var clients = clientsResult.Value;
 
-            // Check if already on UI thread to avoid unnecessary context switch
-            if (System.Windows.Application.Current.Dispatcher.CheckAccess())
+            await _syncContext.RunOnUiThreadAsync(() =>
             {
                 Clients.Clear();
                 foreach (var client in clients)
                 {
                     Clients.Add(client);
                 }
-            }
-            else
-            {
-                await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
-                {
-                    Clients.Clear();
-                    foreach (var client in clients)
-                    {
-                        Clients.Add(client);
-                    }
-                });
-            }
+            });
         }
         catch (Exception ex)
         {

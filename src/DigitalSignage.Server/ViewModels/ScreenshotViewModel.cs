@@ -6,6 +6,7 @@ using Microsoft.Win32;
 using System.IO;
 using System.Windows;
 using System.Windows.Media.Imaging;
+using DigitalSignage.Server.Services;
 
 namespace DigitalSignage.Server.ViewModels;
 
@@ -16,6 +17,7 @@ public partial class ScreenshotViewModel : ObservableObject
 {
     private readonly ILogger<ScreenshotViewModel> _logger;
     private readonly IDialogService _dialogService;
+    private readonly ISynchronizationContext _syncContext;
 
     [ObservableProperty]
     private BitmapImage? _screenshotImage;
@@ -40,10 +42,11 @@ public partial class ScreenshotViewModel : ObservableObject
     /// </summary>
     public event EventHandler? CloseRequested;
 
-    public ScreenshotViewModel(ILogger<ScreenshotViewModel> logger, IDialogService dialogService)
+    public ScreenshotViewModel(ILogger<ScreenshotViewModel> logger, IDialogService dialogService, ISynchronizationContext syncContext)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
+        _syncContext = syncContext ?? throw new ArgumentNullException(nameof(syncContext));
     }
 
     /// <summary>
@@ -93,10 +96,8 @@ public partial class ScreenshotViewModel : ObservableObject
                 }
             }
 
-            // Create BitmapImage on UI thread - check if already on UI thread first
-            var dispatcher = Application.Current.Dispatcher;
-
-            Action createBitmap = () =>
+            // Create BitmapImage on UI thread via sync context
+            _syncContext.RunOnUiThreadAsync(() =>
             {
                 try
                 {
@@ -137,16 +138,7 @@ public partial class ScreenshotViewModel : ObservableObject
                     IsLoading = false;
                     StatusMessage = $"Error loading image: {ex.Message}";
                 }
-            };
-
-            if (dispatcher.CheckAccess())
-            {
-                createBitmap();
-            }
-            else
-            {
-                dispatcher.Invoke(createBitmap);
-            }
+            });
         }
         catch (FormatException ex)
         {
@@ -223,7 +215,10 @@ public partial class ScreenshotViewModel : ObservableObject
         {
             if (ScreenshotImage != null)
             {
-                Clipboard.SetImage(ScreenshotImage);
+                await _syncContext.RunOnUiThreadAsync(() =>
+                {
+                    Clipboard.SetImage(ScreenshotImage);
+                });
                 StatusMessage = "Screenshot copied to clipboard";
                 _logger.LogInformation("Screenshot copied to clipboard for client {ClientName}", ClientName);
 
