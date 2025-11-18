@@ -612,6 +612,26 @@ mkdir -p "$CONFIG_DIR/logs"
 chown -R "$ACTUAL_USER:$ACTUAL_USER" "$CONFIG_DIR"
 show_success "Config directory created: $CONFIG_DIR"
 
+# Update client_id in config.json with current hostname
+# This runs AFTER config.json is created/copied, ensuring the client_id is always up-to-date
+if [ -f "$INSTALL_DIR/config.json" ]; then
+    CURRENT_HOSTNAME=$(hostname)
+    # Update client_id if it's still the placeholder or doesn't match hostname
+    if grep -q "GENERATED_ON_FIRST_RUN" "$INSTALL_DIR/config.json"; then
+        sed -i "s/GENERATED_ON_FIRST_RUN/$CURRENT_HOSTNAME/g" "$INSTALL_DIR/config.json"
+        show_success "Updated client_id to: $CURRENT_HOSTNAME"
+    else
+        # Also update if client_id exists but is different from hostname
+        CURRENT_CLIENT_ID=$(grep '"client_id"' "$INSTALL_DIR/config.json" | cut -d'"' -f4)
+        if [ "$CURRENT_CLIENT_ID" != "$CURRENT_HOSTNAME" ]; then
+            sed -i "s/\"client_id\": \".*\"/\"client_id\": \"$CURRENT_HOSTNAME\"/g" "$INSTALL_DIR/config.json"
+            show_success "Updated client_id from '$CURRENT_CLIENT_ID' to: $CURRENT_HOSTNAME"
+        else
+            show_info "Client ID already set to: $CURRENT_HOSTNAME"
+        fi
+    fi
+fi
+
 # Configure splash screen (disable default and set branded logo)
 show_step "Configuring splash screen..."
 if [ -f "$INSTALL_DIR/setup-splash-screen.sh" ]; then
