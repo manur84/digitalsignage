@@ -392,7 +392,25 @@ fi
 
             var checkCmd = ssh.CreateCommand(checkCommand);
             checkCmd.CommandTimeout = TimeSpan.FromSeconds(10);
-            var checkResult = await Task.Run(() => checkCmd.Execute(), cancellationToken);
+
+            string? checkResult;
+            try
+            {
+                checkResult = await Task.Run(() => checkCmd.Execute(), cancellationToken);
+            }
+            catch (Renci.SshNet.Common.SshConnectionException sshEx)
+            {
+                // SSH connection dropped - Pi might be rebooting or network unstable
+                progress?.Report("⚠ SSH-Verbindung unterbrochen beim Prüfen (Pi könnte neu starten)");
+                _logger.LogWarning(sshEx, "SSH connection dropped during splash screen check - Pi may be rebooting");
+                return; // Skip splash setup if connection is unstable
+            }
+            catch (TimeoutException timeoutEx)
+            {
+                progress?.Report("⚠ Timeout beim Prüfen der Splash-Screen-Dateien");
+                _logger.LogWarning(timeoutEx, "Timeout during splash screen file check");
+                return; // Skip splash setup on timeout
+            }
 
             if (checkResult?.Contains("SPLASH_NOT_AVAILABLE", StringComparison.OrdinalIgnoreCase) == true)
             {
@@ -460,9 +478,15 @@ fi
                 _logger.LogWarning(timeoutEx, "Timeout during splash setup - initramfs rebuild may still be running in background");
             }
         }
+        catch (Renci.SshNet.Common.SshException sshEx)
+        {
+            // General SSH errors (authentication, network, etc.)
+            _logger.LogWarning(sshEx, "SSH error during splash screen setup (non-critical)");
+            progress?.Report("⚠ Splash-Screen-Setup übersprungen (SSH-Fehler, nicht kritisch)");
+        }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Splash screen setup failed (non-critical)");
+            _logger.LogWarning(ex, "Unexpected error during splash screen setup (non-critical)");
             progress?.Report("⚠ Splash-Screen-Setup übersprungen (Fehler, nicht kritisch)");
         }
     }
