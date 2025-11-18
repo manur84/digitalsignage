@@ -774,6 +774,73 @@ class StatusScreen(QWidget):
 
         logger.info("Status screen: Server Found - Connecting")
 
+    def show_discovery_failed(self, attempts: int, config_path: str):
+        """Show 'Auto-Discovery Failed' screen when max attempts reached"""
+        layout = QVBoxLayout(self)
+        layout.setAlignment(Qt.AlignCenter)
+        layout.setSpacing(self.spacing)
+
+        # Error icon
+        error_icon = QLabel("⚠", self)
+        error_icon.setStyleSheet(f"color: {self.COLOR_WARNING}; font-size: {self.icon_font_size}pt; font-weight: bold;")
+        error_icon.setAlignment(Qt.AlignCenter)
+        layout.addWidget(error_icon)
+
+        # Title - German
+        title_label = QLabel("Auto-Discovery Fehlgeschlagen", self)
+        title_label.setStyleSheet(f"color: {self.COLOR_WARNING}; font-size: {self.title_font_size}pt; font-weight: bold;")
+        title_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(title_label)
+
+        # Failure message - German
+        message_label = QLabel(f"Kein Server gefunden nach {attempts} Versuchen", self)
+        message_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: {self.subtitle_font_size}pt;")
+        message_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(message_label)
+
+        # Spacer
+        layout.addSpacing(self.large_spacing)
+
+        # Fallback info - German
+        fallback_label = QLabel("Verwende konfigurierten Server als Fallback", self)
+        fallback_label.setStyleSheet(f"color: {self.COLOR_PRIMARY}; font-size: {self.subtitle_font_size}pt; font-weight: bold;")
+        fallback_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(fallback_label)
+
+        # Spacer
+        layout.addSpacing(self.spacing)
+
+        # Instructions - German
+        instructions = [
+            "Für manuelle Konfiguration:",
+            f"  sudo nano {config_path}",
+            "",
+            "Setzen Sie diese Werte:",
+            '  "auto_discover": false,',
+            '  "server_host": "192.168.0.xxx",',
+            "",
+            "Dann Client neustarten:",
+            "  sudo systemctl restart digitalsignage-client"
+        ]
+        instructions_label = QLabel("\n".join(instructions), self)
+        instructions_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: {self.body_font_size}pt; background-color: #2A2A2A; padding: {self.padding}px; border-radius: 10px;")
+        instructions_label.setAlignment(Qt.AlignCenter)
+        instructions_label.setFont(QFont("monospace"))
+        layout.addWidget(instructions_label)
+
+        layout.addStretch()
+
+        self.setLayout(layout)
+        self.update()
+
+        # CRITICAL FIX: Ensure status screen is ALWAYS visible and on top
+        self.showFullScreen()
+        self.raise_()
+        self.activateWindow()
+        self.repaint()
+
+        logger.info(f"Status screen: Discovery Failed (after {attempts} attempts)")
+
     def _create_qr_code(self, data: str, size: int = 200) -> Optional[QLabel]:
         """Create a QR code widget"""
         try:
@@ -883,6 +950,16 @@ class StatusScreenManager:
         self.status_screen.show_server_found(server_url)
         self.is_showing_status = True
         self._smooth_transition()
+
+    async def show_discovery_failed(self, attempts: int, config_path: str):
+        """Show discovery failed screen when max attempts reached"""
+        self._ensure_status_screen()
+        self.status_screen.show_discovery_failed(attempts, config_path)
+        self.is_showing_status = True
+        self._smooth_transition()
+        # Wait 5 seconds to let user see the screen before attempting fallback
+        import asyncio
+        await asyncio.sleep(5)
 
     def clear_status_screen(self):
         """Clear the status screen and prepare for layout display with smooth fade-out"""

@@ -47,6 +47,10 @@ import warnings
 warnings.filterwarnings('ignore', message='.*coroutine.*was never awaited.*', category=RuntimeWarning)
 warnings.filterwarnings('ignore', message='.*Enable tracemalloc.*', category=RuntimeWarning)
 
+# Auto-Discovery Configuration Constants
+MAX_DISCOVERY_ATTEMPTS = 10  # Max 10 scans à 5 seconds = 50 seconds timeout
+DISCOVERY_RETRY_DELAY = 2    # 2 seconds delay between discovery scans
+
 # Log startup information
 logger.info("=" * 70)
 logger.info("Digital Signage Client Starting...")
@@ -1086,13 +1090,13 @@ class DigitalSignageClient:
                 logger.error(f"Failed to import discovery module: {e}")
                 raise
 
-            # OPTIMIZED DISCOVERY LOOP: Run discovery without manual Qt event processing
+            # OPTIMIZED DISCOVERY LOOP: Run discovery with timeout and retry delay
             # CRITICAL FIX: Do NOT call QApplication.processEvents() when using qasync
             # qasync automatically integrates Qt and asyncio event loops
-            while not server_discovered:
+            while not server_discovered and discovery_attempt < MAX_DISCOVERY_ATTEMPTS:
                 discovery_attempt += 1
-                logger.info(f"Discovery scan #{discovery_attempt} starting...")
-                self.watchdog.notify_status(f"Searching for servers (scan #{discovery_attempt})...")
+                logger.info(f"Discovery scan #{discovery_attempt}/{MAX_DISCOVERY_ATTEMPTS} starting...")
+                self.watchdog.notify_status(f"Searching for servers (scan #{discovery_attempt}/{MAX_DISCOVERY_ATTEMPTS})...")
 
                 try:
                     # Run discovery in asyncio executor (non-blocking)
@@ -1132,23 +1136,49 @@ class DigitalSignageClient:
                             server_discovered = True
                         else:
                             logger.error(f"Failed to parse discovered URL: {discovered_url}")
-                            logger.info(f"Retrying immediately (scan #{discovery_attempt + 1})...")
+                            if discovery_attempt < MAX_DISCOVERY_ATTEMPTS:
+                                logger.info(f"Retrying in {DISCOVERY_RETRY_DELAY}s (scan #{discovery_attempt + 1}/{MAX_DISCOVERY_ATTEMPTS})...")
+                                await asyncio.sleep(DISCOVERY_RETRY_DELAY)
                     else:
-                        logger.debug(f"Scan #{discovery_attempt} complete - no servers found")
-                        logger.debug(f"Starting scan #{discovery_attempt + 1} immediately...")
-                        # NO SLEEP - immediately start next scan to find server faster
+                        logger.debug(f"Scan #{discovery_attempt}/{MAX_DISCOVERY_ATTEMPTS} complete - no servers found")
+                        if discovery_attempt < MAX_DISCOVERY_ATTEMPTS:
+                            logger.info(f"No server found, retrying in {DISCOVERY_RETRY_DELAY}s...")
+                            await asyncio.sleep(DISCOVERY_RETRY_DELAY)
 
                 except Exception as e:
-                    logger.error(f"Discovery scan #{discovery_attempt} failed: {e}")
+                    logger.error(f"Discovery scan #{discovery_attempt}/{MAX_DISCOVERY_ATTEMPTS} failed: {e}")
                     logger.error(f"Exception type: {type(e).__name__}")
                     import traceback
                     logger.debug(f"Traceback:\n{traceback.format_exc()}")
-                    logger.info(f"Starting scan #{discovery_attempt + 1} immediately...")
-                    # NO SLEEP - immediately retry on error
+                    if discovery_attempt < MAX_DISCOVERY_ATTEMPTS:
+                        logger.info(f"Retrying in {DISCOVERY_RETRY_DELAY}s (scan #{discovery_attempt + 1}/{MAX_DISCOVERY_ATTEMPTS})...")
+                        await asyncio.sleep(DISCOVERY_RETRY_DELAY)
 
-            logger.info("=" * 70)
-            logger.info("✓ SERVER DISCOVERED SUCCESSFULLY - Proceeding to connection...")
-            logger.info("=" * 70)
+            # Check if discovery succeeded or timed out
+            if not server_discovered:
+                # Discovery failed after MAX_ATTEMPTS
+                logger.error("=" * 70)
+                logger.error(f"AUTO-DISCOVERY FAILED after {MAX_DISCOVERY_ATTEMPTS} attempts")
+                logger.error(f"Total discovery time: ~{MAX_DISCOVERY_ATTEMPTS * self.config.discovery_timeout}s")
+                logger.error("=" * 70)
+
+                # Show discovery failed status screen
+                if self.display_renderer and self.display_renderer.status_screen_manager:
+                    await self.display_renderer.status_screen_manager.show_discovery_failed(
+                        attempts=MAX_DISCOVERY_ATTEMPTS,
+                        config_path="/opt/digitalsignage-client/config.json"
+                    )
+
+                # Fallback: Disable auto_discover and try configured server
+                logger.warning("FALLBACK: Disabling auto_discover and trying configured server...")
+                logger.info(f"Configured server: {self.config.server_host}:{self.config.server_port}")
+                self.config.auto_discover = False
+                # Don't save the config change - keep auto_discover enabled for next restart
+                logger.info("Note: auto_discover will remain enabled for next restart")
+            else:
+                logger.info("=" * 70)
+                logger.info("✓ SERVER DISCOVERED SUCCESSFULLY - Proceeding to connection...")
+                logger.info("=" * 70)
         else:
             logger.info("=" * 70)
             logger.info("AUTO-DISCOVERY DISABLED")
