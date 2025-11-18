@@ -175,30 +175,36 @@ if command -v ps &>/dev/null; then
     fi
 fi
 
-# Build candidate list with detected display first, then fallbacks
-if [ -n "$DETECTED_DISPLAY" ]; then
-    DISPLAY_CANDIDATES=("$DETECTED_DISPLAY" ":0" ":1" "${DISPLAY}")
-else
-    DISPLAY_CANDIDATES=(":0" ":1" "${DISPLAY}")
-fi
-
+# If we detected Xorg display, use it directly (trust the detection)
+# Xorg may have auth requirements that prevent xset from working,
+# but PyQt5 will still work via the X socket
 X11_FOUND=false
 
-for DISPLAY_TEST in "${DISPLAY_CANDIDATES[@]}"; do
-    if [ -n "$DISPLAY_TEST" ] && DISPLAY="$DISPLAY_TEST" xset q &>/dev/null 2>&1; then
-        log_message "✓ X11 display detected on $DISPLAY_TEST"
-        export DISPLAY="$DISPLAY_TEST"
-        X11_FOUND=true
+if [ -n "$DETECTED_DISPLAY" ]; then
+    log_message "Using detected Xorg display: $DETECTED_DISPLAY"
+    export DISPLAY="$DETECTED_DISPLAY"
+    X11_FOUND=true
+else
+    # No Xorg detected, try fallback displays with xset verification
+    log_message "No Xorg detected, trying fallback displays..."
+    DISPLAY_CANDIDATES=(":0" ":1" "${DISPLAY}")
 
-        # Verify we can query the display
-        if xdpyinfo -display "$DISPLAY" &>/dev/null 2>&1; then
-            log_message "✓ Display is accessible and responding"
-        else
-            log_message "⚠ Display exists but may have access issues"
+    for DISPLAY_TEST in "${DISPLAY_CANDIDATES[@]}"; do
+        if [ -n "$DISPLAY_TEST" ] && DISPLAY="$DISPLAY_TEST" xset q &>/dev/null 2>&1; then
+            log_message "✓ X11 display detected on $DISPLAY_TEST"
+            export DISPLAY="$DISPLAY_TEST"
+            X11_FOUND=true
+
+            # Verify we can query the display
+            if xdpyinfo -display "$DISPLAY" &>/dev/null 2>&1; then
+                log_message "✓ Display is accessible and responding"
+            else
+                log_message "⚠ Display exists but may have access issues"
+            fi
+            break
         fi
-        break
-    fi
-done
+    done
+fi
 
 if [ "$X11_FOUND" = true ]; then
     # Hide mouse cursor on real display
