@@ -3,7 +3,10 @@ using CommunityToolkit.Mvvm.Input;
 using DigitalSignage.Core.Interfaces;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Collections;
 using System.Collections.ObjectModel;
+using System.Linq;
+using System.Text;
 using System.Windows;
 
 namespace DigitalSignage.Server.ViewModels;
@@ -77,6 +80,74 @@ public partial class LiveLogsViewModel : ObservableObject, IDisposable
     {
         AutoScroll = !AutoScroll;
         StatusText = AutoScroll ? "Auto-scroll enabled" : "Auto-scroll disabled";
+    }
+
+    [RelayCommand]
+    private void CopySelectedLogs(object? selectedItems)
+    {
+        try
+        {
+            if (selectedItems is IList items && items.Count > 0)
+            {
+                var logs = items.Cast<string>().ToList();
+                var text = string.Join(Environment.NewLine, logs);
+                Clipboard.SetText(text);
+                StatusText = $"Copied {logs.Count} log entries to clipboard";
+                _logger.LogDebug("Copied {Count} log entries to clipboard", logs.Count);
+            }
+            else
+            {
+                StatusText = "No logs selected to copy";
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to copy selected logs to clipboard");
+            StatusText = $"Failed to copy logs: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private void CopyAllLogs()
+    {
+        try
+        {
+            if (LogMessages.Count > 0)
+            {
+                var text = string.Join(Environment.NewLine, LogMessages);
+                Clipboard.SetText(text);
+                StatusText = $"Copied all {LogMessages.Count} log entries to clipboard";
+                _logger.LogDebug("Copied all {Count} log entries to clipboard", LogMessages.Count);
+            }
+            else
+            {
+                StatusText = "No logs to copy";
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to copy all logs to clipboard");
+            StatusText = $"Failed to copy logs: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private void SelectAllLogs(object? listBox)
+    {
+        try
+        {
+            if (listBox is System.Windows.Controls.ListBox lb)
+            {
+                lb.SelectAll();
+                StatusText = $"Selected all {LogMessages.Count} log entries";
+                _logger.LogDebug("Selected all {Count} log entries", LogMessages.Count);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to select all logs");
+            StatusText = $"Failed to select logs: {ex.Message}";
+        }
     }
 
     /// <summary>
