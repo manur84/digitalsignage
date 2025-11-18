@@ -13,10 +13,20 @@
 set -euo pipefail
 
 LOGO_PATH="${1:-/digisign-logo.png}"
-CMDLINE_FILE="/boot/cmdline.txt"
-CONFIG_TXT="/boot/config.txt"
+
+# Auto-detect boot directory (Raspberry Pi OS changed location in newer versions)
+if [ -d "/boot/firmware" ] && [ -w "/boot/firmware" ]; then
+  BOOT_DIR="/boot/firmware"
+else
+  BOOT_DIR="/boot"
+fi
+
+CMDLINE_FILE="$BOOT_DIR/cmdline.txt"
+CONFIG_TXT="$BOOT_DIR/config.txt"
 PLYMOUTH_THEME_DIR="/usr/share/plymouth/themes/pix"
 PIX_SCRIPT="$PLYMOUTH_THEME_DIR/pix.script"
+
+echo "Using boot directory: $BOOT_DIR"
 
 CMDLINE_FLAGS=(
   "logo.nologo"
