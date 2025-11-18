@@ -140,7 +140,7 @@ echo ""
 # ========================================
 
 step_counter=1
-TOTAL_STEPS=10
+TOTAL_STEPS=11
 
 function show_step() {
     echo ""
@@ -799,14 +799,56 @@ fi
 
 show_success "All required files present and executable"
 
-# [8/10] Create config directory
+# [8/10] Create default config.json
+show_step "Creating default configuration..."
+
+if [ ! -f "$INSTALL_DIR/config.json" ]; then
+    # Generate unique client ID
+    CLIENT_ID=$(cat /proc/sys/kernel/random/uuid)
+
+    # Create config.json with defaults from config.py
+    cat > "$INSTALL_DIR/config.json" <<EOF
+{
+  "client_id": "$CLIENT_ID",
+  "server_host": "localhost",
+  "server_port": 8080,
+  "endpoint_path": "ws/",
+  "registration_token": "",
+  "use_ssl": false,
+  "verify_ssl": true,
+  "fullscreen": true,
+  "log_level": "INFO",
+  "cache_dir": "/opt/digitalsignage-client/data/cache",
+  "data_dir": "/opt/digitalsignage-client/data",
+  "auto_discover": true,
+  "discovery_timeout": 5.0,
+  "remote_logging_enabled": true,
+  "remote_logging_level": "INFO",
+  "remote_logging_batch_size": 50,
+  "remote_logging_batch_interval": 5.0,
+  "show_cached_layout_on_disconnect": true,
+  "burn_in_protection_enabled": true,
+  "burn_in_pixel_shift_interval": 300,
+  "burn_in_pixel_shift_max": 5,
+  "burn_in_screensaver_timeout": 3600
+}
+EOF
+    chown "$ACTUAL_USER:$ACTUAL_USER" "$INSTALL_DIR/config.json"
+    chmod 644 "$INSTALL_DIR/config.json"
+    show_success "Default config.json created with client ID: $CLIENT_ID"
+    show_info "Auto-discovery enabled - client will find server automatically"
+else
+    show_info "config.json already exists, keeping existing configuration"
+fi
+
+# [9/10] Create config directory
 show_step "Creating config directory..."
 mkdir -p "$CONFIG_DIR/cache"
 mkdir -p "$CONFIG_DIR/logs"
 chown -R "$ACTUAL_USER:$ACTUAL_USER" "$CONFIG_DIR"
 show_success "Config directory created: $CONFIG_DIR"
 
-# [9/10] Install systemd service
+# [10/10] Install systemd service
 show_step "Installing systemd service..."
 if [ -f "$SCRIPT_DIR/digitalsignage-client.service" ]; then
     sed "s/INSTALL_USER/$ACTUAL_USER/g" "$SCRIPT_DIR/digitalsignage-client.service" | \
@@ -851,7 +893,7 @@ fi
 systemctl daemon-reload
 show_success "Systemd daemon reloaded"
 
-# [10/10] Configure autostart
+# [11/11] Configure autostart
 show_step "Configuring autostart..."
 AUTOSTART_DIR="$USER_HOME/.config/autostart"
 mkdir -p "$AUTOSTART_DIR"
