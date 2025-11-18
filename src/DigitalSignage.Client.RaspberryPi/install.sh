@@ -80,37 +80,37 @@ CONFIG_EXISTS=false
 
 # Check for existing installation
 if [ -d "$INSTALL_DIR" ]; then
-echo "----------------------------------------"
+    echo "✓ Installation directory exists: $INSTALL_DIR"
 
     if [ -d "$INSTALL_DIR/.git" ]; then
         GIT_REPO_EXISTS=true
-echo "----------------------------------------"
+        echo "  - Git repository found"
     fi
 
     if [ -d "$VENV_DIR" ]; then
         VENV_EXISTS=true
-echo "----------------------------------------"
+        echo "  - Virtual environment found"
     fi
 
-    if [ -f "$INSTALL_DIR/config.py" ]; then
+    if [ -f "$INSTALL_DIR/config.json" ]; then
         CONFIG_EXISTS=true
-echo "----------------------------------------"
+        echo "  - Configuration file found (config.json)"
     fi
 else
-echo "----------------------------------------"
+    echo "✗ No existing installation found"
 fi
 
 if [ -f "$SERVICE_FILE" ]; then
     SERVICE_INSTALLED=true
-echo "----------------------------------------"
+    echo "✓ Systemd service installed"
 
     if systemctl is-active --quiet $SERVICE_NAME; then
-echo "----------------------------------------"
+        echo "  - Service is currently running"
     else
-echo "----------------------------------------"
+        echo "  - Service is stopped"
     fi
 else
-echo "----------------------------------------"
+    echo "✗ Systemd service not installed"
 fi
 
 # Determine MODE (always INSTALL)
@@ -140,21 +140,21 @@ function show_step() {
 
 function check_error() {
     if [ $? -ne 0 ]; then
-echo "----------------------------------------"
+        echo -e "${RED}✗ ERROR: $1${NC}"
         exit 1
     fi
 }
 
 function show_success() {
-echo "----------------------------------------"
+    echo -e "${GREEN}✓ $1${NC}"
 }
 
 function show_warning() {
-echo "----------------------------------------"
+    echo -e "${YELLOW}⚠ $1${NC}"
 }
 
 function show_info() {
-echo "----------------------------------------"
+    echo -e "${BLUE}ℹ $1${NC}"
 }
 
 # ========================================
@@ -412,12 +412,12 @@ for file in "${REQUIRED_FILES[@]}"; do
     if [ -f "$SCRIPT_DIR/$file" ]; then
         if cp "$SCRIPT_DIR/$file" "$INSTALL_DIR/" 2>/dev/null; then
             ((COPIED_COUNT++))
-echo "----------------------------------------"
+            echo "  ✓ Copied: $file"
         else
-echo "----------------------------------------"
+            echo "  ✗ Failed to copy: $file"
         fi
     else
-echo "----------------------------------------"
+        echo "  ⚠ Missing: $file"
         MISSING_FILES+=("$file")
     fi
 done
@@ -442,7 +442,7 @@ done
 
 if [ ${#MISSING_FILES[@]} -gt 0 ]; then
     echo ""
-echo "----------------------------------------"
+    echo -e "${YELLOW}⚠ Warning: ${#MISSING_FILES[@]} files are missing:${NC}"
     for file in "${MISSING_FILES[@]}"; do
         echo "  - $file"
     done
@@ -458,15 +458,15 @@ echo "----------------------------------------"
     done
 
     if [ "$CRITICAL_MISSING" = true ]; then
-echo "----------------------------------------"
+        echo -e "${RED}✗ CRITICAL ERROR: Essential files are missing!${NC}"
         echo ""
-echo "----------------------------------------"
+        echo -e "${YELLOW}Please ensure you're running the installer from the correct location:${NC}"
         echo "  1. Clone repository to home directory: cd ~ && git clone https://github.com/manur84/digitalsignage.git"
         echo "  2. Run install.sh: cd digitalsignage/src/DigitalSignage.Client.RaspberryPi && sudo ./install.sh"
         echo ""
         exit 1
     else
-echo "----------------------------------------"
+        show_warning "Non-critical files missing - installation will continue"
     fi
 fi
 
@@ -484,6 +484,40 @@ fi
 
 # Re-enable exit on error
 set -e
+
+# Create default config.json if it doesn't exist
+if [ ! -f "$INSTALL_DIR/config.json" ]; then
+    echo "Creating default config.json..."
+    cat > "$INSTALL_DIR/config.json" <<'EOF'
+{
+  "client_id": "GENERATED_ON_FIRST_RUN",
+  "server_host": "localhost",
+  "server_port": 8080,
+  "endpoint_path": "ws/",
+  "registration_token": "",
+  "use_ssl": false,
+  "verify_ssl": true,
+  "fullscreen": true,
+  "log_level": "INFO",
+  "cache_dir": "/home/INSTALL_USER/.digitalsignage/cache",
+  "data_dir": "/home/INSTALL_USER/.digitalsignage/data",
+  "auto_discover": true,
+  "discovery_timeout": 5.0,
+  "remote_logging_enabled": true,
+  "remote_logging_level": "INFO",
+  "remote_logging_batch_size": 50,
+  "remote_logging_batch_interval": 5.0,
+  "show_cached_layout_on_disconnect": true,
+  "burn_in_protection_enabled": true,
+  "burn_in_pixel_shift_interval": 300,
+  "burn_in_pixel_shift_max": 5,
+  "burn_in_screensaver_timeout": 3600
+}
+EOF
+    # Replace INSTALL_USER placeholder with actual user
+    sed -i "s/INSTALL_USER/$ACTUAL_USER/g" "$INSTALL_DIR/config.json"
+    show_success "Default config.json created"
+fi
 
 # Set ownership
 chown -R "$ACTUAL_USER:$ACTUAL_USER" "$INSTALL_DIR"
@@ -672,9 +706,9 @@ else
     TEST_EXIT_CODE=$?
     echo ""
     if [ $TEST_EXIT_CODE -eq 124 ]; then
-echo "----------------------------------------"
+        show_warning "Pre-flight test timed out (this is normal - continuing installation)"
     else
-echo "----------------------------------------"
+        show_warning "Pre-flight test failed with exit code $TEST_EXIT_CODE"
     fi
     echo ""
     echo "Check startup log: sudo cat /var/log/digitalsignage-client-startup.log"
