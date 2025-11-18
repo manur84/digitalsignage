@@ -322,6 +322,7 @@ if [ "$MODE" = "UPDATE" ]; then
         "fix-installation.sh"
         "enable-autologin-x11.sh"
         "check-autostart.sh"
+        "setup-splash-screen.sh"
         "TROUBLESHOOTING.md"
     )
 
@@ -726,6 +727,7 @@ OPTIONAL_FILES=(
     "fix-installation.sh"
     "enable-autologin-x11.sh"
     "check-autostart.sh"
+    "setup-splash-screen.sh"
     "TROUBLESHOOTING.md"
 )
 
@@ -735,6 +737,12 @@ for file in "${OPTIONAL_FILES[@]}"; do
         ((COPIED_COUNT++))
     fi
 done
+
+# Copy digisign-logo.png if it exists (for splash screen)
+if [ -f "$SCRIPT_DIR/../../digisign-logo.png" ]; then
+    cp "$SCRIPT_DIR/../../digisign-logo.png" "$INSTALL_DIR/"
+    show_info "Logo copied to $INSTALL_DIR/digisign-logo.png"
+fi
 
 if [ ${#MISSING_FILES[@]} -gt 0 ]; then
     echo ""
@@ -1205,6 +1213,54 @@ else
     echo "$COMPLETE_MARKER"
 fi
 
+
+# ========================================
+# [OPTIONAL] Configure Splash Screen
+# ========================================
+
+if [ "$DEPLOYMENT_MODE" = "1" ] && [ -f "$INSTALL_DIR/setup-splash-screen.sh" ] && [ -f "$INSTALL_DIR/digisign-logo.png" ]; then
+    echo ""
+    echo "════════════════════════════════════════════════════════════"
+    echo "Optional: Configure Boot Splash Screen"
+    echo "════════════════════════════════════════════════════════════"
+    echo ""
+    echo "A boot splash screen can display your logo during startup instead of"
+    echo "the default Raspberry Pi boot messages."
+    echo ""
+
+    if [ "$NON_INTERACTIVE" = "1" ]; then
+        REPLY="n"
+        echo "Non-interactive mode: Skipping splash screen setup (run manually later)"
+    else
+        read -p "Configure boot splash screen now? (y/N): " -n 1 -r
+        echo ""
+    fi
+
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        echo ""
+        echo "Setting up splash screen..."
+
+        # Copy logo to root for Plymouth
+        cp "$INSTALL_DIR/digisign-logo.png" /digisign-logo.png
+        chmod 644 /digisign-logo.png
+
+        # Run splash screen setup
+        if bash "$INSTALL_DIR/setup-splash-screen.sh" /digisign-logo.png; then
+            show_success "Splash screen configured successfully!"
+            echo ""
+            echo "Your logo will appear during boot after reboot."
+            NEEDS_REBOOT=true
+        else
+            show_warning "Splash screen setup failed. You can run it manually later:"
+            echo "  sudo $INSTALL_DIR/setup-splash-screen.sh /digisign-logo.png"
+        fi
+    else
+        echo ""
+        show_info "Splash screen setup skipped."
+        echo "You can configure it later with:"
+        echo "  sudo $INSTALL_DIR/setup-splash-screen.sh $INSTALL_DIR/digisign-logo.png"
+    fi
+fi
 # Final summary
 echo ""
 echo "Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â"
@@ -1230,5 +1286,8 @@ echo "  Status:       sudo systemctl status $SERVICE_NAME"
 echo "  Logs:         sudo journalctl -u $SERVICE_NAME -f"
 echo "  Restart:      sudo systemctl restart $SERVICE_NAME"
 echo "  Diagnose:     sudo $INSTALL_DIR/diagnose.sh"
+if [ -f "$INSTALL_DIR/setup-splash-screen.sh" ]; then
+echo "  Splash:       sudo $INSTALL_DIR/setup-splash-screen.sh $INSTALL_DIR/digisign-logo.png"
+fi
 echo ""
 
