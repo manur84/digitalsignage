@@ -20,6 +20,55 @@ log_error() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] ERROR: $1" | tee -a "$LOG_FILE" >&2
 }
 
+# Run a minimal Qt test against the current DISPLAY
+run_qt_test() {
+    QT_TEST_OUTPUT=$($PYTHON_EXE -c "
+import sys
+from PyQt5.QtWidgets import QApplication
+try:
+    app = QApplication(['test'])
+    print('Qt application created successfully')
+    sys.exit(0)
+except Exception as e:
+    print(f'Qt application creation failed: {e}')
+    sys.exit(1)
+" 2>&1)
+
+    QT_TEST_RESULT=$?
+    log_message "$QT_TEST_OUTPUT"
+    return $QT_TEST_RESULT
+}
+
+# Start Xvfb on :99 if not already running (fallback when real display is unavailable)
+start_xvfb_fallback() {
+    if xdpyinfo -display :99 &>/dev/null; then
+        log_message "Accessibility: Xvfb already running on :99, reusing it"
+        export DISPLAY=:99
+        return 0
+    fi
+
+    if ! command -v Xvfb &>/dev/null; then
+        log_error "Xvfb not installed (fallback unavailable)"
+        return 1
+    fi
+
+    log_message "Starting Xvfb fallback on :99..."
+    Xvfb :99 -screen 0 1024x768x24 &
+    XVFB_PID=$!
+    export DISPLAY=:99
+
+    for i in $(seq 1 10); do
+        if xset -display :99 q &>/dev/null; then
+            log_message "�o\" Xvfb fallback ready on DISPLAY=:99"
+            return 0
+        fi
+        sleep 1
+    done
+
+    log_error "Xvfb fallback failed to start"
+    return 1
+}
+
 log_message "=========================================="
 log_message "Digital Signage Client Starting"
 log_message "=========================================="
@@ -236,27 +285,24 @@ log_message "Testing Qt Application Creation"
 log_message "=========================================="
 log_message "Running Qt test..."
 
-QT_TEST_OUTPUT=$($PYTHON_EXE -c "
-import sys
-from PyQt5.QtWidgets import QApplication
-try:
-    app = QApplication(['test'])
-    print('Qt application created successfully')
-    sys.exit(0)
-except Exception as e:
-    print(f'Qt application creation failed: {e}')
-    sys.exit(1)
-" 2>&1)
-
+run_qt_test
 QT_TEST_RESULT=$?
-log_message "$QT_TEST_OUTPUT"
 
 if [ $QT_TEST_RESULT -ne 0 ]; then
-    log_error "Qt application test failed"
+    log_error "Qt application test failed on DISPLAY=${DISPLAY:-unset}, attempting Xvfb fallback..."
+    if start_xvfb_fallback; then
+        log_message "Retrying Qt test with DISPLAY=$DISPLAY"
+        run_qt_test
+        QT_TEST_RESULT=$?
+    fi
+fi
+
+if [ $QT_TEST_RESULT -ne 0 ]; then
+    log_error "Qt application test failed after fallback"
     log_error "This will prevent the client from starting"
     exit 1
 fi
-log_message "✓ Qt application test successful"
+log_message "Qt application test successful"
 
 # If in test mode, exit here
 if [ "$TEST_MODE" = true ]; then
