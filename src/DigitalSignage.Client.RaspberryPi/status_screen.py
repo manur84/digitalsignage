@@ -920,11 +920,12 @@ class StatusScreenManager:
             Qt.WindowStaysOnTopHint
         )
 
-        # Set geometry and hide initially
+        # Set geometry and show immediately (in background)
         self.status_screen.setGeometry(0, 0, width, height)
-        self.status_screen.hide()  # Hidden until needed
+        self.status_screen.showFullScreen()  # Show immediately, not hide()
+        self.status_screen.lower()  # Put behind other windows initially
 
-        logger.info(f"Status screen created eagerly: {width}x{height} (hidden)")
+        logger.info(f"Status screen created eagerly: {width}x{height} (visible but lowered)")
 
     def show_discovering_server(self, discovery_method: str = "Auto-Discovery"):
         """Show discovering server screen with smooth transition"""
@@ -1015,9 +1016,9 @@ class StatusScreenManager:
                 # Clean up animated widgets
                 self.status_screen.clear_screen()
 
-                # EAGER MODE: Just hide, don't delete (will be reused next time)
-                self.status_screen.hide()
-                logger.debug("Status screen hidden (eager mode - will be reused)")
+                # EAGER MODE: Just lower, don't hide (will be reused next time)
+                self.status_screen.lower()
+                logger.debug("Status screen lowered (eager mode - will be reused)")
 
             except Exception as e:
                 logger.warning(f"Failed to clear status screen: {e}")
@@ -1030,11 +1031,11 @@ class StatusScreenManager:
             logger.error("CRITICAL: Status screen should exist in eager mode!")
             return
 
-        # Show the status screen (was hidden in __init__)
-        logger.debug("Showing status screen (was hidden)...")
-        self.status_screen.showFullScreen()
-        self.status_screen.raise_()
+        # StatusScreen nach vorne bringen (was lowered)
+        logger.debug("Raising status screen to front...")
+        self.status_screen.raise_()  # Bring to front
         self.status_screen.activateWindow()
+        # showFullScreen() nicht nötig - wurde schon im __init__ aufgerufen
 
         # Force immediate repaint for smooth appearance
         self.status_screen.repaint()
