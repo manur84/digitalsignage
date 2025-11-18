@@ -191,10 +191,10 @@ class DisplayRenderer(QWidget):
             if self.fullscreen:
                 self.showFullScreen()
                 # CRITICAL FIX: DO NOT raise/activate - let status screen stay on top
-                logger.info("Display renderer shown in fullscreen mode (behind status screen)")
+                logger.info("Display renderer shown in fullscreen mode (HIDDEN behind status screen)")
             else:
                 self.show()
-                logger.info("Display renderer shown in window mode (behind status screen)")
+                logger.info("Display renderer shown in window mode (HIDDEN behind status screen)")
         else:
             # CRITICAL FIX: Don't show display renderer if status screen is active!
             # Status screen should stay on top until a layout is assigned
@@ -294,22 +294,17 @@ class DisplayRenderer(QWidget):
                         # Last resort: just show the window
                         self.show()
 
-                # Activate window (try multiple times with delay)
-                # This ensures the window is visible even if desktop is still loading
-                try:
-                    self.raise_()
-                    self.activateWindow()
-                    logger.debug("  Window raised and activated")
-                except Exception as e:
-                    logger.warning(f"  Failed to activate window: {e}, continuing anyway")
+                # CRITICAL FIX: DO NOT raise/activate here - let status screen stay on top
+                # Status screen manager will handle Z-order correctly
+                logger.debug("  Window shown (NOT raised to preserve Z-order)")
 
                 logger.info("✓ Display renderer set to fullscreen mode")
             else:
                 logger.info("Setting up windowed display...")
                 self.resize(1920, 1080)
                 self.show()
-                self.raise_()
-                self.activateWindow()
+                # CRITICAL FIX: DO NOT raise/activate here either
+                logger.debug("  Window shown (NOT raised to preserve Z-order)")
                 logger.info("✓ Display renderer set to windowed mode")
 
         except Exception as e:
@@ -391,9 +386,13 @@ class DisplayRenderer(QWidget):
                 self.showFullScreen()
             else:
                 self.show()
+            # CRITICAL FIX: DO NOT raise window here - let status screen manager handle Z-order
+            logger.info("Display renderer shown - NOT raised to allow status screen to stay on top")
         elif self.fullscreen and not self.isFullScreen():
             logger.info("Restoring fullscreen mode after resize")
             self.showFullScreen()
+            # CRITICAL FIX: DO NOT raise window here either
+            logger.info("Fullscreen restored - NOT raised to preserve Z-order")
 
         logger.info("=" * 70)
         logger.info("LAYOUT SCALING ANALYSIS")

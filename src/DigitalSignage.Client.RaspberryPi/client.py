@@ -1497,7 +1497,7 @@ def main():
                 # CRITICAL FIX: Check if status screen is ACTUALLY showing (not just flag)
                 # The flag might be cleared but window still exists during deletion
                 if ssm and ssm.is_showing_status and ssm.status_screen:
-                    logger.info("Status screen is active - ensuring STATUS screen stays visible")
+                    logger.info("Status screen is active - ensuring STATUS screen stays on top")
                     try:
                         ssm.status_screen.raise_()
                         ssm.status_screen.activateWindow()
@@ -1512,6 +1512,13 @@ def main():
                 # This prevents display renderer from covering status screens during discovery/connection
                 if ssm and (ssm.is_showing_status or ssm.status_screen is not None):
                     logger.debug("Status screen exists - NOT raising display renderer to avoid covering it")
+                    return
+
+                # CRITICAL FIX: Check if display renderer has a layout to show
+                # Only raise display renderer if it's actually rendering content
+                # This prevents empty display renderer from covering status screens
+                if client.current_layout is None:
+                    logger.debug("No layout assigned yet - NOT raising display renderer")
                     return
 
                 # If display renderer is already visible (layout rendered), just raise it
