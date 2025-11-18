@@ -38,6 +38,7 @@ public class RemoteClientInstallerService
         SftpClient? sftp = null;
         var installCommandStarted = false;
         var installMarkerSeen = false;
+        var isUpdateMode = false;
 
         if (string.IsNullOrWhiteSpace(host))
             return Result.Failure("Host/IP is required for installation.");
@@ -82,9 +83,22 @@ public class RemoteClientInstallerService
                 return Result.Failure("Failed to initialize SSH/SFTP clients.");
             }
 
-            // Always start from a clean slate on the target device
-            progress?.Report("Preparing target for fresh install (stop/disable service, remove old files)...");
-            await ForceFreshInstallAsync(ssh, username, password, cancellationToken, progress);
+            // Detect if client is already installed (UPDATE mode) or fresh install needed
+            progress?.Report("Checking for existing installation...");
+            isUpdateMode = await DetectExistingInstallationAsync(ssh, cancellationToken);
+
+            if (isUpdateMode)
+            {
+                progress?.Report("✓ Existing installation detected - UPDATE MODE");
+                progress?.Report("Stopping service and backing up configuration...");
+                await PrepareUpdateAsync(ssh, username, password, cancellationToken, progress);
+            }
+            else
+            {
+                progress?.Report("No existing installation found - INSTALL MODE");
+                progress?.Report("Preparing target for fresh install...");
+                await PrepareCleanInstallAsync(ssh, username, password, cancellationToken, progress);
+            }
 
             progress?.Report("Preparing remote staging folder...");
             await Task.Run(() => ssh.RunCommand($"rm -rf '{RemoteInstallPath}' && mkdir -p '{RemoteInstallPath}'"), cancellationToken);
@@ -99,8 +113,8 @@ public class RemoteClientInstallerService
             progress?.Report("Making install.sh executable...");
             await Task.Run(() => ssh.RunCommand($"chmod +x '{installScriptPath}'"), cancellationToken);
 
-            var installCommand = BuildInstallCommand(username, password, installScriptPath);
-            progress?.Report("Running install.sh (sudo) ...");
+            var installCommand = BuildInstallCommand(username, password, installScriptPath, isUpdateMode);
+            progress?.Report(isUpdateMode ? "Running install.sh in UPDATE mode..." : "Running install.sh in INSTALL mode...");
 
             var sshCommand = ssh.CreateCommand(installCommand);
             sshCommand.CommandTimeout = TimeSpan.FromMinutes(10);
@@ -327,7 +341,7 @@ public class RemoteClientInstallerService
         }
     }
 
-    private string BuildInstallCommand(string username, string password, string installScriptPath)
+    private string BuildInstallCommand(string username, string password, string installScriptPath, bool isUpdateMode)
     {
         var normalizedPath = installScriptPath.Replace("\\", "/");
         if (!normalizedPath.StartsWith("/"))
@@ -335,13 +349,20 @@ public class RemoteClientInstallerService
             normalizedPath = $"{RemoteInstallPath.TrimEnd('/')}/{normalizedPath.TrimStart('/')}";
         }
 
-        // Execute install.sh exactly as provided, without extra environment flags or password piping.
+        // Set environment variables for install.sh
+        // DS_NONINTERACTIVE=1: Skip all interactive prompts
+        // DS_UPDATE_MODE=1: Force UPDATE mode (preserve config, update files only)
+        var envVars = isUpdateMode
+            ? "DS_NONINTERACTIVE=1 DS_UPDATE_MODE=1"
+            : "DS_NONINTERACTIVE=1";
+
+        // Execute install.sh with environment variables
         if (string.Equals(username, "root", StringComparison.OrdinalIgnoreCase))
         {
-            return $"/bin/bash '{normalizedPath}'";
+            return $"{envVars} /bin/bash '{normalizedPath}'";
         }
 
-        return $"sudo /bin/bash '{normalizedPath}'";
+        return $"sudo {envVars} /bin/bash '{normalizedPath}'";
     }
 
     /// <summary>
@@ -382,12 +403,18 @@ fi
             progress?.Report("Logo und Skript gefunden. Richte Splash-Screen ein...");
 
             // Run splash screen setup
+            // IMPORTANT: Copy logo to /digisign-logo.png first (Plymouth expects it there)
             var splashScript = $@"
 set -e
 cd '{RemoteInstallDir}'
 if [ -f ./digisign-logo.png ] && [ -f ./setup-splash-screen.sh ]; then
+    # Copy logo to root directory for Plymouth
+    cp ./digisign-logo.png /digisign-logo.png
+    chmod 644 /digisign-logo.png
+
+    # Make setup script executable and run it
     chmod +x ./setup-splash-screen.sh
-    ./setup-splash-screen.sh ./digisign-logo.png
+    ./setup-splash-screen.sh /digisign-logo.png
     echo 'SPLASH_SETUP_SUCCESS'
 else
     echo 'SPLASH_SETUP_FAILED'
@@ -419,7 +446,81 @@ fi
         }
     }
 
-    private async Task ForceFreshInstallAsync(SshClient ssh, string username, string password, CancellationToken cancellationToken, IProgress<string>? progress)
+    /// <summary>
+    /// Detects if the Digital Signage client is already installed on the target device.
+    /// </summary>
+    private async Task<bool> DetectExistingInstallationAsync(SshClient ssh, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var checkCmd = ssh.CreateCommand($"test -d '{RemoteInstallDir}' && test -f '{RemoteServiceFile}' && echo 'INSTALLED' || echo 'NOT_INSTALLED'");
+            checkCmd.CommandTimeout = TimeSpan.FromSeconds(10);
+            var result = await Task.Run(() => checkCmd.Execute(), cancellationToken);
+            return result?.Contains("INSTALLED", StringComparison.OrdinalIgnoreCase) == true;
+        }
+        catch
+        {
+            return false; // If check fails, assume no installation
+        }
+    }
+
+    /// <summary>
+    /// Prepares for UPDATE mode: stops service and backs up config (preserves installation).
+    /// </summary>
+    private async Task PrepareUpdateAsync(SshClient ssh, string username, string password, CancellationToken cancellationToken, IProgress<string>? progress)
+    {
+        var isRoot = string.Equals(username, "root", StringComparison.OrdinalIgnoreCase);
+        var escapedPassword = password.Replace("'", "'\"'\"'");
+
+        // UPDATE MODE: Only stop service and backup config (do NOT remove files!)
+        var updateScript = $@"
+set -e
+# Stop service if running
+if systemctl is-active --quiet {RemoteServiceName} 2>/dev/null; then
+  systemctl stop {RemoteServiceName}
+  echo 'Service stopped'
+fi
+
+# Backup config.py if exists
+if [ -f '{RemoteInstallDir}/config.py' ]; then
+  cp '{RemoteInstallDir}/config.py' '{RemoteInstallDir}/config.py.backup'
+  echo 'Config backed up'
+fi
+".Replace("\r\n", "\n").Replace("\r", "\n");
+
+        var escapedScript = updateScript.Replace("'", "'\"'\"'");
+        var commandText = isRoot
+            ? $"bash -lc '{escapedScript}'"
+            : $"printf '%s\\n' '{escapedPassword}' | sudo -S bash -lc '{escapedScript}'";
+
+        progress?.Report("Stopping service and backing up config...");
+        var cmd = ssh.CreateCommand(commandText);
+        cmd.CommandTimeout = TimeSpan.FromSeconds(30);
+        var output = await Task.Run(() => cmd.Execute(), cancellationToken);
+        var combined = (cmd.Error ?? output ?? string.Empty).Trim();
+
+        if (!string.IsNullOrWhiteSpace(combined))
+        {
+            foreach (var line in combined.Split('\n'))
+            {
+                var trimmed = line.TrimEnd();
+                if (!string.IsNullOrWhiteSpace(trimmed))
+                {
+                    progress?.Report(trimmed);
+                }
+            }
+        }
+
+        if (cmd.ExitStatus != 0)
+        {
+            throw new InvalidOperationException($"Failed to prepare update (exit {cmd.ExitStatus}): {combined}");
+        }
+    }
+
+    /// <summary>
+    /// Prepares for CLEAN INSTALL mode: stops/disables service and removes old installation.
+    /// </summary>
+    private async Task PrepareCleanInstallAsync(SshClient ssh, string username, string password, CancellationToken cancellationToken, IProgress<string>? progress)
     {
         var isRoot = string.Equals(username, "root", StringComparison.OrdinalIgnoreCase);
         var escapedPassword = password.Replace("'", "'\"'\"'");
