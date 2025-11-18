@@ -428,15 +428,26 @@ fi
 
             var splashCmd = ssh.CreateCommand(splashCommand);
             splashCmd.CommandTimeout = TimeSpan.FromSeconds(60);
-            var splashOutput = await Task.Run(() => splashCmd.Execute(), cancellationToken);
 
-            if (splashOutput?.Contains("SPLASH_SETUP_SUCCESS", StringComparison.OrdinalIgnoreCase) == true)
+            try
             {
-                progress?.Report("✓ Splash-Screen erfolgreich eingerichtet");
+                var splashOutput = await Task.Run(() => splashCmd.Execute(), cancellationToken);
+
+                if (splashOutput?.Contains("SPLASH_SETUP_SUCCESS", StringComparison.OrdinalIgnoreCase) == true)
+                {
+                    progress?.Report("✓ Splash-Screen erfolgreich eingerichtet (Reboot kann ausgelöst worden sein)");
+                }
+                else
+                {
+                    progress?.Report("⚠ Splash-Screen-Setup fehlgeschlagen (nicht kritisch)");
+                }
             }
-            else
+            catch (Renci.SshNet.Common.SshConnectionException)
             {
-                progress?.Report("⚠ Splash-Screen-Setup fehlgeschlagen (nicht kritisch)");
+                // Plymouth setup mit -R Flag triggert einen Reboot, daher kann die Verbindung abbrechen
+                // Das ist normal und kein Fehler
+                progress?.Report("✓ Splash-Screen Setup gestartet (Verbindung durch Reboot getrennt - das ist normal)");
+                _logger.LogInformation("SSH connection dropped during splash setup (likely reboot from Plymouth -R flag)");
             }
         }
         catch (Exception ex)

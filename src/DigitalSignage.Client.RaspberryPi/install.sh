@@ -398,6 +398,7 @@ REQUIRED_FILES=(
     "burn_in_protection.py"
     "start-with-display.sh"
     "setup-splash-screen.sh"
+    "debug-boot-logo.sh"
     "digisign-logo.png"
 )
 

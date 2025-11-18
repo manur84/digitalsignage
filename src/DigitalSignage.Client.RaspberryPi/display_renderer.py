@@ -158,11 +158,6 @@ class DisplayRenderer(QWidget):
         super().__init__()
         self.fullscreen = fullscreen
         self.elements: list[QWidget] = []
-        # BUGFIX: Delay setup_ui() until after event loop is ready
-        # self.setup_ui()  # MOVED TO show_and_setup()
-
-        # Initialize status screen manager
-        self.status_screen_manager = StatusScreenManager(self)
 
         # Data source cache for datagrid elements
         self.data_source_cache: Dict[str, list] = {}
@@ -170,6 +165,18 @@ class DisplayRenderer(QWidget):
         self._png_pixmap: Optional[QPixmap] = None
         self._rendering_png_only = False
         self._ui_initialized = False
+
+        # BUGFIX: Setup basic UI properties but don't show yet
+        # This ensures StatusScreenManager works properly
+        self.setWindowTitle("Digital Signage Display")
+        self.setStyleSheet("background-color: #1a1a2e;")
+        self.setAutoFillBackground(True)
+        palette = self.palette()
+        palette.setColor(self.backgroundRole(), QColor("#1a1a2e"))
+        self.setPalette(palette)
+
+        # Initialize status screen manager (needs basic window setup)
+        self.status_screen_manager = StatusScreenManager(self)
 
     def show_and_setup(self):
         """Show the window and setup UI after event loop is ready"""
