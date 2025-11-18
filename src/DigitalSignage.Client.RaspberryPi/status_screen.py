@@ -966,6 +966,9 @@ class StatusScreenManager:
                 # Ensure it's still fullscreen
                 if not self.status_screen.isFullScreen():
                     self.status_screen.showFullScreen()
+                    logger.debug("Status screen keep-alive: raised and fullscreen ensured")
+                else:
+                    logger.debug("Status screen keep-alive: raised to stay on top")
             except Exception as e:
                 logger.warning(f"Failed to keep status screen on top: {e}")
 

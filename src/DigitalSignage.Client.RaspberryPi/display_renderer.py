@@ -190,12 +190,11 @@ class DisplayRenderer(QWidget):
             logger.info("Showing display renderer window for the first time...")
             if self.fullscreen:
                 self.showFullScreen()
-                self.raise_()
-                self.activateWindow()
-                logger.info("Display renderer shown in fullscreen mode")
+                # CRITICAL FIX: DO NOT raise/activate - let status screen stay on top
+                logger.info("Display renderer shown in fullscreen mode (behind status screen)")
             else:
                 self.show()
-                logger.info("Display renderer shown in window mode")
+                logger.info("Display renderer shown in window mode (behind status screen)")
         else:
             # CRITICAL FIX: Don't show display renderer if status screen is active!
             # Status screen should stay on top until a layout is assigned

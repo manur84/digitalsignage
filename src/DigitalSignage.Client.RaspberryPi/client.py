@@ -1507,6 +1507,13 @@ def main():
                         logger.warning(f"  Could not re-raise status screen: {status_error}")
                     return  # Don't touch display renderer
 
+                # CRITICAL FIX: DO NOT raise display renderer if status screen is active
+                # Check both the flag AND the existence of status_screen widget
+                # This prevents display renderer from covering status screens during discovery/connection
+                if ssm and (ssm.is_showing_status or ssm.status_screen is not None):
+                    logger.debug("Status screen exists - NOT raising display renderer to avoid covering it")
+                    return
+
                 # If display renderer is already visible (layout rendered), just raise it
                 if client.display_renderer.isVisible():
                     logger.info("Display renderer already visible - ensuring it stays on top")
