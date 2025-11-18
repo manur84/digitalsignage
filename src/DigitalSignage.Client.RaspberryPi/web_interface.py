@@ -540,18 +540,18 @@ class WebInterface:
                             if len(parts) >= 4:
                                 timestamp = parts[0]
                                 log_level = parts[2]
-                                    message = parts[3]
-                                else:
-                                    timestamp = datetime.now().isoformat()
-                                    log_level = 'INFO'
-                                    message = line
+                                message = parts[3]
+                            else:
+                                timestamp = datetime.now().isoformat()
+                                log_level = 'INFO'
+                                message = line
 
-                                log_entries.append({
-                                    'timestamp': timestamp,
-                                    'level': log_level,
-                                    'message': message
-                                })
-                            except Exception as parse_error:
+                            log_entries.append({
+                                'timestamp': timestamp,
+                                'level': log_level,
+                                'message': message
+                            })
+                        except Exception as parse_error:
                                 # If parsing fails, add the raw line
                                 log_entries.append({
                                     'timestamp': datetime.now().isoformat(),
