@@ -181,13 +181,50 @@ class DisplayRenderer(QWidget):
     def show_and_setup(self):
         """Show the window and setup UI after event loop is ready"""
         if not self._ui_initialized:
-            self.setup_ui()
+            # Setup UI but DON'T show the window yet
+            # It will be shown automatically when the first layout is rendered
+            self._setup_ui_without_showing()
             self._ui_initialized = True
         else:
             if self.fullscreen:
                 self.showFullScreen()
             else:
                 self.show()
+
+    def _setup_ui_without_showing(self):
+        """Setup UI properties without showing the window"""
+        try:
+            self.setWindowTitle("Digital Signage Display")
+            self.setStyleSheet("background-color: #1a1a2e;")
+            self.setAutoFillBackground(True)
+            palette = self.palette()
+            palette.setColor(self.backgroundRole(), QColor("#1a1a2e"))
+            self.setPalette(palette)
+
+            if self.fullscreen:
+                logger.info("Configuring fullscreen display (will show when layout is received)...")
+                try:
+                    self.setWindowFlags(Qt.Window | Qt.FramelessWindowHint)
+                    logger.debug("  Window flags set (frameless)")
+                except Exception as e:
+                    logger.warning(f"  Failed to set window flags: {e}, continuing anyway")
+
+                try:
+                    self.setCursor(Qt.BlankCursor)
+                    logger.debug("  Cursor hidden")
+                except Exception as e:
+                    logger.warning(f"  Failed to hide cursor: {e}, continuing anyway")
+
+                logger.info("✓ Display renderer configured (hidden until layout received)")
+            else:
+                logger.info("Configuring windowed display...")
+                self.resize(1920, 1080)
+                logger.info("✓ Display renderer configured")
+
+        except Exception as e:
+            logger.error(f"Failed to setup UI: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
 
     def paintEvent(self, event):
         """Paint the background - ensures no black screen"""
@@ -329,9 +366,18 @@ class DisplayRenderer(QWidget):
             )
             self.setGeometry(0, 0, display_width, display_height)
             self.resize(display_width, display_height)
-            if self.fullscreen and not self.isFullScreen():
-                logger.info("Restoring fullscreen mode after resize")
+
+        # CRITICAL: Show window when first layout is received
+        # This ensures status screen stays visible until we have content to display
+        if not self.isVisible():
+            logger.info("First layout received - showing display renderer window")
+            if self.fullscreen:
                 self.showFullScreen()
+            else:
+                self.show()
+        elif self.fullscreen and not self.isFullScreen():
+            logger.info("Restoring fullscreen mode after resize")
+            self.showFullScreen()
 
         logger.info("=" * 70)
         logger.info("LAYOUT SCALING ANALYSIS")
