@@ -419,6 +419,10 @@ class DisplayRenderer(QWidget):
         if self.status_screen_manager.is_showing_status:
             logger.info("Clearing status screen to display layout")
             self.status_screen_manager.clear_status_screen()
+            # CRITICAL: Raise display renderer to front after clearing status screen
+            logger.info("Raising display renderer to front to show layout")
+            self.raise_()
+            self.activateWindow()
 
         try:
             # === COMPLETE CLEANUP OF OLD LAYOUT ===
