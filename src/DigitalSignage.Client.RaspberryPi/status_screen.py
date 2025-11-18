@@ -301,6 +301,11 @@ class StatusScreen(QWidget):
         self.setLayout(layout)
         self.update()
 
+        # CRITICAL FIX: Ensure status screen is ALWAYS visible and on top
+        self.showFullScreen()
+        self.raise_()
+        self.activateWindow()
+
         # CRITICAL FIX: Do NOT call processEvents() when using qasync
         # qasync automatically processes Qt events via the integrated event loop
         self.repaint()
@@ -344,6 +349,11 @@ class StatusScreen(QWidget):
 
         self.setLayout(layout)
         self.update()
+
+        # CRITICAL FIX: Ensure status screen is ALWAYS visible and on top
+        self.showFullScreen()
+        self.raise_()
+        self.activateWindow()
 
         # CRITICAL FIX: Do NOT call processEvents() when using qasync
         self.repaint()
@@ -395,6 +405,11 @@ class StatusScreen(QWidget):
 
         self.setLayout(layout)
         self.update()
+
+        # CRITICAL FIX: Ensure status screen is ALWAYS visible and on top
+        self.showFullScreen()
+        self.raise_()
+        self.activateWindow()
 
         # CRITICAL FIX: Do NOT call processEvents() when using qasync
         self.repaint()
@@ -480,6 +495,13 @@ class StatusScreen(QWidget):
 
         self.setLayout(layout)
         self.update()
+
+        # CRITICAL FIX: Ensure status screen is ALWAYS visible and on top
+        self.showFullScreen()
+        self.raise_()
+        self.activateWindow()
+        self.repaint()
+
         logger.info("Status screen: Connection Error")
 
     def show_no_layout_assigned(self, client_id: str, server_url: str, ip_address: str = "Unknown"):
@@ -558,6 +580,13 @@ class StatusScreen(QWidget):
 
         self.setLayout(layout)
         self.update()
+
+        # CRITICAL FIX: Ensure status screen is ALWAYS visible and on top
+        self.showFullScreen()
+        self.raise_()
+        self.activateWindow()
+        self.repaint()
+
         logger.info("Status screen: No Layout Assigned")
 
     def show_server_disconnected(self, server_url: str, client_id: str = "Unknown"):
@@ -624,6 +653,13 @@ class StatusScreen(QWidget):
 
         self.setLayout(layout)
         self.update()
+
+        # CRITICAL FIX: Ensure status screen is ALWAYS visible and on top
+        self.showFullScreen()
+        self.raise_()
+        self.activateWindow()
+        self.repaint()
+
         logger.info("Status screen: Server Disconnected - Searching")
 
     def show_reconnecting(self, server_url: str, attempt: int, retry_in: int, client_id: str = "Unknown"):
@@ -681,6 +717,13 @@ class StatusScreen(QWidget):
 
         self.setLayout(layout)
         self.update()
+
+        # CRITICAL FIX: Ensure status screen is ALWAYS visible and on top
+        self.showFullScreen()
+        self.raise_()
+        self.activateWindow()
+        self.repaint()
+
         logger.info(f"Status screen: Reconnecting (attempt {attempt}, retry in {retry_in}s)")
 
     def show_server_found(self, server_url: str):
@@ -722,6 +765,13 @@ class StatusScreen(QWidget):
 
         self.setLayout(layout)
         self.update()
+
+        # CRITICAL FIX: Ensure status screen is ALWAYS visible and on top
+        self.showFullScreen()
+        self.raise_()
+        self.activateWindow()
+        self.repaint()
+
         logger.info("Status screen: Server Found - Connecting")
 
     def _create_qr_code(self, data: str, size: int = 200) -> Optional[QLabel]:

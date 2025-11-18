@@ -22,10 +22,12 @@ class CacheManager:
         Initialize cache manager
 
         Args:
-            cache_dir: Directory to store cache database (default: ~/.digitalsignage/cache)
+            cache_dir: Directory to store cache database (default: /opt/digitalsignage-client/data/cache)
         """
         if cache_dir is None:
-            cache_dir = Path.home() / ".digitalsignage" / "cache"
+            # CRITICAL FIX: Use fixed path instead of Path.home() to avoid permission issues
+            # When running as root via sudo, Path.home() returns /root instead of /home/pro
+            cache_dir = Path("/opt/digitalsignage-client/data/cache")
 
         self.cache_dir = cache_dir
         self.db_path = self.cache_dir / "offline_cache.db"
