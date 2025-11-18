@@ -1,4 +1,4 @@
-﻿#!/bin/bash
+#!/bin/bash
 
 # Digital Signage Client - Smart Installer & Updater
 # Usage: sudo ./install.sh
