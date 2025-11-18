@@ -122,11 +122,29 @@ EOF
   echo "Updated $PIX_SCRIPT with center/scale logic."
 }
 
+enable_framebuffer() {
+  # OPTIMIZATION from Ubuntu Users Wiki:
+  # Activate framebuffer support for better Plymouth rendering
+  # https://wiki.ubuntuusers.de/Plymouth
+  local splash_conf="/etc/initramfs-tools/conf.d/splash"
+
+  if [ ! -f "$splash_conf" ] || ! grep -q "FRAMEBUFFER=y" "$splash_conf" 2>/dev/null; then
+    mkdir -p /etc/initramfs-tools/conf.d
+    echo "FRAMEBUFFER=y" >> "$splash_conf"
+    echo "Framebuffer support enabled in $splash_conf"
+  else
+    echo "Framebuffer support already enabled"
+  fi
+}
+
 configure_plymouth() {
   install -m 0644 "$LOGO_PATH" "$PLYMOUTH_THEME_DIR/splash.png"
   echo "Copied logo to $PLYMOUTH_THEME_DIR/splash.png"
 
   update_pix_script
+
+  # WIKI OPTIMIZATION: Enable framebuffer for better rendering
+  enable_framebuffer
 
   # Set theme and rebuild initramfs
   # CRITICAL FIX: Use mkinitramfs instead of plymouth-set-default-theme -R
@@ -140,7 +158,9 @@ configure_plymouth() {
 
   # Rebuild initramfs for current kernel
   # This embeds the splash image in the initramfs so it shows at boot
-  update-initramfs -u -k "$KERNEL_VERSION" || mkinitramfs -o /boot/firmware/initramfs "$KERNEL_VERSION"
+  # -u = update all kernels, -k = specific kernel
+  update-initramfs -u -k "$KERNEL_VERSION" 2>&1 | grep -E "Generating|update-initramfs" || \
+    mkinitramfs -o /boot/firmware/initramfs "$KERNEL_VERSION"
 
   echo "Plymouth initramfs rebuild completed"
   echo ""

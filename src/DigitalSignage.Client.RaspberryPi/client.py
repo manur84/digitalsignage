@@ -1492,6 +1492,21 @@ def main():
         # This ensures window is visible even if desktop is still loading
         def ensure_window_visible():
             try:
+                # CRITICAL FIX: If status screen is active, DON'T show display renderer!
+                # Only raise/show status screen to keep it visible
+                ssm = client.display_renderer.status_screen_manager
+                if ssm and ssm.is_showing_status:
+                    logger.info("Status screen is active - ensuring STATUS screen stays visible (NOT display renderer)")
+                    try:
+                        if ssm.status_screen:
+                            ssm.status_screen.raise_()
+                            ssm.status_screen.activateWindow()
+                            ssm.status_screen.showFullScreen()
+                            logger.debug("  Status screen raised to stay on top")
+                    except Exception as status_error:
+                        logger.warning(f"  Could not re-raise status screen: {status_error}")
+                    return  # Don't show display renderer!
+
                 logger.info("Ensuring display window is visible and on top...")
                 client.display_renderer.raise_()
                 client.display_renderer.activateWindow()
@@ -1505,17 +1520,6 @@ def main():
                 else:
                     client.display_renderer.show()
                     logger.debug("  Re-applied windowed mode")
-
-                # If a status screen is active, raise it again so it stays above the renderer
-                try:
-                    ssm = client.display_renderer.status_screen_manager
-                    if ssm and ssm.status_screen:
-                        ssm.status_screen.raise_()
-                        ssm.status_screen.activateWindow()
-                        ssm.status_screen.showFullScreen()
-                        logger.debug("  Status screen re-raised above display renderer")
-                except Exception as status_error:
-                    logger.warning(f"  Could not re-raise status screen: {status_error}")
 
                 logger.info("✓ Display window visibility ensured")
             except Exception as e:

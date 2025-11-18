@@ -186,6 +186,12 @@ class DisplayRenderer(QWidget):
             self._setup_ui_without_showing()
             self._ui_initialized = True
         else:
+            # CRITICAL FIX: Don't show display renderer if status screen is active!
+            # Status screen should stay on top until a layout is assigned
+            if self.status_screen_manager and self.status_screen_manager.is_showing_status:
+                logger.info("Status screen is active - NOT showing display renderer yet")
+                return
+
             if self.fullscreen:
                 self.showFullScreen()
             else:
