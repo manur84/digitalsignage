@@ -871,7 +871,28 @@ if [ "$DEPLOYMENT_MODE" = "1" ] && [ -f "$INSTALL_DIR/setup-splash-screen.sh" ] 
             show_success "Splash screen configured successfully!"
             echo ""
             echo "Your logo will appear during boot after reboot."
-            NEEDS_REBOOT=true
+
+            # Check if we need to reboot (might have been skipped earlier)
+            if [ "$NEEDS_REBOOT" != true ]; then
+                NEEDS_REBOOT=true
+                echo ""
+                echo -e "${YELLOW}IMPORTANT: Reboot required for splash screen${NC}"
+                echo ""
+                if [ "$NON_INTERACTIVE" = "1" ]; then
+                    REPLY_SPLASH="y"
+                    echo "Non-interactive: auto-confirm reboot"
+                else
+                    read -p "Reboot now? (y/N): " -n 1 -r REPLY_SPLASH
+                    echo
+                fi
+                if [[ $REPLY_SPLASH =~ ^[Yy]$ ]]; then
+                    echo "Rebooting in 3 seconds..."
+                    sleep 3
+                    reboot
+                else
+                    echo "Please reboot manually: sudo reboot"
+                fi
+            fi
         else
             show_warning "Splash screen setup failed. You can run it manually later:"
             echo "  sudo $INSTALL_DIR/setup-splash-screen.sh /digisign-logo.png"
