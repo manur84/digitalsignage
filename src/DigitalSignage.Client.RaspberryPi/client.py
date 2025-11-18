@@ -1492,36 +1492,34 @@ def main():
         # This ensures window is visible even if desktop is still loading
         def ensure_window_visible():
             try:
-                # CRITICAL FIX: If status screen is active, DON'T show display renderer!
-                # Only raise/show status screen to keep it visible
                 ssm = client.display_renderer.status_screen_manager
-                if ssm and ssm.is_showing_status:
-                    logger.info("Status screen is active - ensuring STATUS screen stays visible (NOT display renderer)")
+
+                # CRITICAL FIX: Check if status screen is ACTUALLY showing (not just flag)
+                # The flag might be cleared but window still exists during deletion
+                if ssm and ssm.is_showing_status and ssm.status_screen:
+                    logger.info("Status screen is active - ensuring STATUS screen stays visible")
                     try:
-                        if ssm.status_screen:
-                            ssm.status_screen.raise_()
-                            ssm.status_screen.activateWindow()
-                            ssm.status_screen.showFullScreen()
-                            logger.debug("  Status screen raised to stay on top")
+                        ssm.status_screen.raise_()
+                        ssm.status_screen.activateWindow()
+                        ssm.status_screen.showFullScreen()
+                        logger.debug("  ✓ Status screen raised to stay on top")
                     except Exception as status_error:
                         logger.warning(f"  Could not re-raise status screen: {status_error}")
-                    return  # Don't show display renderer!
+                    return  # Don't touch display renderer
 
-                logger.info("Ensuring display window is visible and on top...")
-                client.display_renderer.raise_()
-                client.display_renderer.activateWindow()
-                client.display_renderer.setFocus()
+                # If display renderer is already visible (layout rendered), just raise it
+                if client.display_renderer.isVisible():
+                    logger.info("Display renderer already visible - ensuring it stays on top")
+                    client.display_renderer.raise_()
+                    client.display_renderer.activateWindow()
+                    client.display_renderer.setFocus()
+                    logger.debug("  ✓ Display renderer raised")
+                    return
 
-                # Re-apply fullscreen/windowed mode
-                if config.fullscreen:
-                    if not client.display_renderer.isFullScreen():
-                        client.display_renderer.showFullScreen()
-                        logger.debug("  Re-applied fullscreen mode")
-                else:
-                    client.display_renderer.show()
-                    logger.debug("  Re-applied windowed mode")
+                # Otherwise, don't do anything - wait for layout to arrive
+                # The layout rendering will show the window when ready
+                logger.debug("No window visible yet - waiting for layout or status screen")
 
-                logger.info("✓ Display window visibility ensured")
             except Exception as e:
                 logger.error(f"Failed to ensure window visibility: {e}")
                 import traceback

@@ -150,6 +150,10 @@ class StatusScreen(QWidget):
         palette.setColor(self.backgroundRole(), QColor(self.COLOR_BACKGROUND))
         self.setPalette(palette)
 
+        # CRITICAL FIX: Hide cursor to prevent mouse pointer appearing on touch
+        from PyQt5.QtCore import Qt
+        self.setCursor(Qt.BlankCursor)
+
         # Calculate scaled dimensions for responsive layout
         self._calculate_scaled_dimensions()
 
@@ -832,17 +836,22 @@ class StatusScreenManager:
 
     def clear_status_screen(self):
         """Clear the status screen and prepare for layout display with smooth fade-out"""
-        # Stop keep-alive timer first
+        # CRITICAL: Set flag FIRST to prevent race conditions with timers
+        self.is_showing_status = False
+
+        # Stop keep-alive timer immediately
         if self._keep_alive_timer:
             self._keep_alive_timer.stop()
+            self._keep_alive_timer.deleteLater()
             self._keep_alive_timer = None
-            logger.debug("Status screen keep-alive timer stopped")
+            logger.debug("Status screen keep-alive timer stopped and deleted")
 
         if self.status_screen:
             try:
                 # Stop any transition timer
                 if self._transition_timer:
                     self._transition_timer.stop()
+                    self._transition_timer.deleteLater()
                     self._transition_timer = None
 
                 # Clean up animated widgets
@@ -858,8 +867,7 @@ class StatusScreenManager:
             except Exception as e:
                 logger.warning(f"Failed to clear status screen: {e}")
 
-        self.is_showing_status = False
-        logger.info("Status screen cleared")
+        logger.info("Status screen cleared (is_showing_status=False)")
 
     def _delete_status_screen(self):
         """Delete the status screen widget"""
