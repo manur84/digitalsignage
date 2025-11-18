@@ -608,6 +608,15 @@ class DisplayRenderer(QWidget):
                         logger.info(f"✓ PNG layout rendered: original={self._png_pixmap.width()}x{self._png_pixmap.height()}, "
                                   f"scaled={scaled.width()}x{scaled.height()}, "
                                   f"display={display_width}x{display_height}")
+
+                        # CRITICAL FIX: Raise display renderer AFTER PNG is loaded and shown
+                        # PNG is now fully loaded and visible in the label widget
+                        # NOW bring the entire window to front so the PNG is actually visible on screen
+                        logger.info("CRITICAL: Raising display renderer AFTER PNG loaded and shown")
+                        self.raise_()
+                        self.activateWindow()
+                        self.setFocus()
+                        logger.info("✓ Display renderer raised to front - PNG should now be visible on display!")
                     else:
                         failed_count += 1
                         logger.error("Failed to load PNG data for layout")
