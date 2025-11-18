@@ -158,7 +158,8 @@ class DisplayRenderer(QWidget):
         super().__init__()
         self.fullscreen = fullscreen
         self.elements: list[QWidget] = []
-        self.setup_ui()
+        # BUGFIX: Delay setup_ui() until after event loop is ready
+        # self.setup_ui()  # MOVED TO show_and_setup()
 
         # Initialize status screen manager
         self.status_screen_manager = StatusScreenManager(self)
@@ -168,6 +169,25 @@ class DisplayRenderer(QWidget):
         self._png_label: Optional[QLabel] = None
         self._png_pixmap: Optional[QPixmap] = None
         self._rendering_png_only = False
+        self._ui_initialized = False
+
+    def show_and_setup(self):
+        """Show the window and setup UI after event loop is ready"""
+        if not self._ui_initialized:
+            self.setup_ui()
+            self._ui_initialized = True
+        else:
+            if self.fullscreen:
+                self.showFullScreen()
+            else:
+                self.show()
+
+    def paintEvent(self, event):
+        """Paint the background - ensures no black screen"""
+        painter = QPainter(self)
+        # Use the same background color as status screen to avoid black screens
+        painter.fillRect(self.rect(), QColor("#1a1a2e"))
+        super().paintEvent(event)
 
     def setup_ui(self):
         """Setup the UI"""
@@ -385,8 +405,9 @@ class DisplayRenderer(QWidget):
             self.setPalette(palette)
             self.setAutoFillBackground(False)
 
-            # 5. Clear stylesheet to default
-            self.setStyleSheet("background-color: white;")
+            # 5. Clear stylesheet to default (use status screen color instead of white)
+            # BUGFIX: Changed from white to status screen background color to prevent flash
+            self.setStyleSheet("background-color: #1a1a2e;")
 
             # 6. Force immediate update to clear display
             self.update()

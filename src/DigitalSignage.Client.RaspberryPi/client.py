@@ -1460,7 +1460,8 @@ def main():
         logger.info("Creating display renderer...")
         # Create display renderer
         client.display_renderer = DisplayRenderer(fullscreen=config.fullscreen)
-        client.display_renderer.show()
+        # BUGFIX: Don't show() here - wait for event loop to be ready
+        # client.display_renderer.show()  # MOVED TO after event loop setup
 
         # Initialize burn-in protection if enabled
         if config.burn_in_protection_enabled:
@@ -1542,6 +1543,10 @@ def main():
             client.event_loop = loop
 
             with loop:
+                # BUGFIX: Show display renderer AFTER event loop is ready
+                client.display_renderer.show_and_setup()
+                logger.info("Display renderer shown after event loop initialization")
+
                 loop.create_task(client.start())
                 logger.info("Starting Qt+asyncio event loop...")
                 loop.run_forever()
@@ -1552,6 +1557,10 @@ def main():
 
             # Store event loop reference for WebSocket callbacks
             client.event_loop = loop
+
+            # BUGFIX: Show display renderer AFTER event loop is ready
+            client.display_renderer.show_and_setup()
+            logger.info("Display renderer shown after event loop initialization (fallback)")
 
             # Start the asyncio task
             loop.create_task(client.start())

@@ -199,6 +199,11 @@ def build_block(modes: List[DisplayMode], active: Optional[DisplayMode], preferr
             "hdmi_drive=2",
             "disable_overscan=1",
             "config_hdmi_boost=7",
+            # Boot logo and splash screen configuration
+            "disable_splash=1",  # Disable rainbow splash screen
+            "boot_delay=0",      # No boot delay
+            "dtoverlay=disable-bt",  # Disable Bluetooth to speed up boot
+            "avoid_warnings=1",  # Don't show undervoltage warnings on screen
         ]
     )
 
@@ -266,6 +271,91 @@ def ensure_root():
         if os.geteuid() != 0:
             logger.error("Please run with sudo/root so /boot/config.txt can be updated.")
             sys.exit(1)
+
+
+def setup_custom_boot_logo(logo_path: str = None) -> bool:
+    """
+    Setup a custom boot logo for Raspberry Pi.
+
+    Args:
+        logo_path: Path to the custom logo image. If None, creates a black image.
+
+    Returns:
+        True if successful, False otherwise.
+    """
+    try:
+        boot_dirs = ["/boot", "/boot/firmware"]
+        boot_dir = None
+
+        # Find the correct boot directory
+        for dir_path in boot_dirs:
+            if os.path.exists(dir_path) and os.access(dir_path, os.W_OK):
+                boot_dir = dir_path
+                break
+
+        if not boot_dir:
+            logger.error("Boot directory not found or not writable")
+            return False
+
+        splash_path = os.path.join(boot_dir, "splash.png")
+
+        if logo_path and os.path.exists(logo_path):
+            # Copy custom logo
+            import shutil
+            shutil.copy2(logo_path, splash_path)
+            logger.info(f"Custom boot logo copied to {splash_path}")
+        else:
+            # Create a black splash screen to hide boot messages
+            try:
+                from PIL import Image
+                # Create a black 1920x1080 image
+                img = Image.new('RGB', (1920, 1080), color='black')
+                img.save(splash_path)
+                logger.info(f"Black splash screen created at {splash_path}")
+            except ImportError:
+                logger.warning("PIL not available, cannot create splash screen")
+                # Try to create using ImageMagick if available
+                try:
+                    subprocess.run(
+                        ["convert", "-size", "1920x1080", "xc:black", splash_path],
+                        check=True,
+                        capture_output=True
+                    )
+                    logger.info(f"Black splash screen created using ImageMagick at {splash_path}")
+                except (subprocess.CalledProcessError, FileNotFoundError):
+                    logger.error("Neither PIL nor ImageMagick available to create splash screen")
+                    return False
+
+        # Update cmdline.txt to use the splash screen
+        cmdline_path = os.path.join(boot_dir, "cmdline.txt")
+        if os.path.exists(cmdline_path):
+            try:
+                with open(cmdline_path, 'r') as f:
+                    cmdline = f.read().strip()
+
+                # Add quiet and splash parameters if not present
+                if "quiet" not in cmdline:
+                    cmdline += " quiet"
+                if "splash" not in cmdline:
+                    cmdline += " splash"
+                if "logo.nologo" not in cmdline:
+                    cmdline += " logo.nologo"
+                if "vt.global_cursor_default=0" not in cmdline:
+                    cmdline += " vt.global_cursor_default=0"
+
+                with open(cmdline_path, 'w') as f:
+                    f.write(cmdline + "\n")
+
+                logger.info("Updated cmdline.txt for quiet boot with splash")
+            except Exception as e:
+                logger.error(f"Failed to update cmdline.txt: {e}")
+                return False
+
+        return True
+
+    except Exception as e:
+        logger.error(f"Failed to setup boot logo: {e}")
+        return False
 
 
 def main():
