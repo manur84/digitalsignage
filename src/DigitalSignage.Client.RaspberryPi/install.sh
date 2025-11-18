@@ -218,6 +218,58 @@ echo "  INSTALL MODE - Fresh Installation"
 echo "----------------------------------------"
 echo ""
 
+# ========================================
+# Set unique hostname based on MAC address
+# ========================================
+echo "Setting unique hostname..."
+
+# Get MAC address from eth0, or wlan0 if eth0 doesn't exist
+MAC_ADDR=""
+if [ -e /sys/class/net/eth0/address ]; then
+    MAC_ADDR=$(cat /sys/class/net/eth0/address)
+elif [ -e /sys/class/net/wlan0/address ]; then
+    MAC_ADDR=$(cat /sys/class/net/wlan0/address)
+else
+    # Fallback: try to get any interface MAC
+    MAC_ADDR=$(ip link show | grep -m1 "link/ether" | awk '{print $2}')
+fi
+
+if [ -n "$MAC_ADDR" ]; then
+    # Extract first 4 hex characters (remove colons)
+    MAC_SHORT=$(echo "$MAC_ADDR" | tr -d ':' | tr '[:lower:]' '[:upper:]' | cut -c1-4)
+    NEW_HOSTNAME="DigiSign-${MAC_SHORT}"
+
+    CURRENT_HOSTNAME=$(hostname)
+
+    if [ "$CURRENT_HOSTNAME" != "$NEW_HOSTNAME" ]; then
+        echo "Changing hostname from '$CURRENT_HOSTNAME' to '$NEW_HOSTNAME'..."
+
+        # Set hostname immediately
+        hostnamectl set-hostname "$NEW_HOSTNAME" 2>/dev/null || {
+            # Fallback for systems without hostnamectl
+            echo "$NEW_HOSTNAME" > /etc/hostname
+            hostname "$NEW_HOSTNAME"
+        }
+
+        # Update /etc/hosts
+        sed -i "s/127.0.1.1.*/127.0.1.1\t$NEW_HOSTNAME/g" /etc/hosts
+
+        # Add entry if it doesn't exist
+        if ! grep -q "127.0.1.1" /etc/hosts; then
+            echo "127.0.1.1	$NEW_HOSTNAME" >> /etc/hosts
+        fi
+
+        show_success "Hostname set to: $NEW_HOSTNAME (MAC: $MAC_ADDR)"
+    else
+        show_info "Hostname already set to: $NEW_HOSTNAME"
+    fi
+else
+    show_warning "Could not detect MAC address, keeping current hostname: $(hostname)"
+    NEW_HOSTNAME=$(hostname)
+fi
+
+echo ""
+
 # Check for any existing installation artifacts and force cleanup
 if [ -d "$INSTALL_DIR" ] || [ "$SERVICE_INSTALLED" = true ] || [ -d "$CONFIG_DIR" ]; then
     echo -e "${YELLOW}FORCED CLEAN INSTALL: removing previous installation and data${NC}"
@@ -516,7 +568,12 @@ if [ ! -f "$INSTALL_DIR/config.json" ]; then
 EOF
     # Replace INSTALL_USER placeholder with actual user
     sed -i "s/INSTALL_USER/$ACTUAL_USER/g" "$INSTALL_DIR/config.json"
-    show_success "Default config.json created"
+
+    # Replace GENERATED_ON_FIRST_RUN with the hostname
+    CURRENT_HOSTNAME=$(hostname)
+    sed -i "s/GENERATED_ON_FIRST_RUN/$CURRENT_HOSTNAME/g" "$INSTALL_DIR/config.json"
+
+    show_success "Default config.json created (client_id: $CURRENT_HOSTNAME)"
 fi
 
 # Set ownership
