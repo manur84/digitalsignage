@@ -1083,29 +1083,47 @@ class StatusScreenManager:
             logger.warning(f"Could not get screen geometry, using widget dimensions: {width}x{height}")
 
         # Create fresh status screen as a TOP-LEVEL window (not a child)
+        logger.debug("Creating StatusScreen object...")
         self.status_screen = StatusScreen(width, height, parent=None)
+        logger.debug("✓ StatusScreen object created")
 
         # Set window flags for frameless fullscreen overlay
         from PyQt5.QtCore import Qt
+        logger.debug("Setting window flags...")
         self.status_screen.setWindowFlags(
             Qt.Window |
             Qt.FramelessWindowHint |
             Qt.WindowStaysOnTopHint
         )
+        logger.debug("✓ Window flags set")
 
         # Hide the mouse cursor
+        logger.debug("Hiding cursor...")
         self.status_screen.setCursor(Qt.BlankCursor)
+        logger.debug("✓ Cursor hidden")
 
         # Position at top-left and size to screen
+        logger.debug(f"Setting geometry: 0,0 {width}x{height}...")
         self.status_screen.setGeometry(0, 0, width, height)
+        logger.debug(f"✓ Geometry set: 0,0 {width}x{height}")
 
         # Show as fullscreen
+        logger.debug("Calling showFullScreen()...")
         self.status_screen.showFullScreen()
+        logger.debug("✓ showFullScreen() returned")
+
+        logger.debug("Calling raise_()...")
         self.status_screen.raise_()
+        logger.debug("✓ raise_() returned")
+
+        logger.debug("Calling activateWindow()...")
         self.status_screen.activateWindow()
+        logger.debug("✓ activateWindow() returned")
 
         # CRITICAL FIX: Do NOT call processEvents() when using qasync
         # qasync automatically processes Qt events via the integrated event loop
+        logger.debug("Calling repaint()...")
         self.status_screen.repaint()
+        logger.debug("✓ repaint() returned")
 
         logger.info(f"Status screen created: size={width}x{height}, visible={self.status_screen.isVisible()}")
