@@ -405,11 +405,25 @@ fi
                 _logger.LogWarning(sshEx, "SSH connection dropped during splash screen check - Pi may be rebooting");
                 return; // Skip splash setup if connection is unstable
             }
+            catch (Renci.SshNet.Common.SshException sshGenericEx)
+            {
+                // Any other SSH exception
+                progress?.Report("⚠ SSH-Fehler beim Prüfen (nicht kritisch)");
+                _logger.LogWarning(sshGenericEx, "SSH error during splash screen check");
+                return; // Skip splash setup on SSH errors
+            }
             catch (TimeoutException timeoutEx)
             {
                 progress?.Report("⚠ Timeout beim Prüfen der Splash-Screen-Dateien");
                 _logger.LogWarning(timeoutEx, "Timeout during splash screen file check");
                 return; // Skip splash setup on timeout
+            }
+            catch (Exception ex)
+            {
+                // Catch all other exceptions to prevent crashes
+                progress?.Report("⚠ Fehler beim Prüfen der Splash-Screen-Dateien (nicht kritisch)");
+                _logger.LogWarning(ex, "Unexpected error during splash screen check");
+                return; // Skip splash setup on any error
             }
 
             if (checkResult?.Contains("SPLASH_NOT_AVAILABLE", StringComparison.OrdinalIgnoreCase) == true)

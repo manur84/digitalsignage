@@ -181,10 +181,21 @@ class DisplayRenderer(QWidget):
     def show_and_setup(self):
         """Show the window and setup UI after event loop is ready"""
         if not self._ui_initialized:
-            # Setup UI but DON'T show the window yet
-            # It will be shown automatically when the first layout is rendered
+            # CRITICAL FIX: Setup UI AND show the window immediately on startup
+            # Without this, the window remains invisible and status screens won't show
             self._setup_ui_without_showing()
             self._ui_initialized = True
+
+            # CRITICAL: Show window immediately so status screens have a visible parent
+            logger.info("Showing display renderer window for the first time...")
+            if self.fullscreen:
+                self.showFullScreen()
+                self.raise_()
+                self.activateWindow()
+                logger.info("Display renderer shown in fullscreen mode")
+            else:
+                self.show()
+                logger.info("Display renderer shown in window mode")
         else:
             # CRITICAL FIX: Don't show display renderer if status screen is active!
             # Status screen should stay on top until a layout is assigned
