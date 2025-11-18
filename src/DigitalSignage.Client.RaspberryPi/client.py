@@ -1075,8 +1075,12 @@ class DigitalSignageClient:
             if self.display_renderer:
                 self.display_renderer.status_screen_manager.show_discovering_server("mDNS/Zeroconf + UDP Broadcast")
 
-                # CRITICAL FIX: Do NOT call processEvents() when using qasync
-                # qasync automatically processes Qt events via the integrated event loop
+                # CRITICAL FIX: Give Qt event loop time to render status screen
+                # Without this delay, the status screen widget is created but never painted/displayed
+                # because we immediately start the discovery loop which blocks the event loop.
+                # await asyncio.sleep(0) yields to event loop, allowing Qt to process paint events.
+                await asyncio.sleep(0.1)  # 100ms to ensure status screen is fully rendered
+
                 logger.info("Status screen displayed - starting discovery...")
 
             server_discovered = False
