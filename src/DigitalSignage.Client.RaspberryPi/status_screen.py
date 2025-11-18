@@ -296,12 +296,11 @@ class StatusScreen(QWidget):
 
         self.setLayout(layout)
         self.update()
-        
-        # PERFORMANCE FIX: Force immediate repaint and event processing
+
+        # CRITICAL FIX: Do NOT call processEvents() when using qasync
+        # qasync automatically processes Qt events via the integrated event loop
         self.repaint()
-        from PyQt5.QtWidgets import QApplication
-        QApplication.processEvents()
-        
+
         logger.info("Status screen: Discovering Server (Auto-Discovery Active)")
 
     def show_connecting(self, server_url: str, attempt: int = 1, max_attempts: int = 5):
@@ -341,12 +340,10 @@ class StatusScreen(QWidget):
 
         self.setLayout(layout)
         self.update()
-        
-        # PERFORMANCE FIX: Force immediate repaint
+
+        # CRITICAL FIX: Do NOT call processEvents() when using qasync
         self.repaint()
-        from PyQt5.QtWidgets import QApplication
-        QApplication.processEvents()
-        
+
         logger.info(f"Status screen: Connecting (attempt {attempt})")
 
     def show_waiting_for_layout(self, client_id: str, server_url: str):
@@ -394,12 +391,10 @@ class StatusScreen(QWidget):
 
         self.setLayout(layout)
         self.update()
-        
-        # PERFORMANCE FIX: Force immediate repaint and event processing
+
+        # CRITICAL FIX: Do NOT call processEvents() when using qasync
         self.repaint()
-        from PyQt5.QtWidgets import QApplication
-        QApplication.processEvents()
-        
+
         logger.info(f"Status screen: Waiting for Layout")
 
     def show_connection_error(self, server_url: str, error_message: str, client_id: str = "Unknown"):
@@ -875,10 +870,9 @@ class StatusScreenManager:
 
         # Force immediate repaint for smooth appearance
         self.status_screen.repaint()
-        
-        # Process events to ensure UI updates before next operations
-        from PyQt5.QtWidgets import QApplication
-        QApplication.processEvents()
+
+        # CRITICAL FIX: Do NOT call processEvents() when using qasync
+        # qasync automatically processes Qt events via the integrated event loop
 
     def _ensure_status_screen(self):
         """Ensure status screen widget exists - OPTIMIZED for smooth creation"""
@@ -934,9 +928,9 @@ class StatusScreenManager:
         self.status_screen.showFullScreen()
         self.status_screen.raise_()
         self.status_screen.activateWindow()
-        
-        # PERFORMANCE FIX: Force immediate repaint to prevent white flash
+
+        # CRITICAL FIX: Do NOT call processEvents() when using qasync
+        # qasync automatically processes Qt events via the integrated event loop
         self.status_screen.repaint()
-        QApplication.processEvents()
 
         logger.info(f"Status screen created: size={width}x{height}, visible={self.status_screen.isVisible()}")

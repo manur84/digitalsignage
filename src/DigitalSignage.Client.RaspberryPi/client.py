@@ -1070,10 +1070,9 @@ class DigitalSignageClient:
             # Show discovering server status screen ONCE before starting discovery loop
             if self.display_renderer:
                 self.display_renderer.status_screen_manager.show_discovering_server("mDNS/Zeroconf + UDP Broadcast")
-                
-                # CRITICAL FIX: Force immediate render of status screen before blocking operations
-                from PyQt5.QtWidgets import QApplication
-                QApplication.processEvents()
+
+                # CRITICAL FIX: Do NOT call processEvents() when using qasync
+                # qasync automatically processes Qt events via the integrated event loop
                 logger.info("Status screen displayed - starting discovery...")
 
             server_discovered = False
@@ -1087,26 +1086,25 @@ class DigitalSignageClient:
                 logger.error(f"Failed to import discovery module: {e}")
                 raise
 
-            # OPTIMIZED DISCOVERY LOOP: Process Qt events during discovery to keep UI responsive
+            # OPTIMIZED DISCOVERY LOOP: Run discovery without manual Qt event processing
+            # CRITICAL FIX: Do NOT call QApplication.processEvents() when using qasync
+            # qasync automatically integrates Qt and asyncio event loops
             while not server_discovered:
                 discovery_attempt += 1
                 logger.info(f"Discovery scan #{discovery_attempt} starting...")
                 self.watchdog.notify_status(f"Searching for servers (scan #{discovery_attempt})...")
 
                 try:
-                    # PERFORMANCE FIX: Run discovery in separate thread to avoid blocking Qt event loop
-                    # This allows the status screen animations to continue while discovery is running
+                    # Run discovery in asyncio executor (non-blocking)
+                    # qasync handles Qt event processing automatically - no manual processEvents() needed
                     import concurrent.futures
-                    from PyQt5.QtWidgets import QApplication
 
                     with concurrent.futures.ThreadPoolExecutor() as executor:
                         future = executor.submit(discover_server, self.config.discovery_timeout)
 
-                        # CRITICAL: Process Qt events while discovery is running
-                        # This keeps the spinner and animations smooth
+                        # Wait for discovery to complete using asyncio (qasync handles Qt events)
                         while not future.done():
-                            QApplication.processEvents()
-                            await asyncio.sleep(0.1)  # Small delay to avoid busy-waiting
+                            await asyncio.sleep(0.1)  # Allow event loop to run other tasks
 
                         discovered_url = future.result()
 
