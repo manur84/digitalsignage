@@ -16,7 +16,8 @@ public abstract class Message
 /// </summary>
 public class RegisterMessage : Message
 {
-    public RegisterMessage() { Type = "REGISTER"; }
+    public RegisterMessage() { // ✅ CODE SMELL FIX: Use constants instead of magic strings
+    Type = MessageTypes.Register; }
 
     public string ClientId { get; set; } = string.Empty;
     public string MacAddress { get; set; } = string.Empty;
@@ -30,7 +31,8 @@ public class RegisterMessage : Message
 /// </summary>
 public class RegistrationResponseMessage : Message
 {
-    public RegistrationResponseMessage() { Type = "REGISTRATION_RESPONSE"; }
+    public RegistrationResponseMessage() { // ✅ CODE SMELL FIX: Use constants instead of magic strings
+    Type = MessageTypes.RegistrationResponse; }
 
     public bool Success { get; set; }
     public string? ErrorMessage { get; set; }
@@ -44,7 +46,8 @@ public class RegistrationResponseMessage : Message
 /// </summary>
 public class HeartbeatMessage : Message
 {
-    public HeartbeatMessage() { Type = "HEARTBEAT"; }
+    public HeartbeatMessage() { // ✅ CODE SMELL FIX: Use constants instead of magic strings
+    Type = MessageTypes.Heartbeat; }
 
     public string ClientId { get; set; } = string.Empty;
     public ClientStatus Status { get; set; }
@@ -56,7 +59,8 @@ public class HeartbeatMessage : Message
 /// </summary>
 public class DisplayUpdateMessage : Message
 {
-    public DisplayUpdateMessage() { Type = "DISPLAY_UPDATE"; }
+    public DisplayUpdateMessage() { // ✅ CODE SMELL FIX: Use constants instead of magic strings
+    Type = MessageTypes.DisplayUpdate; }
 
     public DisplayLayout Layout { get; set; } = new();
     public Dictionary<string, object>? Data { get; set; }
@@ -68,7 +72,8 @@ public class DisplayUpdateMessage : Message
 /// </summary>
 public class StatusReportMessage : Message
 {
-    public StatusReportMessage() { Type = "STATUS_REPORT"; }
+    public StatusReportMessage() { // ✅ CODE SMELL FIX: Use constants instead of magic strings
+    Type = MessageTypes.StatusReport; }
 
     public string ClientId { get; set; } = string.Empty;
     public ClientStatus Status { get; set; }
@@ -82,7 +87,8 @@ public class StatusReportMessage : Message
 /// </summary>
 public class CommandMessage : Message
 {
-    public CommandMessage() { Type = "COMMAND"; }
+    public CommandMessage() { // ✅ CODE SMELL FIX: Use constants instead of magic strings
+    Type = MessageTypes.Command; }
 
     public string Command { get; set; } = string.Empty;
     public Dictionary<string, object>? Parameters { get; set; }
@@ -93,7 +99,8 @@ public class CommandMessage : Message
 /// </summary>
 public class ScreenshotMessage : Message
 {
-    public ScreenshotMessage() { Type = "SCREENSHOT"; }
+    public ScreenshotMessage() { // ✅ CODE SMELL FIX: Use constants instead of magic strings
+    Type = MessageTypes.Screenshot; }
 
     public string ClientId { get; set; } = string.Empty;
     public string? ImageData { get; set; } // Base64 encoded
@@ -105,7 +112,8 @@ public class ScreenshotMessage : Message
 /// </summary>
 public class LogMessage : Message
 {
-    public LogMessage() { Type = "LOG"; }
+    public LogMessage() { // ✅ CODE SMELL FIX: Use constants instead of magic strings
+    Type = MessageTypes.Log; }
 
     public string ClientId { get; set; } = string.Empty;
     public LogLevel Level { get; set; }
@@ -118,7 +126,8 @@ public class LogMessage : Message
 /// </summary>
 public class UpdateConfigMessage : Message
 {
-    public UpdateConfigMessage() { Type = "UPDATE_CONFIG"; }
+    public UpdateConfigMessage() { // ✅ CODE SMELL FIX: Use constants instead of magic strings
+    Type = MessageTypes.UpdateConfig; }
 
     public string ServerHost { get; set; } = string.Empty;
     public int ServerPort { get; set; }
@@ -134,7 +143,8 @@ public class UpdateConfigMessage : Message
 /// </summary>
 public class UpdateConfigResponseMessage : Message
 {
-    public UpdateConfigResponseMessage() { Type = "UPDATE_CONFIG_RESPONSE"; }
+    public UpdateConfigResponseMessage() { // ✅ CODE SMELL FIX: Use constants instead of magic strings
+    Type = MessageTypes.UpdateConfigResponse; }
 
     public bool Success { get; set; }
     public string? ErrorMessage { get; set; }

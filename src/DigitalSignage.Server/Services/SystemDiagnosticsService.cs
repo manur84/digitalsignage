@@ -49,7 +49,8 @@ public class SystemDiagnosticsService
 
         var report = new SystemDiagnosticsReport
         {
-            GeneratedAt = DateTime.Now,
+            // ✅ CODE SMELL FIX: Use DateTime.UtcNow consistently throughout the application
+            GeneratedAt = DateTime.UtcNow,
             DatabaseHealth = await GetDatabaseHealthAsync(),
             WebSocketHealth = await GetWebSocketHealthAsync(),
             PortAvailability = GetPortAvailability(),
@@ -171,7 +172,8 @@ public class SystemDiagnosticsService
 
             // Get uptime (approximation based on process)
             var currentProcess = Process.GetCurrentProcess();
-            info.Uptime = DateTime.Now - currentProcess.StartTime;
+            // ✅ CODE SMELL FIX: Use DateTime.UtcNow for consistency
+            info.Uptime = DateTime.UtcNow - currentProcess.StartTime;
         }
         catch (Exception ex)
         {
@@ -262,11 +264,13 @@ public class SystemDiagnosticsService
                         info.Subject = cert.Subject;
                         info.Issuer = cert.Issuer;
                         info.ExpirationDate = cert.NotAfter;
-                        info.IsValid = cert.NotBefore <= DateTime.Now && cert.NotAfter >= DateTime.Now;
+                        // ✅ CODE SMELL FIX: Use DateTime.UtcNow for certificate validation
+                        info.IsValid = cert.NotBefore <= DateTime.UtcNow && cert.NotAfter >= DateTime.UtcNow;
 
                         if (info.IsValid)
                         {
-                            var daysUntilExpiry = (cert.NotAfter - DateTime.Now).TotalDays;
+                            // ✅ CODE SMELL FIX: Use DateTime.UtcNow for consistency
+                            var daysUntilExpiry = (cert.NotAfter - DateTime.UtcNow).TotalDays;
                             if (daysUntilExpiry < 30)
                             {
                                 info.Status = HealthStatus.Warning;
@@ -433,10 +437,12 @@ public class SystemDiagnosticsService
                 info.TotalLogSizeMB = logFiles.Sum(f => new FileInfo(f).Length) / (1024.0 * 1024.0);
 
                 // Analyze recent errors (today's log) using streaming, single-pass
-                var todayLog = logFiles.FirstOrDefault(f => f.Contains(DateTime.Now.ToString("yyyyMMdd")));
+                // ✅ CODE SMELL FIX: Use DateTime.UtcNow for consistency
+                var todayLog = logFiles.FirstOrDefault(f => f.Contains(DateTime.UtcNow.ToString("yyyyMMdd")));
                 if (todayLog != null && File.Exists(todayLog))
                 {
-                    var now = DateTime.Now;
+                    // ✅ CODE SMELL FIX: Use DateTime.UtcNow for consistency
+                    var now = DateTime.UtcNow;
                     var oneHourAgo = now - TimeSpan.FromHours(1);
                     var todayStart = now.Date;
 
@@ -522,7 +528,8 @@ public class SystemDiagnosticsService
     private int CountLogLevel(string logContent, string level, TimeSpan timeWindow)
     {
         var lines = logContent.Split('\n');
-        var cutoffTime = DateTime.Now - timeWindow;
+        // ✅ CODE SMELL FIX: Use DateTime.UtcNow for consistency
+        var cutoffTime = DateTime.UtcNow - timeWindow;
         var count = 0;
 
         foreach (var line in lines)

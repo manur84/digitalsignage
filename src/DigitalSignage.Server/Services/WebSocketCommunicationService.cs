@@ -70,6 +70,16 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
 
             _httpListener = new HttpListener();
 
+            // ✅ LOGIC FIX: Use GetAvailablePort() to enable automatic port fallback
+            // This ensures AlternativePorts are actually tried when the configured port is in use
+            var actualPort = _settings.GetAvailablePort();
+            if (actualPort != _settings.Port)
+            {
+                _logger.LogInformation("Port fallback: Configured port {ConfiguredPort} in use, using {ActualPort} instead",
+                    _settings.Port, actualPort);
+                _settings.Port = actualPort; // Update settings with selected port
+            }
+
             // Check if URL ACL is configured and use appropriate prefix
             var useWildcard = UrlAclManager.IsUrlAclConfigured(_settings.Port);
             var urlPrefix = useWildcard ? _settings.GetUrlPrefix() : _settings.GetLocalhostPrefix();

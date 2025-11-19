@@ -37,14 +37,20 @@ public partial class DisplayElement : ObservableObject
     [ObservableProperty]
     private string? _dataBinding; // {{variable.name}} syntax
 
-    private Dictionary<string, object> _properties = new();
+    private Dictionary<string, object>? _properties = new();
 
     /// <summary>
     /// Gets or sets the properties dictionary with change notification
+    /// ✅ LOGIC FIX: Lazy initialization in getter to prevent null reference exceptions
     /// </summary>
     public Dictionary<string, object> Properties
     {
-        get => _properties;
+        get
+        {
+            // Lazy initialization: ensure _properties is never null
+            _properties ??= new Dictionary<string, object>();
+            return _properties;
+        }
         set
         {
             if (SetProperty(ref _properties, value))
@@ -67,7 +73,8 @@ public partial class DisplayElement : ObservableObject
     {
         get
         {
-            if (_properties != null && _properties.TryGetValue(key, out var value) && value != null)
+            // ✅ LOGIC FIX: Use Properties getter for lazy initialization
+            if (Properties.TryGetValue(key, out var value) && value != null)
             {
                 return value;
             }
@@ -77,18 +84,17 @@ public partial class DisplayElement : ObservableObject
         }
         set
         {
-            if (_properties == null)
-                _properties = new Dictionary<string, object>();
-
-            bool changed = !_properties.ContainsKey(key) || !Equals(_properties[key], value);
+            // ✅ LOGIC FIX: Use Properties getter for lazy initialization
+            var props = Properties;
+            bool changed = !props.ContainsKey(key) || !Equals(props[key], value);
 
             if (value != null)
             {
-                _properties[key] = value;
+                props[key] = value;
             }
-            else if (_properties.ContainsKey(key))
+            else if (props.ContainsKey(key))
             {
-                _properties.Remove(key);
+                props.Remove(key);
             }
 
             if (changed)

@@ -1,6 +1,7 @@
 using Dapper;
 using DigitalSignage.Core.Interfaces;
 using DigitalSignage.Core.Models;
+using DigitalSignage.Server.Utilities;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using System.Data;
@@ -84,7 +85,8 @@ public class SqlDataService : ISqlDataService
         try
         {
             // Sanitize connection string - whitelist allowed keys
-            connectionString = SanitizeConnectionString(connectionString);
+            // ✅ REFACTOR: Use shared ConnectionStringHelper to eliminate code duplication
+            connectionString = ConnectionStringHelper.SanitizeConnectionString(connectionString);
             // Apply connection pooling settings to connection string
             connectionString = ApplyConnectionPoolSettings(connectionString);
 
@@ -158,52 +160,8 @@ public class SqlDataService : ISqlDataService
         }
     }
 
-    /// <summary>
-    /// Rebuild the connection string using a whitelist of allowed properties to prevent injection of unwanted keys.
-    /// </summary>
-    private string SanitizeConnectionString(string connectionString)
-    {
-        try
-        {
-            var src = new SqlConnectionStringBuilder(connectionString);
-            var dst = new SqlConnectionStringBuilder
-            {
-                DataSource = src.DataSource,
-                InitialCatalog = src.InitialCatalog,
-                IntegratedSecurity = src.IntegratedSecurity,
-                Encrypt = src.Encrypt,
-                TrustServerCertificate = src.TrustServerCertificate,
-                ConnectTimeout = src.ConnectTimeout,
-                PersistSecurityInfo = false,
-            };
-
-            // Only copy credentials when not using Integrated Security
-            if (!dst.IntegratedSecurity)
-            {
-                dst.UserID = src.UserID;
-                dst.Password = src.Password;
-            }
-
-            // Optional: application intent and MARS can be safely copied if set
-            if (src.ContainsKey("ApplicationIntent"))
-            {
-                dst["ApplicationIntent"] = src["ApplicationIntent"];
-            }
-            if (src.ContainsKey("MultipleActiveResultSets"))
-            {
-                dst["MultipleActiveResultSets"] = src["MultipleActiveResultSets"];
-            }
-
-            return dst.ConnectionString;
-        }
-        catch (Exception ex)
-        {
-            // ✅ FIX: Never fallback to unsanitized connection string - this defeats the entire whitelist
-            // Throw exception instead to prevent SQL injection via malicious connection strings
-            _logger.LogError(ex, "Failed to sanitize connection string - rejecting connection attempt");
-            throw new InvalidOperationException("Invalid connection string format. Connection rejected for security reasons.", ex);
-        }
-    }
+    // ✅ REFACTOR: SanitizeConnectionString moved to shared ConnectionStringHelper utility
+    // This eliminates code duplication with SqlDataSourceService
 
     /// <summary>
     /// Applies connection pooling settings to connection string if not already present
@@ -275,7 +233,8 @@ public class SqlDataService : ISqlDataService
         {
             _logger.LogDebug("Testing SQL connection");
             // Sanitize + apply pooling before opening
-            connectionString = ApplyConnectionPoolSettings(SanitizeConnectionString(connectionString));
+            // ✅ REFACTOR: Use shared ConnectionStringHelper
+            connectionString = ApplyConnectionPoolSettings(ConnectionStringHelper.SanitizeConnectionString(connectionString));
 
             await using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync(cancellationToken);
@@ -409,7 +368,8 @@ public class SqlDataService : ISqlDataService
 
         try
         {
-            await using var connection = new SqlConnection(ApplyConnectionPoolSettings(SanitizeConnectionString(connectionString)));
+            // ✅ REFACTOR: Use shared ConnectionStringHelper
+            await using var connection = new SqlConnection(ApplyConnectionPoolSettings(ConnectionStringHelper.SanitizeConnectionString(connectionString)));
             await connection.OpenAsync(cancellationToken);
 
             // Parse optional schema

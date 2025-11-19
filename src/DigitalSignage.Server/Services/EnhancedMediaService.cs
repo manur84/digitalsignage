@@ -1,11 +1,11 @@
 using System.IO;
-using System.Security.Cryptography;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
 using DigitalSignage.Data;
 using DigitalSignage.Data.Entities;
 using DigitalSignage.Core.Models;
+using DigitalSignage.Server.Utilities;
 
 namespace DigitalSignage.Server.Services;
 
@@ -69,8 +69,8 @@ public class EnhancedMediaService : IMediaService
                 return Result<string>.Failure("Filename cannot be empty");
             }
 
-            // Validate path traversal
-            if (fileName.Contains("..") || Path.GetFileName(fileName) != fileName)
+            // ✅ REFACTOR: Use shared PathHelper to eliminate code duplication
+            if (!PathHelper.IsValidFileName(fileName))
             {
                 return Result<string>.Failure("Invalid filename");
             }
@@ -197,8 +197,8 @@ public class EnhancedMediaService : IMediaService
                 return Result<byte[]>.Failure("Filename cannot be empty");
             }
 
-            // Validate path traversal
-            if (fileName.Contains("..") || Path.GetFileName(fileName) != fileName)
+            // ✅ REFACTOR: Use shared PathHelper to eliminate code duplication
+            if (!PathHelper.IsValidFileName(fileName))
             {
                 return Result<byte[]>.Failure("Invalid filename");
             }
@@ -267,8 +267,8 @@ public class EnhancedMediaService : IMediaService
                 return Result.Failure("Filename cannot be empty");
             }
 
-            // Validate path traversal
-            if (fileName.Contains("..") || Path.GetFileName(fileName) != fileName)
+            // ✅ REFACTOR: Use shared PathHelper to eliminate code duplication
+            if (!PathHelper.IsValidFileName(fileName))
             {
                 return Result.Failure("Invalid filename");
             }
@@ -437,9 +437,8 @@ public class EnhancedMediaService : IMediaService
 
     private string CalculateSHA256Hash(byte[] data)
     {
-        using var sha256 = SHA256.Create();
-        var hashBytes = sha256.ComputeHash(data);
-        return BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
+        // ✅ REFACTOR: Use shared HashingHelper to eliminate code duplication
+        return HashingHelper.ComputeSha256HashFromBytes(data);
     }
 
     public async Task<Result<string>> GenerateThumbnailAsync(string fileName, int maxWidth = 200, int maxHeight = 200, CancellationToken cancellationToken = default)
@@ -451,8 +450,8 @@ public class EnhancedMediaService : IMediaService
                 return Result<string>.Failure("Filename cannot be empty");
             }
 
-            // Validate path traversal
-            if (fileName.Contains("..") || Path.GetFileName(fileName) != fileName)
+            // ✅ REFACTOR: Use shared PathHelper to eliminate code duplication
+            if (!PathHelper.IsValidFileName(fileName))
             {
                 return Result<string>.Failure("Invalid filename");
             }
@@ -496,8 +495,8 @@ public class EnhancedMediaService : IMediaService
                 return Result<byte[]>.Failure("Filename cannot be empty");
             }
 
-            // Validate path traversal
-            if (fileName.Contains("..") || Path.GetFileName(fileName) != fileName)
+            // ✅ REFACTOR: Use shared PathHelper to eliminate code duplication
+            if (!PathHelper.IsValidFileName(fileName))
             {
                 return Result<byte[]>.Failure("Invalid filename");
             }

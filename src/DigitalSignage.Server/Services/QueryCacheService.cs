@@ -1,8 +1,8 @@
 using DigitalSignage.Server.Configuration;
+using DigitalSignage.Server.Utilities;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Collections.Concurrent;
-using System.Security.Cryptography;
 using System.Text;
 
 namespace DigitalSignage.Server.Services;
@@ -171,10 +171,8 @@ public class QueryCacheService
             }
         }
 
-        // Generate SHA256 hash for compact key
-        using var sha256 = SHA256.Create();
-        var hashBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(sb.ToString()));
-        return Convert.ToHexString(hashBytes);
+        // ✅ REFACTOR: Use shared HashingHelper to eliminate code duplication
+        return HashingHelper.ComputeSha256Hash(sb.ToString());
     }
 
     /// <summary>
