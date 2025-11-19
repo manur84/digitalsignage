@@ -5,8 +5,11 @@ namespace DigitalSignage.Core.Models;
 /// </summary>
 public class DataUpdateMessage : Message
 {
-    public DataUpdateMessage() { // ✅ CODE SMELL FIX: Use constants instead of magic strings
-    Type = MessageTypes.DataUpdate; }
+    public DataUpdateMessage()
+    {
+        // ✅ CODE SMELL FIX: Use constants instead of magic strings
+        Type = MessageTypes.DataUpdate;
+    }
 
     public Guid DataSourceId { get; set; }
     public List<Dictionary<string, object>> Data { get; set; } = new();
@@ -29,8 +32,11 @@ public class LayoutDataSourceInfo
 /// </summary>
 public class LayoutAssignmentMessage : Message
 {
-    public LayoutAssignmentMessage() { // ✅ CODE SMELL FIX: Use constants instead of magic strings
-    Type = MessageTypes.LayoutAssigned; }
+    public LayoutAssignmentMessage()
+    {
+        // ✅ CODE SMELL FIX: Use constants instead of magic strings
+        Type = MessageTypes.LayoutAssigned;
+    }
 
     public string LayoutId { get; set; } = string.Empty;
     public DisplayLayout? Layout { get; set; }
