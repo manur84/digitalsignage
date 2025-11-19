@@ -55,8 +55,13 @@ public partial class DisplayElement : ObservableObject
     }
 
     /// <summary>
-    /// Indexer for accessing properties with automatic change notification
-    /// This enables WPF bindings like {Binding Item[PropertyName]} to work correctly
+    /// Indexer for accessing properties with automatic change notification.
+    /// This enables WPF bindings like {Binding Item[PropertyName]} to work correctly.
+    ///
+    /// ✅ NULL SAFETY:
+    /// - Returns type-appropriate defaults instead of null to prevent WPF binding errors
+    /// - Safe to use in data bindings without null-checking
+    /// - Non-existent keys return sensible defaults (0, "", false, etc.)
     /// </summary>
     public object? this[string key]
     {

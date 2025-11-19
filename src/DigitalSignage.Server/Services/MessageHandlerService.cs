@@ -377,7 +377,17 @@ public class MessageHandlerService : BackgroundService
     {
         try
         {
-            // Re-serialize and deserialize to get proper type
+            // ✅ PERFORMANCE FIX: Direct cast instead of re-serialization
+            // Old code: Serialized then deserialized (wasteful CPU cycles)
+            // New code: Direct cast if type matches, otherwise fallback to property copying
+            if (message is T typedMessage)
+            {
+                return typedMessage;
+            }
+
+            // Fallback: If not the exact type, re-serialize only when necessary
+            // This should rarely happen as WebSocketCommunicationService already deserializes to correct types
+            _logger.LogDebug("Message type mismatch - falling back to JSON conversion for {MessageType}", typeof(T).Name);
             var json = JsonConvert.SerializeObject(message);
             return JsonConvert.DeserializeObject<T>(json);
         }

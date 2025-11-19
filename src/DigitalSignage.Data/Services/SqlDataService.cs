@@ -115,8 +115,9 @@ public class SqlDataService : ISqlDataService
                 dynamicParams,
                 commandTimeout: 30);
 
+            // ✅ FIX: Add null-check for result to prevent NullReferenceException
             var resultDict = new Dictionary<string, object>();
-            var resultList = result.ToList();
+            var resultList = result?.ToList() ?? new List<dynamic>();
 
             // Use index access instead of First() for better performance
             if (resultList.Count > 0)

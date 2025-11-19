@@ -132,8 +132,13 @@ public class QueryCacheService
     /// </summary>
     public CacheStats GetStatistics()
     {
-        var totalHits = _statistics.Values.Sum(s => s.Hits);
-        var totalMisses = _statistics.Values.Sum(s => s.Misses);
+        // ✅ PERFORMANCE FIX: Use single-pass aggregation instead of multiple iterations
+        // Old code: Iterated twice (Sum for Hits, Sum for Misses)
+        // New code: Single iteration with Aggregate
+        var (totalHits, totalMisses) = _statistics.Values.Aggregate(
+            (Hits: 0L, Misses: 0L),
+            (acc, stats) => (acc.Hits + stats.Hits, acc.Misses + stats.Misses));
+
         var totalRequests = totalHits + totalMisses;
         var hitRate = totalRequests > 0 ? (double)totalHits / totalRequests * 100 : 0;
 
