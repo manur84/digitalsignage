@@ -3,7 +3,7 @@ using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using DigitalSignage.Core.Models;
-using DigitalSignage.Server.Utilities;
+using DigitalSignage.Core.Utilities;
 using Microsoft.Extensions.Logging;
 
 namespace DigitalSignage.Server.Services;

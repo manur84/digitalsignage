@@ -1,7 +1,7 @@
 using Dapper;
 using DigitalSignage.Core.Interfaces;
 using DigitalSignage.Core.Models;
-using DigitalSignage.Server.Utilities;
+using DigitalSignage.Core.Utilities;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using System.Data;

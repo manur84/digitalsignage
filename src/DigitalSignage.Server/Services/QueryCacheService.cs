@@ -1,5 +1,5 @@
 using DigitalSignage.Server.Configuration;
-using DigitalSignage.Server.Utilities;
+using DigitalSignage.Core.Utilities;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Collections.Concurrent;
