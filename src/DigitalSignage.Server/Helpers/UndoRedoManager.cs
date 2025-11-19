@@ -117,7 +117,10 @@ public class PropertyChangeCommand : IUndoRedoCommand
     private readonly object _oldValue;
     private readonly object _newValue;
 
-    // Cache PropertyInfo to avoid repeated reflection lookups
+    // ✅ FIX: Cache PropertyInfo to avoid repeated reflection lookups
+    // ConcurrentDictionary is thread-safe - GetOrAdd() is atomic and safe for concurrent access
+    // Note: The value factory lambda may execute multiple times for the same key,
+    // but this is safe as reflection is idempotent and returns the same PropertyInfo
     private static readonly ConcurrentDictionary<(Type type, string name), PropertyInfo?> PropertyCache = new();
     private readonly PropertyInfo? _propertyInfo;
 

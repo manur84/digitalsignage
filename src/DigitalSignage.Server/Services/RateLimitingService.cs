@@ -285,9 +285,24 @@ public class RateLimitingService
         return $"{identifier[..3]}...{identifier[^3..]}";
     }
 
+    /// <summary>
+    /// Stop the cleanup timer (for graceful shutdown)
+    /// </summary>
+    public void Stop()
+    {
+        _logger.Information("Rate limiting service stopping...");
+        _cleanupTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+    }
+
+    /// <summary>
+    /// Dispose resources
+    /// </summary>
     public void Dispose()
     {
+        // ✅ FIX: Ensure timer is stopped before disposal
+        _cleanupTimer?.Change(Timeout.Infinite, Timeout.Infinite);
         _cleanupTimer?.Dispose();
+        _logger.Information("Rate limiting service disposed");
     }
 
     private class RequestTracker

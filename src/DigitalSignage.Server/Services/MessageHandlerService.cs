@@ -76,7 +76,7 @@ public class MessageHandlerService : BackgroundService
         // Generate unique task ID
         var taskId = Guid.NewGuid();
 
-        // Track the message handling task
+        // ✅ FIX: Track the message handling task with defensive exception handling
         var handlerTask = Task.Run(async () =>
         {
             try
@@ -86,11 +86,21 @@ public class MessageHandlerService : BackgroundService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error handling message from client {ClientId}", e.ClientId);
+                // Exception is logged and handled - not rethrown to prevent unobserved task exceptions
             }
             finally
             {
-                // Remove from tracking when complete
-                _messageHandlerTasks.TryRemove(taskId, out _);
+                // ✅ FIX: Defensive exception handling in finally block
+                try
+                {
+                    // Remove from tracking when complete
+                    _messageHandlerTasks.TryRemove(taskId, out _);
+                }
+                catch (Exception cleanupEx)
+                {
+                    // This should never happen, but log it defensively
+                    _logger.LogWarning(cleanupEx, "Error removing message handler task {TaskId} from tracking", taskId);
+                }
             }
         });
 

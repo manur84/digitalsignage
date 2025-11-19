@@ -148,7 +148,14 @@ public class MdnsDiscoveryService : BackgroundService
                 }
             }
 
+            // ✅ FIX: Dispose both ServiceDiscovery and ServiceProfile
             _serviceDiscovery?.Dispose();
+
+            if (_serviceProfile is IDisposable disposableProfile)
+            {
+                disposableProfile.Dispose();
+            }
+
             _logger.LogInformation("mDNS Discovery Service stopped");
         }
     }
@@ -179,8 +186,14 @@ public class MdnsDiscoveryService : BackgroundService
             }
         }
 
-        // Dispose ServiceDiscovery
+        // ✅ FIX: Dispose both ServiceDiscovery and ServiceProfile to prevent memory leaks
         _serviceDiscovery?.Dispose();
+
+        // Dispose ServiceProfile if it implements IDisposable
+        if (_serviceProfile is IDisposable disposableProfile)
+        {
+            disposableProfile.Dispose();
+        }
 
         return base.StopAsync(cancellationToken);
     }
