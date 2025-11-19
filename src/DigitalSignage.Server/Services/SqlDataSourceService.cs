@@ -1,5 +1,6 @@
 using DigitalSignage.Core.Interfaces;
 using DigitalSignage.Core.Models;
+using DigitalSignage.Server.Utilities;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 using System.Data;
@@ -55,7 +56,9 @@ public class SqlDataSourceService : ISqlDataSourceService, IDisposable
 
         try
         {
-            await using var connection = new SqlConnection(connectionString);
+            // ✅ SECURITY: Sanitize connection string to prevent SQL injection
+            var sanitizedConnectionString = ConnectionStringHelper.SanitizeConnectionString(connectionString);
+            await using var connection = new SqlConnection(sanitizedConnectionString);
             await connection.OpenAsync();
             _logger.LogInformation("SQL connection test successful");
             return true;
@@ -81,7 +84,9 @@ public class SqlDataSourceService : ISqlDataSourceService, IDisposable
 
         try
         {
-            await using var connection = new SqlConnection(connectionString);
+            // ✅ SECURITY: Sanitize connection string to prevent SQL injection
+            var sanitizedConnectionString = ConnectionStringHelper.SanitizeConnectionString(connectionString);
+            await using var connection = new SqlConnection(sanitizedConnectionString);
             await connection.OpenAsync();
 
             const string query = @"
@@ -118,7 +123,9 @@ public class SqlDataSourceService : ISqlDataSourceService, IDisposable
 
         try
         {
-            await using var connection = new SqlConnection(connectionString);
+            // ✅ SECURITY: Sanitize connection string to prevent SQL injection
+            var sanitizedConnectionString = ConnectionStringHelper.SanitizeConnectionString(connectionString);
+            await using var connection = new SqlConnection(sanitizedConnectionString);
             await connection.OpenAsync();
 
             const string query = @"
@@ -188,7 +195,9 @@ public class SqlDataSourceService : ISqlDataSourceService, IDisposable
 
             _logger.LogDebug("Executing query for data source {Name}: {Query}", dataSource.Name, query);
 
-            await using var connection = new SqlConnection(connectionString);
+            // ✅ SECURITY: Sanitize connection string to prevent SQL injection
+            var sanitizedConnectionString = ConnectionStringHelper.SanitizeConnectionString(connectionString);
+            await using var connection = new SqlConnection(sanitizedConnectionString);
             await connection.OpenAsync();
 
             await using var command = new SqlCommand(query, connection);

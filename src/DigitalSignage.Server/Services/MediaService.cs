@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using System.Drawing;
 using System.Drawing.Imaging;
 using DigitalSignage.Core.Models;
+using DigitalSignage.Server.Utilities;
 
 namespace DigitalSignage.Server.Services;
 
@@ -48,8 +49,8 @@ public class MediaService : IMediaService
                 return Result<string>.Failure("Filename cannot be empty");
             }
 
-            // Validate path traversal
-            if (fileName.Contains("..") || Path.GetFileName(fileName) != fileName)
+            // ✅ REFACTOR: Use shared PathHelper to eliminate code duplication
+            if (!PathHelper.IsValidFileName(fileName))
             {
                 _logger.LogWarning("Attempted path traversal attack with filename: {FileName}", fileName);
                 return Result<string>.Failure("Invalid filename");
@@ -92,8 +93,8 @@ public class MediaService : IMediaService
                 return Result<byte[]>.Failure("Filename cannot be empty");
             }
 
-            // Validate path traversal
-            if (fileName.Contains("..") || Path.GetFileName(fileName) != fileName)
+            // ✅ REFACTOR: Use shared PathHelper to eliminate code duplication
+            if (!PathHelper.IsValidFileName(fileName))
             {
                 _logger.LogWarning("Attempted path traversal attack with filename: {FileName}", fileName);
                 return Result<byte[]>.Failure("Invalid filename");
@@ -142,8 +143,8 @@ public class MediaService : IMediaService
                 return Result.Failure("Filename cannot be empty");
             }
 
-            // Validate path traversal
-            if (fileName.Contains("..") || Path.GetFileName(fileName) != fileName)
+            // ✅ REFACTOR: Use shared PathHelper to eliminate code duplication
+            if (!PathHelper.IsValidFileName(fileName))
             {
                 _logger.LogWarning("Attempted path traversal attack with filename: {FileName}", fileName);
                 return Result.Failure("Invalid filename");
@@ -236,8 +237,8 @@ public class MediaService : IMediaService
                 return Result<string>.Failure("Filename cannot be empty");
             }
 
-            // Validate path traversal
-            if (fileName.Contains("..") || Path.GetFileName(fileName) != fileName)
+            // ✅ REFACTOR: Use shared PathHelper to eliminate code duplication
+            if (!PathHelper.IsValidFileName(fileName))
             {
                 _logger.LogWarning("Attempted path traversal attack with filename: {FileName}", fileName);
                 return Result<string>.Failure("Invalid filename");

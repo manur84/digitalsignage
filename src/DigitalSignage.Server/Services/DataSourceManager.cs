@@ -1,5 +1,6 @@
 using DigitalSignage.Core.Interfaces;
 using DigitalSignage.Core.Models;
+using DigitalSignage.Server.Utilities;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 using System.Text.Json;
@@ -311,9 +312,8 @@ public class DataSourceManager : IDisposable
         try
         {
             var json = JsonSerializer.Serialize(data);
-            using var sha256 = System.Security.Cryptography.SHA256.Create();
-            var hashBytes = sha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(json));
-            return Convert.ToBase64String(hashBytes);
+            // ✅ REFACTOR: Use shared HashingHelper to eliminate code duplication
+            return HashingHelper.ComputeSha256HashBase64(json);
         }
         catch (Exception ex)
         {
