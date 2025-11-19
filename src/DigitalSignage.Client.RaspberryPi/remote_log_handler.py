@@ -87,12 +87,14 @@ class RemoteLogHandler(logging.Handler):
             try:
                 self.log_queue.put_nowait(log_entry)
             except queue.Full:
-                # Queue is full, drop oldest log
+                # ✅ FIX: Log dropped messages instead of silently swallowing exceptions
+                # Queue is full, drop oldest log and add new one
                 try:
                     self.log_queue.get_nowait()
                     self.log_queue.put_nowait(log_entry)
                 except queue.Empty:
-                    pass
+                    # This should rarely happen (race condition)
+                    print(f"Warning: Log queue empty after reporting full - log dropped: {record.getMessage()[:50]}")
 
         except Exception as e:
             # Avoid infinite loop by not using logging here
@@ -154,7 +156,10 @@ class RemoteLogHandler(logging.Handler):
                     last_send_time = current_time
 
             except Exception as e:
-                print(f"Error in batch sender: {e}")
+                # ✅ FIX: Log error details and continue instead of silent swallowing
+                print(f"Error in batch sender: {e} (type: {type(e).__name__})")
+                # Clear batch to prevent retry loop with bad data
+                batch.clear()
                 time.sleep(1)  # Avoid tight loop on error
 
     def _send_batch(self, batch: List[Dict[str, Any]]) -> None:
@@ -184,7 +189,8 @@ class RemoteLogHandler(logging.Handler):
                     self.websocket_client.send_message(message)
 
         except Exception as e:
-            print(f"Error sending log batch: {e}")
+            # ✅ FIX: Include batch size in error message for better debugging
+            print(f"Error sending log batch (size: {len(batch)}): {e} (type: {type(e).__name__})")
 
     def flush(self) -> None:
         """

@@ -55,17 +55,36 @@ public class DataSourceRepository
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
 
-        var existing = await context.DataSources.FirstOrDefaultAsync(ds => ds.Id == dataSource.Id);
-        if (existing == null)
+        // ✅ FIX: Use transaction to prevent race conditions with concurrent updates
+        using var transaction = await context.Database.BeginTransactionAsync();
+
+        try
         {
-            throw new InvalidOperationException($"DataSource with ID {dataSource.Id} not found");
+            var existing = await context.DataSources.FirstOrDefaultAsync(ds => ds.Id == dataSource.Id);
+            if (existing == null)
+            {
+                throw new InvalidOperationException($"DataSource with ID {dataSource.Id} not found");
+            }
+
+            context.Entry(existing).CurrentValues.SetValues(dataSource);
+            await context.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            _logger.Information("Updated data source: {Name} (ID: {Id})", dataSource.Name, dataSource.Id);
+            return dataSource;
         }
-
-        context.Entry(existing).CurrentValues.SetValues(dataSource);
-        await context.SaveChangesAsync();
-
-        _logger.Information("Updated data source: {Name} (ID: {Id})", dataSource.Name, dataSource.Id);
-        return dataSource;
+        catch (DbUpdateConcurrencyException ex)
+        {
+            // ✅ FIX: Handle concurrency conflicts explicitly
+            await transaction.RollbackAsync();
+            _logger.Error(ex, "Concurrency conflict updating data source {Id}", dataSource.Id);
+            throw new InvalidOperationException($"Concurrency conflict: DataSource {dataSource.Id} was modified by another process", ex);
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
     }
 
     public async Task DeleteAsync(string id)

@@ -22,8 +22,10 @@ public class DisplayLayout
     public Dictionary<string, object> Metadata { get; set; } = new();
 
     /// <summary>
-    /// Legacy linked data source IDs for datagrid elements (no longer used)
+    /// Legacy linked data source IDs for datagrid elements (no longer used).
+    /// Use DisplayElement.Properties["DataSourceId"] instead for data binding.
     /// </summary>
+    [Obsolete("LinkedDataSourceIds is deprecated. Use DisplayElement.Properties[\"DataSourceId\"] for element-level data binding instead.")]
     public List<Guid> LinkedDataSourceIds { get; set; } = new();
 
     /// <summary>

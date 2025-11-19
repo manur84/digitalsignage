@@ -428,9 +428,11 @@ public class AuthenticationService : IAuthenticationService
 
     private static string HashApiKey(string apiKey)
     {
-        using var sha256 = SHA256.Create();
-        var hashedBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(apiKey));
-        return Convert.ToBase64String(hashedBytes);
+        // ✅ FIX: Use BCrypt instead of SHA256 for API key hashing
+        // Even though API keys have high entropy, BCrypt provides additional security
+        // and is consistent with password hashing approach
+        // Note: API keys are 32-char random strings, so work factor 10 is sufficient
+        return BCrypt.Net.BCrypt.HashPassword(apiKey, workFactor: 10);
     }
 
     private static string GenerateSecureToken(int length)

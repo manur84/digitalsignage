@@ -37,6 +37,11 @@ public class ThumbnailService
     /// <returns>Path to the generated thumbnail, or null if generation failed</returns>
     public string? GenerateImageThumbnail(string sourceFilePath, string originalFileName)
     {
+        // ✅ FIX: Use try-finally to ensure all GDI+ resources are disposed even on exceptions
+        Image? sourceImage = null;
+        Bitmap? thumbnail = null;
+        Graphics? graphics = null;
+
         try
         {
             if (!File.Exists(sourceFilePath))
@@ -54,7 +59,7 @@ public class ThumbnailService
                 return null;
             }
 
-            using var sourceImage = Image.FromFile(sourceFilePath);
+            sourceImage = Image.FromFile(sourceFilePath);
 
             // Calculate thumbnail dimensions maintaining aspect ratio
             var (thumbnailWidth, thumbnailHeight) = CalculateThumbnailSize(
@@ -64,20 +69,23 @@ public class ThumbnailService
                 ThumbnailHeight);
 
             // Create thumbnail with high quality
-            using var thumbnail = new Bitmap(thumbnailWidth, thumbnailHeight);
-            using (var graphics = Graphics.FromImage(thumbnail))
-            {
-                graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
-                graphics.SmoothingMode = SmoothingMode.HighQuality;
-                graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
-                graphics.CompositingQuality = CompositingQuality.HighQuality;
+            thumbnail = new Bitmap(thumbnailWidth, thumbnailHeight);
+            graphics = Graphics.FromImage(thumbnail);
 
-                // Fill background with white
-                graphics.Clear(Color.White);
+            graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+            graphics.SmoothingMode = SmoothingMode.HighQuality;
+            graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+            graphics.CompositingQuality = CompositingQuality.HighQuality;
 
-                // Draw the source image scaled to fit
-                graphics.DrawImage(sourceImage, 0, 0, thumbnailWidth, thumbnailHeight);
-            }
+            // Fill background with white
+            graphics.Clear(Color.White);
+
+            // Draw the source image scaled to fit
+            graphics.DrawImage(sourceImage, 0, 0, thumbnailWidth, thumbnailHeight);
+
+            // Dispose graphics before saving
+            graphics.Dispose();
+            graphics = null;
 
             // Generate unique thumbnail filename
             var thumbnailFileName = $"thumb_{Path.GetFileNameWithoutExtension(originalFileName)}_{Guid.NewGuid():N}.jpg";
@@ -108,6 +116,13 @@ public class ThumbnailService
         {
             _logger.LogError(ex, "Failed to generate thumbnail for: {FileName}", originalFileName);
             return null;
+        }
+        finally
+        {
+            // Ensure all GDI+ resources are disposed
+            graphics?.Dispose();
+            thumbnail?.Dispose();
+            sourceImage?.Dispose();
         }
     }
 
@@ -190,7 +205,10 @@ public class ThumbnailService
                 // Draw document rectangle
                 var docRect = new Rectangle(40, 20, ThumbnailWidth - 80, ThumbnailHeight - 40);
                 graphics.FillRectangle(fillBrush, docRect);
-                graphics.DrawRectangle(new Pen(borderBrush, 2), docRect);
+
+                // ✅ FIX: Dispose Pen properly to avoid GDI+ handle leak
+                using var borderPen = new Pen(borderBrush, 2);
+                graphics.DrawRectangle(borderPen, docRect);
 
                 // Draw extension
                 var extText = extension;

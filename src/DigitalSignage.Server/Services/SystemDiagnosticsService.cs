@@ -99,14 +99,15 @@ public class SystemDiagnosticsService
                 var mediaCountTask = context.MediaFiles.CountAsync();
                 var scheduleCountTask = context.LayoutSchedules.CountAsync();
 
-                await Task.WhenAll(deviceCountTask, layoutCountTask, mediaCountTask, scheduleCountTask);
+                // ✅ FIX: Await all tasks properly without using .Result to avoid potential deadlocks
+                var counts = await Task.WhenAll(deviceCountTask, layoutCountTask, mediaCountTask, scheduleCountTask);
 
                 info.TableCounts = new Dictionary<string, int>
                 {
-                    { "Devices", deviceCountTask.Result },
-                    { "Layouts", layoutCountTask.Result },
-                    { "Media", mediaCountTask.Result },
-                    { "Schedules", scheduleCountTask.Result }
+                    { "Devices", counts[0] },
+                    { "Layouts", counts[1] },
+                    { "Media", counts[2] },
+                    { "Schedules", counts[3] }
                 };
 
                 // Get last backup info

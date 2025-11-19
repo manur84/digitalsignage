@@ -67,8 +67,9 @@ public class ScribanService : IScribanService
 
             var result = await template.RenderAsync(templateContext);
 
+            // ✅ FIX: Add null-check to prevent NullReferenceException
             // Safety: HTML-encode the output to reduce XSS risk when rendering in HTML UIs
-            var safeResult = WebUtility.HtmlEncode(result);
+            var safeResult = result != null ? WebUtility.HtmlEncode(result) : string.Empty;
 
             _logger.LogDebug("Successfully processed template with {DataCount} variables", data?.Count ?? 0);
 

@@ -115,8 +115,9 @@ public class SqlDataService : ISqlDataService
                 dynamicParams,
                 commandTimeout: 30);
 
+            // ✅ FIX: Add null-check for result to prevent NullReferenceException
             var resultDict = new Dictionary<string, object>();
-            var resultList = result.ToList();
+            var resultList = result?.ToList() ?? new List<dynamic>();
 
             // Use index access instead of First() for better performance
             if (resultList.Count > 0)
@@ -197,8 +198,10 @@ public class SqlDataService : ISqlDataService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to sanitize connection string, using original");
-            return connectionString; // Fallback to original if parsing fails
+            // ✅ FIX: Never fallback to unsanitized connection string - this defeats the entire whitelist
+            // Throw exception instead to prevent SQL injection via malicious connection strings
+            _logger.LogError(ex, "Failed to sanitize connection string - rejecting connection attempt");
+            throw new InvalidOperationException("Invalid connection string format. Connection rejected for security reasons.", ex);
         }
     }
 

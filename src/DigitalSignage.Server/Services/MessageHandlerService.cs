@@ -76,7 +76,7 @@ public class MessageHandlerService : BackgroundService
         // Generate unique task ID
         var taskId = Guid.NewGuid();
 
-        // Track the message handling task
+        // ✅ FIX: Track the message handling task with defensive exception handling
         var handlerTask = Task.Run(async () =>
         {
             try
@@ -86,11 +86,21 @@ public class MessageHandlerService : BackgroundService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error handling message from client {ClientId}", e.ClientId);
+                // Exception is logged and handled - not rethrown to prevent unobserved task exceptions
             }
             finally
             {
-                // Remove from tracking when complete
-                _messageHandlerTasks.TryRemove(taskId, out _);
+                // ✅ FIX: Defensive exception handling in finally block
+                try
+                {
+                    // Remove from tracking when complete
+                    _messageHandlerTasks.TryRemove(taskId, out _);
+                }
+                catch (Exception cleanupEx)
+                {
+                    // This should never happen, but log it defensively
+                    _logger.LogWarning(cleanupEx, "Error removing message handler task {TaskId} from tracking", taskId);
+                }
             }
         });
 
@@ -367,7 +377,17 @@ public class MessageHandlerService : BackgroundService
     {
         try
         {
-            // Re-serialize and deserialize to get proper type
+            // ✅ PERFORMANCE FIX: Direct cast instead of re-serialization
+            // Old code: Serialized then deserialized (wasteful CPU cycles)
+            // New code: Direct cast if type matches, otherwise fallback to property copying
+            if (message is T typedMessage)
+            {
+                return typedMessage;
+            }
+
+            // Fallback: If not the exact type, re-serialize only when necessary
+            // This should rarely happen as WebSocketCommunicationService already deserializes to correct types
+            _logger.LogDebug("Message type mismatch - falling back to JSON conversion for {MessageType}", typeof(T).Name);
             var json = JsonConvert.SerializeObject(message);
             return JsonConvert.DeserializeObject<T>(json);
         }
