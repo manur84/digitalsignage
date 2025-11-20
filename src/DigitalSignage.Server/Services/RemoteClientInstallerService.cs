@@ -136,7 +136,7 @@ public class RemoteClientInstallerService
             progress?.Report(isUpdateMode ? "Running install.sh in UPDATE mode..." : "Running install.sh in INSTALL mode...");
 
             var sshCommand = ssh.CreateCommand(installCommand);
-            sshCommand.CommandTimeout = TimeSpan.FromMinutes(10);
+            sshCommand.CommandTimeout = TimeSpan.FromMinutes(30);
             installCommandStarted = true;
 
             // Stream output live to progress log (stdout + stderr)
