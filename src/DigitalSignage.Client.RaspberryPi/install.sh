@@ -633,21 +633,33 @@ if [ -f "$INSTALL_DIR/config.json" ]; then
 fi
 
 # Configure splash screen (disable default and set branded logo)
-show_step "Configuring splash screen..."
-if [ -f "$INSTALL_DIR/setup-splash-screen.sh" ]; then
+show_step "Configuring Plymouth splash screen..."
+
+# CRITICAL FIX: Run splash screen setup BEFORE starting the service
+# This ensures the logo is embedded in initramfs and shows on boot
+if [ -f "$INSTALL_DIR/setup-splash-screen.sh" ] && [ -f "$INSTALL_DIR/digisign-logo.png" ]; then
+    echo "Setting up Plymouth boot splash screen with Digital Signage logo..."
     chmod +x "$INSTALL_DIR/setup-splash-screen.sh" 2>/dev/null || true
-    if [ -f "$INSTALL_DIR/digisign-logo.png" ]; then
-        if bash "$INSTALL_DIR/setup-splash-screen.sh" "$INSTALL_DIR/digisign-logo.png"; then
-            show_success "Splash screen configured"
-        else
-            show_warning "Splash setup failed"
-        fi
+
+    # Run splash screen setup script
+    if bash "$INSTALL_DIR/setup-splash-screen.sh" "$INSTALL_DIR/digisign-logo.png" 2>&1 | tee -a /tmp/splash-setup.log; then
+        show_success "Plymouth splash screen configured"
+        show_info "Boot logo will appear after reboot"
     else
-        show_warning "digisign-logo.png not found; skipping splash setup"
+        show_warning "Splash screen setup failed - check /tmp/splash-setup.log for details"
+        show_info "Boot will continue with default splash screen"
     fi
 else
-    show_warning "setup-splash-screen.sh not found; skipping splash setup"
+    if [ ! -f "$INSTALL_DIR/setup-splash-screen.sh" ]; then
+        show_warning "setup-splash-screen.sh not found - skipping Plymouth setup"
+    fi
+    if [ ! -f "$INSTALL_DIR/digisign-logo.png" ]; then
+        show_warning "digisign-logo.png not found - skipping Plymouth setup"
+    fi
+    show_info "Plymouth splash screen not configured (optional feature)"
 fi
+
+echo ""
 
 # [9/10] Install systemd services
 show_step "Installing systemd services..."
@@ -909,28 +921,66 @@ if [ "$DEPLOYMENT_MODE" = "1" ]; then
     if command -v raspi-config &>/dev/null; then
         CURRENT_BOOT=$(raspi-config nonint get_boot_behaviour 2>/dev/null || echo "unknown")
         if [ "$CURRENT_BOOT" != "B4" ]; then
+            echo "Configuring auto-login to desktop (B4 mode)..."
             raspi-config nonint do_boot_behaviour B4 2>/dev/null
             show_success "Auto-login enabled (desktop mode)"
             NEEDS_REBOOT=true
         else
             show_info "Desktop auto-login already enabled"
         fi
+    else
+        show_warning "raspi-config not found - manual autologin configuration required"
     fi
 
-    # LightDM configuration for autologin
-    if [ -f /etc/lightdm/lightdm.conf ]; then
-        if ! grep -q "^autologin-user=$ACTUAL_USER" /etc/lightdm/lightdm.conf; then
-            [ ! -f /etc/lightdm/lightdm.conf.backup ] && cp /etc/lightdm/lightdm.conf /etc/lightdm/lightdm.conf.backup
-            sed -i "s/^#autologin-user=.*/autologin-user=$ACTUAL_USER/" /etc/lightdm/lightdm.conf
-            sed -i "s/^autologin-user=.*/autologin-user=$ACTUAL_USER/" /etc/lightdm/lightdm.conf
-            show_success "LightDM configured for autologin"
+    # CRITICAL FIX: LightDM configuration for autologin
+    # This ensures autologin works even if raspi-config fails
+    LIGHTDM_CONF="/etc/lightdm/lightdm.conf"
+    if [ -f "$LIGHTDM_CONF" ]; then
+        echo "Configuring LightDM autologin..."
+
+        # Backup original config
+        [ ! -f "${LIGHTDM_CONF}.backup" ] && cp "$LIGHTDM_CONF" "${LIGHTDM_CONF}.backup"
+
+        # Remove any existing autologin-user lines (commented or not)
+        sed -i '/^#*autologin-user=/d' "$LIGHTDM_CONF"
+
+        # Add autologin-user in [Seat:*] section
+        if grep -q '^\[Seat:\*\]' "$LIGHTDM_CONF"; then
+            # Add after [Seat:*] line
+            sed -i "/^\[Seat:\*\]/a autologin-user=$ACTUAL_USER" "$LIGHTDM_CONF"
+        else
+            # Add [Seat:*] section if it doesn't exist
+            echo -e "\n[Seat:*]\nautologin-user=$ACTUAL_USER" >> "$LIGHTDM_CONF"
+        fi
+
+        show_success "LightDM configured for autologin (user: $ACTUAL_USER)"
+        NEEDS_REBOOT=true
+    else
+        show_warning "LightDM config not found at $LIGHTDM_CONF"
+
+        # Try alternative location
+        LIGHTDM_CONF_ALT="/usr/share/lightdm/lightdm.conf.d/01_debian.conf"
+        if [ -f "$LIGHTDM_CONF_ALT" ]; then
+            echo "Trying alternative LightDM config location..."
+            mkdir -p /etc/lightdm/lightdm.conf.d
+            cat > /etc/lightdm/lightdm.conf.d/50-digitalsignage-autologin.conf <<EOF
+# Digital Signage Auto-login Configuration
+[Seat:*]
+autologin-user=$ACTUAL_USER
+autologin-user-timeout=0
+EOF
+            show_success "LightDM autologin configured via override file"
             NEEDS_REBOOT=true
+        else
+            show_warning "LightDM not found - manual autologin configuration may be required"
         fi
     fi
 
     # CRITICAL FIX: Override LXDE autostart to DISABLE terminal and desktop components
     # The default /etc/xdg/lxsession/LXDE-pi/autostart starts lxterminal automatically
     # We create user-specific override to prevent this
+    echo "Configuring LXDE autostart to prevent desktop/terminal..."
+
     LXDE_AUTOSTART_DIR="$USER_HOME/.config/lxsession/LXDE-pi"
     mkdir -p "$LXDE_AUTOSTART_DIR"
 
@@ -939,28 +989,51 @@ if [ "$DEPLOYMENT_MODE" = "1" ]; then
 # Digital Signage - LXDE Autostart Override
 # This file PREVENTS default desktop components (terminal, taskbar, etc.)
 
-# Screen settings
+# CRITICAL: Disable all default LXDE components
+# Do NOT start lxpanel (taskbar)
+# Do NOT start pcmanfm (desktop icons/wallpaper)
+# Do NOT start lxterminal (terminal window)
+
+# Screen settings - prevent blanking/screensaver
 @xset s off
 @xset -dpms
 @xset s noblank
 
-# Hide cursor
+# Hide cursor immediately
 @unclutter -idle 0.1 -root
 
-# CRITICAL: Do NOT start lxterminal (default behavior)
-# CRITICAL: Do NOT start pcmanfm desktop
-# CRITICAL: Start Digital Signage client ONLY
+# Set black background (in case desktop shows)
+@xsetroot -solid black
+
+# CRITICAL: Start Digital Signage client as ONLY visible application
+# This must be the last line and the only application started
 @/opt/digitalsignage-client/start-with-display.sh
 EOF
 
-    chown "$ACTUAL_USER:$ACTUAL_USER" "$LXDE_AUTOSTART_DIR/autostart"
-    show_success "LXDE autostart configured (terminal DISABLED, Digital Signage ONLY)"
+    chown -R "$ACTUAL_USER:$ACTUAL_USER" "$LXDE_AUTOSTART_DIR"
+    chmod 644 "$LXDE_AUTOSTART_DIR/autostart"
+    show_success "LXDE autostart configured (terminal/desktop DISABLED, Digital Signage ONLY)"
 
-    # Also disable pcmanfm desktop (file manager/desktop icons) to keep it clean
+    # CRITICAL: Disable lxpanel (taskbar) and pcmanfm (desktop) via LXDE config
+    # This prevents the desktop environment from showing anything except our app
+    LXDE_CONFIG_FILE="$LXDE_AUTOSTART_DIR/desktop.conf"
+    cat > "$LXDE_CONFIG_FILE" <<'EOF'
+# Digital Signage - LXDE Desktop Configuration
+[Session]
+window_manager=openbox-lxde
+# CRITICAL: Disable panels and desktop manager
+panel/command=
+desktop_manager/command=
+EOF
+    chown "$ACTUAL_USER:$ACTUAL_USER" "$LXDE_CONFIG_FILE"
+    show_success "LXDE desktop components disabled (lxpanel, pcmanfm)"
+
+    # Configure pcmanfm to not show desktop (backup configuration)
     PCMANFM_CONFIG="$USER_HOME/.config/pcmanfm/LXDE-pi/desktop-items-0.conf"
     mkdir -p "$(dirname "$PCMANFM_CONFIG")"
     cat > "$PCMANFM_CONFIG" <<'EOF'
 [*]
+# Black background, no desktop icons
 desktop_bg=#000000
 desktop_fg=#ffffff
 desktop_shadow=#000000
@@ -969,8 +1042,8 @@ show_documents=0
 show_trash=0
 show_mounts=0
 EOF
-    chown "$ACTUAL_USER:$ACTUAL_USER" "$PCMANFM_CONFIG"
-    show_success "Desktop icons disabled"
+    chown -R "$ACTUAL_USER:$ACTUAL_USER" "$(dirname "$PCMANFM_CONFIG")"
+    show_success "PCManFM desktop icons disabled (black background)"
 
     # Update /boot/config.txt with detected HDMI modes
     if [ -f "$INSTALL_DIR/config_txt_manager.py" ]; then
