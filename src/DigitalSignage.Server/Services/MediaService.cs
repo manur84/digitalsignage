@@ -1,9 +1,10 @@
+using DigitalSignage.Server.Utilities;
 using System.IO;
 using Microsoft.Extensions.Logging;
 using System.Drawing;
 using System.Drawing.Imaging;
 using DigitalSignage.Core.Models;
-using DigitalSignage.Server.Utilities;
+using DigitalSignage.Core.Utilities;
 
 namespace DigitalSignage.Server.Services;
 

@@ -1,3 +1,5 @@
+using System.IO;
+
 namespace DigitalSignage.Server.Utilities;
 
 /// <summary>
