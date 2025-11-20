@@ -643,6 +643,15 @@ fi
 
 show_info "Using boot directory: $BOOT_DIR"
 
+# Ensure Plymouth is installed
+if ! command -v plymouth &>/dev/null; then
+    show_info "Installing Plymouth..."
+    apt-get install -y -qq plymouth plymouth-themes
+    show_success "Plymouth installed"
+else
+    show_info "Plymouth already installed"
+fi
+
 # CRITICAL: Configure boot parameters for Plymouth
 # These parameters MUST be in place for Plymouth to work correctly
 CMDLINE_FILE="$BOOT_DIR/cmdline.txt"
@@ -661,6 +670,13 @@ if [ -f "$CMDLINE_FILE" ]; then
     # Read current cmdline (single line)
     CURRENT_CMDLINE=$(tr '\n' ' ' < "$CMDLINE_FILE" | tr -s ' ')
 
+    # CRITICAL: Remove console=tty1 or replace with console=tty3 to hide boot messages
+    # This prevents boot messages from appearing on the main display
+    if echo "$CURRENT_CMDLINE" | grep -qw "console=tty1"; then
+        CURRENT_CMDLINE=$(echo "$CURRENT_CMDLINE" | sed 's/console=tty1/console=tty3/g')
+        show_success "Redirected console to tty3 (hides boot messages on display)"
+    fi
+
     # Parameters to add (if not already present)
     PLYMOUTH_PARAMS=(
         "quiet"                           # Suppress boot messages
@@ -668,18 +684,30 @@ if [ -f "$CMDLINE_FILE" ]; then
         "plymouth.ignore-serial-consoles" # Ignore serial consoles for Plymouth
         "logo.nologo"                     # Remove Raspberry Pi logo
         "vt.global_cursor_default=0"      # Hide blinking cursor
-        "loglevel=1"                      # Suppress kernel messages (only errors)
+        "loglevel=3"                      # Suppress kernel messages (errors + warnings only)
+        "consoleblank=0"                  # Disable console blanking
     )
 
     # Add missing parameters
     CMDLINE_MODIFIED=false
     for param in "${PLYMOUTH_PARAMS[@]}"; do
-        if ! echo "$CURRENT_CMDLINE" | grep -qw "$param"; then
+        # Special handling for parameters with values (e.g., loglevel=3)
+        param_name=$(echo "$param" | cut -d'=' -f1)
+        if echo "$CURRENT_CMDLINE" | grep -qw "$param_name"; then
+            # Parameter exists, check if value needs update
+            if ! echo "$CURRENT_CMDLINE" | grep -qw "$param"; then
+                # Remove old parameter and add new one
+                CURRENT_CMDLINE=$(echo "$CURRENT_CMDLINE" | sed "s/${param_name}=[^ ]*/${param}/g")
+                CMDLINE_MODIFIED=true
+                echo "  ↻ Updated: $param"
+            else
+                echo "  ✓ Already present: $param"
+            fi
+        else
+            # Parameter doesn't exist, add it
             CURRENT_CMDLINE="$CURRENT_CMDLINE $param"
             CMDLINE_MODIFIED=true
             echo "  + Adding: $param"
-        else
-            echo "  ✓ Already present: $param"
         fi
     done
 
@@ -724,6 +752,16 @@ if [ -f "$CONFIG_TXT" ]; then
         show_info "auto_initramfs already enabled"
     fi
 
+    # Add dtoverlay for better boot performance (optional but recommended)
+    if ! grep -Eq '^dtoverlay=vc4-fkms-v3d' "$CONFIG_TXT" && ! grep -Eq '^dtoverlay=vc4-kms-v3d' "$CONFIG_TXT"; then
+        echo "" >> "$CONFIG_TXT"
+        echo "# Digital Signage: Enable KMS graphics driver for better boot logo display" >> "$CONFIG_TXT"
+        echo "dtoverlay=vc4-fkms-v3d" >> "$CONFIG_TXT"
+        show_success "Enabled KMS graphics driver (vc4-fkms-v3d)"
+    else
+        show_info "KMS graphics driver already enabled"
+    fi
+
     show_success "config.txt configured for Plymouth"
 else
     show_warning "config.txt not found at $CONFIG_TXT - Plymouth may not work correctly"
@@ -740,7 +778,14 @@ if [ -f "$INSTALL_DIR/setup-splash-screen.sh" ] && [ -f "$INSTALL_DIR/digisign-l
     # Run splash screen setup script
     if bash "$INSTALL_DIR/setup-splash-screen.sh" "$INSTALL_DIR/digisign-logo.png" 2>&1 | tee -a /tmp/splash-setup.log; then
         show_success "Plymouth splash screen configured"
-        show_info "Boot logo will appear after reboot"
+
+        # CRITICAL: Rebuild initramfs to include Plymouth theme
+        show_info "Rebuilding initramfs to include Plymouth boot logo..."
+        if update-initramfs -u 2>&1 | tee -a /tmp/splash-setup.log; then
+            show_success "Initramfs rebuilt successfully - boot logo will display after reboot"
+        else
+            show_warning "Initramfs rebuild failed - boot logo may not appear"
+        fi
     else
         show_warning "Splash screen setup failed - check /tmp/splash-setup.log for details"
         show_info "Boot will continue with default splash screen"
@@ -1011,135 +1056,65 @@ if [ "$DEPLOYMENT_MODE" = "1" ]; then
 
     NEEDS_REBOOT=false
 
-    # CRITICAL FIX: Boot to Desktop (B4) for reliable X11, but disable terminal
-    # B4 = Desktop with autologin - reliable X11 startup
-    # We'll prevent terminal from appearing via autostart configuration
+    # CRITICAL FIX: Use Console Autologin (B2) for proper kiosk mode
+    # B2 = Console autologin - boots to text console, auto-logged in
+    # Then .bash_profile automatically starts X11 (see lines 1182-1192)
+    # This approach bypasses LightDM entirely and gives full control
+    echo "Configuring console autologin (B2 mode) for kiosk setup..."
+
     if command -v raspi-config &>/dev/null; then
         CURRENT_BOOT=$(raspi-config nonint get_boot_behaviour 2>/dev/null || echo "unknown")
-        if [ "$CURRENT_BOOT" != "B4" ]; then
-            echo "Configuring auto-login to desktop (B4 mode)..."
-            raspi-config nonint do_boot_behaviour B4 2>/dev/null
-            show_success "Auto-login enabled (desktop mode)"
+        if [ "$CURRENT_BOOT" != "B2" ]; then
+            echo "Setting boot mode to console autologin (B2)..."
+            raspi-config nonint do_boot_behaviour B2 2>/dev/null
+            show_success "Console auto-login enabled (B2 mode)"
             NEEDS_REBOOT=true
         else
-            show_info "Desktop auto-login already enabled"
+            show_info "Console auto-login already enabled (B2 mode)"
         fi
     else
-        show_warning "raspi-config not found - manual autologin configuration required"
+        show_warning "raspi-config not found - using manual configuration"
     fi
 
-    # CRITICAL FIX: LightDM configuration for autologin
-    # This ensures autologin works even if raspi-config fails
-    LIGHTDM_CONF="/etc/lightdm/lightdm.conf"
-    if [ -f "$LIGHTDM_CONF" ]; then
-        echo "Configuring LightDM autologin..."
+    # CRITICAL: Manual getty autologin configuration (in case raspi-config fails or is not available)
+    # This creates the systemd drop-in file for getty@tty1.service
+    GETTY_OVERRIDE_DIR="/etc/systemd/system/getty@tty1.service.d"
+    GETTY_OVERRIDE_FILE="$GETTY_OVERRIDE_DIR/autologin.conf"
 
-        # Backup original config
-        [ ! -f "${LIGHTDM_CONF}.backup" ] && cp "$LIGHTDM_CONF" "${LIGHTDM_CONF}.backup"
+    echo "Configuring getty autologin for tty1..."
+    mkdir -p "$GETTY_OVERRIDE_DIR"
 
-        # Remove any existing autologin-user lines (commented or not)
-        sed -i '/^#*autologin-user=/d' "$LIGHTDM_CONF"
+    cat > "$GETTY_OVERRIDE_FILE" <<EOF
+# Digital Signage - Console Autologin Configuration
+# This file enables automatic login on tty1 without password prompt
+[Service]
+ExecStart=
+ExecStart=-/sbin/agetty --autologin $ACTUAL_USER --noclear %I \$TERM
+Type=idle
+EOF
 
-        # Add autologin-user in [Seat:*] section
-        if grep -q '^\[Seat:\*\]' "$LIGHTDM_CONF"; then
-            # Add after [Seat:*] line
-            sed -i "/^\[Seat:\*\]/a autologin-user=$ACTUAL_USER" "$LIGHTDM_CONF"
-        else
-            # Add [Seat:*] section if it doesn't exist
-            echo -e "\n[Seat:*]\nautologin-user=$ACTUAL_USER" >> "$LIGHTDM_CONF"
-        fi
+    show_success "Getty autologin configured for tty1 (user: $ACTUAL_USER)"
+    NEEDS_REBOOT=true
 
-        show_success "LightDM configured for autologin (user: $ACTUAL_USER)"
+    # Reload systemd to apply getty changes
+    systemctl daemon-reload
+    show_success "Systemd configuration reloaded"
+
+    # OPTIONAL: Disable LightDM (not needed for console-based kiosk)
+    # This prevents conflicts and ensures clean boot to console
+    if systemctl is-enabled lightdm.service 2>/dev/null; then
+        echo "Disabling LightDM (not needed for console-based kiosk)..."
+        systemctl disable lightdm.service 2>/dev/null || true
+        show_success "LightDM disabled (console-only boot)"
         NEEDS_REBOOT=true
     else
-        show_warning "LightDM config not found at $LIGHTDM_CONF"
-
-        # Try alternative location
-        LIGHTDM_CONF_ALT="/usr/share/lightdm/lightdm.conf.d/01_debian.conf"
-        if [ -f "$LIGHTDM_CONF_ALT" ]; then
-            echo "Trying alternative LightDM config location..."
-            mkdir -p /etc/lightdm/lightdm.conf.d
-            cat > /etc/lightdm/lightdm.conf.d/50-digitalsignage-autologin.conf <<EOF
-# Digital Signage Auto-login Configuration
-[Seat:*]
-autologin-user=$ACTUAL_USER
-autologin-user-timeout=0
-EOF
-            show_success "LightDM autologin configured via override file"
-            NEEDS_REBOOT=true
-        else
-            show_warning "LightDM not found - manual autologin configuration may be required"
-        fi
+        show_info "LightDM not enabled (console boot already configured)"
     fi
 
-    # CRITICAL FIX: Override LXDE autostart to DISABLE terminal and desktop components
-    # The default /etc/xdg/lxsession/LXDE-pi/autostart starts lxterminal automatically
-    # We create user-specific override to prevent this
-    echo "Configuring LXDE autostart to prevent desktop/terminal..."
-
-    LXDE_AUTOSTART_DIR="$USER_HOME/.config/lxsession/LXDE-pi"
-    mkdir -p "$LXDE_AUTOSTART_DIR"
-
-    # Create LXDE autostart override (this REPLACES default autostart behavior)
-    cat > "$LXDE_AUTOSTART_DIR/autostart" <<'EOF'
-# Digital Signage - LXDE Autostart Override
-# This file PREVENTS default desktop components (terminal, taskbar, etc.)
-
-# CRITICAL: Disable all default LXDE components
-# Do NOT start lxpanel (taskbar)
-# Do NOT start pcmanfm (desktop icons/wallpaper)
-# Do NOT start lxterminal (terminal window)
-
-# Screen settings - prevent blanking/screensaver
-@xset s off
-@xset -dpms
-@xset s noblank
-
-# Hide cursor immediately
-@unclutter -idle 0.1 -root
-
-# Set black background (in case desktop shows)
-@xsetroot -solid black
-
-# CRITICAL: Start Digital Signage client as ONLY visible application
-# This must be the last line and the only application started
-@/opt/digitalsignage-client/start-with-display.sh
-EOF
-
-    chown -R "$ACTUAL_USER:$ACTUAL_USER" "$LXDE_AUTOSTART_DIR"
-    chmod 644 "$LXDE_AUTOSTART_DIR/autostart"
-    show_success "LXDE autostart configured (terminal/desktop DISABLED, Digital Signage ONLY)"
-
-    # CRITICAL: Disable lxpanel (taskbar) and pcmanfm (desktop) via LXDE config
-    # This prevents the desktop environment from showing anything except our app
-    LXDE_CONFIG_FILE="$LXDE_AUTOSTART_DIR/desktop.conf"
-    cat > "$LXDE_CONFIG_FILE" <<'EOF'
-# Digital Signage - LXDE Desktop Configuration
-[Session]
-window_manager=openbox-lxde
-# CRITICAL: Disable panels and desktop manager
-panel/command=
-desktop_manager/command=
-EOF
-    chown "$ACTUAL_USER:$ACTUAL_USER" "$LXDE_CONFIG_FILE"
-    show_success "LXDE desktop components disabled (lxpanel, pcmanfm)"
-
-    # Configure pcmanfm to not show desktop (backup configuration)
-    PCMANFM_CONFIG="$USER_HOME/.config/pcmanfm/LXDE-pi/desktop-items-0.conf"
-    mkdir -p "$(dirname "$PCMANFM_CONFIG")"
-    cat > "$PCMANFM_CONFIG" <<'EOF'
-[*]
-# Black background, no desktop icons
-desktop_bg=#000000
-desktop_fg=#ffffff
-desktop_shadow=#000000
-wallpaper_mode=color
-show_documents=0
-show_trash=0
-show_mounts=0
-EOF
-    chown -R "$ACTUAL_USER:$ACTUAL_USER" "$(dirname "$PCMANFM_CONFIG")"
-    show_success "PCManFM desktop icons disabled (black background)"
+    # NOTE: LXDE/Desktop configuration is no longer needed
+    # We're using console boot (B2) + auto-startx via .bash_profile
+    # This bypasses LightDM and LXDE entirely for cleaner kiosk mode
+    show_info "Skipping LXDE configuration (console-based boot, no desktop environment)"
 
     # Update /boot/config.txt with detected HDMI modes
     if [ -f "$INSTALL_DIR/config_txt_manager.py" ]; then
@@ -1161,34 +1136,74 @@ EOF
         show_warning "config_txt_manager.py not found; skipping config.txt update"
     fi
 
-    # BACKUP SOLUTION: .xinitrc and .bash_profile for boot-to-console setups
-    # This ensures X11 auto-starts even if LXDE desktop is disabled
-    if [ ! -f "$USER_HOME/.xinitrc" ] || ! grep -q "start-with-display.sh" "$USER_HOME/.xinitrc"; then
-        cat > "$USER_HOME/.xinitrc" <<'EOF'
+    # CRITICAL: Configure .xinitrc for X11 startup
+    # This file is executed when startx is called from .bash_profile
+    # It starts our Digital Signage client as the only X11 application
+    echo "Configuring .xinitrc for X11 startup..."
+    cat > "$USER_HOME/.xinitrc" <<'EOF'
 #!/bin/sh
-# Digital Signage Client - X11 startup configuration
+# Digital Signage Client - X11 Startup Configuration
+# This file is executed by startx and replaces desktop environment
+
+# Disable screen blanking and power management
 xset -dpms
 xset s off
 xset s noblank
+
+# Set black background (clean look during startup)
+xsetroot -solid black
+
+# Hide mouse cursor immediately
 unclutter -idle 0.1 -root &
+
+# Wait briefly for X11 to fully initialize
+sleep 2
+
+# Start Digital Signage client as the ONLY X11 application
+# This will run fullscreen and be the only thing visible
 exec /opt/digitalsignage-client/start-with-display.sh
 EOF
-        chown "$ACTUAL_USER:$ACTUAL_USER" "$USER_HOME/.xinitrc"
-        chmod +x "$USER_HOME/.xinitrc"
-        show_success ".xinitrc created (backup X11 config)"
+    chown "$ACTUAL_USER:$ACTUAL_USER" "$USER_HOME/.xinitrc"
+    chmod +x "$USER_HOME/.xinitrc"
+    show_success ".xinitrc created (X11 startup configuration)"
+
+    # CRITICAL: Configure .bash_profile for automatic X11 startup on tty1
+    # This ensures X11 starts automatically after console autologin
+    echo "Configuring .bash_profile for auto-startx..."
+
+    # Remove any existing auto-startx configuration to avoid duplicates
+    if [ -f "$USER_HOME/.bash_profile" ]; then
+        sed -i '/# Auto-start X11 on tty1 login for Digital Signage/,/fi/d' "$USER_HOME/.bash_profile"
     fi
 
-    # Auto-start X11 on tty1 login (works with boot-to-console)
-    if [ ! -f "$USER_HOME/.bash_profile" ] || ! grep -q "startx" "$USER_HOME/.bash_profile"; then
-        cat >> "$USER_HOME/.bash_profile" <<'EOF'
+    # Append auto-startx configuration
+    cat >> "$USER_HOME/.bash_profile" <<'EOF'
 
-# Auto-start X11 on tty1 login for Digital Signage
+# Digital Signage - Auto-start X11 on tty1 login
+# This starts X11 automatically after console autologin
+# Only runs on tty1 and only if X11 is not already running
 if [ -z "$DISPLAY" ] && [ "$(tty)" = "/dev/tty1" ]; then
-    exec startx
+    # Log startup for debugging
+    echo "Digital Signage: Starting X11..." | tee -a /tmp/digitalsignage-boot.log
+
+    # Start X11 with our .xinitrc configuration
+    # exec replaces the shell with startx, preventing terminal from showing
+    exec startx -- -nocursor
 fi
 EOF
-        chown "$ACTUAL_USER:$ACTUAL_USER" "$USER_HOME/.bash_profile"
-        show_success ".bash_profile configured (auto-start X11 on tty1)"
+    chown "$ACTUAL_USER:$ACTUAL_USER" "$USER_HOME/.bash_profile"
+    show_success ".bash_profile configured (auto-start X11 on tty1)"
+
+    # ADDITIONAL: Configure .profile as fallback (some systems use .profile instead)
+    if [ ! -f "$USER_HOME/.profile" ]; then
+        cat > "$USER_HOME/.profile" <<'EOF'
+# Digital Signage - Load .bash_profile if it exists
+if [ -f "$HOME/.bash_profile" ]; then
+    . "$HOME/.bash_profile"
+fi
+EOF
+        chown "$ACTUAL_USER:$ACTUAL_USER" "$USER_HOME/.profile"
+        show_success ".profile created (fallback configuration)"
     fi
 
     echo ""
