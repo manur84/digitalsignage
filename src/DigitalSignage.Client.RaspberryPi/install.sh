@@ -776,16 +776,9 @@ if [ -f "$INSTALL_DIR/setup-splash-screen.sh" ] && [ -f "$INSTALL_DIR/digisign-l
     chmod +x "$INSTALL_DIR/setup-splash-screen.sh" 2>/dev/null || true
 
     # Run splash screen setup script
+    # Note: initramfs rebuild is handled inside setup-splash-screen.sh
     if bash "$INSTALL_DIR/setup-splash-screen.sh" "$INSTALL_DIR/digisign-logo.png" 2>&1 | tee -a /tmp/splash-setup.log; then
-        show_success "Plymouth splash screen configured"
-
-        # CRITICAL: Rebuild initramfs to include Plymouth theme
-        show_info "Rebuilding initramfs to include Plymouth boot logo..."
-        if update-initramfs -u 2>&1 | tee -a /tmp/splash-setup.log; then
-            show_success "Initramfs rebuilt successfully - boot logo will display after reboot"
-        else
-            show_warning "Initramfs rebuild failed - boot logo may not appear"
-        fi
+        show_success "Plymouth splash screen configured (includes initramfs rebuild)"
     else
         show_warning "Splash screen setup failed - check /tmp/splash-setup.log for details"
         show_info "Boot will continue with default splash screen"
@@ -798,6 +791,45 @@ else
         show_warning "digisign-logo.png not found - skipping Plymouth setup"
     fi
     show_info "Plymouth splash screen not configured (optional feature)"
+fi
+
+# Verify Plymouth configuration
+echo ""
+echo "Verifying Plymouth Configuration..."
+echo "----------------------------------------"
+
+# 1. Check framebuffer configuration
+if [ -f "/etc/initramfs-tools/conf.d/splash" ] && grep -q "FRAMEBUFFER=y" /etc/initramfs-tools/conf.d/splash 2>/dev/null; then
+    show_success "Framebuffer support enabled"
+else
+    show_info "Framebuffer configuration: not enabled (may affect Plymouth rendering)"
+fi
+
+# 2. Check initramfs size
+KERNEL_VERSION=$(uname -r)
+INITRAMFS_PATH="/boot/firmware/initramfs"
+if [ ! -f "$INITRAMFS_PATH" ]; then
+    INITRAMFS_PATH="/boot/initramfs"
+fi
+
+if [ -f "$INITRAMFS_PATH" ]; then
+    INITRAMFS_SIZE=$(du -h "$INITRAMFS_PATH" | cut -f1)
+    show_success "Initramfs found: $INITRAMFS_PATH ($INITRAMFS_SIZE)"
+else
+    show_info "Initramfs not found at standard location (may be embedded in kernel)"
+fi
+
+# 3. Plymouth configuration summary
+if command -v plymouth &>/dev/null; then
+    PLYMOUTH_THEME=$(plymouth-set-default-theme 2>/dev/null || echo "unknown")
+    show_success "Plymouth theme: $PLYMOUTH_THEME"
+
+    if [ -f "$INSTALL_DIR/digisign-logo.png" ]; then
+        LOGO_SIZE=$(du -h "$INSTALL_DIR/digisign-logo.png" | cut -f1)
+        show_success "Boot logo: digisign-logo.png ($LOGO_SIZE)"
+    fi
+else
+    show_info "Plymouth not installed"
 fi
 
 echo ""
@@ -1210,6 +1242,18 @@ EOF
     if [ "$NEEDS_REBOOT" = true ]; then
         echo -e "${YELLOW}IMPORTANT: Reboot required${NC}"
         echo ""
+
+        # Detect Raspberry Pi OS Bookworm for Plymouth-specific message
+        if [ -f /etc/os-release ]; then
+            OS_VERSION=$(grep VERSION_CODENAME /etc/os-release | cut -d'=' -f2 || echo "unknown")
+            if [ "$OS_VERSION" = "bookworm" ]; then
+                echo -e "${BLUE}ℹ Raspberry Pi OS Bookworm detected${NC}"
+                echo "  Plymouth boot logo requires a reboot to take effect."
+                echo "  After reboot, you'll see the Digital Signage logo during boot."
+                echo ""
+            fi
+        fi
+
         if [ "$NON_INTERACTIVE" = "1" ]; then
             REPLY="y"
             echo "Non-interactive: auto-confirm reboot"

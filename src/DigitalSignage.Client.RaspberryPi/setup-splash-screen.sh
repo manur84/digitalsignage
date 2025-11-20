@@ -30,7 +30,7 @@ echo "Using boot directory: $BOOT_DIR"
 
 CMDLINE_FLAGS=(
   "logo.nologo"
-  "loglevel=1"
+  "loglevel=3"
   "quiet"
   "splash"
   "vt.global_cursor_default=0"
