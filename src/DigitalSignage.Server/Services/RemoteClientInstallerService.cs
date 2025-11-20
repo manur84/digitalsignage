@@ -16,6 +16,9 @@ namespace DigitalSignage.Server.Services;
 public class RemoteClientInstallerService
 {
     private readonly ILogger<RemoteClientInstallerService> _logger;
+    private readonly RemoteSshConnectionManager _connectionManager;
+    private readonly RemoteFileUploader _fileUploader;
+    private readonly RemoteInstallationPreparer _installationPreparer;
     private readonly string _installerSourcePath;
     private const string RemoteInstallPath = "/tmp/digitalsignage-client-installer";
     private const string RemoteServiceName = "digitalsignage-client";
@@ -23,10 +26,22 @@ public class RemoteClientInstallerService
     private const string RemoteServiceFile = "/etc/systemd/system/digitalsignage-client.service";
     private const string InstallCompleteMarker = "__DS_INSTALL_COMPLETE__";
 
-    public RemoteClientInstallerService(ILogger<RemoteClientInstallerService> logger)
+    public RemoteClientInstallerService(
+        ILogger<RemoteClientInstallerService> logger,
+        ILogger<RemoteSshConnectionManager> connectionLogger,
+        ILogger<RemoteFileUploader> uploaderLogger,
+        ILogger<RemoteInstallationPreparer> preparerLogger)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _installerSourcePath = Path.Combine(AppContext.BaseDirectory, "ClientInstaller");
+
+        _connectionManager = new RemoteSshConnectionManager(connectionLogger);
+        _fileUploader = new RemoteFileUploader(uploaderLogger, _installerSourcePath);
+        _installationPreparer = new RemoteInstallationPreparer(
+            preparerLogger,
+            RemoteInstallDir,
+            RemoteServiceFile,
+            RemoteServiceName);
     }
 
     /// <summary>
@@ -52,16 +67,16 @@ public class RemoteClientInstallerService
             _logger.LogInformation("Starting remote installer for {Host}:{Port} as {User}", host, port, username);
 
             // Quick connectivity probe to fail fast on unreachable hosts/ports
-            await EnsurePortReachableAsync(host, port, cancellationToken);
+            await _connectionManager.EnsurePortReachableAsync(host, port, cancellationToken);
 
             try
             {
-                ssh = CreateSshClient(host, port, username, password);
-        sftp = CreateSftpClient(host, port, username, password);
+                ssh = _connectionManager.CreateSshClient(host, port, username, password);
+                sftp = _connectionManager.CreateSftpClient(host, port, username, password);
 
-        await ConnectWithTimeoutAsync(ssh, cancellationToken);
-        await ConnectWithTimeoutAsync(sftp, cancellationToken);
-    }
+                await _connectionManager.ConnectWithTimeoutAsync(ssh, cancellationToken);
+                await _connectionManager.ConnectWithTimeoutAsync(sftp, cancellationToken);
+            }
             catch (SshAuthenticationException ex)
             {
                 _logger.LogWarning(ex, "SSH authentication failed for {Host}", host);
@@ -85,26 +100,26 @@ public class RemoteClientInstallerService
 
             // Detect if client is already installed (UPDATE mode) or fresh install needed
             progress?.Report("Checking for existing installation...");
-            isUpdateMode = await DetectExistingInstallationAsync(ssh, cancellationToken);
+            isUpdateMode = await _installationPreparer.DetectExistingInstallationAsync(ssh, cancellationToken);
 
             if (isUpdateMode)
             {
                 progress?.Report("✓ Existing installation detected - UPDATE MODE");
                 progress?.Report("Stopping service and backing up configuration...");
-                await PrepareUpdateAsync(ssh, username, password, cancellationToken, progress);
+                await _installationPreparer.PrepareUpdateAsync(ssh, username, password, progress, cancellationToken);
             }
             else
             {
                 progress?.Report("No existing installation found - INSTALL MODE");
                 progress?.Report("Preparing target for fresh install...");
-                await PrepareCleanInstallAsync(ssh, username, password, cancellationToken, progress);
+                await _installationPreparer.PrepareCleanInstallAsync(ssh, username, password, progress, cancellationToken);
             }
 
             progress?.Report("Preparing remote staging folder...");
             await Task.Run(() => ssh.RunCommand($"rm -rf '{RemoteInstallPath}' && mkdir -p '{RemoteInstallPath}'"), cancellationToken);
 
             progress?.Report("Uploading installer files (can take a moment)...");
-            await UploadInstallerAsync(sftp, cancellationToken, progress);
+            await _fileUploader.UploadInstallerAsync(sftp, RemoteInstallPath, progress, cancellationToken);
 
             var installScriptPath = $"{RemoteInstallPath}/install.sh";
 
@@ -262,82 +277,8 @@ public class RemoteClientInstallerService
         finally
         {
             // Ensure disposal never escapes as an unhandled SshConnectionException when the server drops the line
-            SafeDispose(sftp, nameof(sftp));
-            SafeDispose(ssh, nameof(ssh));
-        }
-    }
-
-    private static SshClient CreateSshClient(string host, int port, string username, string password)
-    {
-        var connectionInfo = new ConnectionInfo(
-            host,
-            port,
-            username,
-            new PasswordAuthenticationMethod(username, password))
-        {
-            Timeout = TimeSpan.FromSeconds(15)
-        };
-
-        return new SshClient(connectionInfo)
-        {
-            KeepAliveInterval = TimeSpan.FromSeconds(30)
-        };
-    }
-
-    private static SftpClient CreateSftpClient(string host, int port, string username, string password)
-    {
-        var connectionInfo = new ConnectionInfo(
-            host,
-            port,
-            username,
-            new PasswordAuthenticationMethod(username, password))
-        {
-            Timeout = TimeSpan.FromSeconds(15)
-        };
-
-        return new SftpClient(connectionInfo);
-    }
-
-    private async Task UploadInstallerAsync(SftpClient sftp, CancellationToken cancellationToken, IProgress<string>? progress)
-    {
-        await Task.Run(() =>
-        {
-            EnsureRemoteDirectory(sftp, RemoteInstallPath);
-
-            var files = Directory.GetFiles(_installerSourcePath, "*", SearchOption.AllDirectories);
-            foreach (var file in files)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                var relative = Path.GetRelativePath(_installerSourcePath, file).Replace("\\", "/");
-                var remoteFile = $"{RemoteInstallPath}/{relative}";
-                var remoteDir = Path.GetDirectoryName(remoteFile)?.Replace("\\", "/");
-
-                if (!string.IsNullOrWhiteSpace(remoteDir))
-                {
-                    EnsureRemoteDirectory(sftp, remoteDir);
-                }
-
-                using var fs = File.OpenRead(file);
-                sftp.UploadFile(fs, remoteFile, true);
-
-                progress?.Report($"Uploaded {relative}");
-            }
-        }, cancellationToken);
-    }
-
-    private static void EnsureRemoteDirectory(SftpClient sftp, string remotePath)
-    {
-        var parts = remotePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
-        var current = string.Empty;
-
-        foreach (var part in parts)
-        {
-            current += "/" + part;
-            if (!sftp.Exists(current))
-            {
-                sftp.CreateDirectory(current);
-            }
+            _connectionManager.SafeDispose(sftp, nameof(sftp));
+            _connectionManager.SafeDispose(ssh, nameof(ssh));
         }
     }
 
