@@ -1,3 +1,4 @@
+using DigitalSignage.Server.Utilities;
 using System;
 using System.Linq;
 using System.Net;
@@ -5,7 +6,7 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using DigitalSignage.Server.Configuration;
-using DigitalSignage.Server.Utilities;
+using DigitalSignage.Core.Utilities;
 using Makaretu.Dns;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;

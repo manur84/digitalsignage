@@ -1,6 +1,7 @@
+using DigitalSignage.Server.Utilities;
 using DigitalSignage.Core.Interfaces;
 using DigitalSignage.Core.Models;
-using DigitalSignage.Server.Utilities;
+using DigitalSignage.Core.Utilities;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 using System.Data;

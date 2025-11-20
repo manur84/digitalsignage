@@ -1,3 +1,4 @@
+using DigitalSignage.Server.Utilities;
 using System;
 using System.Net;
 using System.Net.Sockets;
@@ -5,7 +6,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using DigitalSignage.Server.Configuration;
-using DigitalSignage.Server.Utilities;
+using DigitalSignage.Core.Utilities;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;

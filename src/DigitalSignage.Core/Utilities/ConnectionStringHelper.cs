@@ -1,6 +1,6 @@
 using Microsoft.Data.SqlClient;
 
-namespace DigitalSignage.Server.Utilities;
+namespace DigitalSignage.Core.Utilities;
 
 /// <summary>
 /// Shared utility class for SQL connection string sanitization and security
