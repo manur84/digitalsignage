@@ -3,15 +3,9 @@ using DigitalSignage.Core.Models;
 using DigitalSignage.Server.Configuration;
 using DigitalSignage.Server.Helpers;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using System.Collections.Concurrent;
-using System.IO;
-using System.IO.Compression;
 using System.Net;
-using System.Net.Sockets;
 using System.Net.WebSockets;
-using System.Text;
 
 namespace DigitalSignage.Server.Services;
 
@@ -20,40 +14,21 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
     private readonly ConcurrentDictionary<string, WebSocket> _clients = new();
     private readonly ConcurrentDictionary<string, Task> _clientHandlerTasks = new();
     private readonly ILogger<WebSocketCommunicationService> _logger;
+    private readonly WebSocketMessageSerializer _messageSerializer;
     private readonly ServerSettings _settings;
     private HttpListener? _httpListener;
     private CancellationTokenSource? _cancellationTokenSource;
     private Task? _acceptClientsTask;
-    private bool _enableCompression = true; // Enable gzip compression for large messages
     private bool _disposed = false;
-
-    // CRITICAL FIX: JSON serializer settings to prevent string truncation
-    // Problem: Default Newtonsoft.Json settings were truncating hex color values (#ADD8E6 → #ADD8)
-    // Solution: Explicit settings with proper type handling and formatting
-    private static readonly JsonSerializerSettings _jsonSettings = new JsonSerializerSettings
-    {
-        // Prevent any truncation of string values
-        StringEscapeHandling = StringEscapeHandling.Default,
-        // Format for debugging (can be changed to None for production)
-        Formatting = Formatting.None,
-        // Preserve full type information for Dictionary<string, object>
-        TypeNameHandling = TypeNameHandling.None,
-        // Don't ignore null values (they may be meaningful)
-        NullValueHandling = NullValueHandling.Include,
-        // Handle circular references (not common, but safe)
-        ReferenceLoopHandling = ReferenceLoopHandling.Ignore,
-        // Ensure dates are serialized in ISO format
-        DateFormatHandling = DateFormatHandling.IsoDateFormat,
-        // Don't modify property names
-        ContractResolver = null
-    };
 
     public WebSocketCommunicationService(
         ILogger<WebSocketCommunicationService> logger,
+        ILogger<WebSocketMessageSerializer> serializerLogger,
         ServerSettings settings)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+        _messageSerializer = new WebSocketMessageSerializer(serializerLogger, enableCompression: true);
     }
 
     public event EventHandler<MessageReceivedEventArgs>? MessageReceived;
@@ -311,39 +286,8 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
                     return;
                 }
 
-                var json = JsonConvert.SerializeObject(message, _jsonSettings);
-                var bytes = Encoding.UTF8.GetBytes(json);
-
-                // Apply compression if enabled and message is large enough
-                byte[] dataToSend = bytes;
-                bool compressed = false;
-                if (_enableCompression && CompressionHelper.ShouldCompress(bytes.Length))
-                {
-                    var compressedBytes = CompressionHelper.Compress(bytes);
-                    if (compressedBytes != null && compressedBytes.Length < bytes.Length) // Only use if actually smaller
-                    {
-                        dataToSend = compressedBytes;
-                        compressed = true;
-                        _logger.LogDebug(
-                            "Compressed message: {OriginalSize} → {CompressedSize} bytes ({Ratio:P1})",
-                            bytes.Length,
-                            compressedBytes.Length,
-                            CompressionHelper.CalculateCompressionRatio(bytes.Length, compressedBytes.Length));
-                    }
-                }
-
-                // Use Binary message type if compressed, Text if not
-                var messageType = compressed ? WebSocketMessageType.Binary : WebSocketMessageType.Text;
-
-                await socket.SendAsync(
-                    new ArraySegment<byte>(dataToSend),
-                    messageType,
-                    true,
-                    cancellationToken);
-
-                _logger.LogDebug(
-                    "Sent {MessageType} to client {ClientId} ({Size} bytes, compressed: {Compressed})",
-                    message.Type, clientId, dataToSend.Length, compressed);
+                // Delegate to WebSocketMessageSerializer
+                await _messageSerializer.SendMessageAsync(socket, clientId, message, cancellationToken);
             }
             catch (Exception ex)
             {
@@ -359,34 +303,9 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
 
     public async Task BroadcastMessageAsync(Message message, CancellationToken cancellationToken = default)
     {
-        var json = JsonConvert.SerializeObject(message, _jsonSettings);
-        var bytes = Encoding.UTF8.GetBytes(json);
-
-        // Apply compression if enabled and message is large enough
-        byte[] dataToSend = bytes;
-        WebSocketMessageType messageType = WebSocketMessageType.Text;
-
-        if (_enableCompression && CompressionHelper.ShouldCompress(bytes.Length))
-        {
-            var compressedBytes = CompressionHelper.Compress(bytes);
-            if (compressedBytes != null && compressedBytes.Length < bytes.Length)
-            {
-                dataToSend = compressedBytes;
-                messageType = WebSocketMessageType.Binary;
-                _logger.LogDebug(
-                    "Broadcast compressed: {OriginalSize} → {CompressedSize} bytes ({Ratio:P1})",
-                    bytes.Length,
-                    compressedBytes.Length,
-                    CompressionHelper.CalculateCompressionRatio(bytes.Length, compressedBytes.Length));
-            }
-        }
-
-        var tasks = _clients.Values.Select(socket =>
-            socket.SendAsync(
-                new ArraySegment<byte>(dataToSend),
-                messageType,
-                true,
-                cancellationToken));
+        // Send to all connected clients using WebSocketMessageSerializer
+        var tasks = _clients.Select(kvp =>
+            _messageSerializer.SendMessageAsync(kvp.Value, kvp.Key, message, cancellationToken));
 
         await Task.WhenAll(tasks);
     }
@@ -452,68 +371,14 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
         WebSocket socket,
         CancellationToken cancellationToken)
     {
-        var buffer = new byte[8192]; // 8KB buffer per read
-
         try
         {
             while (socket.State == WebSocketState.Open && !cancellationToken.IsCancellationRequested)
             {
-                // Use MemoryStream to accumulate data across multiple frames
-                using var messageStream = new MemoryStream();
-                WebSocketReceiveResult? result = null;
-
-                // Keep reading frames until we get the complete message (EndOfMessage = true)
-                do
-                {
-                    result = await socket.ReceiveAsync(
-                        new ArraySegment<byte>(buffer),
-                        cancellationToken);
-
-                    if (result == null)
-                    {
-                        _logger.LogWarning("Received null WebSocketReceiveResult from client {ClientId}", clientId);
-                        break;
-                    }
-
-                    if (result.MessageType == WebSocketMessageType.Close)
-                    {
-                        break;
-                    }
-
-                    // Append this frame's data to the message stream
-                    messageStream.Write(buffer, 0, result.Count);
-
-                } while (result != null && !result.EndOfMessage);
-
-                // If client closed connection or result is null, break out of the loop
-                if (result == null || result.MessageType == WebSocketMessageType.Close)
-                {
-                    break;
-                }
-
-                // Convert the complete message to string
-                var json = Encoding.UTF8.GetString(messageStream.ToArray());
-
-                _logger.LogDebug("Received complete message from client {ClientId} ({ByteCount} bytes)",
-                    clientId, messageStream.Length);
-
                 try
                 {
-                    // Deserialize to JObject first to read the Type field
-                    var jObject = Newtonsoft.Json.Linq.JObject.Parse(json);
-                    var messageType = jObject["Type"]?.ToString() ?? string.Empty;
-
-                    // Deserialize to concrete type based on Type field
-                    Message? message = messageType switch
-                    {
-                        "REGISTER" => JsonConvert.DeserializeObject<RegisterMessage>(json),
-                        "HEARTBEAT" => JsonConvert.DeserializeObject<HeartbeatMessage>(json),
-                        "STATUS_REPORT" => JsonConvert.DeserializeObject<StatusReportMessage>(json),
-                        "LOG" => JsonConvert.DeserializeObject<LogMessage>(json),
-                        "SCREENSHOT" => JsonConvert.DeserializeObject<ScreenshotMessage>(json),
-                        "UPDATE_CONFIG_RESPONSE" => JsonConvert.DeserializeObject<UpdateConfigResponseMessage>(json),
-                        _ => null
-                    };
+                    // Delegate to WebSocketMessageSerializer for receiving and deserializing
+                    var message = await _messageSerializer.ReceiveMessageAsync(socket, clientId, cancellationToken);
 
                     if (message != null)
                     {
@@ -539,51 +404,21 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
                             Message = message
                         });
                     }
-                    else
-                    {
-                        _logger.LogWarning("Unknown message type '{MessageType}' from client {ClientId}", messageType, clientId);
-                    }
                 }
-                catch (Newtonsoft.Json.JsonSerializationException ex)
+                catch (WebSocketException ex) when (ex.WebSocketErrorCode == WebSocketError.ConnectionClosedPrematurely)
                 {
-                    _logger.LogError(ex, "JSON deserialization failed for client {ClientId}. Message preview: {Message}",
-                        clientId, json.Substring(0, Math.Min(500, json.Length)));
-
-                    // Send error response to client
-                    try
-                    {
-                        var errorResponse = new
-                        {
-                            Type = "ERROR",
-                            Message = "Server failed to deserialize message",
-                            Details = ex.Message
-                        };
-
-                        var errorJson = JsonConvert.SerializeObject(errorResponse, _jsonSettings);
-                        var errorBytes = Encoding.UTF8.GetBytes(errorJson);
-                        await socket.SendAsync(new ArraySegment<byte>(errorBytes), WebSocketMessageType.Text, true, cancellationToken);
-                    }
-                    catch (Exception sendEx)
-                    {
-                        _logger.LogError(sendEx, "Failed to send error response to client {ClientId}", clientId);
-                    }
-
-                    // DON'T disconnect - continue processing
-                    continue;
+                    _logger.LogInformation("Client {ClientId} closed connection without completing handshake", clientId);
+                    break;
                 }
-                catch (Newtonsoft.Json.JsonReaderException ex)
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {
-                    _logger.LogError(ex, "JSON parsing failed for client {ClientId}. Invalid JSON: {Message}",
-                        clientId, json.Substring(0, Math.Min(200, json.Length)));
-
-                    // Continue processing instead of throwing
-                    continue;
+                    _logger.LogDebug("Client {ClientId} message receive cancelled", clientId);
+                    break;
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Unexpected error processing message from client {ClientId}", clientId);
-
-                    // Continue processing instead of throwing
+                    _logger.LogError(ex, "Error processing message from client {ClientId}", clientId);
+                    // Continue processing to maintain connection
                     continue;
                 }
             }
