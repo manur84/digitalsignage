@@ -13,11 +13,15 @@ Environment="QT_LOGGING_RULES=*.debug=false"
 Environment="DISPLAY=:0"
 Environment="XAUTHORITY=/home/INSTALL_USER/.Xauthority"
 
+# CRITICAL FIX: Setup X11 authorization before starting
+# Enable local connections so systemd service can access X11
+ExecStartPre=/bin/bash -c 'if command -v xhost &>/dev/null; then DISPLAY=:0 xhost +local: &>/dev/null 2>&1 || echo "xhost command failed (X11 may not be ready)"; fi'
+
 # CRITICAL FIX: Wait for X11 display to be ready (desktop environment)
 # Desktop (B4) boots with X11, but we need to wait for it to be fully initialized
 # This prevents "Cannot connect to X server" errors on boot
 # ENHANCED: Now also tests Qt5 can connect, not just X11 socket exists
-ExecStartPre=/bin/bash -c 'echo "Waiting for X11 display server..."; for i in {1..45}; do if DISPLAY=:0 xset q &>/dev/null 2>&1; then echo "X11 socket ready after $i seconds"; sleep 2; if DISPLAY=:0 /opt/digitalsignage-client/venv/bin/python3 -c "from PyQt5.QtWidgets import QApplication; app=QApplication([]); app.quit()" &>/dev/null 2>&1; then echo "Qt5 can connect to X11 after $((i+2)) seconds"; exit 0; else echo "X11 ready but Qt5 not ready yet..."; fi; fi; echo "Waiting for X11/Qt5... ($i/45)"; sleep 1; done; echo "WARNING: X11/Qt5 not fully ready after 45s, continuing anyway"; exit 0'
+ExecStartPre=/bin/bash -c 'echo "Waiting for X11 display server..."; for i in {1..45}; do if DISPLAY=:0 xset q &>/dev/null 2>&1; then echo "X11 socket ready after $i seconds"; sleep 2; if DISPLAY=:0 XAUTHORITY=/home/INSTALL_USER/.Xauthority /opt/digitalsignage-client/venv/bin/python3 -c "from PyQt5.QtWidgets import QApplication; app=QApplication([]); app.quit()" &>/dev/null 2>&1; then echo "Qt5 can connect to X11 after $((i+2)) seconds"; exit 0; else echo "X11 ready but Qt5 not ready yet..."; fi; fi; echo "Waiting for X11/Qt5... ($i/45)"; sleep 1; done; echo "WARNING: X11/Qt5 not fully ready after 45s, continuing anyway"; exit 0'
 
 # Pre-start file checks
 ExecStartPre=/bin/bash -c 'test -f /opt/digitalsignage-client/start-with-display.sh || (echo "ERROR: start-with-display.sh not found" && exit 1)'

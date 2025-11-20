@@ -612,6 +612,40 @@ mkdir -p "$CONFIG_DIR/logs"
 chown -R "$ACTUAL_USER:$ACTUAL_USER" "$CONFIG_DIR"
 show_success "Config directory created: $CONFIG_DIR"
 
+# CRITICAL FIX: Ensure .Xauthority exists and has correct permissions
+show_info "Setting up X11 authorization..."
+XAUTH_FILE="$USER_HOME/.Xauthority"
+
+# Create .Xauthority if it doesn't exist
+if [ ! -f "$XAUTH_FILE" ]; then
+    # Create empty .Xauthority file
+    touch "$XAUTH_FILE"
+    chown "$ACTUAL_USER:$ACTUAL_USER" "$XAUTH_FILE"
+    chmod 600 "$XAUTH_FILE"
+    show_success "Created .Xauthority file: $XAUTH_FILE"
+
+    # Try to add localhost authorization
+    if command -v xauth &>/dev/null; then
+        sudo -u "$ACTUAL_USER" xauth add :0 . $(mcookie) 2>/dev/null || true
+        show_success "Added X11 authorization for :0"
+    fi
+else
+    # Verify permissions on existing .Xauthority
+    XAUTH_OWNER=$(stat -c '%U' "$XAUTH_FILE" 2>/dev/null || stat -f '%Su' "$XAUTH_FILE" 2>/dev/null || echo "unknown")
+    if [ "$XAUTH_OWNER" != "$ACTUAL_USER" ]; then
+        chown "$ACTUAL_USER:$ACTUAL_USER" "$XAUTH_FILE"
+        show_success "Fixed .Xauthority ownership: $ACTUAL_USER"
+    fi
+
+    XAUTH_PERMS=$(stat -c '%a' "$XAUTH_FILE" 2>/dev/null || stat -f '%Lp' "$XAUTH_FILE" 2>/dev/null || echo "000")
+    if [ "$XAUTH_PERMS" != "600" ]; then
+        chmod 600 "$XAUTH_FILE"
+        show_success "Fixed .Xauthority permissions: 600"
+    fi
+
+    show_success ".Xauthority verified: $XAUTH_FILE"
+fi
+
 # Update client_id in config.json with current hostname
 # This runs AFTER config.json is created/copied, ensuring the client_id is always up-to-date
 if [ -f "$INSTALL_DIR/config.json" ]; then
@@ -1176,6 +1210,12 @@ EOF
 #!/bin/sh
 # Digital Signage Client - X11 Startup Configuration
 # This file is executed by startx and replaces desktop environment
+
+# CRITICAL FIX: Allow local X11 connections (solves authorization issues)
+# This must be done early in X11 startup
+if command -v xhost &>/dev/null; then
+    xhost +local: &>/dev/null
+fi
 
 # Disable screen blanking and power management
 xset -dpms

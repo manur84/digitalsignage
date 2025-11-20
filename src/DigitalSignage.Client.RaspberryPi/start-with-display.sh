@@ -76,6 +76,33 @@ log_message "=========================================="
 # Clear any inherited display to avoid stale :0 from systemd
 unset DISPLAY
 
+# CRITICAL FIX: Setup X11 authorization for local connections
+# This allows the client to access X11 display even when run as different user
+log_message "Configuring X11 authorization..."
+if command -v xhost &>/dev/null; then
+    # Allow local connections (required for systemd service access to X11)
+    DISPLAY=:0 xhost +local: &>/dev/null 2>&1 && log_message "✓ X11 local connections enabled" || log_message "⚠ Could not enable X11 local connections (may need manual xhost)"
+else
+    log_message "⚠ xhost command not found - X11 authorization may fail"
+fi
+
+# Setup XAUTHORITY environment variable if .Xauthority exists
+if [ -n "$HOME" ] && [ -f "$HOME/.Xauthority" ]; then
+    export XAUTHORITY="$HOME/.Xauthority"
+    log_message "✓ XAUTHORITY set to: $XAUTHORITY"
+elif [ -n "$USER" ]; then
+    # Try to find .Xauthority in user's home directory
+    USER_HOME=$(eval echo "~$USER")
+    if [ -f "$USER_HOME/.Xauthority" ]; then
+        export XAUTHORITY="$USER_HOME/.Xauthority"
+        log_message "✓ XAUTHORITY set to: $XAUTHORITY (from $USER home)"
+    else
+        log_message "⚠ .Xauthority not found (X11 authorization may fail)"
+    fi
+else
+    log_message "⚠ Could not determine home directory for XAUTHORITY"
+fi
+
 # Parse arguments
 TEST_MODE=false
 if [ "$1" = "--test" ]; then
@@ -210,17 +237,22 @@ if [ "$X11_FOUND" = true ]; then
     # Hide mouse cursor on real display
     log_message "Hiding mouse cursor..."
     if command -v unclutter &>/dev/null; then
-        unclutter -idle 0.1 -root &
-        log_message "✓ Mouse cursor hidden (unclutter started)"
+        # Use DISPLAY and XAUTHORITY environment variables for unclutter
+        DISPLAY="$DISPLAY" XAUTHORITY="${XAUTHORITY:-$HOME/.Xauthority}" unclutter -idle 0.1 -root &>/dev/null 2>&1 &
+        if [ $? -eq 0 ]; then
+            log_message "✓ Mouse cursor hidden (unclutter started)"
+        else
+            log_message "⚠ unclutter failed to start (X11 authorization issue?)"
+        fi
     else
         log_message "⚠ unclutter not found - mouse cursor will be visible"
     fi
 
     # Disable screen blanking on real display
     log_message "Disabling screen blanking..."
-    xset s off 2>/dev/null && log_message "✓ Screen saver disabled"
-    xset -dpms 2>/dev/null && log_message "✓ DPMS disabled"
-    xset s noblank 2>/dev/null && log_message "✓ Screen blanking disabled"
+    DISPLAY="$DISPLAY" xset s off 2>/dev/null && log_message "✓ Screen saver disabled" || log_message "⚠ Could not disable screen saver"
+    DISPLAY="$DISPLAY" xset -dpms 2>/dev/null && log_message "✓ DPMS disabled" || log_message "⚠ Could not disable DPMS"
+    DISPLAY="$DISPLAY" xset s noblank 2>/dev/null && log_message "✓ Screen blanking disabled" || log_message "⚠ Could not disable screen blanking"
 fi
 
 if [ "$X11_FOUND" = false ]; then
