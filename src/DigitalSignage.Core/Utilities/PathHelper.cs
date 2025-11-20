@@ -1,6 +1,4 @@
-using System.IO;
-
-namespace DigitalSignage.Server.Utilities;
+namespace DigitalSignage.Core.Utilities;
 
 /// <summary>
 /// Shared utility class for path validation and security

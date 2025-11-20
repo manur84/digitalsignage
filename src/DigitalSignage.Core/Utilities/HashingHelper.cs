@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 
-namespace DigitalSignage.Server.Utilities;
+namespace DigitalSignage.Core.Utilities;
 
 /// <summary>
 /// Shared utility class for SHA256 hash generation
