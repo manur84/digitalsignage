@@ -34,7 +34,9 @@ public class WebSocketMessageSerializer
         // Ensure dates are serialized in ISO format
         DateFormatHandling = DateFormatHandling.IsoDateFormat,
         // Don't modify property names
-        ContractResolver = null
+        ContractResolver = null,
+        // CRITICAL: Add custom converter for Message type discrimination
+        Converters = new List<JsonConverter> { new MessageJsonConverter() }
     };
 
     public WebSocketMessageSerializer(
