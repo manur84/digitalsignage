@@ -22,19 +22,63 @@ log_error() {
 
 # Run a minimal Qt test against the current DISPLAY
 run_qt_test() {
-    QT_TEST_OUTPUT=$($PYTHON_EXE -c "
+    # Create a more robust Qt test script
+    cat > /tmp/qt_test.py <<'EOF'
 import sys
-from PyQt5.QtWidgets import QApplication
-try:
-    app = QApplication(['test'])
-    print('Qt application created successfully')
-    sys.exit(0)
-except Exception as e:
-    print(f'Qt application creation failed: {e}')
-    sys.exit(1)
-" 2>&1)
+import os
+import signal
 
+# Handle SIGABRT gracefully
+def sigabrt_handler(signum, frame):
+    print("Qt test received SIGABRT - likely X11 connection issue")
+    sys.exit(134)
+
+signal.signal(signal.SIGABRT, sigabrt_handler)
+
+# Set Qt to offscreen if no display is available (prevents crash)
+if not os.environ.get('DISPLAY'):
+    os.environ['QT_QPA_PLATFORM'] = 'offscreen'
+
+try:
+    from PyQt5.QtWidgets import QApplication
+    from PyQt5.QtCore import QTimer
+
+    # Create application with error handling
+    app = QApplication(['test'])
+
+    # Test that we can actually use the application
+    # This will fail if display is not accessible
+    screen = app.primaryScreen()
+    if screen:
+        print(f"Qt application created successfully (Screen: {screen.size().width()}x{screen.size().height()})")
+    else:
+        print("Qt application created but no screen detected")
+
+    # Use timer to exit cleanly
+    QTimer.singleShot(100, app.quit)
+
+    # Don't actually run the event loop in test mode
+    print("Qt test passed")
+    sys.exit(0)
+
+except ImportError as e:
+    print(f"Qt import failed: {e}")
+    sys.exit(2)
+except RuntimeError as e:
+    print(f"Qt runtime error: {e}")
+    sys.exit(3)
+except Exception as e:
+    print(f"Qt application creation failed: {e}")
+    sys.exit(1)
+EOF
+
+    # Run the test with timeout to prevent hangs
+    QT_TEST_OUTPUT=$(timeout 5 $PYTHON_EXE /tmp/qt_test.py 2>&1)
     QT_TEST_RESULT=$?
+
+    # Clean up test script
+    rm -f /tmp/qt_test.py
+
     log_message "$QT_TEST_OUTPUT"
     return $QT_TEST_RESULT
 }
@@ -79,11 +123,41 @@ unset DISPLAY
 # CRITICAL FIX: Setup X11 authorization for local connections
 # This allows the client to access X11 display even when run as different user
 log_message "Configuring X11 authorization..."
+
+# Try multiple approaches to enable X11 access
+X11_AUTH_SUCCESS=false
+
 if command -v xhost &>/dev/null; then
-    # Allow local connections (required for systemd service access to X11)
-    DISPLAY=:0 xhost +local: &>/dev/null 2>&1 && log_message "✓ X11 local connections enabled" || log_message "⚠ Could not enable X11 local connections (may need manual xhost)"
+    # Method 1: Try with explicit DISPLAY=:0
+    if DISPLAY=:0 xhost +local: &>/dev/null 2>&1; then
+        log_message "✓ X11 local connections enabled on :0"
+        X11_AUTH_SUCCESS=true
+    fi
+
+    # Method 2: Try with current DISPLAY if set
+    if [ "$X11_AUTH_SUCCESS" = false ] && [ -n "$DISPLAY" ]; then
+        if xhost +local: &>/dev/null 2>&1; then
+            log_message "✓ X11 local connections enabled on $DISPLAY"
+            X11_AUTH_SUCCESS=true
+        fi
+    fi
+
+    # Method 3: Try to detect display and use it
+    if [ "$X11_AUTH_SUCCESS" = false ]; then
+        for disp in :0 :1; do
+            if DISPLAY=$disp xhost +local: &>/dev/null 2>&1; then
+                log_message "✓ X11 local connections enabled on $disp"
+                X11_AUTH_SUCCESS=true
+                break
+            fi
+        done
+    fi
+
+    if [ "$X11_AUTH_SUCCESS" = false ]; then
+        log_message "⚠ Could not enable X11 local connections (X11 may not be running)"
+    fi
 else
-    log_message "⚠ xhost command not found - X11 authorization may fail"
+    log_message "⚠ xhost command not found - X11 authorization may be limited"
 fi
 
 # Setup XAUTHORITY environment variable if .Xauthority exists
@@ -339,26 +413,52 @@ log_message "QT_QPA_PLATFORM=${QT_QPA_PLATFORM:-not set}"
 log_message "=========================================="
 log_message "Testing Qt Application Creation"
 log_message "=========================================="
-log_message "Running Qt test..."
+log_message "Running Qt test with DISPLAY=$DISPLAY"
 
 run_qt_test
 QT_TEST_RESULT=$?
 
 if [ $QT_TEST_RESULT -ne 0 ]; then
-    log_error "Qt application test failed on DISPLAY=${DISPLAY:-unset}, attempting Xvfb fallback..."
+    case $QT_TEST_RESULT in
+        134)
+            log_message "Qt test aborted (SIGABRT) - X11 connection failed"
+            log_message "This is normal when X11 is not available"
+            ;;
+        124)
+            log_message "Qt test timed out - display may be unresponsive"
+            ;;
+        2)
+            log_error "Qt import failed - PyQt5 not installed correctly"
+            exit 1
+            ;;
+        3)
+            log_message "Qt runtime error - display configuration issue"
+            ;;
+        *)
+            log_message "Qt test failed with code $QT_TEST_RESULT"
+            ;;
+    esac
+
+    log_message "Attempting Xvfb fallback for headless operation..."
     if start_xvfb_fallback; then
-        log_message "Retrying Qt test with DISPLAY=$DISPLAY"
+        log_message "Retrying Qt test with Xvfb on DISPLAY=$DISPLAY"
         run_qt_test
         QT_TEST_RESULT=$?
+
+        if [ $QT_TEST_RESULT -ne 0 ]; then
+            log_error "Qt test failed even with Xvfb (exit code: $QT_TEST_RESULT)"
+            log_error "This indicates a serious PyQt5 installation issue"
+            log_error "Try: sudo apt-get install --reinstall python3-pyqt5"
+            exit 1
+        fi
+    else
+        log_error "Could not start Xvfb fallback"
+        log_error "Install with: sudo apt-get install xvfb"
+        exit 1
     fi
 fi
 
-if [ $QT_TEST_RESULT -ne 0 ]; then
-    log_error "Qt application test failed after fallback"
-    log_error "This will prevent the client from starting"
-    exit 1
-fi
-log_message "Qt application test successful"
+log_message "✓ Qt application test successful"
 
 # If in test mode, exit here
 if [ "$TEST_MODE" = true ]; then

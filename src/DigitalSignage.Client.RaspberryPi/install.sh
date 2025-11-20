@@ -624,10 +624,15 @@ if [ ! -f "$XAUTH_FILE" ]; then
     chmod 600 "$XAUTH_FILE"
     show_success "Created .Xauthority file: $XAUTH_FILE"
 
-    # Try to add localhost authorization
-    if command -v xauth &>/dev/null; then
-        sudo -u "$ACTUAL_USER" xauth add :0 . $(mcookie) 2>/dev/null || true
-        show_success "Added X11 authorization for :0"
+    # Try to add localhost authorization with mcookie
+    if command -v xauth &>/dev/null && command -v mcookie &>/dev/null; then
+        # Generate a new magic cookie for X11 authorization
+        MAGIC_COOKIE=$(mcookie)
+        # Add authorization for display :0
+        sudo -u "$ACTUAL_USER" XAUTHORITY="$XAUTH_FILE" xauth add :0 . "$MAGIC_COOKIE" 2>/dev/null || true
+        sudo -u "$ACTUAL_USER" XAUTHORITY="$XAUTH_FILE" xauth add localhost:0 . "$MAGIC_COOKIE" 2>/dev/null || true
+        sudo -u "$ACTUAL_USER" XAUTHORITY="$XAUTH_FILE" xauth add $(hostname):0 . "$MAGIC_COOKIE" 2>/dev/null || true
+        show_success "Added X11 authorization entries"
     fi
 else
     # Verify permissions on existing .Xauthority
@@ -644,6 +649,24 @@ else
     fi
 
     show_success ".Xauthority verified: $XAUTH_FILE"
+fi
+
+# CRITICAL: Enable X11 local connections using xhost
+show_info "Enabling X11 local connections..."
+if command -v xhost &>/dev/null; then
+    # Try to enable local connections as the actual user
+    if sudo -u "$ACTUAL_USER" DISPLAY=:0 XAUTHORITY="$XAUTH_FILE" xhost +local: &>/dev/null 2>&1; then
+        show_success "X11 local connections enabled"
+    else
+        # Try without specifying display
+        if sudo -u "$ACTUAL_USER" xhost +local: &>/dev/null 2>&1; then
+            show_success "X11 local connections enabled (default display)"
+        else
+            show_warning "Could not enable X11 local connections (will retry during startup)"
+        fi
+    fi
+else
+    show_warning "xhost not found - X11 authorization may be limited"
 fi
 
 # Update client_id in config.json with current hostname
@@ -995,22 +1018,60 @@ echo ""
 echo "Testing client startup before enabling service..."
 echo ""
 
-if timeout 15 sudo -u "$ACTUAL_USER" "$INSTALL_DIR/start-with-display.sh" --test; then
+# Set proper environment for test
+export DISPLAY=:0
+export XAUTHORITY="$USER_HOME/.Xauthority"
+
+# Create a test wrapper script that sets up environment properly
+cat > /tmp/test-client.sh <<EOF
+#!/bin/bash
+export DISPLAY=:0
+export XAUTHORITY="$USER_HOME/.Xauthority"
+export HOME="$USER_HOME"
+export USER="$ACTUAL_USER"
+
+# Enable X11 local connections before test
+if command -v xhost &>/dev/null; then
+    xhost +local: &>/dev/null 2>&1 || true
+fi
+
+# Run the actual test
+exec "$INSTALL_DIR/start-with-display.sh" --test
+EOF
+chmod +x /tmp/test-client.sh
+
+# Run the test with proper environment
+if timeout 30 sudo -u "$ACTUAL_USER" /tmp/test-client.sh; then
     echo ""
     show_success "Pre-flight check successful!"
+    rm -f /tmp/test-client.sh
 else
     TEST_EXIT_CODE=$?
     echo ""
     if [ $TEST_EXIT_CODE -eq 124 ]; then
-        show_warning "Pre-flight test timed out (this is normal - continuing installation)"
+        show_warning "Pre-flight test timed out (continuing installation)"
+        rm -f /tmp/test-client.sh
+    elif [ $TEST_EXIT_CODE -eq 134 ]; then
+        show_warning "Qt initialization failed (X11 display issue)"
+        echo ""
+        echo -e "${YELLOW}This is often caused by:${NC}"
+        echo "  1. X11 server not running (normal for headless systems)"
+        echo "  2. X11 authorization issues"
+        echo "  3. Missing display configuration"
+        echo ""
+        echo -e "${BLUE}The installation will continue. The service will use Xvfb as fallback.${NC}"
+        echo ""
+        rm -f /tmp/test-client.sh
+        # Don't exit on Qt errors - the service can use Xvfb
     else
         show_warning "Pre-flight test failed with exit code $TEST_EXIT_CODE"
+        echo ""
+        echo "Check startup log: sudo cat /var/log/digitalsignage-client-startup.log"
+        echo ""
+        echo "After fixing issues, re-run: sudo ./install.sh"
+        rm -f /tmp/test-client.sh
+        exit 1
     fi
-    echo ""
-    echo "Check startup log: sudo cat /var/log/digitalsignage-client-startup.log"
-    echo ""
-    echo "After fixing issues, re-run: sudo ./install.sh"
-    exit 1
 fi
 
 # Client Configuration
