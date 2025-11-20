@@ -1,3 +1,4 @@
+using System.IO;
 using DigitalSignage.Core.Models;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;

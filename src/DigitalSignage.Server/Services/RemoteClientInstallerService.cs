@@ -28,12 +28,16 @@ public class RemoteClientInstallerService
 
     public RemoteClientInstallerService(
         ILogger<RemoteClientInstallerService> logger,
-        ILogger<RemoteSshConnectionManager> connectionLogger,
-        ILogger<RemoteFileUploader> uploaderLogger,
-        ILogger<RemoteInstallationPreparer> preparerLogger)
+        ILoggerFactory loggerFactory)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _installerSourcePath = Path.Combine(AppContext.BaseDirectory, "ClientInstaller");
+
+        // CRITICAL FIX: Create loggers for internal helper classes using ILoggerFactory
+        // This avoids exposing internal types in the public API
+        var connectionLogger = loggerFactory.CreateLogger<RemoteSshConnectionManager>();
+        var uploaderLogger = loggerFactory.CreateLogger<RemoteFileUploader>();
+        var preparerLogger = loggerFactory.CreateLogger<RemoteInstallationPreparer>();
 
         _connectionManager = new RemoteSshConnectionManager(connectionLogger);
         _fileUploader = new RemoteFileUploader(uploaderLogger, _installerSourcePath);
@@ -300,10 +304,14 @@ public class RemoteClientInstallerService
         // Execute install.sh with environment variables
         if (string.Equals(username, "root", StringComparison.OrdinalIgnoreCase))
         {
+            // Root user: direct execution with env vars
             return $"{envVars} /bin/bash '{normalizedPath}'";
         }
 
-        return $"sudo {envVars} /bin/bash '{normalizedPath}'";
+        // CRITICAL FIX: Pass environment variables through sudo using 'env'
+        // sudo typically resets environment variables, so we must use 'sudo env VAR=value command'
+        // This ensures DS_NONINTERACTIVE and DS_UPDATE_MODE reach install.sh
+        return $"sudo env {envVars} /bin/bash '{normalizedPath}'";
     }
 
     /// <summary>
@@ -327,9 +335,11 @@ fi
 ".Replace("\r\n", "\n").Replace("\r", "\n");
 
             var escapedCheck = checkScript.Replace("'", "'\"'\"'");
+            // CRITICAL FIX: Use 'bash -c' instead of 'bash -lc'
+            // Login shells (-l) load profile files which can interfere
             var checkCommand = isRoot
-                ? $"bash -lc '{escapedCheck}'"
-                : $"printf '%s\\n' '{escapedPassword}' | sudo -S bash -lc '{escapedCheck}'";
+                ? $"bash -c '{escapedCheck}'"
+                : $"printf '%s\\n' '{escapedPassword}' | sudo -S bash -c '{escapedCheck}'";
 
             var checkCmd = ssh.CreateCommand(checkCommand);
             checkCmd.CommandTimeout = TimeSpan.FromSeconds(10);
@@ -395,9 +405,11 @@ fi
 ".Replace("\r\n", "\n").Replace("\r", "\n");
 
             var escapedSplash = splashScript.Replace("'", "'\"'\"'");
+            // CRITICAL FIX: Use 'bash -c' instead of 'bash -lc'
+            // Login shells (-l) load profile files which can interfere
             var splashCommand = isRoot
-                ? $"bash -lc '{escapedSplash}'"
-                : $"printf '%s\\n' '{escapedPassword}' | sudo -S bash -lc '{escapedSplash}'";
+                ? $"bash -c '{escapedSplash}'"
+                : $"printf '%s\\n' '{escapedPassword}' | sudo -S bash -c '{escapedSplash}'";
 
             var splashCmd = ssh.CreateCommand(splashCommand);
             splashCmd.CommandTimeout = TimeSpan.FromSeconds(60);
@@ -732,8 +744,8 @@ rm -f '/etc/systemd/system/digitalsignage-client.service'
     {
         try
         {
-            using var ssh = CreateSshClient(host, port, username, password);
-            await ConnectWithTimeoutAsync(ssh, cancellationToken);
+            using var ssh = _connectionManager.CreateSshClient(host, port, username, password);
+            await _connectionManager.ConnectWithTimeoutAsync(ssh, cancellationToken);
 
             var isRoot = string.Equals(username, "root", StringComparison.OrdinalIgnoreCase);
             var passwordB64 = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(password ?? string.Empty));

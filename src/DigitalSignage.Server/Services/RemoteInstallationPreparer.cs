@@ -73,9 +73,12 @@ fi
 ".Replace("\r\n", "\n").Replace("\r", "\n");
 
         var escapedScript = updateScript.Replace("'", "'\"'\"'");
+        // CRITICAL FIX: Use 'bash -c' instead of 'bash -lc'
+        // Login shells (-l) load profile files which can interfere with command execution
+        // Non-login shells (-c) are more reliable for scripted operations
         var commandText = isRoot
-            ? $"bash -lc '{escapedScript}'"
-            : $"printf '%s\\n' '{escapedPassword}' | sudo -S bash -lc '{escapedScript}'";
+            ? $"bash -c '{escapedScript}'"
+            : $"printf '%s\\n' '{escapedPassword}' | sudo -S bash -c '{escapedScript}'";
 
         progress?.Report("Stopping service and backing up config...");
         var cmd = ssh.CreateCommand(commandText);
@@ -131,9 +134,12 @@ rm -f '{_remoteServiceFile}'
         var remotePasswordExpr = $"echo '{passwordB64}' | base64 -d";
 
         var escapedScript = cleanupScript.Replace("'", "'\"'\"'");
+        // CRITICAL FIX: Use 'bash -c' instead of 'bash -lc'
+        // Login shells (-l) load profile files which can interfere with command execution
+        // Non-login shells (-c) are more reliable for scripted operations
         var commandText = isRoot
-            ? $"bash -lc '{escapedScript}'"
-            : $"{remotePasswordExpr} | sudo -S bash -lc '{escapedScript}'";
+            ? $"bash -c '{escapedScript}'"
+            : $"{remotePasswordExpr} | sudo -S bash -c '{escapedScript}'";
 
         progress?.Report("Stopping service and removing previous install (if any)...");
         var cmd = ssh.CreateCommand(commandText);

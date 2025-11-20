@@ -43,13 +43,17 @@ public class ClientService : IClientService, IDisposable
         ISqlDataService dataService,
         IScribanService scribanService,
         IServiceProvider serviceProvider,
-        ILogger<ClientService> logger,
-        ILogger<ClientRegistrationHandler> registrationLogger,
-        ILogger<ClientLayoutDistributor> distributorLogger)
+        ILogger<ClientService> logger)
     {
         _communicationService = communicationService ?? throw new ArgumentNullException(nameof(communicationService));
         _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+
+        // CRITICAL FIX: Create loggers for internal helper classes using ILoggerFactory
+        // This avoids exposing internal types in the public API
+        var loggerFactory = serviceProvider.GetRequiredService<ILoggerFactory>();
+        var registrationLogger = loggerFactory.CreateLogger<ClientRegistrationHandler>();
+        var distributorLogger = loggerFactory.CreateLogger<ClientLayoutDistributor>();
 
         // Initialize helper components
         _registrationHandler = new ClientRegistrationHandler(

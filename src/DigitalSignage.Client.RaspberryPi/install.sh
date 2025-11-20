@@ -635,9 +635,105 @@ fi
 # Configure splash screen (disable default and set branded logo)
 show_step "Configuring Plymouth splash screen..."
 
+# Auto-detect boot directory (Raspberry Pi OS changed location in newer versions)
+BOOT_DIR="/boot/firmware"
+if [ ! -d "$BOOT_DIR" ] || [ ! -w "$BOOT_DIR" ]; then
+    BOOT_DIR="/boot"
+fi
+
+show_info "Using boot directory: $BOOT_DIR"
+
+# CRITICAL: Configure boot parameters for Plymouth
+# These parameters MUST be in place for Plymouth to work correctly
+CMDLINE_FILE="$BOOT_DIR/cmdline.txt"
+CONFIG_TXT="$BOOT_DIR/config.txt"
+
+# Step 1: Update cmdline.txt with Plymouth parameters
+if [ -f "$CMDLINE_FILE" ]; then
+    show_info "Configuring kernel boot parameters in cmdline.txt..."
+
+    # Backup original cmdline.txt
+    if [ ! -f "${CMDLINE_FILE}.backup-digitalsignage" ]; then
+        cp "$CMDLINE_FILE" "${CMDLINE_FILE}.backup-digitalsignage"
+        show_success "Backed up original cmdline.txt"
+    fi
+
+    # Read current cmdline (single line)
+    CURRENT_CMDLINE=$(tr '\n' ' ' < "$CMDLINE_FILE" | tr -s ' ')
+
+    # Parameters to add (if not already present)
+    PLYMOUTH_PARAMS=(
+        "quiet"                           # Suppress boot messages
+        "splash"                          # Enable splash screen
+        "plymouth.ignore-serial-consoles" # Ignore serial consoles for Plymouth
+        "logo.nologo"                     # Remove Raspberry Pi logo
+        "vt.global_cursor_default=0"      # Hide blinking cursor
+        "loglevel=1"                      # Suppress kernel messages (only errors)
+    )
+
+    # Add missing parameters
+    CMDLINE_MODIFIED=false
+    for param in "${PLYMOUTH_PARAMS[@]}"; do
+        if ! echo "$CURRENT_CMDLINE" | grep -qw "$param"; then
+            CURRENT_CMDLINE="$CURRENT_CMDLINE $param"
+            CMDLINE_MODIFIED=true
+            echo "  + Adding: $param"
+        else
+            echo "  ✓ Already present: $param"
+        fi
+    done
+
+    # Write updated cmdline.txt if modified
+    if [ "$CMDLINE_MODIFIED" = true ]; then
+        # Trim leading/trailing spaces and write
+        echo "$CURRENT_CMDLINE" | xargs | tr -d '\n' > "$CMDLINE_FILE"
+        show_success "Updated cmdline.txt with Plymouth parameters"
+    else
+        show_info "cmdline.txt already configured"
+    fi
+else
+    show_warning "cmdline.txt not found at $CMDLINE_FILE - Plymouth may not work correctly"
+fi
+
+# Step 2: Update config.txt for Plymouth
+if [ -f "$CONFIG_TXT" ]; then
+    show_info "Configuring boot config in config.txt..."
+
+    # Backup original config.txt
+    if [ ! -f "${CONFIG_TXT}.backup-digitalsignage" ]; then
+        cp "$CONFIG_TXT" "${CONFIG_TXT}.backup-digitalsignage"
+        show_success "Backed up original config.txt"
+    fi
+
+    # CRITICAL: REMOVE or COMMENT disable_splash=1 (this DISABLES Plymouth!)
+    if grep -Eq '^disable_splash=1' "$CONFIG_TXT"; then
+        sed -i 's/^disable_splash=1/#disable_splash=1 # Commented by Digital Signage - enables Plymouth/' "$CONFIG_TXT"
+        show_success "Disabled 'disable_splash=1' in config.txt (enables Plymouth)"
+    else
+        show_info "disable_splash not blocking Plymouth"
+    fi
+
+    # CRITICAL: Enable auto_initramfs (required for Plymouth on newer Raspberry Pi OS)
+    # This tells the bootloader to automatically load initramfs files
+    if ! grep -Eq '^auto_initramfs=1' "$CONFIG_TXT"; then
+        echo "" >> "$CONFIG_TXT"
+        echo "# Digital Signage: Enable automatic initramfs loading (required for Plymouth)" >> "$CONFIG_TXT"
+        echo "auto_initramfs=1" >> "$CONFIG_TXT"
+        show_success "Enabled auto_initramfs=1 in config.txt"
+    else
+        show_info "auto_initramfs already enabled"
+    fi
+
+    show_success "config.txt configured for Plymouth"
+else
+    show_warning "config.txt not found at $CONFIG_TXT - Plymouth may not work correctly"
+fi
+
+# Step 3: Run Plymouth splash screen setup script
 # CRITICAL FIX: Run splash screen setup BEFORE starting the service
 # This ensures the logo is embedded in initramfs and shows on boot
 if [ -f "$INSTALL_DIR/setup-splash-screen.sh" ] && [ -f "$INSTALL_DIR/digisign-logo.png" ]; then
+    echo ""
     echo "Setting up Plymouth boot splash screen with Digital Signage logo..."
     chmod +x "$INSTALL_DIR/setup-splash-screen.sh" 2>/dev/null || true
 
