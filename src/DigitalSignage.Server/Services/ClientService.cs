@@ -13,11 +13,10 @@ public class ClientService : IClientService, IDisposable
 {
     private readonly ConcurrentDictionary<string, RaspberryPiClient> _clients = new();
     private readonly ICommunicationService _communicationService;
-    private readonly ILayoutService _layoutService;
-    private readonly ISqlDataService _dataService;
-    private readonly IScribanService _scribanService;
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<ClientService> _logger;
+    private readonly ClientRegistrationHandler _registrationHandler;
+    private readonly ClientLayoutDistributor _layoutDistributor;
     private bool _isInitialized = false;
     private readonly SemaphoreSlim _initSemaphore = new(1, 1);
     private Task? _initializationTask;
@@ -44,14 +43,28 @@ public class ClientService : IClientService, IDisposable
         ISqlDataService dataService,
         IScribanService scribanService,
         IServiceProvider serviceProvider,
-        ILogger<ClientService> logger)
+        ILogger<ClientService> logger,
+        ILogger<ClientRegistrationHandler> registrationLogger,
+        ILogger<ClientLayoutDistributor> distributorLogger)
     {
         _communicationService = communicationService ?? throw new ArgumentNullException(nameof(communicationService));
-        _layoutService = layoutService ?? throw new ArgumentNullException(nameof(layoutService));
-        _dataService = dataService ?? throw new ArgumentNullException(nameof(dataService));
-        _scribanService = scribanService ?? throw new ArgumentNullException(nameof(scribanService));
         _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+
+        // Initialize helper components
+        _registrationHandler = new ClientRegistrationHandler(
+            serviceProvider,
+            registrationLogger,
+            communicationService,
+            layoutService);
+
+        _layoutDistributor = new ClientLayoutDistributor(
+            serviceProvider,
+            distributorLogger,
+            communicationService,
+            layoutService,
+            dataService,
+            scribanService);
 
         // Track the initialization task instead of fire-and-forget
         _initializationTask = InitializeClientsWithRetryAsync();
@@ -271,268 +284,17 @@ public class ClientService : IClientService, IDisposable
         {
             ThrowIfDisposed();
 
-            if (registerMessage == null)
-            {
-                return Result<RaspberryPiClient>.Failure("Registration message cannot be null");
-            }
-
-            if (string.IsNullOrWhiteSpace(registerMessage.MacAddress))
-            {
-                return Result<RaspberryPiClient>.Failure("MAC address is required for registration");
-            }
-
-            using var scope = _serviceProvider.CreateScope();
-            var dbContext = scope.ServiceProvider.GetRequiredService<DigitalSignageDbContext>();
-            var authService = scope.ServiceProvider.GetRequiredService<IAuthenticationService>();
-
-            // Validate registration token if provided
-            string? assignedGroup = null;
-            string? assignedLocation = null;
-
-            if (!string.IsNullOrWhiteSpace(registerMessage.RegistrationToken))
-            {
-                _logger.LogInformation("Validating registration token for MAC {MacAddress}", registerMessage.MacAddress);
-
-                var validationResult = await authService.ValidateRegistrationTokenAsync(
-                    registerMessage.RegistrationToken,
-                    registerMessage.MacAddress,
-                    cancellationToken);
-
-                if (!validationResult.IsValid)
-                {
-                    _logger.LogWarning("Registration failed for MAC {MacAddress}: {Error}",
-                        registerMessage.MacAddress, validationResult.ErrorMessage);
-                    return Result<RaspberryPiClient>.Failure(validationResult.ErrorMessage ?? "Invalid registration token");
-                }
-
-                assignedGroup = validationResult.AutoAssignGroup;
-                assignedLocation = validationResult.AutoAssignLocation;
-
-                // Consume the token
-                await authService.ConsumeRegistrationTokenAsync(
-                    registerMessage.RegistrationToken,
-                    registerMessage.ClientId,
-                    cancellationToken);
-
-                _logger.LogInformation("Registration token validated and consumed for MAC {MacAddress}", registerMessage.MacAddress);
-            }
-            else
-            {
-                _logger.LogWarning("Client registration without token from MAC {MacAddress} - checking if already registered",
-                    registerMessage.MacAddress);
-            }
-
-            // Check if client already exists by MAC address
-            // Use AsNoTracking to avoid concurrency conflicts
-            var existingClient = await dbContext.Clients
-                .AsNoTracking()
-                .FirstOrDefaultAsync(c => c.MacAddress == registerMessage.MacAddress, cancellationToken);
-
-            RaspberryPiClient client;
-
-            if (existingClient != null)
-            {
-                // Update existing client
-                client = existingClient;
-
-                // Check if client ID needs to be changed
-                if (!string.IsNullOrWhiteSpace(registerMessage.ClientId) && registerMessage.ClientId != client.Id)
-                {
-                    // Client wants to change ID - this requires deleting the old entity and creating a new one
-                    // because EF Core doesn't allow modifying primary keys on tracked entities
-                    _logger.LogInformation("Client MAC {MacAddress} changing ID from {OldId} to {NewId}",
-                        client.MacAddress, client.Id, registerMessage.ClientId);
-
-                    // CRITICAL FIX: Load the entity for tracking before removal
-                    var trackedClient = await dbContext.Clients.FindAsync(new object[] { existingClient.Id }, cancellationToken);
-                    if (trackedClient != null)
-                    {
-                        // Remove old entity from database
-                        dbContext.Clients.Remove(trackedClient);
-                        await dbContext.SaveChangesAsync(cancellationToken);
-                    }
-
-                    // Remove old ID from cache
-                    _clients.TryRemove(client.Id, out _);
-
-                    // Merge DeviceInfo from registration message with existing data
-                    var mergedDeviceInfo = existingClient.DeviceInfo ?? new DeviceInfo();
-                    if (registerMessage.DeviceInfo != null)
-                    {
-                        // Update all fields from registration message
-                        mergedDeviceInfo.Hostname = registerMessage.DeviceInfo.Hostname ?? mergedDeviceInfo.Hostname;
-                        mergedDeviceInfo.Model = registerMessage.DeviceInfo.Model ?? mergedDeviceInfo.Model;
-                        mergedDeviceInfo.OsVersion = registerMessage.DeviceInfo.OsVersion ?? mergedDeviceInfo.OsVersion;
-                        mergedDeviceInfo.ClientVersion = registerMessage.DeviceInfo.ClientVersion ?? mergedDeviceInfo.ClientVersion;
-                        mergedDeviceInfo.ScreenWidth = registerMessage.DeviceInfo.ScreenWidth;
-                        mergedDeviceInfo.ScreenHeight = registerMessage.DeviceInfo.ScreenHeight;
-                        mergedDeviceInfo.CpuTemperature = registerMessage.DeviceInfo.CpuTemperature;
-                        mergedDeviceInfo.CpuUsage = registerMessage.DeviceInfo.CpuUsage;
-                        mergedDeviceInfo.MemoryTotal = registerMessage.DeviceInfo.MemoryTotal;
-                        mergedDeviceInfo.MemoryUsed = registerMessage.DeviceInfo.MemoryUsed;
-                        mergedDeviceInfo.DiskTotal = registerMessage.DeviceInfo.DiskTotal;
-                        mergedDeviceInfo.DiskUsed = registerMessage.DeviceInfo.DiskUsed;
-                        mergedDeviceInfo.Uptime = registerMessage.DeviceInfo.Uptime;
-                    }
-
-                    // Create new entity with new ID but same data
-                    client = new RaspberryPiClient
-                    {
-                        Id = registerMessage.ClientId,
-                        MacAddress = existingClient.MacAddress,
-                        IpAddress = registerMessage.IpAddress ?? existingClient.IpAddress,
-                        Group = existingClient.Group,
-                        Location = existingClient.Location,
-                        AssignedLayoutId = existingClient.AssignedLayoutId,
-                        RegisteredAt = existingClient.RegisteredAt,
-                        LastSeen = DateTime.UtcNow,
-                        Status = ClientStatus.Online,
-                        DeviceInfo = mergedDeviceInfo
-                    };
-
-                    dbContext.Clients.Add(client);
-                    _logger.LogInformation("Re-registered existing client with new ID {ClientId} (MAC: {MacAddress})", client.Id, client.MacAddress);
-                }
-                else
-                {
-                    // Same ID, just update the properties
-                    // CRITICAL FIX: Attach the entity to track it for updates
-                    dbContext.Clients.Attach(client);
-                    
-                    client.IpAddress = registerMessage.IpAddress ?? client.IpAddress;
-                    client.LastSeen = DateTime.UtcNow;
-                    client.Status = ClientStatus.Online;
-
-                    // Merge DeviceInfo - update from registration but preserve existing values if not provided
-                    if (registerMessage.DeviceInfo != null)
-                    {
-                        var deviceInfo = client.DeviceInfo ?? new DeviceInfo();
-                        deviceInfo.Hostname = registerMessage.DeviceInfo.Hostname ?? deviceInfo.Hostname;
-                        deviceInfo.Model = registerMessage.DeviceInfo.Model ?? deviceInfo.Model;
-                        deviceInfo.OsVersion = registerMessage.DeviceInfo.OsVersion ?? deviceInfo.OsVersion;
-                        deviceInfo.ClientVersion = registerMessage.DeviceInfo.ClientVersion ?? deviceInfo.ClientVersion;
-                        deviceInfo.ScreenWidth = registerMessage.DeviceInfo.ScreenWidth;
-                        deviceInfo.ScreenHeight = registerMessage.DeviceInfo.ScreenHeight;
-                        deviceInfo.CpuTemperature = registerMessage.DeviceInfo.CpuTemperature;
-                        deviceInfo.CpuUsage = registerMessage.DeviceInfo.CpuUsage;
-                        deviceInfo.MemoryTotal = registerMessage.DeviceInfo.MemoryTotal;
-                        deviceInfo.MemoryUsed = registerMessage.DeviceInfo.MemoryUsed;
-                        deviceInfo.DiskTotal = registerMessage.DeviceInfo.DiskTotal;
-                        deviceInfo.DiskUsed = registerMessage.DeviceInfo.DiskUsed;
-                        deviceInfo.Uptime = registerMessage.DeviceInfo.Uptime;
-                        client.DeviceInfo = deviceInfo;
-                    }
-                    
-                    // Mark entity as modified
-                    dbContext.Entry(client).State = EntityState.Modified;
-
-                    _logger.LogInformation("Re-registered existing client {ClientId} (MAC: {MacAddress})", client.Id, client.MacAddress);
-                }
-            }
-            else
-            {
-                // Create new client - ensure DeviceInfo is properly populated
-                var deviceInfo = registerMessage.DeviceInfo ?? new DeviceInfo();
-
-                client = new RaspberryPiClient
-                {
-                    Id = string.IsNullOrWhiteSpace(registerMessage.ClientId) ? Guid.NewGuid().ToString() : registerMessage.ClientId,
-                    IpAddress = registerMessage.IpAddress ?? "unknown",
-                    MacAddress = registerMessage.MacAddress,
-                    Group = assignedGroup,
-                    Location = assignedLocation,
-                    RegisteredAt = DateTime.UtcNow,
-                    LastSeen = DateTime.UtcNow,
-                    Status = ClientStatus.Online,
-                    DeviceInfo = deviceInfo
-                };
-
-                dbContext.Clients.Add(client);
-                _logger.LogInformation("Registered new client {ClientId} (MAC: {MacAddress}) from {IpAddress} - Hostname: {Hostname}, Resolution: {Width}x{Height}",
-                    client.Id, client.MacAddress, client.IpAddress, deviceInfo.Hostname, deviceInfo.ScreenWidth, deviceInfo.ScreenHeight);
-            }
-
-            // Save to database
-            await dbContext.SaveChangesAsync(cancellationToken);
-
-            // Update in-memory cache
-            _clients[client.Id] = client;
-
-            // Send registration response
-            var responseMessage = new RegistrationResponseMessage
-            {
-                Success = true,
-                AssignedClientId = client.Id,
-                AssignedGroup = client.Group,
-                AssignedLocation = client.Location
-            };
-
-            try
-            {
-                await _communicationService.SendMessageAsync(client.Id, responseMessage, cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to send registration response to client {ClientId}", client.Id);
-            }
-
-            // If client has an assigned layout, send it immediately after registration
-            if (!string.IsNullOrEmpty(client.AssignedLayoutId))
-            {
-                _logger.LogInformation("Client {ClientId} has assigned layout {LayoutId}, sending DISPLAY_UPDATE",
-                    client.Id, client.AssignedLayoutId);
-
-                try
-                {
-                    var layoutResult = await _layoutService.GetLayoutByIdAsync(client.AssignedLayoutId, cancellationToken);
-                    if (layoutResult.IsSuccess)
-                    {
-                        // Fetch data for data-driven elements
-                        // TODO: Implement data source fetching when data-driven elements are supported
-                        Dictionary<string, object>? layoutData = null;
-
-                        // Send DISPLAY_UPDATE message
-                        var displayUpdate = new DisplayUpdateMessage
-                        {
-                            Layout = layoutResult.Value,
-                            Data = layoutData
-                        };
-
-                        await _communicationService.SendMessageAsync(client.Id, displayUpdate, cancellationToken);
-                        _logger.LogInformation("Successfully sent assigned layout {LayoutId} to reconnected client {ClientId}",
-                            layoutResult.Value.Id, client.Id);
-                    }
-                    else
-                    {
-                        _logger.LogWarning("Client {ClientId} has assigned layout {LayoutId} but layout not found in database",
-                            client.Id, client.AssignedLayoutId);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Failed to send assigned layout to client {ClientId} after registration", client.Id);
-                }
-            }
-            else
-            {
-                _logger.LogInformation("Client {ClientId} has no assigned layout", client.Id);
-            }
-
-            // Raise ClientConnected event
-            ClientConnected?.Invoke(this, client.Id);
-            _logger.LogDebug("Raised ClientConnected event for {ClientId}", client.Id);
-
-            return Result<RaspberryPiClient>.Success(client);
+            // Delegate to registration handler
+            return await _registrationHandler.RegisterClientAsync(
+                registerMessage,
+                _clients,
+                ClientConnected,
+                cancellationToken);
         }
         catch (ObjectDisposedException ex)
         {
             _logger.LogError(ex, "ClientService has been disposed");
             return Result<RaspberryPiClient>.Failure("Service is no longer available", ex);
-        }
-        catch (OperationCanceledException)
-        {
-            _logger.LogWarning("Client registration cancelled for MAC {MacAddress}", registerMessage?.MacAddress);
-            return Result<RaspberryPiClient>.Failure("Operation was cancelled");
         }
         catch (Exception ex)
         {
@@ -701,165 +463,25 @@ public class ClientService : IClientService, IDisposable
         {
             ThrowIfDisposed();
 
-            if (string.IsNullOrWhiteSpace(clientId))
-            {
-                _logger.LogWarning("AssignLayoutAsync called with null or empty clientId");
-                return Result.Failure("Client ID cannot be empty");
-            }
-
-            if (string.IsNullOrWhiteSpace(layoutId))
-            {
-                _logger.LogWarning("AssignLayoutAsync called with null or empty layoutId");
-                return Result.Failure("Layout ID cannot be empty");
-            }
-
-        if (_clients.TryGetValue(clientId, out var client))
-        {
-            client.AssignedLayoutId = layoutId;
-            _logger.LogInformation("Assigned layout {LayoutId} to client {ClientId}", layoutId, clientId);
-
-            // Update in database
-            try
-            {
-                using var scope = _serviceProvider.CreateScope();
-                var dbContext = scope.ServiceProvider.GetRequiredService<DigitalSignageDbContext>();
-
-                var dbClient = await dbContext.Clients.FindAsync(new object[] { clientId }, cancellationToken);
-                if (dbClient != null)
-                {
-                    dbClient.AssignedLayoutId = layoutId;
-                    await dbContext.SaveChangesAsync(cancellationToken);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to update client {ClientId} layout assignment in database", clientId);
-            }
-
-            // Send layout update to client
-            return await SendLayoutToClientAsync(clientId, layoutId, cancellationToken);
+            // Delegate to layout distributor
+            return await _layoutDistributor.AssignLayoutAsync(
+                clientId,
+                layoutId,
+                _clients,
+                cancellationToken);
         }
-
-        _logger.LogWarning("Client {ClientId} not found for layout assignment", clientId);
-        return Result.Failure($"Client '{clientId}' not found");
-    }
-    catch (ObjectDisposedException ex)
-    {
-        _logger.LogError(ex, "ClientService has been disposed");
-        return Result.Failure("Service is no longer available", ex);
-    }
-    catch (OperationCanceledException)
-    {
-        _logger.LogWarning("Layout assignment cancelled for client {ClientId}", clientId);
-        return Result.Failure("Operation was cancelled");
-    }
-    catch (Exception ex)
-    {
-        _logger.LogError(ex, "Failed to assign layout {LayoutId} to client {ClientId}", layoutId, clientId);
-        return Result.Failure($"Failed to assign layout: {ex.Message}", ex);
-    }
-}
-
-    private async Task<Result> SendLayoutToClientAsync(
-        string clientId,
-        string layoutId,
-        CancellationToken cancellationToken = default)
-    {
-        try
+        catch (ObjectDisposedException ex)
         {
-            // Load layout
-            var layoutResult = await _layoutService.GetLayoutByIdAsync(layoutId, cancellationToken);
-            if (layoutResult.IsFailure)
-            {
-                _logger.LogError("Layout {LayoutId} not found: {ErrorMessage}", layoutId, layoutResult.ErrorMessage);
-                return Result.Failure($"Layout '{layoutId}' not found: {layoutResult.ErrorMessage}");
-            }
-
-            var layout = layoutResult.Value;
-
-            // Fetch data from all data sources
-            var layoutData = new Dictionary<string, object>();
-            if (layout.DataSources != null && layout.DataSources.Count > 0)
-            {
-                foreach (var dataSource in layout.DataSources)
-                {
-                    try
-                    {
-                        var data = await _dataService.GetDataAsync(dataSource, cancellationToken);
-                        layoutData[dataSource.Id] = data;
-                        _logger.LogDebug("Loaded data for source {DataSourceId}", dataSource.Id);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Failed to load data for source {DataSourceId}, using empty data", dataSource.Id);
-                        layoutData[dataSource.Id] = new Dictionary<string, object>();
-                    }
-                }
-            }
-
-            // Process templates in layout elements
-            // Flatten all data into a single dictionary for template processing
-            var templateData = new Dictionary<string, object>();
-            foreach (var kvp in layoutData)
-            {
-                if (kvp.Value is Dictionary<string, object> dict)
-                {
-                    foreach (var dataKvp in dict)
-                    {
-                        templateData[dataKvp.Key] = dataKvp.Value;
-                    }
-                }
-            }
-
-            // Process text elements with templates
-            if (layout.Elements != null && layout.Elements.Count > 0)
-            {
-                foreach (var element in layout.Elements)
-                {
-                    if (element.Type == "text")
-                    {
-                        try
-                        {
-                            var content = element["Content"]?.ToString();
-                            if (!string.IsNullOrWhiteSpace(content))
-                            {
-                                element["Content"] = await _scribanService.ProcessTemplateAsync(
-                                    content,
-                                    templateData,
-                                    cancellationToken);
-                                _logger.LogDebug("Processed template for element {ElementId}", element.Id);
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogWarning(ex, "Failed to process template for element {ElementId}, using original content", element.Id);
-                        }
-                    }
-                }
-            }
-
-            // Embed media files (images) as Base64 for client transfer
-            await EmbedMediaFilesInLayoutAsync(layout, cancellationToken);
-
-            // Send standard display update without SQL data source payloads
-            var displayUpdateMessage = new DisplayUpdateMessage
-            {
-                Layout = layout,
-                Data = layoutData
-            };
-
-            await _communicationService.SendMessageAsync(clientId, displayUpdateMessage, cancellationToken);
-            _logger.LogInformation("Sent DISPLAY_UPDATE with full layout {LayoutId} to client {ClientId}",
-                layoutId, clientId);
-
-            return Result.Success();
+            _logger.LogError(ex, "ClientService has been disposed");
+            return Result.Failure("Service is no longer available", ex);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to send layout update to client {ClientId}", clientId);
-            return Result.Failure($"Failed to send layout to client: {ex.Message}", ex);
+            _logger.LogError(ex, "Failed to assign layout {LayoutId} to client {ClientId}", layoutId, clientId);
+            return Result.Failure($"Failed to assign layout: {ex.Message}", ex);
         }
     }
+
 
     public async Task<Result> RemoveClientAsync(string clientId, CancellationToken cancellationToken = default)
     {
@@ -968,86 +590,6 @@ public class ClientService : IClientService, IDisposable
         }
     }
 
-    /// <summary>
-    /// Embed media files (images) as Base64 in layout elements for client transfer
-    /// </summary>
-    private async Task EmbedMediaFilesInLayoutAsync(DisplayLayout layout, CancellationToken cancellationToken)
-    {
-        if (layout?.Elements == null || layout.Elements.Count == 0)
-        {
-            _logger.LogDebug("No elements to process for media embedding in layout {LayoutId}", layout?.Id ?? "unknown");
-            return;
-        }
-
-        // Get MediaService from DI container
-        var mediaService = _serviceProvider.GetService<IMediaService>();
-        if (mediaService == null)
-        {
-            _logger.LogWarning("MediaService not available, cannot embed media files in layout {LayoutId}", layout.Id);
-            return;
-        }
-
-        int embedCount = 0;
-        int errorCount = 0;
-
-        // Process all image elements
-        foreach (var element in layout.Elements.Where(e => e.Type?.ToLower() == "image"))
-        {
-            try
-            {
-                // Get the Source property (filename, path, or media ID)
-                var source = element.GetProperty<string>("Source", "");
-                if (string.IsNullOrEmpty(source))
-                {
-                    _logger.LogDebug("Image element {ElementId} has no Source property, skipping", element.Id);
-                    continue;
-                }
-
-                // Extract filename (might be full path or just filename)
-                var fileName = System.IO.Path.GetFileName(source);
-
-                _logger.LogDebug("Attempting to load media file: {FileName} for element {ElementId}", fileName, element.Id);
-
-                // Try to load media file from disk
-                var imageResult = await mediaService.GetMediaAsync(fileName);
-                if (imageResult.IsSuccess && imageResult.Value != null && imageResult.Value.Length > 0)
-                {
-                    var imageData = imageResult.Value;
-                    // Embed as Base64 (use "MediaData" to match client expectations)
-                    var base64 = Convert.ToBase64String(imageData);
-                    element.SetProperty("MediaData", base64);
-
-                    embedCount++;
-                    _logger.LogInformation("✓ Embedded media file {FileName} ({Size} KB) as Base64 for element {ElementId}",
-                        fileName, imageData.Length / 1024, element.Id);
-                }
-                else
-                {
-                    errorCount++;
-                    _logger.LogWarning("✗ Media file not found or failed to load: {FileName} for element {ElementId} (Source: {Source}). Error: {Error}",
-                        fileName,
-                        element.Id,
-                        source,
-                        imageResult.ErrorMessage);
-                }
-            }
-            catch (Exception ex)
-            {
-                errorCount++;
-                _logger.LogError(ex, "Failed to embed media file for image element {ElementId}", element.Id);
-            }
-        }
-
-        if (embedCount > 0 || errorCount > 0)
-        {
-            _logger.LogInformation("Media embedding complete for layout {LayoutId}: {EmbedCount} embedded, {ErrorCount} errors",
-                layout.Id, embedCount, errorCount);
-        }
-        else
-        {
-            _logger.LogDebug("No image elements found in layout {LayoutId}", layout.Id);
-        }
-    }
 
     /// <summary>
     /// Throws ObjectDisposedException if service has been disposed
