@@ -4,6 +4,7 @@ using DigitalSignage.Server.Configuration;
 using DigitalSignage.Server.Helpers;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
+using System.Linq;
 using System.Net;
 using System.Net.WebSockets;
 
@@ -55,27 +56,107 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
                 _settings.Port = actualPort; // Update settings with selected port
             }
 
-            // Check if URL ACL is configured and use appropriate prefix
-            var useWildcard = UrlAclManager.IsUrlAclConfigured(_settings.Port);
-            var urlPrefix = useWildcard ? _settings.GetUrlPrefix() : _settings.GetLocalhostPrefix();
+            // Try different binding options in order of preference
+            var bindingAttempts = new List<(string prefix, string description)>();
 
-            if (!useWildcard)
+            // 1. Try wildcard binding first (if URL ACL exists or running as admin)
+            if (UrlAclManager.IsUrlAclConfigured(_settings.Port) || UrlAclManager.IsRunningAsAdministrator())
+            {
+                bindingAttempts.Add((_settings.GetUrlPrefix(), "all interfaces"));
+            }
+
+            // 2. Try specific IP addresses
+            var localIPs = System.Net.Dns.GetHostAddresses(System.Net.Dns.GetHostName())
+                .Where(ip => ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+                .Select(ip => ip.ToString());
+
+            foreach (var ip in localIPs)
+            {
+                var ipProtocol = _settings.EnableSsl ? "https" : "http";
+                bindingAttempts.Add(($"{ipProtocol}://{ip}:{_settings.Port}{_settings.EndpointPath}", $"IP {ip}"));
+            }
+
+            // 3. Always add localhost and 127.0.0.1 as fallbacks
+            bindingAttempts.Add((_settings.GetLocalhostPrefix(), "localhost"));
+            bindingAttempts.Add(($"{(_settings.EnableSsl ? "https" : "http")}://127.0.0.1:{_settings.Port}{_settings.EndpointPath}", "127.0.0.1"));
+
+            bool started = false;
+            string successfulPrefix = "";
+            string bindMode = "";
+
+            // Try each binding option
+            foreach (var (prefix, description) in bindingAttempts)
+            {
+                try
+                {
+                    _logger.LogDebug("Attempting to bind to {Prefix} ({Description})", prefix, description);
+
+                    // Clear any previous prefixes
+                    _httpListener.Prefixes.Clear();
+                    _httpListener.Prefixes.Add(prefix);
+
+                    _httpListener.Start();
+
+                    successfulPrefix = prefix;
+                    bindMode = description;
+                    started = true;
+
+                    _logger.LogInformation("Successfully bound to {Prefix} ({Description})", prefix, description);
+                    break;
+                }
+                catch (HttpListenerException ex) when (ex.ErrorCode == 5) // Access denied
+                {
+                    _logger.LogDebug("Access denied for {Prefix}, trying next option...", prefix);
+                    _httpListener?.Stop();
+                    _httpListener = new HttpListener(); // Create fresh listener
+                    continue;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "Failed to bind to {Prefix}, trying next option...", prefix);
+                    _httpListener?.Stop();
+                    _httpListener = new HttpListener(); // Create fresh listener
+                    continue;
+                }
+            }
+
+            if (!started)
+            {
+                _logger.LogError("===================================================================");
+                _logger.LogError("FAILED TO START WEBSOCKET SERVER");
+                _logger.LogError("===================================================================");
+                _logger.LogError("");
+                _logger.LogError("Could not bind to any network interface on port {Port}", _settings.Port);
+                _logger.LogError("");
+                _logger.LogError("SOLUTIONS:");
+                _logger.LogError("  1. Run setup-urlacl.bat as Administrator (recommended)");
+                _logger.LogError("  2. Run this application as Administrator");
+                _logger.LogError("  3. Check if another application is using port {Port}", _settings.Port);
+                _logger.LogError("  4. Check Windows Firewall settings");
+                _logger.LogError("");
+                _logger.LogError("===================================================================");
+
+                throw new InvalidOperationException(
+                    $"Cannot start WebSocket server on port {_settings.Port}. " +
+                    $"No binding option succeeded. Check logs for details.");
+            }
+
+            // Warn if running in limited mode
+            if (bindMode.Contains("localhost") || bindMode.Contains("127.0.0.1"))
             {
                 _logger.LogWarning("===================================================================");
-                _logger.LogWarning("URL ACL NOT CONFIGURED - Running in localhost-only mode");
+                _logger.LogWarning("SERVER RUNNING IN LIMITED MODE");
                 _logger.LogWarning("===================================================================");
                 _logger.LogWarning("");
-                _logger.LogWarning("The server is running on localhost only and will NOT be accessible");
-                _logger.LogWarning("from external clients or devices.");
+                _logger.LogWarning("The server is only accessible from this machine.");
+                _logger.LogWarning("External clients (like Raspberry Pi) CANNOT connect!");
                 _logger.LogWarning("");
                 _logger.LogWarning("To enable external access:");
-                _logger.LogWarning("  1. Restart the application (it will prompt for configuration)");
-                _logger.LogWarning("  2. Or run setup-urlacl.bat as Administrator");
+                _logger.LogWarning("  1. Run setup-urlacl.bat as Administrator");
+                _logger.LogWarning("  2. Restart the application");
                 _logger.LogWarning("");
                 _logger.LogWarning("===================================================================");
             }
-
-            _httpListener.Prefixes.Add(urlPrefix);
 
             // Log SSL configuration warning if SSL is enabled
             if (_settings.EnableSsl)
@@ -91,66 +172,33 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
                 }
             }
 
-            _httpListener.Start();
-
             var protocol = _settings.EnableSsl ? "HTTPS/WSS" : "HTTP/WS";
-            var bindMode = useWildcard ? "all interfaces" : "localhost only";
             _logger.LogInformation("WebSocket server started on port {Port} using {Protocol} ({BindMode})",
                 _settings.Port, protocol, bindMode);
-            _logger.LogInformation("WebSocket endpoint: {Endpoint}", urlPrefix);
+            _logger.LogInformation("WebSocket endpoint: {Endpoint}", successfulPrefix);
+
+            // Show all available connection URLs
+            if (!bindMode.Contains("localhost") && !bindMode.Contains("127.0.0.1"))
+            {
+                _logger.LogInformation("Clients can connect using:");
+                if (successfulPrefix.Contains("+"))
+                {
+                    // Wildcard binding - show all IPs
+                    foreach (var ip in localIPs)
+                    {
+                        _logger.LogInformation("  - ws://{IP}:{Port}{Path}", ip, _settings.Port, _settings.EndpointPath);
+                    }
+                }
+                else
+                {
+                    _logger.LogInformation("  - {Endpoint}", successfulPrefix.Replace("http://", "ws://").Replace("https://", "wss://"));
+                }
+            }
 
             // Track the accept clients task instead of fire-and-forget
             _acceptClientsTask = Task.Run(() => AcceptClientsAsync(_cancellationTokenSource.Token));
 
             await Task.CompletedTask;
-        }
-        catch (HttpListenerException ex) when (ex.ErrorCode == 5)
-        {
-            _logger.LogError("===================================================================");
-            _logger.LogError("ACCESS DENIED - Cannot start WebSocket server on port {Port}", _settings.Port);
-            _logger.LogError("===================================================================");
-            _logger.LogError("");
-            _logger.LogError("This error should not occur if URL ACL check is working properly.");
-            _logger.LogError("");
-            _logger.LogError("SOLUTION 1 (Recommended - One-time setup):");
-            _logger.LogError("  1. Right-click setup-urlacl.bat");
-            _logger.LogError("  2. Select 'Run as administrator'");
-            _logger.LogError("  3. Restart the application normally (no admin needed)");
-            _logger.LogError("");
-            _logger.LogError("SOLUTION 2 (Temporary):");
-            _logger.LogError("  Run this application as Administrator");
-            _logger.LogError("");
-            _logger.LogError("Manual setup command:");
-            _logger.LogError("  netsh http add urlacl url={Prefix} user=Everyone", _settings.GetUrlPrefix());
-            _logger.LogError("");
-            _logger.LogError("===================================================================");
-
-            // Try localhost fallback as last resort
-            _logger.LogWarning("Attempting localhost fallback...");
-            try
-            {
-                _httpListener?.Stop();
-                _httpListener = new HttpListener();
-                var localhostPrefix = _settings.GetLocalhostPrefix();
-                _httpListener.Prefixes.Add(localhostPrefix);
-                _httpListener.Start();
-
-                _logger.LogWarning("Successfully started in localhost-only mode");
-                _logger.LogInformation("WebSocket endpoint: {Endpoint}", localhostPrefix);
-
-                // Track the accept clients task instead of fire-and-forget
-                _acceptClientsTask = Task.Run(() => AcceptClientsAsync(_cancellationTokenSource!.Token));
-                return;
-            }
-            catch
-            {
-                _logger.LogError("Localhost fallback also failed");
-                throw new InvalidOperationException(
-                    $"Access Denied - Cannot start server on port {_settings.Port}. " +
-                    $"Run setup-urlacl.bat as Administrator to fix this permanently, " +
-                    $"or run this application as Administrator.",
-                    ex);
-            }
         }
         catch (Exception ex)
         {
