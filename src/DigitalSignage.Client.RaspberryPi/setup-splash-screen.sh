@@ -35,15 +35,14 @@ CMDLINE_FLAGS=(
   "splash"
   "vt.global_cursor_default=0"
   "plymouth.ignore-serial-consoles"
-  # WARNING: fbcon=map:2 maps framebuffer console to fb2
-  # This may DISABLE CLI access if fb2 doesn't exist on your system!
-  # Alternative options:
-  #   - fbcon=map:10 for dual-display (tries fb1 then falls back to fb0)
+  # WARNING: fbcon=map controls which framebuffer the console uses
+  # Options:
+  #   - fbcon=map:10 for dual-display (tries fb1 then falls back to fb0) - RECOMMENDED
+  #   - fbcon=map:2 maps to fb2 (may DISABLE CLI if fb2 doesn't exist!)
   #   - fbcon=map:1 to use fb1 explicitly
   #   - Omit this flag to use default fb0
-  # Uncomment the line below ONLY if you have a special LCD display (HY28a, ILI9320, etc.)
-  # that creates fb2 and you want the console mapped to it:
-  # "fbcon=map:2"
+  # Using fbcon=map:10 is safer as it falls back gracefully:
+  "fbcon=map:10"
 )
 
 require_root() {
@@ -226,14 +225,14 @@ configure_plymouth() {
   echo "=== ADVANCED CONFIGURATION OPTIONS ==="
   echo "For special LCD displays (HY28a, ILI9320, etc.):"
   echo "  1. Edit /etc/initramfs-tools/modules and uncomment the fbtft lines"
-  echo "  2. Optionally add 'fbcon=map:2' to $CMDLINE_FILE"
-  echo "  3. Run: sudo update-initramfs -u -k $KERNEL_VERSION"
-  echo "  4. Reboot"
+  echo "  2. Run: sudo update-initramfs -u -k $KERNEL_VERSION"
+  echo "  3. Reboot"
   echo ""
-  echo "For dual-display setups:"
-  echo "  - Use 'fbcon=map:10' instead of fbcon=map:2 (tries fb1 then fb0)"
-  echo ""
-  echo "WARNING: fbcon=map:2 may disable CLI access if fb2 doesn't exist!"
+  echo "Framebuffer console mapping (already configured as fbcon=map:10):"
+  echo "  - fbcon=map:10 (CURRENT): tries fb1 then falls back to fb0 (RECOMMENDED)"
+  echo "  - fbcon=map:2: maps to fb2 (WARNING: may disable CLI if fb2 doesn't exist!)"
+  echo "  - fbcon=map:1: uses fb1 explicitly"
+  echo "  - No flag: uses default fb0"
 }
 
 main() {

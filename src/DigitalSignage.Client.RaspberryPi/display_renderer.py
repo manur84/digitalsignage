@@ -178,6 +178,81 @@ class DisplayRenderer(QWidget):
         # Initialize status screen manager (needs basic window setup)
         self.status_screen_manager = StatusScreenManager(self)
 
+    def clear_layout_for_status_screen(self):
+        """
+        Clear the current layout to allow status screen to be displayed.
+        CRITICAL: This prevents PNG layouts from blocking the status screen.
+        Called by StatusScreenManager when showing status screens.
+        """
+        logger.info("Clearing layout to show status screen...")
+
+        # CRITICAL: Disable updates during cleanup to prevent flickering
+        self.setUpdatesEnabled(False)
+
+        try:
+            # 1. Stop and clear ALL timers (datetime elements)
+            if hasattr(self, '_datetime_timers'):
+                for timer in self._datetime_timers:
+                    try:
+                        timer.stop()
+                        timer.deleteLater()
+                    except Exception as e:
+                        logger.warning(f"Failed to stop datetime timer: {e}")
+                self._datetime_timers.clear()
+
+            # 2. Delete all tracked elements INCLUDING PNG label
+            for element in self.elements:
+                try:
+                    # Remove graphics effects (shadows) to free resources
+                    if element.graphicsEffect():
+                        element.setGraphicsEffect(None)
+
+                    # Hide first to prevent flicker
+                    element.hide()
+
+                    # Delete widget
+                    element.deleteLater()
+                except Exception as e:
+                    logger.warning(f"Failed to delete element: {e}")
+            self.elements.clear()
+
+            # CRITICAL FIX: Reset PNG label references after cleanup
+            # This prevents PNG layout from blocking status screen
+            self._png_label = None
+            self._png_pixmap = None
+            self._rendering_png_only = False
+
+            # 3. Find and delete any orphaned child widgets not in self.elements
+            orphaned_widgets = self.findChildren(QWidget)
+            for widget in orphaned_widgets:
+                # Skip status screen widgets
+                if hasattr(widget, 'objectName') and 'status_screen' in widget.objectName():
+                    continue
+                try:
+                    widget.hide()
+                    widget.deleteLater()
+                except Exception as e:
+                    logger.warning(f"Failed to delete orphaned widget: {e}")
+
+            # 4. Reset background to status screen color (not white)
+            self.setStyleSheet("background-color: #1a1a2e;")
+
+            logger.info("✓ Layout cleared for status screen display")
+
+        except Exception as e:
+            logger.error(f"Failed to clear layout for status screen: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+        finally:
+            # Re-enable updates and trigger repaint
+            self.setUpdatesEnabled(True)
+            self.update()
+
+            # CRITICAL: Lower display renderer behind status screen
+            # Status screen is top-level window and should be on top
+            self.lower()
+            logger.debug("Display renderer lowered to allow status screen to be visible")
+
     def show_and_setup(self):
         """Show the window and setup UI after event loop is ready"""
         if not self._ui_initialized:

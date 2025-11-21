@@ -915,6 +915,8 @@ class StatusScreenManager:
 
     def show_discovering_server(self, discovery_method: str = "Auto-Discovery"):
         """Show discovering server screen with smooth transition"""
+        # CRITICAL: Clear display renderer BEFORE showing status screen
+        self._clear_display_renderer_for_status()
         self._ensure_status_screen()
         self.status_screen.show_discovering_server(discovery_method)
         self.is_showing_status = True
@@ -922,6 +924,8 @@ class StatusScreenManager:
 
     def show_connecting(self, server_url: str, attempt: int = 1, max_attempts: int = 5):
         """Show connecting screen with smooth transition"""
+        # CRITICAL: Clear display renderer BEFORE showing status screen
+        self._clear_display_renderer_for_status()
         self._ensure_status_screen()
         self.status_screen.show_connecting(server_url, attempt, max_attempts)
         self.is_showing_status = True
@@ -929,6 +933,8 @@ class StatusScreenManager:
 
     def show_waiting_for_layout(self, client_id: str, server_url: str):
         """Show waiting for layout screen with smooth transition"""
+        # CRITICAL: Clear display renderer BEFORE showing status screen
+        self._clear_display_renderer_for_status()
         self._ensure_status_screen()
         self.status_screen.show_waiting_for_layout(client_id, server_url)
         self.is_showing_status = True
@@ -936,6 +942,8 @@ class StatusScreenManager:
 
     def show_connection_error(self, server_url: str, error_message: str, client_id: str = "Unknown"):
         """Show connection error screen"""
+        # CRITICAL: Clear display renderer BEFORE showing status screen
+        self._clear_display_renderer_for_status()
         self._ensure_status_screen()
         self.status_screen.show_connection_error(server_url, error_message, client_id)
         self.is_showing_status = True
@@ -943,6 +951,8 @@ class StatusScreenManager:
 
     def show_no_layout_assigned(self, client_id: str, server_url: str, ip_address: str = "Unknown"):
         """Show no layout assigned screen"""
+        # CRITICAL: Clear display renderer BEFORE showing status screen
+        self._clear_display_renderer_for_status()
         self._ensure_status_screen()
         self.status_screen.show_no_layout_assigned(client_id, server_url, ip_address)
         self.is_showing_status = True
@@ -950,6 +960,8 @@ class StatusScreenManager:
 
     def show_server_disconnected(self, server_url: str, client_id: str = "Unknown"):
         """Show server disconnected - searching screen"""
+        # CRITICAL: Clear display renderer BEFORE showing status screen
+        self._clear_display_renderer_for_status()
         self._ensure_status_screen()
         self.status_screen.show_server_disconnected(server_url, client_id)
         self.is_showing_status = True
@@ -957,6 +969,8 @@ class StatusScreenManager:
 
     def show_reconnecting(self, server_url: str, attempt: int, retry_in: int, client_id: str = "Unknown"):
         """Show reconnecting screen with retry countdown"""
+        # CRITICAL: Clear display renderer BEFORE showing status screen
+        self._clear_display_renderer_for_status()
         self._ensure_status_screen()
         self.status_screen.show_reconnecting(server_url, attempt, retry_in, client_id)
         self.is_showing_status = True
@@ -964,6 +978,8 @@ class StatusScreenManager:
 
     def show_server_found(self, server_url: str):
         """Show server found - connecting screen"""
+        # CRITICAL: Clear display renderer BEFORE showing status screen
+        self._clear_display_renderer_for_status()
         self._ensure_status_screen()
         self.status_screen.show_server_found(server_url)
         self.is_showing_status = True
@@ -971,6 +987,8 @@ class StatusScreenManager:
 
     async def show_discovery_failed(self, attempts: int, config_path: str):
         """Show discovery failed screen when max attempts reached"""
+        # CRITICAL: Clear display renderer BEFORE showing status screen
+        self._clear_display_renderer_for_status()
         self._ensure_status_screen()
         self.status_screen.show_discovery_failed(attempts, config_path)
         self.is_showing_status = True
@@ -1058,6 +1076,22 @@ class StatusScreenManager:
                     logger.debug("Status screen keep-alive: raised to stay on top")
             except Exception as e:
                 logger.warning(f"Failed to keep status screen on top: {e}")
+
+    def _clear_display_renderer_for_status(self):
+        """
+        Clear the display renderer layout to allow status screen to be visible.
+        CRITICAL: This prevents PNG layouts from blocking the status screen.
+        """
+        try:
+            if self.display_renderer and hasattr(self.display_renderer, 'clear_layout_for_status_screen'):
+                self.display_renderer.clear_layout_for_status_screen()
+                logger.debug("Display renderer cleared for status screen display")
+            else:
+                logger.warning("Display renderer does not have clear_layout_for_status_screen method")
+        except Exception as e:
+            logger.error(f"Failed to clear display renderer for status screen: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
 
     def _ensure_status_screen(self):
         """Ensure status screen widget exists - SIMPLIFIED (eager creation)"""
