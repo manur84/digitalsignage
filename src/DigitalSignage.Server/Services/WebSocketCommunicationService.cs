@@ -16,6 +16,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
     private readonly ILogger<WebSocketCommunicationService> _logger;
     private readonly WebSocketMessageSerializer _messageSerializer;
     private readonly ServerSettings _settings;
+    private readonly NetworkInterfaceService _networkInterfaceService;
     private HttpListener? _httpListener;
     private CancellationTokenSource? _cancellationTokenSource;
     private Task? _acceptClientsTask;
@@ -24,10 +25,12 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
     public WebSocketCommunicationService(
         ILogger<WebSocketCommunicationService> logger,
         ILogger<WebSocketMessageSerializer> serializerLogger,
-        ServerSettings settings)
+        ServerSettings settings,
+        NetworkInterfaceService networkInterfaceService)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+        _networkInterfaceService = networkInterfaceService ?? throw new ArgumentNullException(nameof(networkInterfaceService));
         _messageSerializer = new WebSocketMessageSerializer(serializerLogger, enableCompression: true);
     }
 
@@ -55,24 +58,42 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
                 _settings.Port = actualPort; // Update settings with selected port
             }
 
-            // Check if URL ACL is configured and use appropriate prefix
-            var useWildcard = UrlAclManager.IsUrlAclConfigured(_settings.Port);
-            var urlPrefix = useWildcard ? _settings.GetUrlPrefix() : _settings.GetLocalhostPrefix();
+            // Get preferred IP address from network interface service
+            var preferredIp = _networkInterfaceService.GetPreferredIPAddress(_settings.PreferredNetworkInterface);
 
-            if (!useWildcard)
+            string urlPrefix;
+            string bindMode;
+
+            if (!string.IsNullOrWhiteSpace(preferredIp))
             {
-                _logger.LogWarning("===================================================================");
-                _logger.LogWarning("URL ACL NOT CONFIGURED - Running in localhost-only mode");
-                _logger.LogWarning("===================================================================");
-                _logger.LogWarning("");
-                _logger.LogWarning("The server is running on localhost only and will NOT be accessible");
-                _logger.LogWarning("from external clients or devices.");
-                _logger.LogWarning("");
-                _logger.LogWarning("To enable external access:");
-                _logger.LogWarning("  1. Restart the application (it will prompt for configuration)");
-                _logger.LogWarning("  2. Or run setup-urlacl.bat as Administrator");
-                _logger.LogWarning("");
-                _logger.LogWarning("===================================================================");
+                // Bind to specific IP address
+                urlPrefix = _settings.GetIpSpecificPrefix(preferredIp);
+                bindMode = $"interface {preferredIp}";
+
+                _logger.LogInformation("Using preferred network interface with IP address: {IpAddress}", preferredIp);
+            }
+            else
+            {
+                // Fallback to default behavior (wildcard or localhost)
+                var useWildcard = UrlAclManager.IsUrlAclConfigured(_settings.Port);
+                urlPrefix = useWildcard ? _settings.GetUrlPrefix() : _settings.GetLocalhostPrefix();
+                bindMode = useWildcard ? "all interfaces" : "localhost only";
+
+                if (!useWildcard)
+                {
+                    _logger.LogWarning("===================================================================");
+                    _logger.LogWarning("URL ACL NOT CONFIGURED - Running in localhost-only mode");
+                    _logger.LogWarning("===================================================================");
+                    _logger.LogWarning("");
+                    _logger.LogWarning("The server is running on localhost only and will NOT be accessible");
+                    _logger.LogWarning("from external clients or devices.");
+                    _logger.LogWarning("");
+                    _logger.LogWarning("To enable external access:");
+                    _logger.LogWarning("  1. Restart the application (it will prompt for configuration)");
+                    _logger.LogWarning("  2. Or run setup-urlacl.bat as Administrator");
+                    _logger.LogWarning("");
+                    _logger.LogWarning("===================================================================");
+                }
             }
 
             _httpListener.Prefixes.Add(urlPrefix);
@@ -94,7 +115,6 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
             _httpListener.Start();
 
             var protocol = _settings.EnableSsl ? "HTTPS/WSS" : "HTTP/WS";
-            var bindMode = useWildcard ? "all interfaces" : "localhost only";
             _logger.LogInformation("WebSocket server started on port {Port} using {Protocol} ({BindMode})",
                 _settings.Port, protocol, bindMode);
             _logger.LogInformation("WebSocket endpoint: {Endpoint}", urlPrefix);
@@ -137,6 +157,8 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
 
                 _logger.LogWarning("Successfully started in localhost-only mode");
                 _logger.LogInformation("WebSocket endpoint: {Endpoint}", localhostPrefix);
+                _logger.LogInformation("WebSocket server started on port {Port} using {Protocol} (localhost only)",
+                    _settings.Port, _settings.EnableSsl ? "HTTPS/WSS" : "HTTP/WS");
 
                 // Track the accept clients task instead of fire-and-forget
                 _acceptClientsTask = Task.Run(() => AcceptClientsAsync(_cancellationTokenSource!.Token));

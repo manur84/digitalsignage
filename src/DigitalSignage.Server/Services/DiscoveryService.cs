@@ -22,6 +22,7 @@ public class DiscoveryService : BackgroundService
 {
     private readonly ILogger<DiscoveryService> _logger;
     private readonly ServerSettings _serverSettings;
+    private readonly NetworkInterfaceService _networkInterfaceService;
     private UdpClient? _udpListener;
     private const int DiscoveryPort = 5555;
     private const string DiscoveryRequest = "DIGITALSIGNAGE_DISCOVER";
@@ -29,10 +30,12 @@ public class DiscoveryService : BackgroundService
 
     public DiscoveryService(
         ILogger<DiscoveryService> logger,
-        IOptions<ServerSettings> serverSettings)
+        IOptions<ServerSettings> serverSettings,
+        NetworkInterfaceService networkInterfaceService)
     {
         _logger = logger;
         _serverSettings = serverSettings.Value;
+        _networkInterfaceService = networkInterfaceService ?? throw new ArgumentNullException(nameof(networkInterfaceService));
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -47,9 +50,24 @@ public class DiscoveryService : BackgroundService
 
         try
         {
-            _udpListener = new UdpClient(DiscoveryPort);
+            // Get preferred IP address from network interface service
+            var preferredIp = _networkInterfaceService.GetPreferredIPAddress(_serverSettings.PreferredNetworkInterface);
+
+            if (!string.IsNullOrWhiteSpace(preferredIp))
+            {
+                // Bind to specific IP address
+                var endpoint = new IPEndPoint(IPAddress.Parse(preferredIp), DiscoveryPort);
+                _udpListener = new UdpClient(endpoint);
+                _logger.LogInformation("UDP listener bound to specific interface: {IpAddress}:{Port}", preferredIp, DiscoveryPort);
+            }
+            else
+            {
+                // Fallback to binding on all interfaces
+                _udpListener = new UdpClient(DiscoveryPort);
+                _logger.LogInformation("UDP listener bound to all interfaces on port {Port}", DiscoveryPort);
+            }
+
             _udpListener.EnableBroadcast = true;
-            _logger.LogInformation("UDP listener created and bound to port {Port}", DiscoveryPort);
             _logger.LogInformation("Broadcast enabled: True");
             _logger.LogInformation("Waiting for discovery requests from clients...");
 
@@ -101,8 +119,23 @@ public class DiscoveryService : BackgroundService
     {
         try
         {
-            // Get local IP addresses
-            var localIPs = GetLocalIPAddresses();
+            // Get local IP addresses - use preferred interface if configured
+            string[] localIPs;
+            var preferredIp = _networkInterfaceService.GetPreferredIPAddress(_serverSettings.PreferredNetworkInterface);
+
+            if (!string.IsNullOrWhiteSpace(preferredIp))
+            {
+                // Only advertise the preferred interface
+                localIPs = new[] { preferredIp };
+                _logger.LogDebug("Using preferred interface IP for discovery response: {PreferredIp}", preferredIp);
+            }
+            else
+            {
+                // Fallback to all local IPs
+                localIPs = GetLocalIPAddresses();
+                _logger.LogDebug("No preferred interface configured, advertising all IPs");
+            }
+
             var protocol = _serverSettings.EnableSsl ? "wss" : "ws";
             var port = _serverSettings.Port;
             var endpointPath = _serverSettings.EndpointPath?.TrimStart('/') ?? "ws";

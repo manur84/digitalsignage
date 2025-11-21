@@ -144,6 +144,17 @@ public class ServerSettings
     }
 
     /// <summary>
+    /// Get the URL prefix for a specific IP address
+    /// </summary>
+    /// <param name="ipAddress">IP address to bind to</param>
+    /// <returns>URL prefix for the specific IP address</returns>
+    public string GetIpSpecificPrefix(string ipAddress)
+    {
+        var protocol = EnableSsl ? "https" : "http";
+        return $"{protocol}://{ipAddress}:{Port}{EndpointPath}";
+    }
+
+    /// <summary>
     /// Get the WebSocket protocol based on SSL configuration
     /// </summary>
     public string GetWebSocketProtocol()
