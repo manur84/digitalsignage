@@ -35,6 +35,7 @@
             <converters:BoolToOnOffStringConverter x:Key="BoolToOnOffStringConverter"/>
             <converters:CountToVisibilityConverter x:Key="CountToVisibilityConverter"/>
             <converters:BoolToStringConverter x:Key="EditModeTitleConverter" TrueValue="Edit Alert Rule" FalseValue="Create Alert Rule"/>
+            <converters:RelativeTimeConverter x:Key="RelativeTimeConverter"/>
 
             <!-- Global Styles -->
             <Style TargetType="Window">

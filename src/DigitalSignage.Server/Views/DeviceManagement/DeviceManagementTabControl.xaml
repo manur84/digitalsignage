@@ -7,6 +7,89 @@
              xmlns:converters="clr-namespace:DigitalSignage.Server.Converters"
              mc:Ignorable="d"
              d:DesignHeight="600" d:DesignWidth="1000">
+    <UserControl.Resources>
+        <!-- Converters -->
+        <converters:RelativeTimeConverter x:Key="RelativeTimeConverter"/>
+
+        <!-- Professional DataGrid Style -->
+        <Style x:Key="ModernDataGrid" TargetType="DataGrid">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#E0E0E0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="GridLinesVisibility" Value="None"/>
+            <Setter Property="HeadersVisibility" Value="Column"/>
+            <Setter Property="RowHeight" Value="40"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="AlternatingRowBackground" Value="#F9F9F9"/>
+            <Setter Property="RowBackground" Value="White"/>
+            <Setter Property="HorizontalGridLinesBrush" Value="#F0F0F0"/>
+            <Setter Property="VerticalGridLinesBrush" Value="#F0F0F0"/>
+            <Setter Property="CanUserResizeRows" Value="False"/>
+            <Setter Property="CanUserReorderColumns" Value="False"/>
+        </Style>
+
+        <!-- DataGrid Header Style -->
+        <Style x:Key="ModernDataGridColumnHeader" TargetType="DataGridColumnHeader">
+            <Setter Property="Background" Value="#F5F5F5"/>
+            <Setter Property="Foreground" Value="#333333"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="BorderBrush" Value="#E0E0E0"/>
+            <Setter Property="BorderThickness" Value="0,0,1,1"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="Height" Value="38"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#EEEEEE"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- DataGrid Row Style -->
+        <Style x:Key="ModernDataGridRow" TargetType="DataGridRow">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Foreground" Value="#333333"/>
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#E3F2FD"/>
+                    <Setter Property="Foreground" Value="#1976D2"/>
+                    <Setter Property="BorderBrush" Value="#2196F3"/>
+                </Trigger>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#F5F5F5"/>
+                </Trigger>
+                <MultiTrigger>
+                    <MultiTrigger.Conditions>
+                        <Condition Property="IsSelected" Value="True"/>
+                        <Condition Property="IsMouseOver" Value="True"/>
+                    </MultiTrigger.Conditions>
+                    <Setter Property="Background" Value="#BBDEFB"/>
+                </MultiTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- DataGrid Cell Style -->
+        <Style x:Key="ModernDataGridCell" TargetType="DataGridCell">
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="Transparent"/>
+                    <Setter Property="BorderBrush" Value="Transparent"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Status Badge Style -->
+        <Style x:Key="StatusBadge" TargetType="Border">
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="10,4"/>
+            <Setter Property="HorizontalAlignment" Value="Left"/>
+        </Style>
+    </UserControl.Resources>
+
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*"/>
@@ -36,64 +119,161 @@
                     <Button Content="❌ Remove" Command="{Binding RemoveClientCommand}" Style="{StaticResource SecondaryButton}" Padding="8,6" ToolTip="Remove selected device"/>
                 </StackPanel>
 
-                <!-- DataGrid -->
+                <!-- DataGrid with Professional Styling -->
                 <DataGrid Grid.Row="1"
-                     ItemsSource="{Binding Clients}"
-                     SelectedItem="{Binding SelectedClient}"
-                     AutoGenerateColumns="False"
-                     CanUserAddRows="False"
-                     IsReadOnly="True"
-                     SelectionMode="Single"
-                     Margin="12,0"
-                     MouseDoubleClick="DataGrid_MouseDoubleClick">
-                <DataGrid.Columns>
-                    <DataGridTextColumn Header="Name" Binding="{Binding DisplayName}" Width="150"/>
-                    <DataGridTextColumn Header="IP Address" Binding="{Binding IpAddress}" Width="120"/>
-                    <DataGridTemplateColumn Header="Status" Width="100">
-                        <DataGridTemplateColumn.CellTemplate>
-                            <DataTemplate>
-                                <StackPanel Orientation="Horizontal">
-                                    <Ellipse Width="10" Height="10" Margin="0,0,8,0">
-                                        <Ellipse.Style>
-                                            <Style TargetType="Ellipse">
-                                                <Setter Property="Fill" Value="Gray"/>
+                         ItemsSource="{Binding Clients}"
+                         SelectedItem="{Binding SelectedClient}"
+                         AutoGenerateColumns="False"
+                         CanUserAddRows="False"
+                         IsReadOnly="True"
+                         SelectionMode="Single"
+                         Margin="12,0"
+                         MouseDoubleClick="DataGrid_MouseDoubleClick"
+                         Style="{StaticResource ModernDataGrid}"
+                         ColumnHeaderStyle="{StaticResource ModernDataGridColumnHeader}"
+                         RowStyle="{StaticResource ModernDataGridRow}"
+                         CellStyle="{StaticResource ModernDataGridCell}">
+                    <DataGrid.Columns>
+                        <!-- Status Column with Badge -->
+                        <DataGridTemplateColumn Header="Status" Width="Auto" MinWidth="110">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Border CornerRadius="12" Padding="10,4" HorizontalAlignment="Left">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="Background" Value="#F5F5F5"/>
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding Status}" Value="Online">
-                                                        <Setter Property="Fill" Value="LimeGreen"/>
+                                                        <Setter Property="Background" Value="#E8F5E9"/>
                                                     </DataTrigger>
                                                     <DataTrigger Binding="{Binding Status}" Value="Offline">
-                                                        <Setter Property="Fill" Value="Red"/>
+                                                        <Setter Property="Background" Value="#FFEBEE"/>
                                                     </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
-                                        </Ellipse.Style>
-                                    </Ellipse>
-                                    <TextBlock Text="{Binding Status}" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </DataTemplate>
-                        </DataGridTemplateColumn.CellTemplate>
-                    </DataGridTemplateColumn>
-                    <DataGridTextColumn Header="Resolution" Width="100">
-                        <DataGridTextColumn.Binding>
-                            <MultiBinding StringFormat="{}{0}x{1}">
-                                <Binding Path="DeviceInfo.ScreenWidth"/>
-                                <Binding Path="DeviceInfo.ScreenHeight"/>
-                            </MultiBinding>
-                        </DataGridTextColumn.Binding>
-                    </DataGridTextColumn>
-                    <DataGridTextColumn Header="Last Seen" Binding="{Binding LastSeen, StringFormat='{}{0:dd.MM.yyyy HH:mm}'}" Width="120"/>
-                    <DataGridTextColumn Header="Assigned Layout" Binding="{Binding AssignedLayoutName}" Width="150"/>
-                    <DataGridTemplateColumn Header="Web Interface" Width="100">
-                        <DataGridTemplateColumn.CellTemplate>
-                            <DataTemplate>
-                                <Button Content="Open"
-                                        Command="{Binding DataContext.OpenWebInterfaceCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                        CommandParameter="{Binding}" Padding="8,4"/>
-                            </DataTemplate>
-                        </DataGridTemplateColumn.CellTemplate>
-                    </DataGridTemplateColumn>
-                </DataGrid.Columns>
-            </DataGrid>
+                                        </Border.Style>
+                                        <StackPanel Orientation="Horizontal">
+                                            <Ellipse Width="8" Height="8" Margin="0,0,8,0" VerticalAlignment="Center">
+                                                <Ellipse.Style>
+                                                    <Style TargetType="Ellipse">
+                                                        <Setter Property="Fill" Value="#9E9E9E"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Status}" Value="Online">
+                                                                <Setter Property="Fill" Value="#4CAF50"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding Status}" Value="Offline">
+                                                                <Setter Property="Fill" Value="#F44336"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Ellipse.Style>
+                                            </Ellipse>
+                                            <TextBlock Text="{Binding Status}" VerticalAlignment="Center" FontWeight="Medium">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Foreground" Value="#616161"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Status}" Value="Online">
+                                                                <Setter Property="Foreground" Value="#2E7D32"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding Status}" Value="Offline">
+                                                                <Setter Property="Foreground" Value="#C62828"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+
+                        <!-- Device Name Column -->
+                        <DataGridTextColumn Header="Device Name" Binding="{Binding DisplayName}" Width="1.5*" MinWidth="120">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                    <Setter Property="VerticalAlignment" Value="Center"/>
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+
+                        <!-- IP Address Column -->
+                        <DataGridTextColumn Header="IP Address" Binding="{Binding IpAddress}" Width="Auto" MinWidth="120">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="FontFamily" Value="Consolas, Courier New"/>
+                                    <Setter Property="VerticalAlignment" Value="Center"/>
+                                    <Setter Property="Foreground" Value="#546E7A"/>
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+
+                        <!-- Resolution Column -->
+                        <DataGridTemplateColumn Header="Resolution" Width="Auto" MinWidth="100">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock VerticalAlignment="Center" Foreground="#546E7A">
+                                        <Run Text="📺"/>
+                                        <Run>
+                                            <Run.Text>
+                                                <MultiBinding StringFormat=" {0}×{1}">
+                                                    <Binding Path="DeviceInfo.ScreenWidth"/>
+                                                    <Binding Path="DeviceInfo.ScreenHeight"/>
+                                                </MultiBinding>
+                                            </Run.Text>
+                                        </Run>
+                                    </TextBlock>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+
+                        <!-- Last Seen Column with Relative Time -->
+                        <DataGridTemplateColumn Header="Last Seen" Width="1*" MinWidth="110">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock VerticalAlignment="Center" ToolTip="{Binding LastSeen, StringFormat='{}{0:dd.MM.yyyy HH:mm:ss}'}">
+                                        <Run Text="🕐"/>
+                                        <Run Text="{Binding LastSeen, Converter={StaticResource RelativeTimeConverter}}" Foreground="#757575"/>
+                                    </TextBlock>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+
+                        <!-- Assigned Layout Column -->
+                        <DataGridTextColumn Header="Assigned Layout" Binding="{Binding AssignedLayoutName}" Width="1.5*" MinWidth="140">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="VerticalAlignment" Value="Center"/>
+                                    <Setter Property="Foreground" Value="#424242"/>
+                                    <Setter Property="FontStyle" Value="Italic"/>
+                                    <Style.Triggers>
+                                        <Trigger Property="Text" Value="">
+                                            <Setter Property="Text" Value="(None)"/>
+                                            <Setter Property="Foreground" Value="#BDBDBD"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+
+                        <!-- Web Interface Column -->
+                        <DataGridTemplateColumn Header="Actions" Width="Auto" MinWidth="90">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button Content="🌐 Open"
+                                            Command="{Binding DataContext.OpenWebInterfaceCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                            CommandParameter="{Binding}"
+                                            Style="{StaticResource PrimaryButton}"
+                                            Padding="8,4"
+                                            FontSize="12"
+                                            ToolTip="Open web interface"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
 
                 <!-- Status Bar -->
                 <Border Grid.Row="2" Background="#F0F0F0" BorderBrush="#CCCCCC" BorderThickness="0,1,0,0" Padding="12,8">
@@ -155,7 +335,7 @@
                     </Grid>
                 </Border>
 
-                <!-- Discovered Devices DataGrid -->
+                <!-- Discovered Devices DataGrid with Professional Styling -->
                 <DataGrid Grid.Row="1"
                          ItemsSource="{Binding DiscoveredDevices}"
                          SelectedItem="{Binding SelectedDiscoveredDevice}"
@@ -163,14 +343,114 @@
                          CanUserAddRows="False"
                          IsReadOnly="True"
                          SelectionMode="Single"
-                         Margin="12,8">
+                         Margin="12,8"
+                         Style="{StaticResource ModernDataGrid}"
+                         ColumnHeaderStyle="{StaticResource ModernDataGridColumnHeader}"
+                         RowStyle="{StaticResource ModernDataGridRow}"
+                         CellStyle="{StaticResource ModernDataGridCell}">
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="Hostname" Binding="{Binding Hostname}" Width="150"/>
-                        <DataGridTextColumn Header="IP Address" Binding="{Binding IpAddress}" Width="120"/>
-                        <DataGridTextColumn Header="MAC Address" Binding="{Binding MacAddress}" Width="140"/>
-                        <DataGridTextColumn Header="Discovery Method" Binding="{Binding DiscoveryMethod}" Width="120"/>
-                        <DataGridTextColumn Header="Discovered At" Binding="{Binding DiscoveredAt, StringFormat='{}{0:dd.MM.yyyy HH:mm:ss}'}" Width="140"/>
-                        <DataGridCheckBoxColumn Header="Raspberry Pi?" Binding="{Binding IsLikelyRaspberryPi}" Width="100" IsReadOnly="True"/>
+                        <!-- Raspberry Pi Indicator Column -->
+                        <DataGridTemplateColumn Header="" Width="Auto" MinWidth="40">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="🍓" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center" ToolTip="Likely Raspberry Pi">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsLikelyRaspberryPi}" Value="True">
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+
+                        <!-- Hostname Column -->
+                        <DataGridTextColumn Header="Hostname" Binding="{Binding Hostname}" Width="1.5*" MinWidth="140">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                    <Setter Property="VerticalAlignment" Value="Center"/>
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+
+                        <!-- IP Address Column -->
+                        <DataGridTextColumn Header="IP Address" Binding="{Binding IpAddress}" Width="1*" MinWidth="120">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="FontFamily" Value="Consolas, Courier New"/>
+                                    <Setter Property="VerticalAlignment" Value="Center"/>
+                                    <Setter Property="Foreground" Value="#546E7A"/>
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+
+                        <!-- MAC Address Column -->
+                        <DataGridTextColumn Header="MAC Address" Binding="{Binding MacAddress}" Width="1.2*" MinWidth="140">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="FontFamily" Value="Consolas, Courier New"/>
+                                    <Setter Property="VerticalAlignment" Value="Center"/>
+                                    <Setter Property="Foreground" Value="#757575"/>
+                                    <Setter Property="FontSize" Value="12"/>
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+
+                        <!-- Discovery Method Column -->
+                        <DataGridTemplateColumn Header="Discovery Method" Width="Auto" MinWidth="130">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Border CornerRadius="8" Padding="8,4" HorizontalAlignment="Left">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="Background" Value="#E3F2FD"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding DiscoveryMethod}" Value="mDNS">
+                                                        <Setter Property="Background" Value="#E8F5E9"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding DiscoveryMethod}" Value="Network Scan">
+                                                        <Setter Property="Background" Value="#FFF3E0"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <TextBlock Text="{Binding DiscoveryMethod}" FontSize="11" FontWeight="Medium" VerticalAlignment="Center">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="#1976D2"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding DiscoveryMethod}" Value="mDNS">
+                                                            <Setter Property="Foreground" Value="#2E7D32"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding DiscoveryMethod}" Value="Network Scan">
+                                                            <Setter Property="Foreground" Value="#F57C00"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Border>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+
+                        <!-- Discovered At Column -->
+                        <DataGridTemplateColumn Header="Discovered" Width="1*" MinWidth="120">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock VerticalAlignment="Center" ToolTip="{Binding DiscoveredAt, StringFormat='{}{0:dd.MM.yyyy HH:mm:ss}'}">
+                                        <Run Text="🔍"/>
+                                        <Run Text="{Binding DiscoveredAt, Converter={StaticResource RelativeTimeConverter}}" Foreground="#757575"/>
+                                    </TextBlock>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
                     </DataGrid.Columns>
                 </DataGrid>
 
