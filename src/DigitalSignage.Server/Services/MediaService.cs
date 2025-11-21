@@ -348,10 +348,10 @@ public class MediaService : IMediaService
             _logger.LogDebug("Thumbnail not found for {FileName}, attempting to generate", fileName);
             var generatedThumbFileNameResult = await GenerateThumbnailAsync(fileName, cancellationToken: cancellationToken);
 
-            if (generatedThumbFileNameResult.IsFailure)
+            if (generatedThumbFileNameResult.IsFailure || string.IsNullOrEmpty(generatedThumbFileNameResult.Value))
             {
-                _logger.LogDebug("Could not generate thumbnail for {FileName}: {ErrorMessage}", fileName, generatedThumbFileNameResult.ErrorMessage);
-                return Result<byte[]>.Failure($"Thumbnail not found and could not be generated: {generatedThumbFileNameResult.ErrorMessage}");
+                _logger.LogDebug("Could not generate thumbnail for {FileName}: {ErrorMessage}", fileName, generatedThumbFileNameResult.ErrorMessage ?? "Null result");
+                return Result<byte[]>.Failure($"Thumbnail not found and could not be generated: {generatedThumbFileNameResult.ErrorMessage ?? "Null result"}");
             }
 
             return await GetMediaAsync(generatedThumbFileNameResult.Value, cancellationToken);

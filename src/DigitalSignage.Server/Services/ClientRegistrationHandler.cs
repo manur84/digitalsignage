@@ -68,7 +68,7 @@ internal class ClientRegistrationHandler
 
                 if (!tokenResult.IsSuccess)
                 {
-                    return Result<RaspberryPiClient>.Failure(tokenResult.ErrorMessage);
+                    return Result<RaspberryPiClient>.Failure(tokenResult.ErrorMessage ?? "Token validation failed");
                 }
 
                 assignedGroup = tokenResult.Value.Group;
@@ -330,7 +330,7 @@ internal class ClientRegistrationHandler
         try
         {
             var layoutResult = await _layoutService.GetLayoutByIdAsync(client.AssignedLayoutId, cancellationToken);
-            if (layoutResult.IsSuccess)
+            if (layoutResult.IsSuccess && layoutResult.Value != null)
             {
                 // Fetch data for data-driven elements
                 // TODO: Implement data source fetching when data-driven elements are supported

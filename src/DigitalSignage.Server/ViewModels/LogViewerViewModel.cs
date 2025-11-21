@@ -395,9 +395,9 @@ public partial class LogViewerViewModel : ObservableObject, IDisposable
         {
             var clientsResult = await _clientService.GetAllClientsAsync();
 
-            if (clientsResult.IsFailure)
+            if (clientsResult.IsFailure || clientsResult.Value == null)
             {
-                _logger.LogError("Failed to load clients: {ErrorMessage}", clientsResult.ErrorMessage);
+                _logger.LogError("Failed to load clients: {ErrorMessage}", clientsResult.ErrorMessage ?? "Null result");
                 return;
             }
 

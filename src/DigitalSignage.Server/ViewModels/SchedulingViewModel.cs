@@ -251,9 +251,9 @@ public partial class SchedulingViewModel : ObservableObject, IDisposable
         try
         {
             var layoutsResult = await _layoutService.GetAllLayoutsAsync();
-            if (layoutsResult.IsFailure)
+            if (layoutsResult.IsFailure || layoutsResult.Value == null)
             {
-                _logger.LogError("Failed to load layouts: {ErrorMessage}", layoutsResult.ErrorMessage);
+                _logger.LogError("Failed to load layouts: {ErrorMessage}", layoutsResult.ErrorMessage ?? "Null result");
                 return;
             }
 
@@ -280,9 +280,9 @@ public partial class SchedulingViewModel : ObservableObject, IDisposable
         {
             var devicesResult = await _clientService.GetAllClientsAsync();
 
-            if (devicesResult.IsFailure)
+            if (devicesResult.IsFailure || devicesResult.Value == null)
             {
-                _logger.LogError("Failed to load devices: {ErrorMessage}", devicesResult.ErrorMessage);
+                _logger.LogError("Failed to load devices: {ErrorMessage}", devicesResult.ErrorMessage ?? "Null result");
                 return;
             }
 

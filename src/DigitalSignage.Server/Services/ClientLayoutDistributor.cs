@@ -113,10 +113,10 @@ internal class ClientLayoutDistributor
         {
             // Load layout
             var layoutResult = await _layoutService.GetLayoutByIdAsync(layoutId, cancellationToken);
-            if (layoutResult.IsFailure)
+            if (layoutResult.IsFailure || layoutResult.Value == null)
             {
-                _logger.LogError("Layout {LayoutId} not found: {ErrorMessage}", layoutId, layoutResult.ErrorMessage);
-                return Result.Failure($"Layout '{layoutId}' not found: {layoutResult.ErrorMessage}");
+                _logger.LogError("Layout {LayoutId} not found: {ErrorMessage}", layoutId, layoutResult.ErrorMessage ?? "Null result");
+                return Result.Failure($"Layout '{layoutId}' not found: {layoutResult.ErrorMessage ?? "Null result"}");
             }
 
             var layout = layoutResult.Value;

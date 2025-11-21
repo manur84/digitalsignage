@@ -148,10 +148,10 @@ public partial class ServerManagementViewModel : ObservableObject, IDisposable
         {
             var clientsResult = await _clientService.GetAllClientsAsync();
 
-            if (clientsResult.IsFailure)
+            if (clientsResult.IsFailure || clientsResult.Value == null)
             {
-                _logger.LogError("Failed to load clients: {ErrorMessage}", clientsResult.ErrorMessage);
-                StatusText = $"Failed to refresh clients: {clientsResult.ErrorMessage}";
+                _logger.LogError("Failed to load clients: {ErrorMessage}", clientsResult.ErrorMessage ?? "Null result");
+                StatusText = $"Failed to refresh clients: {clientsResult.ErrorMessage ?? "Null result"}";
                 return;
             }
 

@@ -303,7 +303,7 @@ public partial class DataSourceViewModel : ObservableObject
 
         // If we have a whitelist from the database, enforce it strictly
         var hasWhitelist = AvailableColumns != null && AvailableColumns.Count > 0;
-        var whitelist = hasWhitelist
+        var whitelist = hasWhitelist && AvailableColumns != null
             ? new HashSet<string>(AvailableColumns, StringComparer.OrdinalIgnoreCase)
             : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 

@@ -162,10 +162,10 @@ public partial class LayoutManagerViewModel : ObservableObject
         {
             IsBusy = true;
             var result = await _layoutService.GetAllLayoutsAsync();
-            if (result.IsFailure)
+            if (result.IsFailure || result.Value == null)
             {
-                StatusMessage = $"Layouts konnten nicht geladen werden: {result.ErrorMessage}";
-                _logger.LogError("Failed to load layouts: {Error}", result.ErrorMessage);
+                StatusMessage = $"Layouts konnten nicht geladen werden: {result.ErrorMessage ?? "Null result"}";
+                _logger.LogError("Failed to load layouts: {Error}", result.ErrorMessage ?? "Null result");
                 return;
             }
 
@@ -230,9 +230,9 @@ public partial class LayoutManagerViewModel : ObservableObject
             layout.Tags.Add("png");
 
             var createResult = await _layoutService.CreateLayoutAsync(layout);
-            if (createResult.IsFailure)
+            if (createResult.IsFailure || createResult.Value == null)
             {
-                _logger.LogError("Failed to create PNG layout {Layout}: {Error}", fileName, createResult.ErrorMessage);
+                _logger.LogError("Failed to create PNG layout {Layout}: {Error}", fileName, createResult.ErrorMessage ?? "Null result");
                 return false;
             }
 

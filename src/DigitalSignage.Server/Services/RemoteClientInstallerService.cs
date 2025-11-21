@@ -334,8 +334,9 @@ public class RemoteClientInstallerService
     /// Configures boot splash screen with the DigitalSignage logo after installation.
     /// CRITICAL: This method MUST NEVER throw exceptions - all errors are logged and suppressed
     /// to prevent app crashes during splash screen setup (which is non-critical).
+    /// Note: Despite the Async suffix, this method is intentionally synchronous to avoid Task.Run() exception handling issues.
     /// </summary>
-    private async Task SetupSplashScreenAsync(SshClient ssh, string username, string password, CancellationToken cancellationToken, IProgress<string>? progress)
+    private Task SetupSplashScreenAsync(SshClient ssh, string username, string password, CancellationToken cancellationToken, IProgress<string>? progress)
     {
         // CRITICAL: Top-level try-catch to prevent ANY exception from escaping
         // Splash screen setup is NON-CRITICAL and should never crash the application
@@ -377,34 +378,34 @@ fi
                 // SSH connection dropped - Pi might be rebooting or network unstable
                 progress?.Report("⚠ SSH-Verbindung unterbrochen beim Prüfen (Pi könnte neu starten, nicht kritisch)");
                 _logger.LogInformation(sshEx, "SSH connection dropped during splash screen check - this is normal during setup");
-                return; // Skip splash setup if connection is unstable - not an error
+                return Task.CompletedTask; // Skip splash setup if connection is unstable - not an error
             }
             catch (Renci.SshNet.Common.SshException sshGenericEx)
             {
                 // Any other SSH exception
                 progress?.Report("⚠ SSH-Fehler beim Prüfen (nicht kritisch)");
                 _logger.LogInformation(sshGenericEx, "SSH error during splash screen check - continuing");
-                return; // Skip splash setup on SSH errors
+                return Task.CompletedTask; // Skip splash setup on SSH errors
             }
             catch (TimeoutException timeoutEx)
             {
                 // Timeout is normal during checks - not an error
                 progress?.Report("⚠ Timeout beim Prüfen der Splash-Screen-Dateien (nicht kritisch)");
                 _logger.LogInformation(timeoutEx, "Timeout during splash screen file check - continuing");
-                return; // Skip splash setup on timeout
+                return Task.CompletedTask; // Skip splash setup on timeout
             }
             catch (Exception ex)
             {
                 // Catch all other exceptions to prevent crashes
                 progress?.Report("⚠ Fehler beim Prüfen der Splash-Screen-Dateien (nicht kritisch)");
                 _logger.LogInformation(ex, "Error during splash screen check - continuing without splash setup");
-                return; // Skip splash setup on any error
+                return Task.CompletedTask; // Skip splash setup on any error
             }
 
             if (checkResult?.Contains("SPLASH_NOT_AVAILABLE", StringComparison.OrdinalIgnoreCase) == true)
             {
                 progress?.Report("Splash-Screen-Setup übersprungen (Logo oder Skript nicht gefunden)");
-                return;
+                return Task.CompletedTask;
             }
 
             progress?.Report("Logo und Skript gefunden. Richte Splash-Screen ein...");
@@ -497,6 +498,8 @@ fi
             _logger.LogWarning(ex, "Unexpected error during splash screen setup (non-critical) - caught at top level");
             progress?.Report("⚠ Splash-Screen-Setup übersprungen (Fehler, nicht kritisch)");
         }
+
+        return Task.CompletedTask;
     }
 
     private async Task<Result> HandleConnectionDropAsync(
@@ -526,7 +529,7 @@ fi
         return Result.Failure("SSH connection was aborted by the server during installation. Verify network/firewall and retry.", ex);
     }
 
-    private static bool TryUnwrapSshConnection(AggregateException aggregate, out SshConnectionException sshEx)
+    private static bool TryUnwrapSshConnection(AggregateException aggregate, out SshConnectionException? sshEx)
     {
         var flattened = aggregate.Flatten();
         sshEx = flattened.InnerExceptions.OfType<SshConnectionException>().FirstOrDefault();

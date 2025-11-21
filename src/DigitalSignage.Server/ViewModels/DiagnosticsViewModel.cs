@@ -72,6 +72,13 @@ public partial class DiagnosticsViewModel : ObservableObject, IDisposable
                     return;
                 }
 
+                if (clientsResult.Value == null || layoutsResult.Value == null)
+                {
+                    _logger.LogError("Database test returned null values");
+                    StatusText = "Database test failed: Null values returned";
+                    return;
+                }
+
                 var message = $"✅ Database Connection Successful!\n\n" +
                              $"Connection String:\n{connectionString}\n\n" +
                              $"Statistics:\n" +
