@@ -60,6 +60,13 @@ public class ServerSettings
     public int ClientHeartbeatTimeout { get; set; } = 90;
 
     /// <summary>
+    /// Preferred network interface for WebSocket server binding and discovery
+    /// Can be interface name (e.g., "Ethernet", "Wi-Fi") or IP address
+    /// Empty or null = auto-select first available non-localhost interface
+    /// </summary>
+    public string? PreferredNetworkInterface { get; set; }
+
+    /// <summary>
     /// Get an available port, either the configured port or an alternative
     /// </summary>
     public int GetAvailablePort()
@@ -134,6 +141,17 @@ public class ServerSettings
     {
         var protocol = EnableSsl ? "https" : "http";
         return $"{protocol}://localhost:{Port}{EndpointPath}";
+    }
+
+    /// <summary>
+    /// Get the URL prefix for a specific IP address
+    /// </summary>
+    /// <param name="ipAddress">IP address to bind to</param>
+    /// <returns>URL prefix for the specific IP address</returns>
+    public string GetIpSpecificPrefix(string ipAddress)
+    {
+        var protocol = EnableSsl ? "https" : "http";
+        return $"{protocol}://{ipAddress}:{Port}{EndpointPath}";
     }
 
     /// <summary>

@@ -58,8 +58,9 @@ public class MdnsDiscoveryService : BackgroundService
             var endpointPath = _serverSettings.EndpointPath?.TrimStart('/') ?? "ws";
             var sslEnabled = _serverSettings.EnableSsl;
 
-            // Get local IP addresses
-            var localIPs = GetLocalIPAddresses();
+            // Get all local IP addresses
+            IPAddress[] localIPs = GetLocalIPAddresses();
+            _logger.LogInformation("Advertising all network interfaces");
 
             _logger.LogInformation("mDNS Service Configuration:");
             _logger.LogInformation("  Service Name: {ServiceName}", serviceName);

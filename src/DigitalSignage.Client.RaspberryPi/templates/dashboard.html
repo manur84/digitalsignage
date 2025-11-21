@@ -983,14 +983,48 @@
 
                 const html = `
                     <div class="info-item">
-                        <div class="info-label">Server</div>
-                        <div class="info-value">
-                            <input type="text" id="serverHost" value="${data.server_host || ''}" placeholder="Server host" style="width: 55%; padding: 8px; border-radius: 6px; border: 1px solid #4A90E2; background: #222; color: #fff;">
-                            <input type="number" id="serverPort" value="${data.server_port || 8080}" min="1" max="65535" style="width: 35%; padding: 8px; border-radius: 6px; border: 1px solid #4A90E2; background: #222; color: #fff; margin-left: 8px;">
+                        <div class="info-label">Server Connection</div>
+
+                        <!-- Server Discovery Dropdown -->
+                        <div class="info-value" style="margin-bottom: 12px;">
+                            <label style="color: #B0B0B0; font-size: 0.85em; display: block; margin-bottom: 5px;">
+                                Discovered Servers:
+                            </label>
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                <select id="discoveredServers" style="flex: 1; padding: 8px; border-radius: 6px; background: #333; color: #fff; border: 1px solid #4A90E2;">
+                                    <option value="">-- Select Server --</option>
+                                </select>
+                                <button onclick="refreshDiscoveredServers()" class="btn btn-secondary" style="padding: 8px 16px; white-space: nowrap;">
+                                    🔍 Scan
+                                </button>
+                            </div>
+                            <div id="discoveryStatus" style="margin-top: 6px; font-size: 0.8em; color: #B0B0B0;"></div>
                         </div>
-                        <div class="info-value" style="margin-top: 8px;">
+
+                        <!-- Manual Server Configuration -->
+                        <div class="info-value" style="margin-bottom: 8px;">
+                            <label style="color: #B0B0B0; font-size: 0.85em; display: block; margin-bottom: 5px;">
+                                Manual Server Configuration:
+                            </label>
+                            <input type="text" id="serverHost" value="${data.server_host || ''}" placeholder="e.g. 192.168.1.100" style="width: 55%; padding: 8px; border-radius: 6px; border: 1px solid #4A90E2; background: #222; color: #fff;">
+                            <input type="number" id="serverPort" value="${data.server_port || 8080}" min="1" max="65535" placeholder="Port" style="width: 35%; padding: 8px; border-radius: 6px; border: 1px solid #4A90E2; background: #222; color: #fff; margin-left: 8px;">
+                        </div>
+                        <div class="info-value" style="margin-bottom: 12px;">
                             <input type="text" id="endpointPath" value="${data.endpoint_path || ''}" placeholder="Endpoint path (e.g. ws/)" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #4A90E2; background: #222; color: #fff;">
+                            <small style="color: #B0B0B0; font-size: 0.75em; display: block; margin-top: 4px;">
+                                Leave empty for auto-discovery, or enter manual IP to override
+                            </small>
                         </div>
+
+                        <!-- Current Connection Status -->
+                        <div style="background: rgba(74, 144, 226, 0.1); border: 1px solid #4A90E2; border-radius: 6px; padding: 10px; margin-bottom: 12px;">
+                            <div style="font-size: 0.85em; color: #B0B0B0; margin-bottom: 4px;">Currently configured:</div>
+                            <div style="font-weight: 600; color: #4A90E2;" id="currentServerDisplay">
+                                ${data.server_host ? (data.server_host + ':' + data.server_port) : 'Auto-Discovery'}
+                            </div>
+                        </div>
+
+                        <!-- SSL Settings -->
                         <div style="margin-top: 10px; font-size: 0.9em;">
                             <label class="switch">
                                 <input type="checkbox" id="useSSL" ${data.use_ssl ? 'checked' : ''}>
@@ -1266,6 +1300,135 @@
                 alert('Failed to select layout: ' + error.message);
             }
         }
+
+        // ============================================================
+        // Server Discovery Functions
+        // ============================================================
+
+        /**
+         * Refresh the list of discovered servers via auto-discovery.
+         * Uses both mDNS and UDP broadcast to find all available servers.
+         * IPs are automatically filtered (localhost removed) and prioritized (192.168.x.x first).
+         */
+        async function refreshDiscoveredServers() {
+            const select = document.getElementById('discoveredServers');
+            const statusDiv = document.getElementById('discoveryStatus');
+            const btn = event.target;
+
+            // Disable button and show loading state
+            btn.disabled = true;
+            btn.innerHTML = '🔄 Scanning...';
+            statusDiv.textContent = 'Scanning network for servers...';
+            statusDiv.style.color = '#4A90E2';
+
+            try {
+                const response = await fetch('/api/discovered-servers');
+                const data = await response.json();
+
+                // Clear dropdown
+                select.innerHTML = '<option value="">-- Select Server --</option>';
+
+                if (data.success && data.servers && data.servers.length > 0) {
+                    // Add discovered servers to dropdown
+                    data.servers.forEach(server => {
+                        // Add an optgroup for each server
+                        const optgroup = document.createElement('optgroup');
+                        optgroup.label = `${server.server_name} (${server.protocol.toUpperCase()})`;
+
+                        // Add option for each IP address
+                        server.ips.forEach((ip, index) => {
+                            const option = document.createElement('option');
+                            option.value = ip;
+                            option.setAttribute('data-port', server.port);
+                            option.setAttribute('data-protocol', server.protocol);
+                            option.setAttribute('data-ssl', server.ssl_enabled);
+                            option.setAttribute('data-endpoint', server.endpoint_path);
+
+                            // Format display text
+                            let displayText = `${ip}:${server.port}`;
+                            if (index === 0) {
+                                displayText += ' ⭐ (Best)'; // Mark primary/best IP
+                            }
+
+                            option.text = displayText;
+                            optgroup.appendChild(option);
+                        });
+
+                        select.appendChild(optgroup);
+                    });
+
+                    statusDiv.textContent = `✓ Found ${data.servers.length} server(s) with ${data.servers.reduce((sum, s) => sum + s.ips.length, 0)} IP(s)`;
+                    statusDiv.style.color = '#5CB85C';
+
+                    console.log('Discovered servers:', data.servers);
+                } else {
+                    statusDiv.textContent = '⚠ No servers discovered. Check network and server status.';
+                    statusDiv.style.color = '#F0AD4E';
+                    console.warn('No servers discovered:', data);
+                }
+            } catch (error) {
+                console.error('Discovery failed:', error);
+                statusDiv.textContent = '✗ Discovery failed: ' + error.message;
+                statusDiv.style.color = '#D9534F';
+                alert('Server discovery failed: ' + error.message);
+            } finally {
+                // Re-enable button
+                btn.disabled = false;
+                btn.innerHTML = '🔍 Scan';
+            }
+        }
+
+        /**
+         * Called when user selects a server from the discovered servers dropdown.
+         * Automatically fills in the manual server configuration fields.
+         */
+        function selectDiscoveredServer() {
+            const select = document.getElementById('discoveredServers');
+            const selectedOption = select.options[select.selectedIndex];
+
+            if (!selectedOption || !selectedOption.value) {
+                return; // No selection
+            }
+
+            // Extract server info from option data attributes
+            const ip = selectedOption.value;
+            const port = selectedOption.getAttribute('data-port') || '8080';
+            const protocol = selectedOption.getAttribute('data-protocol') || 'ws';
+            const sslEnabled = selectedOption.getAttribute('data-ssl') === 'true';
+            const endpointPath = selectedOption.getAttribute('data-endpoint') || 'ws/';
+
+            // Fill in manual configuration fields
+            document.getElementById('serverHost').value = ip;
+            document.getElementById('serverPort').value = port;
+            document.getElementById('endpointPath').value = endpointPath;
+            document.getElementById('useSSL').checked = sslEnabled;
+
+            // Update current server display
+            document.getElementById('currentServerDisplay').textContent = `${ip}:${port}`;
+
+            console.log('Selected server:', { ip, port, protocol, sslEnabled, endpointPath });
+        }
+
+        // Attach event listener to dropdown
+        document.addEventListener('DOMContentLoaded', () => {
+            const select = document.getElementById('discoveredServers');
+            if (select) {
+                select.addEventListener('change', selectDiscoveredServer);
+            }
+
+            // Auto-trigger discovery scan 2 seconds after page load
+            setTimeout(() => {
+                const btn = document.querySelector('button[onclick="refreshDiscoveredServers()"]');
+                if (btn && !btn.disabled) {
+                    console.log('Auto-triggering server discovery...');
+                    refreshDiscoveredServers();
+                }
+            }, 2000);
+        });
+
+        // ============================================================
+        // End of Server Discovery Functions
+        // ============================================================
     </script>
 </body>
 </html>

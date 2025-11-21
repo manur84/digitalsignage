@@ -47,9 +47,11 @@ public class DiscoveryService : BackgroundService
 
         try
         {
+            // Bind to all interfaces
             _udpListener = new UdpClient(DiscoveryPort);
+            _logger.LogInformation("UDP listener bound to all interfaces on port {Port}", DiscoveryPort);
+
             _udpListener.EnableBroadcast = true;
-            _logger.LogInformation("UDP listener created and bound to port {Port}", DiscoveryPort);
             _logger.LogInformation("Broadcast enabled: True");
             _logger.LogInformation("Waiting for discovery requests from clients...");
 
@@ -101,8 +103,9 @@ public class DiscoveryService : BackgroundService
     {
         try
         {
-            // Get local IP addresses
-            var localIPs = GetLocalIPAddresses();
+            // Get all local IP addresses
+            string[] localIPs = GetLocalIPAddresses();
+
             var protocol = _serverSettings.EnableSsl ? "wss" : "ws";
             var port = _serverSettings.Port;
             var endpointPath = _serverSettings.EndpointPath?.TrimStart('/') ?? "ws";

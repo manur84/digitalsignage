@@ -1,8 +1,11 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DigitalSignage.Core.Interfaces;
+using DigitalSignage.Core.Models;
+using DigitalSignage.Server.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using System.Collections.ObjectModel;
 using System.ComponentModel.DataAnnotations;
 using System.IO;
 using System.Text.Json;
@@ -19,6 +22,7 @@ public partial class SettingsViewModel : ObservableValidator
     private readonly IConfiguration _configuration;
     private readonly ILogger<SettingsViewModel> _logger;
     private readonly IDialogService _dialogService;
+    private readonly NetworkInterfaceService _networkInterfaceService;
     private readonly string _appSettingsPath;
 
     #region Server Settings
@@ -158,6 +162,19 @@ public partial class SettingsViewModel : ObservableValidator
 
     #endregion
 
+    #region Network Interface Settings
+
+    [ObservableProperty]
+    private string _preferredNetworkInterface = string.Empty;
+
+    [ObservableProperty]
+    private ObservableCollection<NetworkInterfaceInfo> _availableNetworkInterfaces = new();
+
+    [ObservableProperty]
+    private NetworkInterfaceInfo? _selectedNetworkInterface;
+
+    #endregion
+
     #region State Management
 
     [ObservableProperty]
@@ -171,11 +188,16 @@ public partial class SettingsViewModel : ObservableValidator
 
     #endregion
 
-    public SettingsViewModel(IConfiguration configuration, IDialogService dialogService, ILogger<SettingsViewModel> logger)
+    public SettingsViewModel(
+        IConfiguration configuration,
+        IDialogService dialogService,
+        ILogger<SettingsViewModel> logger,
+        NetworkInterfaceService networkInterfaceService)
     {
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _networkInterfaceService = networkInterfaceService ?? throw new ArgumentNullException(nameof(networkInterfaceService));
         _appSettingsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "appsettings.json");
 
         // Subscribe to property changes to track dirty state
@@ -183,13 +205,27 @@ public partial class SettingsViewModel : ObservableValidator
         {
             if (e.PropertyName != nameof(HasUnsavedChanges) &&
                 e.PropertyName != nameof(IsSaving) &&
-                e.PropertyName != nameof(StatusMessage))
+                e.PropertyName != nameof(StatusMessage) &&
+                e.PropertyName != nameof(AvailableNetworkInterfaces))
             {
                 HasUnsavedChanges = true;
             }
         };
 
+        // Subscribe to selected interface changes
+        PropertyChanged += (s, e) =>
+        {
+            if (e.PropertyName == nameof(SelectedNetworkInterface))
+            {
+                if (SelectedNetworkInterface != null)
+                {
+                    PreferredNetworkInterface = SelectedNetworkInterface.Name;
+                }
+            }
+        };
+
         LoadSettings();
+        LoadNetworkInterfaces();
     }
 
     /// <summary>
@@ -253,6 +289,9 @@ public partial class SettingsViewModel : ObservableValidator
             EnableUdpBroadcast = _configuration.GetValue<bool>("DiscoverySettings:EnableUdpBroadcast", true);
             DiscoveryInterval = _configuration.GetValue<int>("DiscoverySettings:DiscoveryInterval", 30);
 
+            // Network Interface Settings
+            PreferredNetworkInterface = _configuration.GetValue<string>("ServerSettings:PreferredNetworkInterface") ?? string.Empty;
+
             HasUnsavedChanges = false;
             StatusMessage = "Settings loaded successfully";
             _logger.LogInformation("Settings loaded successfully");
@@ -262,6 +301,49 @@ public partial class SettingsViewModel : ObservableValidator
             _logger.LogError(ex, "Failed to load settings");
             StatusMessage = $"Error loading settings: {ex.Message}";
         }
+    }
+
+    /// <summary>
+    /// Load available network interfaces
+    /// </summary>
+    private void LoadNetworkInterfaces()
+    {
+        try
+        {
+            _logger.LogInformation("Loading network interfaces");
+
+            var interfaces = _networkInterfaceService.GetAllNetworkInterfaces();
+            AvailableNetworkInterfaces.Clear();
+
+            foreach (var networkInterface in interfaces)
+            {
+                AvailableNetworkInterfaces.Add(networkInterface);
+            }
+
+            // Select the preferred interface if set
+            if (!string.IsNullOrWhiteSpace(PreferredNetworkInterface))
+            {
+                SelectedNetworkInterface = AvailableNetworkInterfaces
+                    .FirstOrDefault(i => i.Name.Equals(PreferredNetworkInterface, StringComparison.OrdinalIgnoreCase) ||
+                                        i.IpAddress.Equals(PreferredNetworkInterface, StringComparison.Ordinal));
+            }
+
+            _logger.LogInformation("Loaded {Count} network interfaces", AvailableNetworkInterfaces.Count);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to load network interfaces");
+        }
+    }
+
+    /// <summary>
+    /// Refresh network interfaces list
+    /// </summary>
+    [RelayCommand]
+    private void RefreshNetworkInterfaces()
+    {
+        LoadNetworkInterfaces();
+        StatusMessage = $"Network interfaces refreshed. Found {AvailableNetworkInterfaces.Count} interfaces.";
     }
 
     /// <summary>
@@ -303,7 +385,8 @@ public partial class SettingsViewModel : ObservableValidator
                 ["CertificatePassword"] = string.IsNullOrWhiteSpace(CertificatePassword) ? null : CertificatePassword,
                 ["EndpointPath"] = EndpointPath,
                 ["MaxMessageSize"] = MaxMessageSize,
-                ["ClientHeartbeatTimeout"] = ClientHeartbeatTimeout
+                ["ClientHeartbeatTimeout"] = ClientHeartbeatTimeout,
+                ["PreferredNetworkInterface"] = string.IsNullOrWhiteSpace(PreferredNetworkInterface) ? null : PreferredNetworkInterface
             };
             settings["ServerSettings"] = JsonSerializer.SerializeToElement(serverSettings);
 

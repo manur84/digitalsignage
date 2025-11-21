@@ -109,6 +109,108 @@ def get_eth0_network_info() -> Optional[Dict[str, str]]:
     return None
 
 
+def filter_and_prioritize_ips(ips: List[str]) -> List[str]:
+    """
+    Filter out localhost/invalid IPs and prioritize by type.
+
+    Priority order (lower number = higher priority):
+    1. 192.168.x.x (Class C private network - highest priority)
+    2. 10.x.x.x (Class A private network)
+    3. 172.16-31.x.x (Class B private network)
+    4. Other private IPs
+    5. Public IPs (lowest priority)
+
+    Filters out:
+    - Localhost/loopback (127.x.x.x, ::1)
+    - Unspecified (0.0.0.0, ::)
+    - Link-local (169.254.x.x, fe80::/10)
+    - Invalid IPs
+
+    Args:
+        ips: List of IP address strings
+
+    Returns:
+        Filtered and prioritized list of IP addresses
+    """
+    import ipaddress
+
+    def ip_priority(ip_str: str) -> int:
+        """
+        Calculate IP priority (lower number = higher priority).
+
+        Returns:
+            0 = 192.168.x.x (highest priority - typical home/office network)
+            1 = 10.x.x.x (corporate network)
+            2 = 172.16-31.x.x (corporate network)
+            3 = other private IPs
+            4 = public IPs (lowest priority)
+            999 = invalid IP
+        """
+        try:
+            ip = ipaddress.ip_address(ip_str)
+
+            if ip.is_private:
+                # Sub-prioritize private IPs by subnet
+                if ip_str.startswith('192.168.'):
+                    return 0  # Highest priority - typical home/office network
+                elif ip_str.startswith('10.'):
+                    return 1  # Corporate network
+                elif ip_str.startswith('172.'):
+                    # Check if 172.16-31.x.x (Class B private)
+                    octets = ip_str.split('.')
+                    if len(octets) >= 2:
+                        try:
+                            second_octet = int(octets[1])
+                            if 16 <= second_octet <= 31:
+                                return 2  # Class B private
+                        except ValueError:
+                            pass
+                    return 3  # Other 172.x.x.x
+                return 3  # Other private IP ranges
+            else:
+                return 4  # Public IP - lowest priority for local network discovery
+        except (ValueError, TypeError):
+            return 999  # Invalid IP
+
+    valid_ips = []
+
+    for ip_str in ips:
+        try:
+            ip = ipaddress.ip_address(ip_str)
+
+            # Filter out invalid IPs
+            if ip.is_loopback:
+                logger.debug(f"Filtering out loopback IP: {ip_str}")
+                continue
+            if ip.is_unspecified:
+                logger.debug(f"Filtering out unspecified IP: {ip_str}")
+                continue
+            if ip.is_link_local:
+                logger.debug(f"Filtering out link-local IP: {ip_str}")
+                continue
+
+            # Add to valid list
+            valid_ips.append(ip_str)
+            priority = ip_priority(ip_str)
+            logger.debug(f"Valid IP: {ip_str} (priority: {priority})")
+
+        except (ValueError, TypeError) as e:
+            logger.debug(f"Invalid IP address '{ip_str}': {e}")
+            continue
+
+    # Sort by priority (192.168.x.x first, then 10.x.x.x, etc.)
+    result = sorted(valid_ips, key=ip_priority)
+
+    if not result:
+        logger.warning(f"All IPs filtered out from list: {ips}")
+    else:
+        logger.debug(f"Filtered and prioritized IPs: {result} (from {ips})")
+        if result:
+            logger.info(f"Best IP selected: {result[0]} (priority: {ip_priority(result[0])})")
+
+    return result
+
+
 @dataclass
 class ServerInfo:
     """Information about a discovered server"""
@@ -120,15 +222,19 @@ class ServerInfo:
     ssl_enabled: bool
     timestamp: datetime
 
+    def __post_init__(self):
+        """Filter and prioritize IPs after initialization"""
+        self.local_ips = filter_and_prioritize_ips(self.local_ips)
+
     def get_urls(self) -> List[str]:
-        """Get all possible WebSocket URLs for this server"""
+        """Get all possible WebSocket URLs for this server (filtered and prioritized)"""
         return [
             f"{self.protocol}://{ip}:{self.port}/{self.endpoint_path}"
             for ip in self.local_ips
         ]
 
     def get_primary_url(self) -> str:
-        """Get the first/primary WebSocket URL"""
+        """Get the first/primary WebSocket URL (best IP)"""
         urls = self.get_urls()
         return urls[0] if urls else ""
 
@@ -448,50 +554,126 @@ class DiscoveryClient:
             return None
 
 
-def discover_server(timeout: float = 5.0, prefer_mdns: bool = True) -> Optional[str]:
+def discover_server(timeout: float = 5.0, prefer_mdns: bool = True, parallel: bool = True) -> Optional[str]:
     """
     Convenience function to discover a server and return the first WebSocket URL.
-    Tries mDNS first (if available), then falls back to UDP broadcast.
 
     Args:
-        timeout: Discovery timeout in seconds
-        prefer_mdns: Try mDNS first before UDP broadcast (default: True)
+        timeout: Discovery timeout in seconds (applies to each method if sequential)
+        prefer_mdns: If True and parallel=False, try mDNS first before UDP (default: True)
+        parallel: If True, run mDNS and UDP discovery in parallel for faster results (default: True)
 
     Returns:
         WebSocket URL string, or None if no server found
-    """
-    servers = []
 
-    # Try mDNS first if available and preferred
-    if prefer_mdns and MDNS_AVAILABLE:
-        logger.info("Attempting mDNS discovery...")
-        mdns_discovery = MdnsDiscoveryClient()
-        servers = mdns_discovery.discover_servers(timeout=timeout)
+    Performance:
+    - Sequential mode: Tries methods one after another (slower, but uses less resources)
+    - Parallel mode (default): Runs both methods simultaneously (faster discovery)
+    """
+    if parallel:
+        # OPTIMIZED: Run both discovery methods in parallel for fastest results
+        logger.info("Starting parallel discovery (mDNS + UDP broadcast)...")
+
+        import concurrent.futures
+        import threading
+
+        servers = []
+        servers_lock = threading.Lock()
+        found_event = threading.Event()
+
+        def run_mdns():
+            """Run mDNS discovery in parallel thread"""
+            if not MDNS_AVAILABLE:
+                return
+            try:
+                logger.debug("  [Thread] mDNS discovery starting...")
+                mdns_discovery = MdnsDiscoveryClient()
+                mdns_servers = mdns_discovery.discover_servers(timeout=timeout)
+                if mdns_servers:
+                    with servers_lock:
+                        servers.extend(mdns_servers)
+                    found_event.set()  # Signal that we found servers
+                    logger.info(f"  [Thread] mDNS found {len(mdns_servers)} server(s)")
+            except Exception as e:
+                logger.warning(f"  [Thread] mDNS discovery error: {e}")
+
+        def run_udp():
+            """Run UDP broadcast discovery in parallel thread"""
+            try:
+                logger.debug("  [Thread] UDP broadcast discovery starting...")
+                udp_discovery = DiscoveryClient()
+                udp_servers = udp_discovery.discover_servers(timeout=timeout)
+                if udp_servers:
+                    with servers_lock:
+                        servers.extend(udp_servers)
+                    found_event.set()  # Signal that we found servers
+                    logger.info(f"  [Thread] UDP found {len(udp_servers)} server(s)")
+            except Exception as e:
+                logger.warning(f"  [Thread] UDP discovery error: {e}")
+
+        # Execute both methods in parallel
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            futures = []
+            if MDNS_AVAILABLE:
+                futures.append(executor.submit(run_mdns))
+            futures.append(executor.submit(run_udp))
+
+            # Wait for both to complete (or timeout)
+            concurrent.futures.wait(futures, timeout=timeout + 1)
+
+        # Check results
+        with servers_lock:
+            if servers:
+                # Remove duplicates (same server name)
+                unique_servers = []
+                seen_names = set()
+                for server in servers:
+                    if server.server_name not in seen_names:
+                        unique_servers.append(server)
+                        seen_names.add(server.server_name)
+
+                server = unique_servers[0]
+                url = server.get_primary_url()
+                logger.info(f"✓ Auto-discovered server (parallel): {url}")
+                return url
+
+        logger.warning("No servers discovered (parallel mode)")
+        return None
+
+    else:
+        # SEQUENTIAL MODE: Try methods one after another (original behavior)
+        servers = []
+
+        # Try mDNS first if available and preferred
+        if prefer_mdns and MDNS_AVAILABLE:
+            logger.info("Attempting mDNS discovery...")
+            mdns_discovery = MdnsDiscoveryClient()
+            servers = mdns_discovery.discover_servers(timeout=timeout)
+
+            if servers:
+                server = servers[0]
+                url = server.get_primary_url()
+                logger.info(f"Auto-discovered server via mDNS: {url}")
+                return url
+            else:
+                logger.info("No servers found via mDNS, falling back to UDP broadcast...")
+
+        # Fallback to UDP broadcast
+        logger.info("Attempting UDP broadcast discovery...")
+        udp_discovery = DiscoveryClient()
+        servers = udp_discovery.discover_servers(timeout=timeout)
 
         if servers:
             server = servers[0]
             url = server.get_primary_url()
-            logger.info(f"Auto-discovered server via mDNS: {url}")
+            logger.info(f"Auto-discovered server via UDP broadcast: {url}")
             return url
         else:
-            logger.info("No servers found via mDNS, falling back to UDP broadcast...")
-
-    # Fallback to UDP broadcast
-    logger.info("Attempting UDP broadcast discovery...")
-    udp_discovery = DiscoveryClient()
-    servers = udp_discovery.discover_servers(timeout=timeout)
-
-    if servers:
-        server = servers[0]
-        url = server.get_primary_url()
-        logger.info(f"Auto-discovered server via UDP broadcast: {url}")
-        return url
-    else:
-        logger.warning("No servers discovered on the network (tried mDNS and UDP broadcast)")
-        return None
+            logger.warning("No servers discovered on the network (tried mDNS and UDP broadcast)")
+            return None
 
 
-def discover_all_servers(timeout: float = 5.0, use_mdns: bool = True, use_udp: bool = True) -> List[ServerInfo]:
+def discover_all_servers(timeout: float = 5.0, use_mdns: bool = True, use_udp: bool = True, parallel: bool = True) -> List[ServerInfo]:
     """
     Discover all available servers using both mDNS and UDP broadcast.
 
@@ -499,36 +681,109 @@ def discover_all_servers(timeout: float = 5.0, use_mdns: bool = True, use_udp: b
         timeout: Discovery timeout in seconds
         use_mdns: Use mDNS discovery (default: True)
         use_udp: Use UDP broadcast discovery (default: True)
+        parallel: Run both methods in parallel for faster results (default: True)
 
     Returns:
-        List of all discovered ServerInfo objects
+        List of all discovered ServerInfo objects (deduplicated by server name)
+
+    Performance:
+    - Parallel mode (default): ~5 seconds total (both methods run simultaneously)
+    - Sequential mode: ~10 seconds total (5s mDNS + 5s UDP)
     """
     all_servers = []
     seen_names = set()
 
-    # Try mDNS
-    if use_mdns and MDNS_AVAILABLE:
-        logger.info("Scanning for servers via mDNS...")
-        mdns_discovery = MdnsDiscoveryClient()
-        mdns_servers = mdns_discovery.discover_servers(timeout=timeout)
+    if parallel and use_mdns and use_udp:
+        # OPTIMIZED: Run both discovery methods in parallel
+        logger.info("Scanning for servers (parallel: mDNS + UDP)...")
 
-        for server in mdns_servers:
-            if server.server_name not in seen_names:
-                all_servers.append(server)
-                seen_names.add(server.server_name)
-                logger.info(f"Found server via mDNS: {server.server_name}")
+        import concurrent.futures
+        import threading
 
-    # Try UDP broadcast
-    if use_udp:
-        logger.info("Scanning for servers via UDP broadcast...")
-        udp_discovery = DiscoveryClient()
-        udp_servers = udp_discovery.discover_servers(timeout=timeout)
+        servers_lock = threading.Lock()
 
-        for server in udp_servers:
-            if server.server_name not in seen_names:
-                all_servers.append(server)
-                seen_names.add(server.server_name)
-                logger.info(f"Found server via UDP: {server.server_name}")
+        def run_mdns():
+            """Run mDNS discovery in parallel thread"""
+            if not MDNS_AVAILABLE:
+                logger.warning("  [Thread] mDNS not available (zeroconf not installed)")
+                return []
+            try:
+                logger.debug("  [Thread] mDNS discovery starting...")
+                mdns_discovery = MdnsDiscoveryClient()
+                return mdns_discovery.discover_servers(timeout=timeout)
+            except Exception as e:
+                logger.warning(f"  [Thread] mDNS discovery error: {e}")
+                return []
+
+        def run_udp():
+            """Run UDP broadcast discovery in parallel thread"""
+            try:
+                logger.debug("  [Thread] UDP broadcast discovery starting...")
+                udp_discovery = DiscoveryClient()
+                return udp_discovery.discover_servers(timeout=timeout)
+            except Exception as e:
+                logger.warning(f"  [Thread] UDP discovery error: {e}")
+                return []
+
+        # Execute both methods in parallel
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            mdns_future = executor.submit(run_mdns) if use_mdns else None
+            udp_future = executor.submit(run_udp) if use_udp else None
+
+            # Wait for both to complete
+            futures = [f for f in [mdns_future, udp_future] if f is not None]
+            concurrent.futures.wait(futures, timeout=timeout + 1)
+
+            # Collect results
+            if mdns_future:
+                try:
+                    mdns_servers = mdns_future.result(timeout=1)
+                    logger.info(f"  mDNS found {len(mdns_servers)} server(s)")
+                    for server in mdns_servers:
+                        if server.server_name not in seen_names:
+                            all_servers.append(server)
+                            seen_names.add(server.server_name)
+                            logger.info(f"    ✓ {server.server_name}")
+                except Exception as e:
+                    logger.warning(f"  mDNS result retrieval error: {e}")
+
+            if udp_future:
+                try:
+                    udp_servers = udp_future.result(timeout=1)
+                    logger.info(f"  UDP found {len(udp_servers)} server(s)")
+                    for server in udp_servers:
+                        if server.server_name not in seen_names:
+                            all_servers.append(server)
+                            seen_names.add(server.server_name)
+                            logger.info(f"    ✓ {server.server_name}")
+                except Exception as e:
+                    logger.warning(f"  UDP result retrieval error: {e}")
+
+    else:
+        # SEQUENTIAL MODE: Run methods one after another
+        # Try mDNS
+        if use_mdns and MDNS_AVAILABLE:
+            logger.info("Scanning for servers via mDNS...")
+            mdns_discovery = MdnsDiscoveryClient()
+            mdns_servers = mdns_discovery.discover_servers(timeout=timeout)
+
+            for server in mdns_servers:
+                if server.server_name not in seen_names:
+                    all_servers.append(server)
+                    seen_names.add(server.server_name)
+                    logger.info(f"Found server via mDNS: {server.server_name}")
+
+        # Try UDP broadcast
+        if use_udp:
+            logger.info("Scanning for servers via UDP broadcast...")
+            udp_discovery = DiscoveryClient()
+            udp_servers = udp_discovery.discover_servers(timeout=timeout)
+
+            for server in udp_servers:
+                if server.server_name not in seen_names:
+                    all_servers.append(server)
+                    seen_names.add(server.server_name)
+                    logger.info(f"Found server via UDP: {server.server_name}")
 
     logger.info(f"Total servers discovered: {len(all_servers)}")
     return all_servers

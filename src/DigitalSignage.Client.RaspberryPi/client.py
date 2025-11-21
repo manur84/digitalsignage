@@ -297,7 +297,34 @@ class DigitalSignageClient:
 
     def on_error(self, ws, error):
         """WebSocket error occurred"""
-        logger.error(f"WebSocket error: {error}")
+        logger.error("=" * 70)
+        logger.error("WEBSOCKET ERROR OCCURRED")
+        logger.error("=" * 70)
+        logger.error(f"Error type: {type(error).__name__}")
+        logger.error(f"Error message: {error}")
+
+        # Provide specific error details
+        import errno
+        import ssl
+
+        if isinstance(error, ConnectionRefusedError):
+            logger.error("Connection refused - server not accepting connections")
+            logger.error("  Check if server is running")
+            logger.error("  Check firewall settings")
+        elif isinstance(error, ssl.SSLError):
+            logger.error("SSL/TLS error - certificate or encryption issue")
+            logger.error(f"  SSL Details: {error}")
+            logger.error("  Try disabling SSL verification in config.json")
+        elif isinstance(error, OSError):
+            if hasattr(error, 'errno'):
+                if error.errno == errno.ENETUNREACH:
+                    logger.error("Network unreachable - check network connection")
+                elif error.errno == errno.ETIMEDOUT:
+                    logger.error("Connection timed out - server not responding")
+                elif error.errno == errno.ECONNREFUSED:
+                    logger.error("Connection refused - server not listening on this port")
+
+        logger.error("=" * 70)
 
     def on_close(self, ws, close_status_code, close_msg):
         """WebSocket connection closed"""
@@ -347,12 +374,32 @@ class DigitalSignageClient:
     def connect_websocket(self, server_url: str):
         """Connect to WebSocket server"""
         try:
-            logger.info(f"Creating WebSocket connection to {server_url}")
+            logger.info("=" * 70)
+            logger.info("WEBSOCKET CONNECTION ATTEMPT")
+            logger.info("=" * 70)
+            logger.info(f"Input server_url: {server_url}")
 
             # Parse URL to extract components
             # server_url format: http://host:port/path or https://host:port/path
             # We need: ws://host:port/path or wss://host:port/path
             ws_url = server_url.replace('http://', 'ws://').replace('https://', 'wss://')
+
+            logger.info(f"Converted to WebSocket URL: {ws_url}")
+
+            # Extract components for detailed logging
+            import re
+            match = re.match(r'(wss?)://([^/:]+):(\d+)/(.+)', ws_url)
+            if match:
+                protocol, host, port, endpoint = match.groups()
+                logger.info(f"  Protocol: {protocol}")
+                logger.info(f"  Host: {host}")
+                logger.info(f"  Port: {port}")
+                logger.info(f"  Endpoint: {endpoint}")
+            else:
+                logger.warning(f"Could not parse WebSocket URL: {ws_url}")
+                logger.warning("  URL format should be: ws[s]://host:port/endpoint")
+
+            logger.info("=" * 70)
 
             # Configure SSL options
             sslopt = None
@@ -360,7 +407,7 @@ class DigitalSignageClient:
                 if not self.config.verify_ssl:
                     import ssl
                     sslopt = {"cert_reqs": ssl.CERT_NONE}
-                    logger.warning("SSL certificate verification disabled")
+                    logger.warning("SSL certificate verification disabled (self-signed certificates accepted)")
 
             # Create WebSocketApp
             self.ws_app = websocket.WebSocketApp(
@@ -389,12 +436,35 @@ class DigitalSignageClient:
                 time.sleep(0.1)
 
             if not self.connected:
-                raise ConnectionError("WebSocket connection timeout")
+                logger.error("=" * 70)
+                logger.error("WebSocket CONNECTION TIMEOUT")
+                logger.error("=" * 70)
+                logger.error(f"Failed to connect within {connection_timeout} seconds")
+                logger.error(f"URL attempted: {ws_url}")
+                logger.error("Possible causes:")
+                logger.error("  1. Server not running or not reachable")
+                logger.error("  2. Wrong host/port/endpoint")
+                logger.error("  3. Firewall blocking connection")
+                logger.error("  4. SSL/TLS certificate issue")
+                logger.error("=" * 70)
+                raise ConnectionError(f"WebSocket connection timeout after {connection_timeout}s")
 
-            logger.info("WebSocket connection established")
+            logger.info("=" * 70)
+            logger.info("✓ WEBSOCKET CONNECTION SUCCESSFUL")
+            logger.info("=" * 70)
+            logger.info(f"Connected to: {ws_url}")
+            logger.info("=" * 70)
 
         except Exception as e:
-            logger.error(f"Failed to connect WebSocket: {e}")
+            logger.error("=" * 70)
+            logger.error("✗ WEBSOCKET CONNECTION FAILED")
+            logger.error("=" * 70)
+            logger.error(f"Error type: {type(e).__name__}")
+            logger.error(f"Error message: {e}")
+            logger.error(f"URL: {ws_url if 'ws_url' in locals() else server_url}")
+            logger.error("=" * 70)
+            import traceback
+            logger.debug(f"Full traceback:\n{traceback.format_exc()}")
             raise
 
     def disconnect_websocket(self):
@@ -1526,13 +1596,29 @@ def main():
         # This ensures window is visible even if desktop is still loading
         def ensure_window_visible():
             try:
+                # BUGFIX: Only access display_renderer if it exists
+                if not hasattr(client, 'display_renderer') or client.display_renderer is None:
+                    logger.debug("Display renderer not initialized yet - skipping window visibility check")
+                    return
+
                 ssm = client.display_renderer.status_screen_manager
 
                 # CRITICAL FIX: Check if status screen is ACTUALLY showing (not just flag)
                 # The flag might be cleared but window still exists during deletion
                 if ssm and ssm.is_showing_status and ssm.status_screen:
-                    logger.info("Status screen is active - ensuring STATUS screen stays on top")
+                    logger.debug("Status screen is active - ensuring STATUS screen stays on top (periodic check)")
                     try:
+                        # BUGFIX: Check if status_screen widget is still valid (not deleted)
+                        from PyQt5.QtWidgets import QWidget
+                        # In PyQt5, calling methods on deleted C++ objects raises RuntimeError
+                        try:
+                            ssm.status_screen.isVisible()  # Test if widget is still valid
+                        except RuntimeError:
+                            logger.warning("Status screen widget has been deleted - clearing reference")
+                            ssm.status_screen = None
+                            ssm.is_showing_status = False
+                            return
+
                         ssm.status_screen.raise_()
                         ssm.status_screen.activateWindow()
                         ssm.status_screen.showFullScreen()

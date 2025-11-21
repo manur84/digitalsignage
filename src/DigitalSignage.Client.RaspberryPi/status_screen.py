@@ -1082,10 +1082,39 @@ class StatusScreenManager:
         # Just clear it for reuse
         if self.status_screen:
             try:
+                # CRITICAL CHECK: Ensure widget is still valid (not deleted)
+                try:
+                    self.status_screen.isVisible()  # Test if widget is still valid
+                except RuntimeError as e:
+                    logger.error(f"Status screen widget has been deleted: {e}")
+                    logger.error("CRITICAL: This should never happen with eager creation!")
+                    # Try to recover by recreating the widget
+                    logger.warning("Attempting to recover by recreating status screen...")
+                    from PyQt5.QtWidgets import QApplication
+                    screen = QApplication.primaryScreen()
+                    if screen:
+                        screen_geometry = screen.geometry()
+                        width = screen_geometry.width()
+                        height = screen_geometry.height()
+                    else:
+                        width = self.display_renderer.width()
+                        height = self.display_renderer.height()
+
+                    self.status_screen = StatusScreen(width, height, parent=None)
+                    self.status_screen.setWindowFlags(
+                        Qt.Window |
+                        Qt.FramelessWindowHint |
+                        Qt.WindowStaysOnTopHint
+                    )
+                    self.status_screen.setGeometry(0, 0, width, height)
+                    logger.info("Status screen recreated as recovery")
+
                 self.status_screen.clear_screen()
                 logger.debug("Status screen cleared for reuse")
             except Exception as e:
                 logger.error(f"Failed to clear status screen: {e}")
+                import traceback
+                logger.error(traceback.format_exc())
         else:
             logger.error("CRITICAL: Status screen should have been created in __init__!")
             raise RuntimeError("Status screen not initialized - this should never happen")

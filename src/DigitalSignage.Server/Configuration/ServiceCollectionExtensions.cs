@@ -143,6 +143,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<BackupService>();
         services.AddSingleton<RemoteClientInstallerService>();
         services.AddSingleton<NetworkScannerService>();
+        services.AddSingleton<NetworkInterfaceService>();
         services.AddSingleton<SystemDiagnosticsService>();
         services.AddSingleton<ThemeService>();
         services.AddSingleton<RateLimitingService>();
