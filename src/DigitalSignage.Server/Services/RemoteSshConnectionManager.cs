@@ -59,19 +59,27 @@ internal class RemoteSshConnectionManager
     /// </summary>
     public async Task EnsurePortReachableAsync(string host, int port, CancellationToken cancellationToken)
     {
-        using var tcpClient = new TcpClient();
-        var connectTask = tcpClient.ConnectAsync(host, port);
-        var completed = await Task.WhenAny(connectTask, Task.Delay(TimeSpan.FromSeconds(10), cancellationToken));
-
-        cancellationToken.ThrowIfCancellationRequested();
-
-        if (completed != connectTask)
+        try
         {
-            throw new TimeoutException($"SSH connection to {host}:{port} timed out.");
-        }
+            using var tcpClient = new TcpClient();
+            var connectTask = tcpClient.ConnectAsync(host, port);
+            var completed = await Task.WhenAny(connectTask, Task.Delay(TimeSpan.FromSeconds(10), cancellationToken));
 
-        // Surface any socket exceptions
-        await connectTask;
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (completed != connectTask)
+            {
+                throw new TimeoutException($"Connection timeout: Host {host}:{port} did not respond within 10 seconds.");
+            }
+
+            // Surface any socket exceptions with better error messages
+            await connectTask;
+        }
+        catch (SocketException ex)
+        {
+            _logger.LogWarning(ex, "Network error connecting to {Host}:{Port}", host, port);
+            throw new SocketException((int)ex.SocketErrorCode);
+        }
     }
 
     /// <summary>
@@ -86,6 +94,12 @@ internal class RemoteSshConnectionManager
             try
             {
                 client.Connect();
+            }
+            catch (SshAuthenticationException)
+            {
+                // Re-throw authentication exceptions with original details
+                // These will be caught at service level for user-friendly error messages
+                throw;
             }
             catch (SocketException)
             {

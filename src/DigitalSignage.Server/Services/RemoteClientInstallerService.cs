@@ -71,30 +71,61 @@ public class RemoteClientInstallerService
             _logger.LogInformation("Starting remote installer for {Host}:{Port} as {User}", host, port, username);
 
             // Quick connectivity probe to fail fast on unreachable hosts/ports
-            await _connectionManager.EnsurePortReachableAsync(host, port, cancellationToken);
+            try
+            {
+                await _connectionManager.EnsurePortReachableAsync(host, port, cancellationToken);
+            }
+            catch (TimeoutException ex)
+            {
+                _logger.LogWarning(ex, "Connection timeout for {Host}:{Port}", host, port);
+                progress?.Report($"Connection timeout: {host}:{port} did not respond within 10 seconds.");
+                return Result.Failure($"Connection timeout: Host {host}:{port} did not respond within 10 seconds. Please verify the IP address and ensure the device is powered on and connected to the network.", ex);
+            }
+            catch (SocketException ex)
+            {
+                _logger.LogWarning(ex, "Network error connecting to {Host}:{Port}", host, port);
+                progress?.Report($"Network error: Unable to reach {host}:{port}");
+                return Result.Failure($"Network error: Unable to reach {host}:{port}. Please verify the IP address and network connectivity.", ex);
+            }
 
             try
             {
                 ssh = _connectionManager.CreateSshClient(host, port, username, password);
                 sftp = _connectionManager.CreateSftpClient(host, port, username, password);
 
+                progress?.Report("Authenticating with SSH credentials...");
                 await _connectionManager.ConnectWithTimeoutAsync(ssh, cancellationToken);
                 await _connectionManager.ConnectWithTimeoutAsync(sftp, cancellationToken);
             }
             catch (SshAuthenticationException ex)
             {
-                _logger.LogWarning(ex, "SSH authentication failed for {Host}", host);
-                return Result.Failure("SSH authentication failed. Please verify username/password.", ex);
+                _logger.LogWarning(ex, "SSH authentication failed for {Host}:{Port} with username {Username}", host, port, username);
+                progress?.Report($"SSH authentication failed: Wrong password or username");
+                return Result.Failure($"SSH authentication failed: Wrong password or username '{username}'. Please verify your credentials and try again.", ex);
             }
             catch (SshConnectionException ex)
             {
-                _logger.LogWarning(ex, "SSH connection aborted while connecting to {Host}", host);
-                return Result.Failure("SSH connection was aborted by the remote host. Check network/firewall and that SSH is running.", ex);
+                _logger.LogWarning(ex, "SSH connection aborted while connecting to {Host}:{Port}", host, port);
+                progress?.Report("SSH connection was aborted by the remote host");
+                return Result.Failure($"SSH connection was aborted by the remote host {host}:{port}. Please check network/firewall settings and ensure SSH is running on the device.", ex);
             }
             catch (SocketException ex)
             {
                 _logger.LogWarning(ex, "SSH TCP connection failed for {Host}:{Port}", host, port);
-                return Result.Failure($"Unable to reach {host}:{port} over SSH (TCP connection failed).", ex);
+                progress?.Report($"TCP connection failed for {host}:{port}");
+                return Result.Failure($"Unable to establish TCP connection to {host}:{port}. Please verify network connectivity and firewall settings.", ex);
+            }
+            catch (TimeoutException ex)
+            {
+                _logger.LogWarning(ex, "SSH connection timeout for {Host}:{Port}", host, port);
+                progress?.Report($"SSH connection timeout for {host}:{port}");
+                return Result.Failure($"SSH connection timeout: Host {host}:{port} did not respond within 15 seconds. The device may be slow to respond or under heavy load.", ex);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error during SSH connection to {Host}:{Port}", host, port);
+                progress?.Report($"Unexpected error during SSH connection: {ex.Message}");
+                return Result.Failure($"Unexpected error during SSH connection to {host}:{port}: {ex.Message}", ex);
             }
 
             if (ssh == null || sftp == null)
