@@ -23,7 +23,6 @@ public class MdnsDiscoveryService : BackgroundService
 {
     private readonly ILogger<MdnsDiscoveryService> _logger;
     private readonly ServerSettings _serverSettings;
-    private readonly NetworkInterfaceService _networkInterfaceService;
     private ServiceDiscovery? _serviceDiscovery;
     private ServiceProfile? _serviceProfile;
 
@@ -31,12 +30,10 @@ public class MdnsDiscoveryService : BackgroundService
 
     public MdnsDiscoveryService(
         ILogger<MdnsDiscoveryService> logger,
-        IOptions<ServerSettings> serverSettings,
-        NetworkInterfaceService networkInterfaceService)
+        IOptions<ServerSettings> serverSettings)
     {
         _logger = logger;
         _serverSettings = serverSettings.Value;
-        _networkInterfaceService = networkInterfaceService ?? throw new ArgumentNullException(nameof(networkInterfaceService));
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -61,22 +58,9 @@ public class MdnsDiscoveryService : BackgroundService
             var endpointPath = _serverSettings.EndpointPath?.TrimStart('/') ?? "ws";
             var sslEnabled = _serverSettings.EnableSsl;
 
-            // Get local IP addresses - use preferred interface if configured
-            IPAddress[] localIPs;
-            var preferredIpString = _networkInterfaceService.GetPreferredIPAddress(_serverSettings.PreferredNetworkInterface);
-
-            if (!string.IsNullOrWhiteSpace(preferredIpString))
-            {
-                // Only advertise the preferred interface
-                localIPs = new[] { IPAddress.Parse(preferredIpString) };
-                _logger.LogInformation("Using preferred network interface: {PreferredIp}", preferredIpString);
-            }
-            else
-            {
-                // Fallback to all local IPs
-                localIPs = GetLocalIPAddresses();
-                _logger.LogInformation("No preferred interface configured, advertising all network interfaces");
-            }
+            // Get all local IP addresses
+            IPAddress[] localIPs = GetLocalIPAddresses();
+            _logger.LogInformation("Advertising all network interfaces");
 
             _logger.LogInformation("mDNS Service Configuration:");
             _logger.LogInformation("  Service Name: {ServiceName}", serviceName);

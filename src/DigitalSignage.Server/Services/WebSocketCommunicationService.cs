@@ -16,7 +16,6 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
     private readonly ILogger<WebSocketCommunicationService> _logger;
     private readonly WebSocketMessageSerializer _messageSerializer;
     private readonly ServerSettings _settings;
-    private readonly NetworkInterfaceService _networkInterfaceService;
     private HttpListener? _httpListener;
     private CancellationTokenSource? _cancellationTokenSource;
     private Task? _acceptClientsTask;
@@ -25,12 +24,10 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
     public WebSocketCommunicationService(
         ILogger<WebSocketCommunicationService> logger,
         ILogger<WebSocketMessageSerializer> serializerLogger,
-        ServerSettings settings,
-        NetworkInterfaceService networkInterfaceService)
+        ServerSettings settings)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
-        _networkInterfaceService = networkInterfaceService ?? throw new ArgumentNullException(nameof(networkInterfaceService));
         _messageSerializer = new WebSocketMessageSerializer(serializerLogger, enableCompression: true);
     }
 
@@ -58,90 +55,29 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
                 _settings.Port = actualPort; // Update settings with selected port
             }
 
-            // Get preferred IP address from network interface service
-            string? preferredIp = null;
-            try
+            // Use wildcard or localhost based on URL ACL availability
+            var useWildcard = UrlAclManager.IsUrlAclConfigured(_settings.Port);
+            string urlPrefix = useWildcard ? _settings.GetUrlPrefix() : _settings.GetLocalhostPrefix();
+            string bindMode = useWildcard ? "all interfaces" : "localhost only";
+
+            if (!useWildcard)
             {
-                preferredIp = _networkInterfaceService.GetPreferredIPAddress(_settings.PreferredNetworkInterface);
+                _logger.LogWarning("===================================================================");
+                _logger.LogWarning("URL ACL NOT CONFIGURED - Running in localhost-only mode");
+                _logger.LogWarning("===================================================================");
+                _logger.LogWarning("");
+                _logger.LogWarning("The server is running on localhost only and will NOT be accessible");
+                _logger.LogWarning("from external clients or devices.");
+                _logger.LogWarning("");
+                _logger.LogWarning("To enable external access:");
+                _logger.LogWarning("  1. Restart the application (it will prompt for configuration)");
+                _logger.LogWarning("  2. Or run setup-urlacl.bat as Administrator");
+                _logger.LogWarning("");
+                _logger.LogWarning("===================================================================");
             }
-            catch (Exception ex)
+            else
             {
-                _logger.LogWarning(ex, "Failed to get preferred IP address, using default binding");
-            }
-
-            string urlPrefix = string.Empty;
-            string bindMode = "localhost only";
-            bool useSpecificIp = false;
-
-            // If preferred IP is configured, check if we can actually use it
-            if (!string.IsNullOrWhiteSpace(preferredIp))
-            {
-                _logger.LogInformation("Preferred network interface configured: {IpAddress}", preferredIp);
-
-                // Check if URL ACL exists for this specific IP OR if we're running as admin
-                bool hasUrlAcl = await CheckUrlAclExistsAsync($"http://{preferredIp}:{actualPort}/");
-                bool isAdmin = IsRunningAsAdministrator();
-
-                if (hasUrlAcl || isAdmin)
-                {
-                    useSpecificIp = true;
-                    urlPrefix = _settings.GetIpSpecificPrefix(preferredIp);
-                    bindMode = $"interface {preferredIp}";
-
-                    if (isAdmin && !hasUrlAcl)
-                    {
-                        _logger.LogInformation("Binding to specific IP {IpAddress} (running as administrator)", preferredIp);
-                    }
-                    else
-                    {
-                        _logger.LogInformation("Binding to specific IP {IpAddress} (URL ACL configured)", preferredIp);
-                    }
-                }
-                else
-                {
-                    _logger.LogWarning("===================================================================");
-                    _logger.LogWarning("PREFERRED IP CONFIGURED BUT NO PERMISSIONS");
-                    _logger.LogWarning("===================================================================");
-                    _logger.LogWarning("");
-                    _logger.LogWarning("Preferred IP {IpAddress} is configured, but cannot bind to it:", preferredIp);
-                    _logger.LogWarning("  - No URL ACL configured for this specific IP");
-                    _logger.LogWarning("  - Not running as administrator");
-                    _logger.LogWarning("");
-                    _logger.LogWarning("FALLING BACK to wildcard (+) or localhost binding.");
-                    _logger.LogWarning("");
-                    _logger.LogWarning("To use specific IP binding, run as Administrator or configure URL ACL:");
-                    _logger.LogWarning("  netsh http add urlacl url=http://{IpAddress}:{Port}/ user=Everyone", preferredIp, actualPort);
-                    _logger.LogWarning("");
-                    _logger.LogWarning("===================================================================");
-                }
-            }
-
-            // If we're not using specific IP, fall back to wildcard or localhost
-            if (!useSpecificIp)
-            {
-                var useWildcard = UrlAclManager.IsUrlAclConfigured(_settings.Port);
-                urlPrefix = useWildcard ? _settings.GetUrlPrefix() : _settings.GetLocalhostPrefix();
-                bindMode = useWildcard ? "all interfaces" : "localhost only";
-
-                if (!useWildcard)
-                {
-                    _logger.LogWarning("===================================================================");
-                    _logger.LogWarning("URL ACL NOT CONFIGURED - Running in localhost-only mode");
-                    _logger.LogWarning("===================================================================");
-                    _logger.LogWarning("");
-                    _logger.LogWarning("The server is running on localhost only and will NOT be accessible");
-                    _logger.LogWarning("from external clients or devices.");
-                    _logger.LogWarning("");
-                    _logger.LogWarning("To enable external access:");
-                    _logger.LogWarning("  1. Restart the application (it will prompt for configuration)");
-                    _logger.LogWarning("  2. Or run setup-urlacl.bat as Administrator");
-                    _logger.LogWarning("");
-                    _logger.LogWarning("===================================================================");
-                }
-                else
-                {
-                    _logger.LogInformation("Using wildcard binding (all network interfaces)");
-                }
+                _logger.LogInformation("Using wildcard binding (all network interfaces)");
             }
 
             _httpListener.Prefixes.Add(urlPrefix);
@@ -525,66 +461,6 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
                     CancellationToken.None);
             }
             socket.Dispose();
-        }
-    }
-
-    /// <summary>
-    /// Checks if a URL ACL exists for the given URL prefix
-    /// </summary>
-    private async Task<bool> CheckUrlAclExistsAsync(string urlPrefix)
-    {
-        try
-        {
-            var startInfo = new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = "netsh",
-                Arguments = "http show urlacl",
-                RedirectStandardOutput = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-
-            using var process = System.Diagnostics.Process.Start(startInfo);
-            if (process == null)
-            {
-                _logger.LogWarning("Failed to start netsh process to check URL ACL");
-                return false;
-            }
-
-            var output = await process.StandardOutput.ReadToEndAsync();
-            await process.WaitForExitAsync();
-
-            // Check if URL prefix exists in output (case-insensitive)
-            bool exists = output.Contains(urlPrefix, StringComparison.OrdinalIgnoreCase);
-
-            _logger.LogDebug("URL ACL check for {Prefix}: {Exists}", urlPrefix, exists ? "Found" : "Not found");
-            return exists;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to check URL ACL for {Prefix}, assuming it doesn't exist", urlPrefix);
-            return false;
-        }
-    }
-
-    /// <summary>
-    /// Checks if the current process is running with administrator privileges
-    /// </summary>
-    private bool IsRunningAsAdministrator()
-    {
-        try
-        {
-            using var identity = System.Security.Principal.WindowsIdentity.GetCurrent();
-            var principal = new System.Security.Principal.WindowsPrincipal(identity);
-            bool isAdmin = principal.IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
-
-            _logger.LogDebug("Administrator check: {IsAdmin}", isAdmin ? "Yes" : "No");
-            return isAdmin;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to check administrator status, assuming non-admin");
-            return false;
         }
     }
 
