@@ -1050,53 +1050,68 @@ class DigitalSignageClient:
 
                 logger.info(f"Reconnection attempt #{attempt} (retry in {retry_delay}s after failure)")
 
-                # CRITICAL FIX: Skip discovery if showing cached layout
-                # Discovery causes "Auto Discovery" status screen to flash
-                # When cached layout is shown, we want SILENT reconnection
+                # CRITICAL FIX: Reduce auto-discovery frequency to prevent flickering
+                # Discovery should NOT run on EVERY attempt when cached layout is disabled
+                # Only run discovery on first attempt or every 5th attempt to prevent rapid screen switching
                 discovered_url = None
-                if self.config.auto_discover and not self.config.show_cached_layout_on_disconnect:
-                    logger.info("Attempting server discovery...")
-                    try:
-                        from discovery import discover_server
-                        discovered_url = discover_server(timeout=3.0)  # Quick 3s discovery
 
-                        if discovered_url:
-                            logger.info(f"✓ Server discovered: {discovered_url}")
-
-                            # Show "Server Found" only if NOT showing cached layout
-                            if not self.connected and self.display_renderer and not self.config.show_cached_layout_on_disconnect:
-                                self.display_renderer.status_screen_manager.show_server_found(discovered_url)
-
-                            # Update config with discovered server
-                            import re
-                            match = re.match(r'(wss?)://([^:]+):(\d+)/(.+)', discovered_url)
-                            if match:
-                                protocol, host, port, endpoint = match.groups()
-                                self.config.server_host = host
-                                self.config.server_port = int(port)
-                                self.config.endpoint_path = endpoint
-                                self.config.use_ssl = (protocol == 'wss')
-                                self.config.save()
-
-                            await asyncio.sleep(1)  # Brief pause to show "Server Found" screen
-                        else:
-                            logger.info("No server discovered, using configured address")
-                    except Exception as e:
-                        logger.warning(f"Server discovery failed: {e}")
-                elif self.config.show_cached_layout_on_disconnect:
+                # CRITICAL: Skip discovery entirely when showing cached layout (silent mode)
+                if self.config.show_cached_layout_on_disconnect:
                     logger.debug("Skipping auto-discovery (silent reconnection mode with cached layout)")
+                # CRITICAL: When NOT showing cached layout, run discovery sparingly to prevent flicker
+                elif self.config.auto_discover:
+                    # ANTI-FLICKER: Only run discovery on first attempt or every 5th attempt
+                    # This prevents rapid switching between "Auto Discovery" and "Connecting" screens
+                    if attempt == 1 or attempt % 5 == 0:
+                        logger.info(f"Attempting server discovery (attempt {attempt})...")
+                        try:
+                            from discovery import discover_server
+                            # ANTI-FLICKER: Longer timeout (5s instead of 3s) for more stable discovery
+                            discovered_url = discover_server(timeout=5.0)
+
+                            if discovered_url:
+                                logger.info(f"✓ Server discovered: {discovered_url}")
+
+                                # Show "Server Found" only if NOT showing cached layout
+                                if not self.connected and self.display_renderer:
+                                    self.display_renderer.status_screen_manager.show_server_found(discovered_url)
+
+                                # Update config with discovered server
+                                import re
+                                match = re.match(r'(wss?)://([^:]+):(\d+)/(.+)', discovered_url)
+                                if match:
+                                    protocol, host, port, endpoint = match.groups()
+                                    self.config.server_host = host
+                                    self.config.server_port = int(port)
+                                    self.config.endpoint_path = endpoint
+                                    self.config.use_ssl = (protocol == 'wss')
+                                    self.config.save()
+
+                                await asyncio.sleep(1)  # Brief pause to show "Server Found" screen
+                            else:
+                                logger.info("No server discovered, using configured address")
+                        except Exception as e:
+                            logger.warning(f"Server discovery failed: {e}")
+                    else:
+                        logger.debug(f"Skipping auto-discovery on attempt {attempt} to prevent screen flickering (will retry on attempt {attempt + (5 - attempt % 5)})")
 
                 # Step 2: Attempt connection
                 server_url = self.config.get_server_url()
                 logger.info(f"Attempting connection to: {server_url}")
 
-                # Show connecting status only if not showing cached layout
+                # ANTI-FLICKER: Show connecting status ONLY on first attempt or when screen actually changes
+                # Don't update status screen on every single attempt - this causes rapid flickering
+                # Only show on attempt 1, 5, 10, 15, etc. (every 5 attempts)
                 if self.display_renderer and not self.config.show_cached_layout_on_disconnect:
-                    self.display_renderer.status_screen_manager.show_connecting(
-                        server_url,
-                        attempt,
-                        5  # Max attempts before delay
-                    )
+                    if attempt == 1 or attempt % 5 == 0:
+                        self.display_renderer.status_screen_manager.show_connecting(
+                            server_url,
+                            attempt,
+                            5  # Max attempts before delay
+                        )
+                        logger.debug(f"Updated connecting status screen (attempt {attempt})")
+                    else:
+                        logger.debug(f"Skipping status screen update on attempt {attempt} to prevent flicker")
 
                 try:
                     self.connect_websocket(server_url)
@@ -1139,16 +1154,25 @@ class DigitalSignageClient:
                                 break
                             await asyncio.sleep(1)
                     else:
-                        # OPTIMIZED: Update status screen every 5 seconds (was 3s)
-                        # This reduces CPU usage and prevents rapid screen switching
-                        update_interval = 5
+                        # ANTI-FLICKER: Update status screen every 10 seconds (was 5s, was 3s before that)
+                        # This dramatically reduces flickering by minimizing screen refreshes
+                        # Users don't need second-by-second countdown updates - 10s intervals are fine
+                        update_interval = 10
 
                         for remaining in range(retry_delay, 0, -1):
                             if self.stop_reconnection or self.connected:
                                 break
 
-                            # Update status screen every 5 seconds (or on first/last second)
-                            if (remaining % update_interval == 0) or remaining == retry_delay or remaining == 1:
+                            # ANTI-FLICKER: Update status screen much less frequently
+                            # Only update on: first second, every 10 seconds, and last second
+                            # This prevents rapid screen redraws that cause flickering
+                            should_update = (
+                                remaining == retry_delay or  # First second
+                                remaining % update_interval == 0 or  # Every 10 seconds
+                                remaining <= 3  # Last 3 seconds (3, 2, 1)
+                            )
+
+                            if should_update:
                                 if self.display_renderer and not self.config.show_cached_layout_on_disconnect:
                                     self.display_renderer.status_screen_manager.show_reconnecting(
                                         server_url,
@@ -1156,6 +1180,7 @@ class DigitalSignageClient:
                                         remaining,
                                         self.config.client_id
                                     )
+                                    logger.debug(f"Updated reconnecting countdown: {remaining}s remaining")
 
                             await asyncio.sleep(1)
 
