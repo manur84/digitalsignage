@@ -1,0 +1,11 @@
+  Wiederherzustellende Projekte werden ermittelt...
+  Alle Projekte sind für die Wiederherstellung auf dem neuesten Stand.
+  DigitalSignage.Core -> /var/www/html/digitalsignage/src/DigitalSignage.Core/bin/Debug/net8.0/DigitalSignage.Core.dll
+  DigitalSignage.Data -> /var/www/html/digitalsignage/src/DigitalSignage.Data/bin/Debug/net8.0/DigitalSignage.Data.dll
+  DigitalSignage.Server -> /var/www/html/digitalsignage/src/DigitalSignage.Server/bin/Debug/net8.0-windows/DigitalSignage.Server.dll
+
+Der Buildvorgang wurde erfolgreich ausgeführt.
+    0 Warnung(en)
+    0 Fehler
+
+Verstrichene Zeit 00:00:03.00

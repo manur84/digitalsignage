@@ -527,7 +527,7 @@ public class EnhancedMediaService : IMediaService
 
             // If no thumbnail exists, try to generate one
             var thumbnailResult = await GenerateThumbnailAsync(fileName, cancellationToken: cancellationToken);
-            if (thumbnailResult.IsSuccess)
+            if (thumbnailResult.IsSuccess && !string.IsNullOrEmpty(thumbnailResult.Value))
             {
                 var thumbnailPath = Path.Combine(thumbnailDir, thumbnailResult.Value);
                 if (File.Exists(thumbnailPath))

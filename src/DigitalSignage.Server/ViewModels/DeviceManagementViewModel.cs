@@ -102,10 +102,10 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
         {
             var clientsResult = await _clientService.GetAllClientsAsync();
 
-            if (clientsResult.IsFailure)
+            if (clientsResult.IsFailure || clientsResult.Value == null)
             {
-                _logger.LogError("Failed to load clients: {ErrorMessage}", clientsResult.ErrorMessage);
-                StatusMessage = $"Failed to load clients: {clientsResult.ErrorMessage}";
+                _logger.LogError("Failed to load clients: {ErrorMessage}", clientsResult.ErrorMessage ?? "Null result");
+                StatusMessage = $"Failed to load clients: {clientsResult.ErrorMessage ?? "Null result"}";
                 IsLoading = false;
                 return;
             }
@@ -120,7 +120,7 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
                 // Continue without layouts - clients will still be displayed
             }
 
-            var layoutDict = layoutsResult.IsSuccess
+            var layoutDict = layoutsResult.IsSuccess && layoutsResult.Value != null
                 ? layoutsResult.Value.ToDictionary(l => l.Id, l => l)
                 : new Dictionary<string, DisplayLayout>();
 
@@ -167,9 +167,9 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
         try
         {
             var layoutsResult = await _layoutService.GetAllLayoutsAsync();
-            if (layoutsResult.IsFailure)
+            if (layoutsResult.IsFailure || layoutsResult.Value == null)
             {
-                _logger.LogError("Failed to load layouts: {ErrorMessage}", layoutsResult.ErrorMessage);
+                _logger.LogError("Failed to load layouts: {ErrorMessage}", layoutsResult.ErrorMessage ?? "Null result");
                 return;
             }
 

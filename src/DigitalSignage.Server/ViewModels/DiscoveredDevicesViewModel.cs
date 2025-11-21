@@ -269,10 +269,10 @@ public partial class DiscoveredDevicesViewModel : ObservableObject, IDisposable
 
                     var registerResult = await _clientService.RegisterClientAsync(registerMessage);
 
-                    if (registerResult.IsFailure)
+                    if (registerResult.IsFailure || registerResult.Value == null)
                     {
-                        _logger.LogError("Failed to register device: {ErrorMessage}", registerResult.ErrorMessage);
-                        MessageBox.Show($"Failed to register device: {registerResult.ErrorMessage}",
+                        _logger.LogError("Failed to register device: {ErrorMessage}", registerResult.ErrorMessage ?? "Null result");
+                        MessageBox.Show($"Failed to register device: {registerResult.ErrorMessage ?? "Null result"}",
                             "Registration Error", MessageBoxButton.OK, MessageBoxImage.Error);
                         return;
                     }

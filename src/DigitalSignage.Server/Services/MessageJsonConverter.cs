@@ -13,7 +13,7 @@ namespace DigitalSignage.Server.Services
     {
         public override bool CanWrite => false; // Use default serialization
 
-        public override Message ReadJson(JsonReader reader, Type objectType, Message existingValue, bool hasExistingValue, JsonSerializer serializer)
+        public override Message ReadJson(JsonReader reader, Type objectType, Message? existingValue, bool hasExistingValue, JsonSerializer serializer)
         {
             JObject jsonObject = JObject.Load(reader);
 
@@ -46,7 +46,7 @@ namespace DigitalSignage.Server.Services
             return message;
         }
 
-        public override void WriteJson(JsonWriter writer, Message value, JsonSerializer serializer)
+        public override void WriteJson(JsonWriter writer, Message? value, JsonSerializer serializer)
         {
             throw new NotImplementedException("Use default serialization");
         }
