@@ -12,6 +12,9 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+# Client version - increment when making significant changes
+CLIENT_VERSION = "1.0.0"
+
 
 class DeviceManager:
     """Manages device information and system commands"""
@@ -159,21 +162,22 @@ class DeviceManager:
             uptime = 0
 
         return {
-            "hostname": self.hostname,
-            "mdns_name": self.get_mdns_name(),
-            "model": self.get_rpi_model(),
-            "os_version": self.get_os_version(),
-            "ip_address": self.get_ip_address(),
-            "mac_address": self.get_mac_address(),
-            "cpu_temp": self.get_cpu_temperature(),
-            "cpu_usage": cpu_usage,
-            "memory_total": memory_total,
-            "memory_used": memory_used,
-            "disk_total": disk_total,
-            "disk_used": disk_used,
-            "screen_width": self.get_screen_width(),
-            "screen_height": self.get_screen_height(),
-            "uptime": uptime
+            "Hostname": self.hostname,
+            "MdnsName": self.get_mdns_name(),
+            "Model": self.get_rpi_model(),
+            "OsVersion": self.get_os_version(),
+            "ClientVersion": CLIENT_VERSION,
+            "IpAddress": self.get_ip_address(),
+            "MacAddress": self.get_mac_address(),
+            "CpuTemperature": self.get_cpu_temperature(),
+            "CpuUsage": cpu_usage,
+            "MemoryTotal": memory_total,
+            "MemoryUsed": memory_used,
+            "DiskTotal": disk_total,
+            "DiskUsed": disk_used,
+            "ScreenWidth": self.get_screen_width(),
+            "ScreenHeight": self.get_screen_height(),
+            "Uptime": uptime
         }
 
     def get_rpi_model(self) -> str:

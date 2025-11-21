@@ -525,23 +525,23 @@ class DigitalSignageClient:
             register_message = {
                 "Type": "REGISTER",
                 "ClientId": self.config.client_id,
-                "MacAddress": device_info["mac_address"],
-                "IpAddress": device_info["ip_address"],
+                "MacAddress": device_info["MacAddress"],
+                "IpAddress": device_info["IpAddress"],
                 "DeviceInfo": {
-                    "Hostname": device_info.get("hostname"),
-                    "MdnsName": device_info.get("mdns_name"),
-                    "Model": device_info["model"],
-                    "OsVersion": device_info["os_version"],
-                    "ClientVersion": "1.0.0",
-                    "CpuTemperature": device_info["cpu_temp"],
-                    "CpuUsage": device_info["cpu_usage"],
-                    "MemoryTotal": device_info["memory_total"],
-                    "MemoryUsed": device_info["memory_used"],
-                    "DiskTotal": device_info["disk_total"],
-                    "DiskUsed": device_info["disk_used"],
-                    "ScreenWidth": device_info["screen_width"],
-                    "ScreenHeight": device_info["screen_height"],
-                    "Uptime": device_info["uptime"]
+                    "Hostname": device_info.get("Hostname"),
+                    "MdnsName": device_info.get("MdnsName"),
+                    "Model": device_info["Model"],
+                    "OsVersion": device_info["OsVersion"],
+                    "ClientVersion": device_info["ClientVersion"],
+                    "CpuTemperature": device_info["CpuTemperature"],
+                    "CpuUsage": device_info["CpuUsage"],
+                    "MemoryTotal": device_info["MemoryTotal"],
+                    "MemoryUsed": device_info["MemoryUsed"],
+                    "DiskTotal": device_info["DiskTotal"],
+                    "DiskUsed": device_info["DiskUsed"],
+                    "ScreenWidth": device_info["ScreenWidth"],
+                    "ScreenHeight": device_info["ScreenHeight"],
+                    "Uptime": device_info["Uptime"]
                 },
                 "Timestamp": datetime.utcnow().isoformat()
             }
@@ -620,7 +620,7 @@ class DigitalSignageClient:
                         logger.info("No layout received after 10 seconds - showing 'No Layout Assigned' screen")
                         # Get IP address
                         device_info = await self.device_manager.get_device_info()
-                        ip_address = device_info.get("ip_address", "Unknown")
+                        ip_address = device_info.get("IpAddress", "Unknown")
                         server_url = self.config.get_server_url()
                         self.display_renderer.status_screen_manager.show_no_layout_assigned(
                             self.config.client_id,
@@ -710,12 +710,12 @@ class DigitalSignageClient:
                 "ClientId": self.config.client_id,
                 "Status": "Online" if not self.offline_mode else "OfflineRecovery",
                 "DeviceInfo": {
-                    "Hostname": device_info.get("hostname"),
-                    "MdnsName": device_info.get("mdns_name"),
-                    "CpuTemperature": device_info["cpu_temp"],
-                    "CpuUsage": device_info["cpu_usage"],
-                    "MemoryUsed": device_info["memory_used"],
-                    "Uptime": device_info["uptime"]
+                    "Hostname": device_info.get("Hostname"),
+                    "MdnsName": device_info.get("MdnsName"),
+                    "CpuTemperature": device_info["CpuTemperature"],
+                    "CpuUsage": device_info["CpuUsage"],
+                    "MemoryUsed": device_info["MemoryUsed"],
+                    "Uptime": device_info["Uptime"]
                 },
                 "CacheInfo": {
                     "LayoutCount": cache_info.get("layout_count", 0),

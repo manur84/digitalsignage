@@ -497,9 +497,9 @@ class WebInterface:
 
             return {
                 'client_id': self.client.config.client_id,
-                'ip_address': device_info.get('ip_address', 'Unknown'),
-                'mac_address': device_info.get('mac_address', 'Unknown'),
-                'hostname': device_info.get('hostname', 'Unknown'),
+                'ip_address': device_info.get('IpAddress', 'Unknown'),
+                'mac_address': device_info.get('MacAddress', 'Unknown'),
+                'hostname': device_info.get('Hostname', 'Unknown'),
                 'connected': getattr(self.client, 'connected', False),
                 'offline_mode': getattr(self.client, 'offline_mode', True),
                 'server_url': self.client.config.get_server_url(),
