@@ -19,6 +19,7 @@ public partial class DeviceDetailViewModel : ObservableObject, IDisposable
     private readonly ILogger<DeviceDetailViewModel> _logger;
     private readonly IDialogService _dialogService;
     private readonly ISynchronizationContext _syncContext;
+    private readonly IClientService _clientService;
     private readonly System.Timers.Timer _refreshTimer;
     private RaspberryPiClient? _client;
     private bool _disposed;
@@ -126,11 +127,12 @@ public partial class DeviceDetailViewModel : ObservableObject, IDisposable
     /// </summary>
     public event EventHandler? CloseRequested;
 
-    public DeviceDetailViewModel(ILogger<DeviceDetailViewModel> logger, IDialogService dialogService, ISynchronizationContext syncContext)
+    public DeviceDetailViewModel(ILogger<DeviceDetailViewModel> logger, IDialogService dialogService, ISynchronizationContext syncContext, IClientService clientService)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
         _syncContext = syncContext ?? throw new ArgumentNullException(nameof(syncContext));
+        _clientService = clientService ?? throw new ArgumentNullException(nameof(clientService));
 
         // Setup auto-refresh timer (every 5 seconds)
         _refreshTimer = new System.Timers.Timer(5000);
@@ -355,6 +357,53 @@ public partial class DeviceDetailViewModel : ObservableObject, IDisposable
         {
             _refreshTimer.Stop();
             StatusMessage = "Auto-refresh disabled";
+        }
+    }
+
+    /// <summary>
+    /// Save changes to Group and Location
+    /// </summary>
+    [RelayCommand]
+    private async Task SaveChanges()
+    {
+        if (_client == null)
+        {
+            StatusMessage = "Error: No client loaded";
+            return;
+        }
+
+        try
+        {
+            StatusMessage = "Saving changes...";
+            _logger.LogInformation("Saving changes for device {DeviceId}: Group={Group}, Location={Location}",
+                _client.Id, Group, Location);
+
+            // Update client via service
+            var result = await _clientService.UpdateClientAsync(
+                _client.Id,
+                name: null, // Don't update name
+                group: Group == "Not set" ? null : Group,
+                location: Location == "Not set" ? null : Location);
+
+            if (result.IsSuccess)
+            {
+                StatusMessage = "Changes saved successfully";
+                _logger.LogInformation("Successfully saved changes for device {DeviceId}", _client.Id);
+
+                // Update the client object
+                _client.Group = Group == "Not set" ? null : Group;
+                _client.Location = Location == "Not set" ? null : Location;
+            }
+            else
+            {
+                StatusMessage = $"Error: {result.Error}";
+                _logger.LogError("Failed to save changes for device {DeviceId}: {Error}", _client.Id, result.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Error: {ex.Message}";
+            _logger.LogError(ex, "Exception while saving changes for device {DeviceId}", _client?.Id);
         }
     }
 
