@@ -137,6 +137,7 @@ public static class ServiceCollectionExtensions
 
         // Infrastructure Services
         services.AddScoped<IAuthenticationService, AuthenticationService>();
+        services.AddSingleton<IMobileAppService, MobileAppService>();
         services.AddSingleton<LogStorageService>();
         services.AddSingleton<QueryCacheService>();
         services.AddSingleton<AlertService>();
@@ -170,6 +171,10 @@ public static class ServiceCollectionExtensions
         services.AddHostedService<MdnsDiscoveryService>();
         services.AddHostedService<MessageHandlerService>();
         services.AddHostedService<AlertMonitoringService>();
+
+        // Register NetworkDiscoveryService as both interface and hosted service
+        services.AddSingleton<INetworkDiscoveryService, NetworkDiscoveryService>();
+        services.AddHostedService(sp => (NetworkDiscoveryService)sp.GetRequiredService<INetworkDiscoveryService>());
 
         return services;
     }
