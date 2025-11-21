@@ -19,6 +19,100 @@ class DeviceManager:
     def __init__(self):
         self.hostname = platform.node()
 
+    def get_all_network_interfaces(self) -> Dict[str, str]:
+        """
+        Get all available network interfaces with their IP addresses.
+
+        Returns:
+            Dictionary mapping interface names to IP addresses
+        """
+        import socket
+
+        interfaces = {}
+
+        try:
+            # Try using psutil
+            net_if_addrs = psutil.net_if_addrs()
+
+            for interface_name, addrs in net_if_addrs.items():
+                # Skip loopback
+                if interface_name == 'lo':
+                    continue
+
+                for addr in addrs:
+                    if addr.family == socket.AF_INET:
+                        ip = addr.address
+                        # Filter out localhost/loopback
+                        if not ip.startswith('127.'):
+                            interfaces[interface_name] = ip
+                            logger.debug(f"Found interface: {interface_name} -> {ip}")
+                            break  # Only take first IPv4 per interface
+
+        except Exception as e:
+            logger.warning(f"Failed to get network interfaces via psutil: {e}")
+
+            # Fallback: try netifaces if available
+            try:
+                import netifaces
+                for iface in netifaces.interfaces():
+                    if iface == 'lo':
+                        continue
+
+                    try:
+                        addrs = netifaces.ifaddresses(iface)
+                        if netifaces.AF_INET in addrs:
+                            for addr_info in addrs[netifaces.AF_INET]:
+                                ip = addr_info.get('addr')
+                                if ip and not ip.startswith('127.'):
+                                    interfaces[iface] = ip
+                                    logger.debug(f"Found interface (netifaces): {iface} -> {ip}")
+                                    break
+                    except Exception as e2:
+                        logger.debug(f"Error getting IP from {iface}: {e2}")
+
+            except ImportError:
+                logger.debug("netifaces not available for fallback")
+
+        return interfaces
+
+    def get_preferred_ip_address(self, preferred_interface: str = "") -> str:
+        """
+        Get IP address of preferred network interface.
+
+        Args:
+            preferred_interface: Preferred interface name (e.g., "eth0", "wlan0")
+                                Empty string for automatic selection
+
+        Returns:
+            IP address of preferred interface, or auto-selected IP if not found
+        """
+        interfaces = self.get_all_network_interfaces()
+
+        if not interfaces:
+            logger.warning("No network interfaces found")
+            return "0.0.0.0"
+
+        # If no preference, use existing get_ip_address logic
+        if not preferred_interface or preferred_interface.strip() == "":
+            logger.debug("No preferred interface specified, using auto-select")
+            return self.get_ip_address()
+
+        # Try exact match first
+        if preferred_interface in interfaces:
+            ip = interfaces[preferred_interface]
+            logger.info(f"Using preferred interface: {preferred_interface} ({ip})")
+            return ip
+
+        # Try partial match (e.g., "eth" matches "eth0")
+        for iface, ip in interfaces.items():
+            if iface.startswith(preferred_interface):
+                logger.info(f"Using interface with partial match: {iface} ({ip})")
+                return ip
+
+        # Preferred interface not found, fallback to auto-select
+        logger.warning(f"Preferred interface '{preferred_interface}' not found, falling back to auto-select")
+        return self.get_ip_address()
+
     def get_mdns_name(self) -> str:
         """Return mDNS hostname (best effort)"""
         try:

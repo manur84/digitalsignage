@@ -36,6 +36,9 @@ class Config:
     burn_in_pixel_shift_max: int = 5  # Maximum pixel shift distance
     burn_in_screensaver_timeout: int = 3600  # Screensaver timeout in seconds (1 hour)
 
+    # Network Interface Selection
+    preferred_network_interface: str = ""  # Preferred network interface (e.g., "eth0", "wlan0") - empty for auto-select
+
     def get_server_url(self) -> str:
         """Get the full server URL based on SSL configuration including endpoint path"""
         protocol = "https" if self.use_ssl else "http"
@@ -82,7 +85,8 @@ class Config:
                     'burn_in_protection_enabled': True,
                     'burn_in_pixel_shift_interval': 300,
                     'burn_in_pixel_shift_max': 5,
-                    'burn_in_screensaver_timeout': 3600
+                    'burn_in_screensaver_timeout': 3600,
+                    'preferred_network_interface': ''
                 }
 
                 # Merge defaults with loaded data (loaded data takes precedence)

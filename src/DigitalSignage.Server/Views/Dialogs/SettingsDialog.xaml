@@ -354,6 +354,94 @@
                 </ScrollViewer>
             </TabItem>
 
+            <!-- Network Interface Tab -->
+            <TabItem Header="Network">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="20">
+                        <TextBlock Text="Network Interface Selection" Style="{StaticResource SectionHeader}"/>
+
+                        <TextBlock TextWrapping="Wrap"
+                                   Foreground="#666666"
+                                   FontSize="12"
+                                   Margin="0,5,0,15">
+                            Select the preferred network interface for WebSocket server binding and auto-discovery.
+                            Leave blank for automatic selection (first available non-localhost interface).
+                        </TextBlock>
+
+                        <TextBlock Text="Available Network Interfaces:" Style="{StaticResource SettingLabel}"/>
+
+                        <Grid Margin="0,5,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <ComboBox Grid.Column="0"
+                                      ItemsSource="{Binding AvailableNetworkInterfaces}"
+                                      SelectedItem="{Binding SelectedNetworkInterface, Mode=TwoWay}"
+                                      DisplayMemberPath="DisplayName"
+                                      Margin="0,0,5,0">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Vertical">
+                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold"/>
+                                            <TextBlock Text="{Binding IpAddress}" FontSize="11" Foreground="#666666"/>
+                                            <TextBlock Text="{Binding Description}" FontSize="10" Foreground="#999999"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+
+                            <Button Grid.Column="1"
+                                    Content="Refresh"
+                                    Command="{Binding RefreshNetworkInterfacesCommand}"
+                                    Style="{StaticResource SecondaryButton}"
+                                    Padding="10,5"
+                                    Margin="0"/>
+                        </Grid>
+
+                        <TextBlock Text="Selected Interface Details" Style="{StaticResource SectionHeader}"/>
+
+                        <Grid Margin="0,5,0,10" Visibility="{Binding SelectedNetworkInterface, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Name:" FontWeight="SemiBold" Margin="0,5,10,5"/>
+                            <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding SelectedNetworkInterface.Name}" Margin="0,5"/>
+
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="IP Address:" FontWeight="SemiBold" Margin="0,5,10,5"/>
+                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SelectedNetworkInterface.IpAddress}" Margin="0,5"/>
+
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="MAC Address:" FontWeight="SemiBold" Margin="0,5,10,5"/>
+                            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SelectedNetworkInterface.MacAddress}" Margin="0,5"/>
+
+                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Type:" FontWeight="SemiBold" Margin="0,5,10,5"/>
+                            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding SelectedNetworkInterface.InterfaceType}" Margin="0,5"/>
+
+                            <TextBlock Grid.Row="4" Grid.Column="0" Text="Description:" FontWeight="SemiBold" Margin="0,5,10,5"/>
+                            <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding SelectedNetworkInterface.Description}" Margin="0,5" TextWrapping="Wrap"/>
+                        </Grid>
+
+                        <TextBlock TextWrapping="Wrap"
+                                   Foreground="#FF6B00"
+                                   FontSize="11"
+                                   FontWeight="SemiBold"
+                                   Margin="0,15,0,0">
+                            Important: Changes to network interface settings require application restart to take effect.
+                        </TextBlock>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
             <!-- About Tab -->
             <TabItem Header="About">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">

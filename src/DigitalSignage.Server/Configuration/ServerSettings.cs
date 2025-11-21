@@ -60,6 +60,13 @@ public class ServerSettings
     public int ClientHeartbeatTimeout { get; set; } = 90;
 
     /// <summary>
+    /// Preferred network interface for WebSocket server binding and discovery
+    /// Can be interface name (e.g., "Ethernet", "Wi-Fi") or IP address
+    /// Empty or null = auto-select first available non-localhost interface
+    /// </summary>
+    public string? PreferredNetworkInterface { get; set; }
+
+    /// <summary>
     /// Get an available port, either the configured port or an alternative
     /// </summary>
     public int GetAvailablePort()
