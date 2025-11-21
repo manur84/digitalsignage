@@ -35,6 +35,15 @@ CMDLINE_FLAGS=(
   "splash"
   "vt.global_cursor_default=0"
   "plymouth.ignore-serial-consoles"
+  # WARNING: fbcon=map:2 maps framebuffer console to fb2
+  # This may DISABLE CLI access if fb2 doesn't exist on your system!
+  # Alternative options:
+  #   - fbcon=map:10 for dual-display (tries fb1 then falls back to fb0)
+  #   - fbcon=map:1 to use fb1 explicitly
+  #   - Omit this flag to use default fb0
+  # Uncomment the line below ONLY if you have a special LCD display (HY28a, ILI9320, etc.)
+  # that creates fb2 and you want the console mapped to it:
+  # "fbcon=map:2"
 )
 
 require_root() {
@@ -124,10 +133,56 @@ EOF
   echo "Updated $PIX_SCRIPT with center/scale logic."
 }
 
+configure_initramfs_modules() {
+  # Configure OPTIONAL fbtft modules for special LCD displays (HY28a, ILI9320, etc.)
+  # These modules enable support for SPI-based TFT LCD displays that create /dev/fb2
+  #
+  # ONLY NEEDED IF:
+  #   - You have a special SPI TFT LCD display (HY28a, ILI9320, fb2-based displays)
+  #   - You want to use fb1 or fb2 instead of the default HDMI fb0
+  #
+  # References:
+  #   - https://github.com/notro/fbtft/wiki
+  #   - https://www.kernel.org/doc/Documentation/fb/fbcon.txt
+  #
+  # NOTE: These modules are NOT required for standard HDMI displays!
+
+  local modules_file="/etc/initramfs-tools/modules"
+  local modules_to_add=(
+    "# LCD Display Support (OPTIONAL - for HY28a, ILI9320, etc.)"
+    "# Uncomment the lines below if you have a special SPI TFT LCD display:"
+    "# fbtft"
+    "# fbtft_device name=hy28a verbose=0"
+    "# fb_ili9320"
+  )
+
+  # Check if we've already added these modules
+  if grep -q "# LCD Display Support (OPTIONAL" "$modules_file" 2>/dev/null; then
+    echo "LCD display modules already configured in $modules_file (skipping)"
+    return 0
+  fi
+
+  echo "Adding OPTIONAL LCD display module configuration to $modules_file..."
+  for module_line in "${modules_to_add[@]}"; do
+    echo "$module_line" >> "$modules_file"
+  done
+  echo "LCD display modules added (currently commented out - uncomment if needed)"
+}
+
 enable_framebuffer() {
   # OPTIMIZATION from Ubuntu Users Wiki:
   # Activate framebuffer support for better Plymouth rendering
   # https://wiki.ubuntuusers.de/Plymouth
+  #
+  # For advanced users: You can specify which framebuffer device to use:
+  #   - FRAMEBUFFER=y (default, auto-detect)
+  #   - FRAMEBUFFER=/dev/fb0 (HDMI display, most common)
+  #   - FRAMEBUFFER=/dev/fb1 (secondary display or special LCD)
+  #   - FRAMEBUFFER=/dev/fb2 (tertiary display, e.g., HY28a LCD)
+  #
+  # To use fb1 instead of default fb0, create /etc/initramfs-tools/conf.d/fb1:
+  #   echo "FRAMEBUFFER=/dev/fb1" | sudo tee /etc/initramfs-tools/conf.d/fb1
+  #
   local splash_conf="/etc/initramfs-tools/conf.d/splash"
 
   if [ ! -f "$splash_conf" ] || ! grep -q "FRAMEBUFFER=y" "$splash_conf" 2>/dev/null; then
@@ -167,6 +222,18 @@ configure_plymouth() {
   echo "Plymouth initramfs rebuild completed"
   echo ""
   echo "NOTE: System reboot required for changes to take effect"
+  echo ""
+  echo "=== ADVANCED CONFIGURATION OPTIONS ==="
+  echo "For special LCD displays (HY28a, ILI9320, etc.):"
+  echo "  1. Edit /etc/initramfs-tools/modules and uncomment the fbtft lines"
+  echo "  2. Optionally add 'fbcon=map:2' to $CMDLINE_FILE"
+  echo "  3. Run: sudo update-initramfs -u -k $KERNEL_VERSION"
+  echo "  4. Reboot"
+  echo ""
+  echo "For dual-display setups:"
+  echo "  - Use 'fbcon=map:10' instead of fbcon=map:2 (tries fb1 then fb0)"
+  echo ""
+  echo "WARNING: fbcon=map:2 may disable CLI access if fb2 doesn't exist!"
 }
 
 main() {
@@ -176,6 +243,11 @@ main() {
   append_config_txt
   patch_cmdline
   install_packages
+
+  # Configure initramfs modules BEFORE Plymouth configuration
+  # This ensures fbtft modules are available when initramfs is rebuilt
+  configure_initramfs_modules
+
   configure_plymouth
 
   echo ""
