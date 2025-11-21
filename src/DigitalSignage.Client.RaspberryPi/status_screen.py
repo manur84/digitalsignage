@@ -926,14 +926,16 @@ class StatusScreenManager:
     - Lock prevents multiple async tasks from showing different screens simultaneously
     """
 
-    def __init__(self, display_renderer):
+    def __init__(self, display_renderer, client=None):
         """
         Initialize status screen manager - EAGER creation to avoid Qt event loop deadlock
 
         Args:
             display_renderer: The DisplayRenderer instance to use for showing status screens
+            client: Optional DigitalSignageClient reference for accessing config
         """
         self.display_renderer = display_renderer
+        self.client = client  # CRITICAL FIX: Store client reference to access config
         self.is_showing_status = False
         self._transition_timer = None  # Timer for smooth transitions
         self._keep_alive_timer = None  # Timer to keep status screen on top
@@ -978,6 +980,15 @@ class StatusScreenManager:
         self.status_screen.lower()  # Put behind other windows initially
 
         logger.info(f"Status screen created eagerly: {width}x{height} (visible but lowered)")
+
+    def set_client(self, client):
+        """
+        Set the client reference after initialization.
+        Called by client after display_renderer is created.
+        Allows status screen manager to access client config.
+        """
+        self.client = client
+        logger.debug("Client reference set in StatusScreenManager")
 
     def show_discovering_server(self, discovery_method: str = "Auto-Discovery"):
         """Show discovering server screen with smooth transition - THREAD-SAFE"""
@@ -1194,8 +1205,20 @@ class StatusScreenManager:
         """
         Clear the display renderer layout to allow status screen to be visible.
         CRITICAL: This prevents PNG layouts from blocking the status screen.
+
+        CRITICAL FIX: Do NOT clear display renderer if cached layout should be shown.
+        This prevents cached layout from being cleared when status screens try to show.
         """
         try:
+            # CRITICAL FIX: Check if we should preserve cached layout
+            # If show_cached_layout_on_disconnect=True, do NOT clear the display renderer
+            # Keep the cached layout visible - no status screens should be shown
+            if self.client and hasattr(self.client, 'config'):
+                config = self.client.config
+                if hasattr(config, 'show_cached_layout_on_disconnect') and config.show_cached_layout_on_disconnect:
+                    logger.debug("Skipping display renderer clear - cached layout mode enabled (layout remains visible)")
+                    return
+
             if self.display_renderer and hasattr(self.display_renderer, 'clear_layout_for_status_screen'):
                 self.display_renderer.clear_layout_for_status_screen()
                 logger.debug("Display renderer cleared for status screen display")

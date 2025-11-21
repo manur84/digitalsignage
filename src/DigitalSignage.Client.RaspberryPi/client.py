@@ -1629,6 +1629,12 @@ def main():
         logger.info("Creating display renderer...")
         # Create display renderer
         client.display_renderer = DisplayRenderer(fullscreen=config.fullscreen)
+
+        # CRITICAL FIX: Pass client reference to status screen manager for config access
+        # This allows status screen manager to check show_cached_layout_on_disconnect setting
+        client.display_renderer.status_screen_manager.set_client(client)
+        logger.debug("Client reference passed to status screen manager")
+
         # BUGFIX: Don't show() here - wait for event loop to be ready
         # client.display_renderer.show()  # MOVED TO after event loop setup
 
