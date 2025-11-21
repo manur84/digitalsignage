@@ -9,9 +9,7 @@
         ShowInTaskbar="False"
         Topmost="True"
         Background="Transparent"
-        Width="600"
-        Height="400"
-        WindowStartupLocation="CenterScreen">
+        WindowStartupLocation="CenterScreen" HorizontalAlignment="Stretch" Margin="0,0,0,0" VerticalAlignment="Stretch">
 
     <Window.Resources>
         <!-- Converters -->
@@ -99,7 +97,7 @@
                 BorderThickness="1"
                 CornerRadius="16"
                 Padding="0"
-                SnapsToDevicePixels="True" Margin="0,-21,0,-43">
+                SnapsToDevicePixels="True" Height="509" Width="NaN">
 
             <Border.Effect>
                 <DropShadowEffect Color="#000000" Direction="270" ShadowDepth="2"
@@ -113,13 +111,12 @@
                 </Grid.RowDefinitions>
 
                 <!-- Content area -->
-                <StackPanel Grid.Row="0"
+                <StackPanel
                           HorizontalAlignment="Center"
-                          VerticalAlignment="Center"
-                          Margin="40">
+                          VerticalAlignment="Center" Height="362" Width="666">
 
                     <!-- Logo with animation -->
-                    <Grid Height="47" Margin="0,0,0,20" Width="242" RenderTransformOrigin="0.346,0.514">
+                    <Grid Height="227" Margin="0,0,0,20" Width="656" RenderTransformOrigin="0.346,0.514">
                         <Image x:Name="LogoImage"
                                Stretch="Uniform"
                                HorizontalAlignment="Center"
@@ -249,13 +246,13 @@
                 </StackPanel>
 
                 <!-- Footer with version info -->
-                <Border Grid.Row="1"
+                <Border
                        Background="#10000000"
                        BorderBrush="#20000000"
                        BorderThickness="0,1,0,0"
                        Padding="20,12"
-                       CornerRadius="0,0,16,16">
-                    <Grid>
+                       CornerRadius="0,0,16,16" Margin="0,382,0,0" Grid.RowSpan="2" RenderTransformOrigin="0.502,0.587">
+                    <Grid Margin="0,85,0,0">
                         <TextBlock Text="Digital Signage Server"
                                  FontSize="11"
                                  Foreground="#666666"
