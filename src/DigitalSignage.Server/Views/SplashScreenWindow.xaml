@@ -15,6 +15,7 @@
         <!-- Converters -->
         <converters:ProgressWidthConverter x:Key="ProgressWidthConverter"/>
         <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+
         <!-- Rotating spinner animation -->
         <Storyboard x:Key="SpinnerAnimation" RepeatBehavior="Forever">
             <DoubleAnimation Storyboard.TargetName="SpinnerRotation"
@@ -22,38 +23,6 @@
                            From="0" To="360"
                            Duration="0:0:1.5"
                            AutoReverse="False"/>
-        </Storyboard>
-
-        <!-- Pulse animation for logo -->
-        <Storyboard x:Key="PulseAnimation" RepeatBehavior="Forever">
-            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="LogoScaleTransform"
-                                         Storyboard.TargetProperty="ScaleX">
-                <EasingDoubleKeyFrame KeyTime="0:0:0" Value="1.0"/>
-                <EasingDoubleKeyFrame KeyTime="0:0:1" Value="1.05">
-                    <EasingDoubleKeyFrame.EasingFunction>
-                        <SineEase EasingMode="EaseInOut"/>
-                    </EasingDoubleKeyFrame.EasingFunction>
-                </EasingDoubleKeyFrame>
-                <EasingDoubleKeyFrame KeyTime="0:0:2" Value="1.0">
-                    <EasingDoubleKeyFrame.EasingFunction>
-                        <SineEase EasingMode="EaseInOut"/>
-                    </EasingDoubleKeyFrame.EasingFunction>
-                </EasingDoubleKeyFrame>
-            </DoubleAnimationUsingKeyFrames>
-            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="LogoScaleTransform"
-                                         Storyboard.TargetProperty="ScaleY">
-                <EasingDoubleKeyFrame KeyTime="0:0:0" Value="1.0"/>
-                <EasingDoubleKeyFrame KeyTime="0:0:1" Value="1.05">
-                    <EasingDoubleKeyFrame.EasingFunction>
-                        <SineEase EasingMode="EaseInOut"/>
-                    </EasingDoubleKeyFrame.EasingFunction>
-                </EasingDoubleKeyFrame>
-                <EasingDoubleKeyFrame KeyTime="0:0:2" Value="1.0">
-                    <EasingDoubleKeyFrame.EasingFunction>
-                        <SineEase EasingMode="EaseInOut"/>
-                    </EasingDoubleKeyFrame.EasingFunction>
-                </EasingDoubleKeyFrame>
-            </DoubleAnimationUsingKeyFrames>
         </Storyboard>
 
         <!-- Fade in animation -->
@@ -78,7 +47,6 @@
         <EventTrigger RoutedEvent="Loaded">
             <BeginStoryboard Storyboard="{StaticResource FadeInAnimation}"/>
             <BeginStoryboard Storyboard="{StaticResource SpinnerAnimation}"/>
-            <BeginStoryboard Storyboard="{StaticResource PulseAnimation}"/>
             <BeginStoryboard Storyboard="{StaticResource IndeterminateAnimation}"/>
         </EventTrigger>
     </Window.Triggers>
@@ -115,17 +83,12 @@
                           HorizontalAlignment="Center"
                           VerticalAlignment="Center" Height="362" Width="666">
 
-                    <!-- Logo with animation -->
-                    <Grid Height="227" Margin="0,0,0,20" Width="355" RenderTransformOrigin="0.346,0.514">
+                    <!-- Logo - STATIC (no animation) - LARGER SIZE -->
+                    <Grid Height="320" Margin="0,0,0,20" Width="500">
                         <Image x:Name="LogoImage"
                                Stretch="Uniform"
                                HorizontalAlignment="Center"
-                               VerticalAlignment="Center"
-                               RenderTransformOrigin="0.5,0.5">
-                            <Image.RenderTransform>
-                                <ScaleTransform x:Name="LogoScaleTransform" ScaleX="1" ScaleY="1"/>
-                            </Image.RenderTransform>
-                        </Image>
+                               VerticalAlignment="Center"/>
                     </Grid>
 
                     <!-- Status message -->
