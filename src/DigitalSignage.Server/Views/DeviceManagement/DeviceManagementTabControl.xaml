@@ -44,7 +44,8 @@
                      CanUserAddRows="False"
                      IsReadOnly="True"
                      SelectionMode="Single"
-                     Margin="12,0">
+                     Margin="12,0"
+                     MouseDoubleClick="DataGrid_MouseDoubleClick">
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Name" Binding="{Binding DisplayName}" Width="150"/>
                     <DataGridTextColumn Header="IP Address" Binding="{Binding IpAddress}" Width="120"/>
