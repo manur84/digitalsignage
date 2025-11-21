@@ -116,7 +116,7 @@
                           VerticalAlignment="Center" Height="362" Width="666">
 
                     <!-- Logo with animation -->
-                    <Grid Height="227" Margin="0,0,0,20" Width="656" RenderTransformOrigin="0.346,0.514">
+                    <Grid Height="227" Margin="0,0,0,20" Width="355" RenderTransformOrigin="0.346,0.514">
                         <Image x:Name="LogoImage"
                                Stretch="Uniform"
                                HorizontalAlignment="Center"
