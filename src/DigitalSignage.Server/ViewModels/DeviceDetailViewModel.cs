@@ -159,6 +159,23 @@ public partial class DeviceDetailViewModel : ObservableObject, IDisposable
 
             _logger.LogInformation("Loading device details for {DeviceName}", client.Name);
 
+            // DEBUG: Log ALL DeviceInfo values to diagnose why they're not displaying
+            _logger.LogInformation("DeviceInfo Debug - Hostname: '{Hostname}', Model: '{Model}', OS: '{Os}', Version: '{Version}'",
+                client.DeviceInfo?.Hostname ?? "NULL",
+                client.DeviceInfo?.Model ?? "NULL",
+                client.DeviceInfo?.OsVersion ?? "NULL",
+                client.DeviceInfo?.ClientVersion ?? "NULL");
+            _logger.LogInformation("DeviceInfo Debug - Resolution: {Width}x{Height}, CPU: {Cpu}%, Temp: {Temp}C",
+                client.DeviceInfo?.ScreenWidth ?? 0,
+                client.DeviceInfo?.ScreenHeight ?? 0,
+                client.DeviceInfo?.CpuUsage ?? 0,
+                client.DeviceInfo?.CpuTemperature ?? 0);
+            _logger.LogInformation("DeviceInfo Debug - Memory: {MemUsed}/{MemTotal}, Disk: {DiskUsed}/{DiskTotal}",
+                client.DeviceInfo?.MemoryUsed ?? 0,
+                client.DeviceInfo?.MemoryTotal ?? 0,
+                client.DeviceInfo?.DiskUsed ?? 0,
+                client.DeviceInfo?.DiskTotal ?? 0);
+
             // Basic information
             DeviceName = string.IsNullOrWhiteSpace(client.Name) ? client.DeviceInfo.Hostname : client.Name;
             Hostname = client.DeviceInfo.Hostname;
