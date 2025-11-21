@@ -120,7 +120,15 @@ public class RemoteClientInstallerService
             }
 
             progress?.Report("Preparing remote staging folder...");
-            await Task.Run(() => ssh.RunCommand($"rm -rf '{RemoteInstallPath}' && mkdir -p '{RemoteInstallPath}'"), cancellationToken);
+            try
+            {
+                await Task.Run(() => ssh.RunCommand($"rm -rf '{RemoteInstallPath}' && mkdir -p '{RemoteInstallPath}'"), cancellationToken);
+            }
+            catch (SshConnectionException ex)
+            {
+                _logger.LogError(ex, "SSH connection dropped while preparing staging folder for {Host}", host);
+                return Result.Failure("SSH connection was aborted while preparing remote directory. The device may have rebooted unexpectedly.", ex);
+            }
 
             progress?.Report("Uploading installer files (can take a moment)...");
             await _fileUploader.UploadInstallerAsync(sftp, RemoteInstallPath, progress, cancellationToken);
@@ -130,7 +138,15 @@ public class RemoteClientInstallerService
             progress?.Report($"Gefundenes install.sh: {installScriptPath}");
 
             progress?.Report("Making install.sh executable...");
-            await Task.Run(() => ssh.RunCommand($"chmod +x '{installScriptPath}'"), cancellationToken);
+            try
+            {
+                await Task.Run(() => ssh.RunCommand($"chmod +x '{installScriptPath}'"), cancellationToken);
+            }
+            catch (SshConnectionException ex)
+            {
+                _logger.LogError(ex, "SSH connection dropped while making install.sh executable for {Host}", host);
+                return Result.Failure("SSH connection was aborted while preparing installer script. The device may have rebooted unexpectedly.", ex);
+            }
 
             var installCommand = BuildInstallCommand(username, password, installScriptPath, isUpdateMode);
             progress?.Report(isUpdateMode ? "Running install.sh in UPDATE mode..." : "Running install.sh in INSTALL mode...");

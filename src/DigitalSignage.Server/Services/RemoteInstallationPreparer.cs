@@ -83,7 +83,19 @@ fi
         progress?.Report("Stopping service and backing up config...");
         var cmd = ssh.CreateCommand(commandText);
         cmd.CommandTimeout = TimeSpan.FromSeconds(30);
-        var output = await Task.Run(() => cmd.Execute(), cancellationToken);
+
+        string output;
+        try
+        {
+            output = await Task.Run(() => cmd.Execute(), cancellationToken);
+        }
+        catch (Renci.SshNet.Common.SshConnectionException ex)
+        {
+            // SSH connection dropped - might be reboot or network issue
+            _logger.LogWarning(ex, "SSH connection dropped during update preparation");
+            throw new InvalidOperationException("SSH connection was aborted while preparing update. The device may have rebooted.", ex);
+        }
+
         var combined = (cmd.Error ?? output ?? string.Empty).Trim();
 
         if (!string.IsNullOrWhiteSpace(combined))
@@ -144,7 +156,19 @@ rm -f '{_remoteServiceFile}'
         progress?.Report("Stopping service and removing previous install (if any)...");
         var cmd = ssh.CreateCommand(commandText);
         cmd.CommandTimeout = TimeSpan.FromSeconds(30);
-        var cleanupOutput = await Task.Run(() => cmd.Execute(), cancellationToken);
+
+        string cleanupOutput;
+        try
+        {
+            cleanupOutput = await Task.Run(() => cmd.Execute(), cancellationToken);
+        }
+        catch (Renci.SshNet.Common.SshConnectionException ex)
+        {
+            // SSH connection dropped - might be reboot or network issue
+            _logger.LogWarning(ex, "SSH connection dropped during clean install preparation");
+            throw new InvalidOperationException("SSH connection was aborted while preparing clean install. The device may have rebooted.", ex);
+        }
+
         var combined = (cmd.Error ?? cleanupOutput ?? string.Empty).Trim();
 
         if (!string.IsNullOrWhiteSpace(combined))
