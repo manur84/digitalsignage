@@ -379,7 +379,6 @@
                             <ComboBox Grid.Column="0"
                                       ItemsSource="{Binding AvailableNetworkInterfaces}"
                                       SelectedItem="{Binding SelectedNetworkInterface, Mode=TwoWay}"
-                                      DisplayMemberPath="DisplayName"
                                       Margin="0,0,5,0">
                                 <ComboBox.ItemTemplate>
                                     <DataTemplate>
