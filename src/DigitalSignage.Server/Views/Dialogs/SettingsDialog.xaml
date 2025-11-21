@@ -441,6 +441,151 @@
                 </ScrollViewer>
             </TabItem>
 
+            <!-- Windows Service Tab -->
+            <TabItem Header="Windows Service">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="20">
+                        <TextBlock Text="Windows Service Management" Style="{StaticResource SectionHeader}"/>
+
+                        <TextBlock TextWrapping="Wrap"
+                                   Foreground="#666666"
+                                   FontSize="12"
+                                   Margin="0,5,0,15">
+                            Install the Digital Signage Server as a Windows Service to run automatically on system startup without user login.
+                            This requires Administrator privileges.
+                        </TextBlock>
+
+                        <!-- Administrator Status -->
+                        <Border Background="#FFF3CD" BorderBrush="#FFC107" BorderThickness="1"
+                                CornerRadius="4" Padding="10" Margin="0,0,0,15"
+                                Visibility="{Binding IsAdministrator, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="⚠️" FontSize="16" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                                <TextBlock TextWrapping="Wrap" VerticalAlignment="Center">
+                                    <Run Text="Not running as Administrator." FontWeight="SemiBold"/>
+                                    <LineBreak/>
+                                    <Run Text="Please restart the application as Administrator to manage Windows Service."/>
+                                </TextBlock>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Service Status Display -->
+                        <TextBlock Text="Service Status" Style="{StaticResource SectionHeader}"/>
+
+                        <Grid Margin="0,5,0,20">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Column="0" Text="Current Status:" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                            <TextBlock Grid.Column="1" Text="{Binding ServiceStatus}" VerticalAlignment="Center" FontSize="14"/>
+                            <Button Grid.Column="2" Content="Refresh Status"
+                                    Command="{Binding RefreshServiceStatusCommand}"
+                                    Style="{StaticResource SecondaryButton}"
+                                    Padding="10,5"/>
+                        </Grid>
+
+                        <CheckBox Content="Service is installed"
+                                  IsChecked="{Binding IsServiceInstalled, Mode=OneWay}"
+                                  IsEnabled="False"
+                                  Margin="0,0,0,15"/>
+
+                        <!-- Service Management Actions -->
+                        <TextBlock Text="Service Actions" Style="{StaticResource SectionHeader}"/>
+
+                        <Grid Margin="0,10,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="10"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="10"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- Install Service Button -->
+                            <Button Grid.Row="0" Grid.Column="0"
+                                    Content="Install as Windows Service"
+                                    Command="{Binding InstallServiceCommand}"
+                                    Style="{StaticResource PrimaryButton}"
+                                    Padding="15,10"
+                                    IsEnabled="{Binding CanInstallService}"/>
+
+                            <!-- Uninstall Service Button -->
+                            <Button Grid.Row="0" Grid.Column="2"
+                                    Content="Uninstall Windows Service"
+                                    Command="{Binding UninstallServiceCommand}"
+                                    Style="{StaticResource WarningButton}"
+                                    Padding="15,10"
+                                    IsEnabled="{Binding CanUninstallService}"/>
+
+                            <!-- Start Service Button -->
+                            <Button Grid.Row="2" Grid.Column="0"
+                                    Content="Start Service"
+                                    Command="{Binding StartServiceCommand}"
+                                    Style="{StaticResource PrimaryButton}"
+                                    Padding="15,10"
+                                    IsEnabled="{Binding CanStartService}"/>
+
+                            <!-- Stop Service Button -->
+                            <Button Grid.Row="2" Grid.Column="2"
+                                    Content="Stop Service"
+                                    Command="{Binding StopServiceCommand}"
+                                    Style="{StaticResource SecondaryButton}"
+                                    Padding="15,10"
+                                    IsEnabled="{Binding CanStopService}"/>
+                        </Grid>
+
+                        <!-- Service Information -->
+                        <TextBlock Text="Service Information" Style="{StaticResource SectionHeader}" Margin="0,20,0,5"/>
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Service Name:" FontWeight="SemiBold" Margin="0,5,10,5"/>
+                            <TextBlock Grid.Row="0" Grid.Column="1" Text="DigitalSignageServer" Margin="0,5"/>
+
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Display Name:" FontWeight="SemiBold" Margin="0,5,10,5"/>
+                            <TextBlock Grid.Row="1" Grid.Column="1" Text="Digital Signage Server" Margin="0,5"/>
+
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Startup Type:" FontWeight="SemiBold" Margin="0,5,10,5"/>
+                            <TextBlock Grid.Row="2" Grid.Column="1" Text="Automatic" Margin="0,5"/>
+                        </Grid>
+
+                        <!-- Important Notes -->
+                        <TextBlock Text="Important Notes" Style="{StaticResource SectionHeader}" Margin="0,20,0,5"/>
+
+                        <TextBlock TextWrapping="Wrap" Foreground="#666666" FontSize="12" Margin="0,5,0,0">
+                            • Administrator privileges are required for all service operations
+                        </TextBlock>
+                        <TextBlock TextWrapping="Wrap" Foreground="#666666" FontSize="12" Margin="0,5,0,0">
+                            • The service will start automatically on system boot
+                        </TextBlock>
+                        <TextBlock TextWrapping="Wrap" Foreground="#666666" FontSize="12" Margin="0,5,0,0">
+                            • The service runs in the background without a UI
+                        </TextBlock>
+                        <TextBlock TextWrapping="Wrap" Foreground="#666666" FontSize="12" Margin="0,5,0,0">
+                            • Logs are written to the configured log directory
+                        </TextBlock>
+                        <TextBlock TextWrapping="Wrap" Foreground="#666666" FontSize="12" Margin="0,5,0,0">
+                            • You can view service status in Windows Services (services.msc)
+                        </TextBlock>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
             <!-- About Tab -->
             <TabItem Header="About">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">

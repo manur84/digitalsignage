@@ -23,6 +23,7 @@ public partial class SettingsViewModel : ObservableValidator
     private readonly ILogger<SettingsViewModel> _logger;
     private readonly IDialogService _dialogService;
     private readonly NetworkInterfaceService _networkInterfaceService;
+    private readonly WindowsServiceInstaller _windowsServiceInstaller;
     private readonly string _appSettingsPath;
 
     #region Server Settings
@@ -188,16 +189,43 @@ public partial class SettingsViewModel : ObservableValidator
 
     #endregion
 
+    #region Windows Service Settings
+
+    [ObservableProperty]
+    private bool _isAdministrator;
+
+    [ObservableProperty]
+    private bool _isServiceInstalled;
+
+    [ObservableProperty]
+    private string _serviceStatus = "Not Installed";
+
+    [ObservableProperty]
+    private bool _canInstallService;
+
+    [ObservableProperty]
+    private bool _canUninstallService;
+
+    [ObservableProperty]
+    private bool _canStartService;
+
+    [ObservableProperty]
+    private bool _canStopService;
+
+    #endregion
+
     public SettingsViewModel(
         IConfiguration configuration,
         IDialogService dialogService,
         ILogger<SettingsViewModel> logger,
-        NetworkInterfaceService networkInterfaceService)
+        NetworkInterfaceService networkInterfaceService,
+        WindowsServiceInstaller windowsServiceInstaller)
     {
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _networkInterfaceService = networkInterfaceService ?? throw new ArgumentNullException(nameof(networkInterfaceService));
+        _windowsServiceInstaller = windowsServiceInstaller ?? throw new ArgumentNullException(nameof(windowsServiceInstaller));
         _appSettingsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "appsettings.json");
 
         // Subscribe to property changes to track dirty state
@@ -226,6 +254,7 @@ public partial class SettingsViewModel : ObservableValidator
 
         LoadSettings();
         LoadNetworkInterfaces();
+        RefreshServiceStatus();
     }
 
     /// <summary>
@@ -627,4 +656,215 @@ public partial class SettingsViewModel : ObservableValidator
 
         return result == false; // No = true, Cancel = false
     }
+
+    #region Windows Service Commands
+
+    /// <summary>
+    /// Refresh Windows Service status
+    /// </summary>
+    [RelayCommand]
+    private void RefreshServiceStatus()
+    {
+        try
+        {
+            _logger.LogInformation("Refreshing Windows Service status");
+
+            IsAdministrator = _windowsServiceInstaller.IsAdministrator();
+            IsServiceInstalled = _windowsServiceInstaller.IsServiceInstalled();
+            ServiceStatus = _windowsServiceInstaller.GetServiceStatusString();
+
+            // Update button states
+            UpdateServiceButtonStates();
+
+            _logger.LogInformation("Service status refreshed: IsAdmin={IsAdmin}, IsInstalled={IsInstalled}, Status={Status}",
+                IsAdministrator, IsServiceInstalled, ServiceStatus);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to refresh service status");
+            StatusMessage = $"Error refreshing service status: {ex.Message}";
+        }
+    }
+
+    /// <summary>
+    /// Update button enabled states based on service status
+    /// </summary>
+    private void UpdateServiceButtonStates()
+    {
+        CanInstallService = IsAdministrator && !IsServiceInstalled;
+        CanUninstallService = IsAdministrator && IsServiceInstalled;
+        CanStartService = IsAdministrator && IsServiceInstalled &&
+                         (ServiceStatus == "Stopped" || ServiceStatus == "Not Installed");
+        CanStopService = IsAdministrator && IsServiceInstalled && ServiceStatus == "Running";
+    }
+
+    /// <summary>
+    /// Install Windows Service
+    /// </summary>
+    [RelayCommand]
+    private async Task InstallService()
+    {
+        try
+        {
+            _logger.LogInformation("Installing Windows Service...");
+
+            var result = _windowsServiceInstaller.InstallService();
+
+            if (result.Success)
+            {
+                await _dialogService.ShowInformationAsync(
+                    result.Message,
+                    "Service Installed");
+
+                RefreshServiceStatus();
+            }
+            else
+            {
+                await _dialogService.ShowErrorAsync(
+                    result.Message,
+                    "Installation Failed");
+            }
+
+            StatusMessage = result.Message;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to install Windows Service");
+            await _dialogService.ShowErrorAsync(
+                $"Failed to install Windows Service:\n\n{ex.Message}",
+                "Installation Error");
+        }
+    }
+
+    /// <summary>
+    /// Uninstall Windows Service
+    /// </summary>
+    [RelayCommand]
+    private async Task UninstallService()
+    {
+        try
+        {
+            var confirm = await _dialogService.ShowConfirmationAsync(
+                "Are you sure you want to uninstall the Windows Service?\n\n" +
+                "The service will be removed from the system and will no longer start automatically.",
+                "Confirm Uninstall");
+
+            if (!confirm)
+                return;
+
+            _logger.LogInformation("Uninstalling Windows Service...");
+
+            var result = _windowsServiceInstaller.UninstallService();
+
+            if (result.Success)
+            {
+                await _dialogService.ShowInformationAsync(
+                    result.Message,
+                    "Service Uninstalled");
+
+                RefreshServiceStatus();
+            }
+            else
+            {
+                await _dialogService.ShowErrorAsync(
+                    result.Message,
+                    "Uninstall Failed");
+            }
+
+            StatusMessage = result.Message;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to uninstall Windows Service");
+            await _dialogService.ShowErrorAsync(
+                $"Failed to uninstall Windows Service:\n\n{ex.Message}",
+                "Uninstall Error");
+        }
+    }
+
+    /// <summary>
+    /// Start Windows Service
+    /// </summary>
+    [RelayCommand]
+    private async Task StartService()
+    {
+        try
+        {
+            _logger.LogInformation("Starting Windows Service...");
+
+            var result = _windowsServiceInstaller.StartService();
+
+            if (result.Success)
+            {
+                await _dialogService.ShowInformationAsync(
+                    result.Message,
+                    "Service Started");
+
+                RefreshServiceStatus();
+            }
+            else
+            {
+                await _dialogService.ShowErrorAsync(
+                    result.Message,
+                    "Start Failed");
+            }
+
+            StatusMessage = result.Message;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to start Windows Service");
+            await _dialogService.ShowErrorAsync(
+                $"Failed to start Windows Service:\n\n{ex.Message}",
+                "Start Error");
+        }
+    }
+
+    /// <summary>
+    /// Stop Windows Service
+    /// </summary>
+    [RelayCommand]
+    private async Task StopService()
+    {
+        try
+        {
+            var confirm = await _dialogService.ShowConfirmationAsync(
+                "Are you sure you want to stop the Windows Service?\n\n" +
+                "All connected clients will be disconnected.",
+                "Confirm Stop");
+
+            if (!confirm)
+                return;
+
+            _logger.LogInformation("Stopping Windows Service...");
+
+            var result = _windowsServiceInstaller.StopService();
+
+            if (result.Success)
+            {
+                await _dialogService.ShowInformationAsync(
+                    result.Message,
+                    "Service Stopped");
+
+                RefreshServiceStatus();
+            }
+            else
+            {
+                await _dialogService.ShowErrorAsync(
+                    result.Message,
+                    "Stop Failed");
+            }
+
+            StatusMessage = result.Message;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to stop Windows Service");
+            await _dialogService.ShowErrorAsync(
+                $"Failed to stop Windows Service:\n\n{ex.Message}",
+                "Stop Error");
+        }
+    }
+
+    #endregion
 }

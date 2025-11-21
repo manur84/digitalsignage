@@ -149,6 +149,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<RateLimitingService>();
         services.AddScoped<DataSourceRepository>();
 
+        // Windows Service Management
+        services.AddSingleton<WindowsServiceInstaller>();
+
         // Caching
         services.AddMemoryCache();
         services.AddSingleton<StartupCacheService>();
