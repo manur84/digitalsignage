@@ -172,6 +172,9 @@ class DigitalSignageClient:
         # Web interface
         self.web_interface: Optional[WebInterface] = None
 
+        # CRITICAL FIX: Track cached layout display to prevent flickering
+        self._cached_layout_displayed = False
+
         # Setup remote logging if enabled
         if self.config.remote_logging_enabled:
             self._setup_remote_logging()
@@ -639,6 +642,10 @@ class DigitalSignageClient:
                 self.current_layout = layout
                 logger.info(f"Updating display with layout: {layout.get('Name')}")
 
+                # CRITICAL FIX: Reset cached layout flag when receiving new layout from server
+                # This allows cached layout to be displayed again on next disconnect
+                self._cached_layout_displayed = False
+
                 # Save layout and data to cache for offline operation
                 self.cache_manager.save_layout(layout, layout_data, set_current=True)
 
@@ -775,17 +782,36 @@ class DigitalSignageClient:
         pass
 
     async def load_cached_layout(self):
-        """Load cached layout for offline operation"""
+        """Load cached layout for offline operation
+
+        CRITICAL FIX: Prevents flickering when showing cached layout on disconnect.
+        Sets a flag to prevent repeated re-rendering of the same cached layout.
+        """
         try:
+            # CRITICAL FIX: Check if we're already showing this cached layout
+            # This prevents repeated rendering that causes flickering
             cached = self.cache_manager.get_current_layout()
             if cached:
                 layout, layout_data = cached
+                layout_id = layout.get('Id')
+
+                # CRITICAL: Check if this layout is ALREADY displayed
+                # Prevents flickering by avoiding repeated render calls
+                if (self.current_layout and
+                    self.current_layout.get('Id') == layout_id and
+                    hasattr(self, '_cached_layout_displayed') and
+                    self._cached_layout_displayed):
+                    logger.debug(f"Cached layout '{layout.get('Name')}' already displayed - skipping re-render to prevent flicker")
+                    return
+
                 self.current_layout = layout
                 logger.info(f"Loaded cached layout: {layout.get('Name')} (Offline Mode)")
 
                 if self.display_renderer:
                     await self.display_renderer.render_layout(layout, layout_data)
-                    logger.info("Displaying cached layout in offline mode")
+                    # CRITICAL: Set flag to prevent re-rendering
+                    self._cached_layout_displayed = True
+                    logger.info("Displaying cached layout in offline mode - re-render protection enabled")
             else:
                 logger.warning("No cached layout available for offline mode")
         except Exception as e:
@@ -1066,6 +1092,10 @@ class DigitalSignageClient:
                         logger.info("=" * 70)
                         self.reconnection_in_progress = False
                         self.offline_mode = False
+
+                        # CRITICAL FIX: Reset cached layout flag on successful reconnection
+                        # This allows fresh server layout to be displayed
+                        self._cached_layout_displayed = False
 
                         # CRITICAL FIX: Clear status screen immediately upon successful connection
                         if self.display_renderer and self.display_renderer.status_screen_manager.is_showing_status:
