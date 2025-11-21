@@ -629,13 +629,11 @@ class DigitalSignageClient:
                         logger.info(f"[DEBUG] Calling show_no_layout_assigned():")
                         logger.info(f"[DEBUG]   client_id: {self.config.client_id}")
                         logger.info(f"[DEBUG]   server_url: {server_url}")
-                        logger.info(f"[DEBUG]   ip_address: {ip_address}")
 
                         try:
                             self.display_renderer.status_screen_manager.show_no_layout_assigned(
-                                self.config.client_id,
-                                server_url,
-                                ip_address
+                                client_id=self.config.client_id,
+                                server_url=server_url
                             )
                             logger.info("[DEBUG] ✓ show_no_layout_assigned() completed successfully")
                         except Exception as e:
@@ -1051,9 +1049,12 @@ class DigitalSignageClient:
         if not self.config.show_cached_layout_on_disconnect:
             if self.display_renderer and (not self.current_layout or self.display_renderer.status_screen_manager.is_showing_status):
                 server_url = self.config.get_server_url()
-                self.display_renderer.status_screen_manager.show_server_disconnected(
-                    server_url,
-                    self.config.client_id
+                # Use show_server_offline with auto_discovery flag
+                self.display_renderer.status_screen_manager.show_server_offline(
+                    server_url=server_url,
+                    attempt=0,
+                    retry_in=0,
+                    auto_discovery_active=self.config.auto_discover
                 )
 
         try:
@@ -1086,9 +1087,8 @@ class DigitalSignageClient:
                             if discovered_url:
                                 logger.info(f"✓ Server discovered: {discovered_url}")
 
-                                # Show "Server Found" only if NOT showing cached layout
-                                if not self.connected and self.display_renderer:
-                                    self.display_renderer.status_screen_manager.show_server_found(discovered_url)
+                                # NO "Server Found" screen - go directly to connecting
+                                # This prevents rapid screen switching
 
                                 # Update config with discovered server
                                 import re
@@ -1119,9 +1119,8 @@ class DigitalSignageClient:
                 if self.display_renderer and not self.config.show_cached_layout_on_disconnect:
                     if attempt == 1 or attempt % 5 == 0:
                         self.display_renderer.status_screen_manager.show_connecting(
-                            server_url,
-                            attempt,
-                            5  # Max attempts before delay
+                            server_url=server_url,
+                            attempt=attempt
                         )
                         logger.debug(f"Updated connecting status screen (attempt {attempt})")
                     else:
@@ -1188,13 +1187,14 @@ class DigitalSignageClient:
 
                             if should_update:
                                 if self.display_renderer and not self.config.show_cached_layout_on_disconnect:
-                                    self.display_renderer.status_screen_manager.show_reconnecting(
-                                        server_url,
-                                        attempt,
-                                        remaining,
-                                        self.config.client_id
+                                    # Use show_server_offline with countdown
+                                    self.display_renderer.status_screen_manager.show_server_offline(
+                                        server_url=server_url,
+                                        attempt=attempt,
+                                        retry_in=remaining,
+                                        auto_discovery_active=self.config.auto_discover
                                     )
-                                    logger.debug(f"Updated reconnecting countdown: {remaining}s remaining")
+                                    logger.debug(f"Updated server offline countdown: {remaining}s remaining")
 
                             await asyncio.sleep(1)
 
@@ -1245,9 +1245,9 @@ class DigitalSignageClient:
             logger.info("Discovery will run continuously until server is found")
             logger.info("=" * 70)
 
-            # Show discovering server status screen ONCE before starting discovery loop
+            # Show auto-discovery status screen ONCE before starting discovery loop
             if self.display_renderer:
-                self.display_renderer.status_screen_manager.show_discovering_server("mDNS/Zeroconf + UDP Broadcast")
+                self.display_renderer.status_screen_manager.show_auto_discovery()
 
                 # CRITICAL FIX: Give Qt event loop time to render status screen
                 # Without this delay, the status screen widget is created but never painted/displayed
@@ -1255,7 +1255,7 @@ class DigitalSignageClient:
                 # await asyncio.sleep(0) yields to event loop, allowing Qt to process paint events.
                 await asyncio.sleep(0.1)  # 100ms to ensure status screen is fully rendered
 
-                logger.info("Status screen displayed - starting discovery...")
+                logger.info("Auto-discovery status screen displayed - starting discovery...")
 
             server_discovered = False
             discovery_attempt = 0
@@ -1340,12 +1340,9 @@ class DigitalSignageClient:
                 logger.error(f"Total discovery time: ~{MAX_DISCOVERY_ATTEMPTS * self.config.discovery_timeout}s")
                 logger.error("=" * 70)
 
-                # Show discovery failed status screen
-                if self.display_renderer and self.display_renderer.status_screen_manager:
-                    await self.display_renderer.status_screen_manager.show_discovery_failed(
-                        attempts=MAX_DISCOVERY_ATTEMPTS,
-                        config_path="/opt/digitalsignage-client/config.json"
-                    )
+                # NO "discovery failed" screen - just proceed to manual server connection
+                # The connecting screen will show the manual server URL
+                logger.info("Auto-discovery failed, proceeding with manual server configuration")
 
                 # Fallback: Disable auto_discover and try configured server
                 logger.warning("FALLBACK: Disabling auto_discover and trying configured server...")
@@ -1391,7 +1388,10 @@ class DigitalSignageClient:
 
                     # Show connecting status screen
                     if self.display_renderer:
-                        self.display_renderer.status_screen_manager.show_connecting(server_url, attempt + 1, max_retries_per_batch)
+                        self.display_renderer.status_screen_manager.show_connecting(
+                            server_url=server_url,
+                            attempt=attempt + 1
+                        )
 
                     if self.config.use_ssl:
                         if self.config.verify_ssl:
@@ -1426,14 +1426,14 @@ class DigitalSignageClient:
 
             self.watchdog.notify_status(f"Waiting {batch_wait_time}s before retry batch {batch_number + 1}")
 
-            # Show connection error status screen during wait
+            # Show server offline screen during wait
             if self.display_renderer:
                 server_url = self.config.get_server_url()
-                error_msg = f"{last_error if last_error else 'Connection failed'} (Batch {batch_number})"
-                self.display_renderer.status_screen_manager.show_connection_error(
-                    server_url,
-                    error_msg,
-                    self.config.client_id
+                self.display_renderer.status_screen_manager.show_server_offline(
+                    server_url=server_url,
+                    attempt=batch_number * max_retries_per_batch,
+                    retry_in=batch_wait_time,
+                    auto_discovery_active=self.config.auto_discover
                 )
 
             await asyncio.sleep(batch_wait_time)
