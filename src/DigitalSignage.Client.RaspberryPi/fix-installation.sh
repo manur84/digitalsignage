@@ -28,6 +28,13 @@ INSTALL_DIR="/opt/digitalsignage-client"
 SERVICE_NAME="digitalsignage-client"
 SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
 
+# Auto-detect boot directory (Raspberry Pi OS changed location in newer versions)
+if [ -d "/boot/firmware" ] && [ -w "/boot/firmware" ]; then
+    BOOT_DIR="/boot/firmware"
+else
+    BOOT_DIR="/boot"
+fi
+
 echo "════════════════════════════════════════════════════════════"
 echo "  Digital Signage Client - Smart Installer"
 echo "════════════════════════════════════════════════════════════"
@@ -1098,10 +1105,10 @@ EOF
     chown "$ACTUAL_USER:$ACTUAL_USER" "$PCMANFM_CONFIG"
     show_success "Desktop icons disabled"
 
-    # Update /boot/config.txt with detected HDMI modes
+    # Update $BOOT_DIR/config.txt with detected HDMI modes
     if [ -f "$INSTALL_DIR/config_txt_manager.py" ]; then
         echo ""
-        echo "Updating /boot/config.txt with detected display resolutions..."
+        echo "Updating $BOOT_DIR/config.txt with detected display resolutions..."
         if python3 "$INSTALL_DIR/config_txt_manager.py"; then
             show_success "config.txt updated with detected modes"
         else

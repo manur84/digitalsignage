@@ -889,10 +889,7 @@ fi
 
 # 2. Check initramfs size
 KERNEL_VERSION=$(uname -r)
-INITRAMFS_PATH="/boot/firmware/initramfs"
-if [ ! -f "$INITRAMFS_PATH" ]; then
-    INITRAMFS_PATH="/boot/initramfs"
-fi
+INITRAMFS_PATH="$BOOT_DIR/initramfs"
 
 if [ -f "$INITRAMFS_PATH" ]; then
     INITRAMFS_SIZE=$(du -h "$INITRAMFS_PATH" | cut -f1)
@@ -1268,10 +1265,10 @@ EOF
     # This bypasses LightDM and LXDE entirely for cleaner kiosk mode
     show_info "Skipping LXDE configuration (console-based boot, no desktop environment)"
 
-    # Update /boot/config.txt with detected HDMI modes
+    # Update $BOOT_DIR/config.txt with detected HDMI modes
     if [ -f "$INSTALL_DIR/config_txt_manager.py" ]; then
         echo ""
-        echo "Updating /boot/config.txt with detected display resolutions..."
+        echo "Updating $BOOT_DIR/config.txt with detected display resolutions..."
         if python3 "$INSTALL_DIR/config_txt_manager.py"; then
             show_success "config.txt updated with detected modes"
         else

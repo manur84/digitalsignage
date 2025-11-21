@@ -171,9 +171,9 @@ if [ $ISSUES -eq 0 ]; then
     echo -e "${GREEN}All critical checks passed!${NC}"
     echo ""
     echo "If rainbow screen still appears after reboot:"
-    echo "1. Check if /boot/config.txt was actually saved (may need remount)"
+    echo "1. Check if $BOOT_DIR/config.txt was actually saved (may need remount)"
     echo "2. Verify you're editing the correct boot partition"
-    echo "3. Try: sudo mount -o remount,rw /boot && echo 'disable_splash=1' | sudo tee -a /boot/config.txt"
+    echo "3. Try: sudo mount -o remount,rw $BOOT_DIR && echo 'disable_splash=1' | sudo tee -a $BOOT_DIR/config.txt"
 else
     echo -e "${RED}Found $ISSUES issue(s) that need to be fixed${NC}"
 fi

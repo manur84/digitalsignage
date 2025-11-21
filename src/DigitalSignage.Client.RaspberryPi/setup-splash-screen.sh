@@ -216,7 +216,7 @@ configure_plymouth() {
   # This embeds the splash image in the initramfs so it shows at boot
   # -u = update all kernels, -k = specific kernel
   update-initramfs -u -k "$KERNEL_VERSION" 2>&1 | grep -E "Generating|update-initramfs" || \
-    mkinitramfs -o /boot/firmware/initramfs "$KERNEL_VERSION"
+    mkinitramfs -o "$BOOT_DIR/initramfs" "$KERNEL_VERSION"
 
   echo "Plymouth initramfs rebuild completed"
   echo ""
