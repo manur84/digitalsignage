@@ -815,12 +815,15 @@ if [ -f "$CONFIG_TXT" ]; then
         show_success "Backed up original config.txt"
     fi
 
-    # CRITICAL: REMOVE or COMMENT disable_splash=1 (this DISABLES Plymouth!)
-    if grep -Eq '^disable_splash=1' "$CONFIG_TXT"; then
-        sed -i 's/^disable_splash=1/#disable_splash=1 # Commented by Digital Signage - enables Plymouth/' "$CONFIG_TXT"
-        show_success "Disabled 'disable_splash=1' in config.txt (enables Plymouth)"
+    # CRITICAL: Add disable_splash=1 to DISABLE the rainbow splash screen
+    # This removes the colorful boot splash that appears before Plymouth logo
+    if ! grep -Eq '^disable_splash=1' "$CONFIG_TXT"; then
+        echo "" >> "$CONFIG_TXT"
+        echo "# Digital Signage: Disable rainbow splash screen" >> "$CONFIG_TXT"
+        echo "disable_splash=1" >> "$CONFIG_TXT"
+        show_success "Added 'disable_splash=1' to config.txt (disables rainbow splash)"
     else
-        show_info "disable_splash not blocking Plymouth"
+        show_info "disable_splash=1 already present (rainbow splash disabled)"
     fi
 
     # CRITICAL: Enable auto_initramfs (required for Plymouth on newer Raspberry Pi OS)

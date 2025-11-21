@@ -919,7 +919,12 @@ class StatusScreen(QWidget):
 
 
 class StatusScreenManager:
-    """Manager for status screens - provides simplified interface with smooth transitions"""
+    """Manager for status screens - provides simplified interface with smooth transitions
+
+    CRITICAL FIX: Thread-safe status screen management to prevent race conditions
+    - Only ONE status screen can be shown at a time
+    - Lock prevents multiple async tasks from showing different screens simultaneously
+    """
 
     def __init__(self, display_renderer):
         """
@@ -932,6 +937,13 @@ class StatusScreenManager:
         self.is_showing_status = False
         self._transition_timer = None  # Timer for smooth transitions
         self._keep_alive_timer = None  # Timer to keep status screen on top
+
+        # CRITICAL FIX: Add lock to prevent race conditions
+        # Multiple async tasks (discovery, reconnection, registration) can call show_* simultaneously
+        # Lock ensures only ONE status screen is shown at a time
+        import threading
+        self._lock = threading.Lock()
+        self._current_screen_type = None  # Track which screen is currently shown
 
         # CRITICAL FIX: Create status screen IMMEDIATELY (not lazy)
         # Qt Top-Level widgets MUST be created BEFORE event loop starts
@@ -968,120 +980,167 @@ class StatusScreenManager:
         logger.info(f"Status screen created eagerly: {width}x{height} (visible but lowered)")
 
     def show_discovering_server(self, discovery_method: str = "Auto-Discovery"):
-        """Show discovering server screen with smooth transition"""
-        # CRITICAL: Clear display renderer BEFORE showing status screen
-        self._clear_display_renderer_for_status()
-        self._ensure_status_screen()
-        self.status_screen.show_discovering_server(discovery_method)
-        self.is_showing_status = True
-        self._smooth_transition()
+        """Show discovering server screen with smooth transition - THREAD-SAFE"""
+        with self._lock:
+            # Check if we should show this screen (prevent race conditions)
+            if self._current_screen_type == "discovering_server":
+                logger.debug("Discovering server screen already shown - skipping duplicate")
+                return
+
+            # CRITICAL: Clear display renderer BEFORE showing status screen
+            self._clear_display_renderer_for_status()
+            self._ensure_status_screen()
+            self.status_screen.show_discovering_server(discovery_method)
+            self.is_showing_status = True
+            self._current_screen_type = "discovering_server"
+            self._smooth_transition()
 
     def show_connecting(self, server_url: str, attempt: int = 1, max_attempts: int = 5):
-        """Show connecting screen with smooth transition"""
-        # CRITICAL: Clear display renderer BEFORE showing status screen
-        self._clear_display_renderer_for_status()
-        self._ensure_status_screen()
-        self.status_screen.show_connecting(server_url, attempt, max_attempts)
-        self.is_showing_status = True
-        self._smooth_transition()
+        """Show connecting screen with smooth transition - THREAD-SAFE"""
+        with self._lock:
+            # Allow updates to connecting screen (countdown changes)
+            # CRITICAL: Clear display renderer BEFORE showing status screen
+            self._clear_display_renderer_for_status()
+            self._ensure_status_screen()
+            self.status_screen.show_connecting(server_url, attempt, max_attempts)
+            self.is_showing_status = True
+            self._current_screen_type = "connecting"
+            self._smooth_transition()
 
     def show_waiting_for_layout(self, client_id: str, server_url: str):
-        """Show waiting for layout screen with smooth transition"""
-        # CRITICAL: Clear display renderer BEFORE showing status screen
-        self._clear_display_renderer_for_status()
-        self._ensure_status_screen()
-        self.status_screen.show_waiting_for_layout(client_id, server_url)
-        self.is_showing_status = True
-        self._smooth_transition()
+        """Show waiting for layout screen with smooth transition - THREAD-SAFE"""
+        with self._lock:
+            if self._current_screen_type == "waiting_for_layout":
+                logger.debug("Waiting for layout screen already shown - skipping duplicate")
+                return
+
+            # CRITICAL: Clear display renderer BEFORE showing status screen
+            self._clear_display_renderer_for_status()
+            self._ensure_status_screen()
+            self.status_screen.show_waiting_for_layout(client_id, server_url)
+            self.is_showing_status = True
+            self._current_screen_type = "waiting_for_layout"
+            self._smooth_transition()
 
     def show_connection_error(self, server_url: str, error_message: str, client_id: str = "Unknown"):
-        """Show connection error screen"""
-        # CRITICAL: Clear display renderer BEFORE showing status screen
-        self._clear_display_renderer_for_status()
-        self._ensure_status_screen()
-        self.status_screen.show_connection_error(server_url, error_message, client_id)
-        self.is_showing_status = True
-        self._smooth_transition()
+        """Show connection error screen - THREAD-SAFE"""
+        with self._lock:
+            # CRITICAL: Clear display renderer BEFORE showing status screen
+            self._clear_display_renderer_for_status()
+            self._ensure_status_screen()
+            self.status_screen.show_connection_error(server_url, error_message, client_id)
+            self.is_showing_status = True
+            self._current_screen_type = "connection_error"
+            self._smooth_transition()
 
     def show_no_layout_assigned(self, client_id: str, server_url: str, ip_address: str = "Unknown"):
-        """Show no layout assigned screen"""
-        # CRITICAL: Clear display renderer BEFORE showing status screen
-        self._clear_display_renderer_for_status()
-        self._ensure_status_screen()
-        self.status_screen.show_no_layout_assigned(client_id, server_url, ip_address)
-        self.is_showing_status = True
-        self._smooth_transition()
+        """Show no layout assigned screen - THREAD-SAFE"""
+        with self._lock:
+            if self._current_screen_type == "no_layout_assigned":
+                logger.debug("No layout assigned screen already shown - skipping duplicate")
+                return
+
+            # CRITICAL: Clear display renderer BEFORE showing status screen
+            self._clear_display_renderer_for_status()
+            self._ensure_status_screen()
+            self.status_screen.show_no_layout_assigned(client_id, server_url, ip_address)
+            self.is_showing_status = True
+            self._current_screen_type = "no_layout_assigned"
+            self._smooth_transition()
 
     def show_server_disconnected(self, server_url: str, client_id: str = "Unknown"):
-        """Show server disconnected - searching screen"""
-        # CRITICAL: Clear display renderer BEFORE showing status screen
-        self._clear_display_renderer_for_status()
-        self._ensure_status_screen()
-        self.status_screen.show_server_disconnected(server_url, client_id)
-        self.is_showing_status = True
-        self._smooth_transition()
+        """Show server disconnected - searching screen - THREAD-SAFE"""
+        with self._lock:
+            if self._current_screen_type == "server_disconnected":
+                logger.debug("Server disconnected screen already shown - skipping duplicate")
+                return
+
+            # CRITICAL: Clear display renderer BEFORE showing status screen
+            self._clear_display_renderer_for_status()
+            self._ensure_status_screen()
+            self.status_screen.show_server_disconnected(server_url, client_id)
+            self.is_showing_status = True
+            self._current_screen_type = "server_disconnected"
+            self._smooth_transition()
 
     def show_reconnecting(self, server_url: str, attempt: int, retry_in: int, client_id: str = "Unknown"):
-        """Show reconnecting screen with retry countdown"""
-        # CRITICAL: Clear display renderer BEFORE showing status screen
-        self._clear_display_renderer_for_status()
-        self._ensure_status_screen()
-        self.status_screen.show_reconnecting(server_url, attempt, retry_in, client_id)
-        self.is_showing_status = True
-        self._smooth_transition()
+        """Show reconnecting screen with retry countdown - THREAD-SAFE"""
+        with self._lock:
+            # Allow updates to reconnecting screen (countdown changes)
+            # CRITICAL: Clear display renderer BEFORE showing status screen
+            self._clear_display_renderer_for_status()
+            self._ensure_status_screen()
+            self.status_screen.show_reconnecting(server_url, attempt, retry_in, client_id)
+            self.is_showing_status = True
+            self._current_screen_type = "reconnecting"
+            self._smooth_transition()
 
     def show_server_found(self, server_url: str):
-        """Show server found - connecting screen"""
-        # CRITICAL: Clear display renderer BEFORE showing status screen
-        self._clear_display_renderer_for_status()
-        self._ensure_status_screen()
-        self.status_screen.show_server_found(server_url)
-        self.is_showing_status = True
-        self._smooth_transition()
+        """Show server found - connecting screen - THREAD-SAFE"""
+        with self._lock:
+            # CRITICAL FIX: Only show "Server Found" if we're NOT already connected
+            # This prevents showing "Server Found" when server is actually offline
+            # Check connection state before showing
+            if self._current_screen_type == "server_found":
+                logger.debug("Server found screen already shown - skipping duplicate")
+                return
+
+            # CRITICAL: Clear display renderer BEFORE showing status screen
+            self._clear_display_renderer_for_status()
+            self._ensure_status_screen()
+            self.status_screen.show_server_found(server_url)
+            self.is_showing_status = True
+            self._current_screen_type = "server_found"
+            self._smooth_transition()
 
     async def show_discovery_failed(self, attempts: int, config_path: str):
-        """Show discovery failed screen when max attempts reached"""
-        # CRITICAL: Clear display renderer BEFORE showing status screen
-        self._clear_display_renderer_for_status()
-        self._ensure_status_screen()
-        self.status_screen.show_discovery_failed(attempts, config_path)
-        self.is_showing_status = True
-        self._smooth_transition()
+        """Show discovery failed screen when max attempts reached - THREAD-SAFE"""
+        with self._lock:
+            # CRITICAL: Clear display renderer BEFORE showing status screen
+            self._clear_display_renderer_for_status()
+            self._ensure_status_screen()
+            self.status_screen.show_discovery_failed(attempts, config_path)
+            self.is_showing_status = True
+            self._current_screen_type = "discovery_failed"
+            self._smooth_transition()
         # Wait 5 seconds to let user see the screen before attempting fallback
+        # (outside lock to not block other operations)
         import asyncio
         await asyncio.sleep(5)
 
     def clear_status_screen(self):
-        """Clear the status screen and prepare for layout display - EAGER mode (hide, not delete)"""
-        # CRITICAL: Set flag FIRST to prevent race conditions with timers
-        self.is_showing_status = False
+        """Clear the status screen and prepare for layout display - EAGER mode (hide, not delete) - THREAD-SAFE"""
+        with self._lock:
+            # CRITICAL: Set flags FIRST to prevent race conditions with timers
+            self.is_showing_status = False
+            self._current_screen_type = None  # Reset screen type
 
-        # Stop keep-alive timer immediately
-        if self._keep_alive_timer:
-            self._keep_alive_timer.stop()
-            self._keep_alive_timer.deleteLater()
-            self._keep_alive_timer = None
-            logger.debug("Status screen keep-alive timer stopped and deleted")
+            # Stop keep-alive timer immediately
+            if self._keep_alive_timer:
+                self._keep_alive_timer.stop()
+                self._keep_alive_timer.deleteLater()
+                self._keep_alive_timer = None
+                logger.debug("Status screen keep-alive timer stopped and deleted")
 
-        if self.status_screen:
-            try:
-                # Stop any transition timer
-                if self._transition_timer:
-                    self._transition_timer.stop()
-                    self._transition_timer.deleteLater()
-                    self._transition_timer = None
+            if self.status_screen:
+                try:
+                    # Stop any transition timer
+                    if self._transition_timer:
+                        self._transition_timer.stop()
+                        self._transition_timer.deleteLater()
+                        self._transition_timer = None
 
-                # Clean up animated widgets
-                self.status_screen.clear_screen()
+                    # Clean up animated widgets
+                    self.status_screen.clear_screen()
 
-                # EAGER MODE: Just lower, don't hide (will be reused next time)
-                self.status_screen.lower()
-                logger.debug("Status screen lowered (eager mode - will be reused)")
+                    # EAGER MODE: Just lower, don't hide (will be reused next time)
+                    self.status_screen.lower()
+                    logger.debug("Status screen lowered (eager mode - will be reused)")
 
-            except Exception as e:
-                logger.warning(f"Failed to clear status screen: {e}")
+                except Exception as e:
+                    logger.warning(f"Failed to clear status screen: {e}")
 
-        logger.info("Status screen cleared and hidden (is_showing_status=False)")
+            logger.info("Status screen cleared and hidden (is_showing_status=False, _current_screen_type=None)")
 
     def _smooth_transition(self):
         """Apply smooth transition effect to status screen updates - EAGER mode"""

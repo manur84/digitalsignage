@@ -1023,8 +1023,10 @@ class DigitalSignageClient:
                         if discovered_url:
                             logger.info(f"✓ Server discovered: {discovered_url}")
 
-                            # Show "Server Found" status only if not showing cached layout
-                            if self.display_renderer and not self.config.show_cached_layout_on_disconnect:
+                            # CRITICAL FIX: Only show "Server Found" if NOT already connected
+                            # AND if not showing cached layout
+                            # This prevents showing "Server Found" when we're actually already online
+                            if not self.connected and self.display_renderer and not self.config.show_cached_layout_on_disconnect:
                                 self.display_renderer.status_screen_manager.show_server_found(discovered_url)
 
                             # Update config with discovered server

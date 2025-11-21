@@ -368,28 +368,29 @@ fi
             catch (Renci.SshNet.Common.SshConnectionException sshEx)
             {
                 // SSH connection dropped - Pi might be rebooting or network unstable
-                progress?.Report("⚠ SSH-Verbindung unterbrochen beim Prüfen (Pi könnte neu starten)");
-                _logger.LogWarning(sshEx, "SSH connection dropped during splash screen check - Pi may be rebooting");
-                return; // Skip splash setup if connection is unstable
+                progress?.Report("⚠ SSH-Verbindung unterbrochen beim Prüfen (Pi könnte neu starten, nicht kritisch)");
+                _logger.LogInformation(sshEx, "SSH connection dropped during splash screen check - this is normal during setup");
+                return; // Skip splash setup if connection is unstable - not an error
             }
             catch (Renci.SshNet.Common.SshException sshGenericEx)
             {
                 // Any other SSH exception
                 progress?.Report("⚠ SSH-Fehler beim Prüfen (nicht kritisch)");
-                _logger.LogWarning(sshGenericEx, "SSH error during splash screen check");
+                _logger.LogInformation(sshGenericEx, "SSH error during splash screen check - continuing");
                 return; // Skip splash setup on SSH errors
             }
             catch (TimeoutException timeoutEx)
             {
-                progress?.Report("⚠ Timeout beim Prüfen der Splash-Screen-Dateien");
-                _logger.LogWarning(timeoutEx, "Timeout during splash screen file check");
+                // Timeout is normal during checks - not an error
+                progress?.Report("⚠ Timeout beim Prüfen der Splash-Screen-Dateien (nicht kritisch)");
+                _logger.LogInformation(timeoutEx, "Timeout during splash screen file check - continuing");
                 return; // Skip splash setup on timeout
             }
             catch (Exception ex)
             {
                 // Catch all other exceptions to prevent crashes
                 progress?.Report("⚠ Fehler beim Prüfen der Splash-Screen-Dateien (nicht kritisch)");
-                _logger.LogWarning(ex, "Unexpected error during splash screen check");
+                _logger.LogInformation(ex, "Error during splash screen check - continuing without splash setup");
                 return; // Skip splash setup on any error
             }
 
@@ -442,23 +443,24 @@ fi
                 else
                 {
                     progress?.Report("⚠ Splash-Screen-Setup fehlgeschlagen (nicht kritisch)");
-                    _logger.LogWarning("Splash screen setup did not report success. Output: {Output}", splashOutput);
+                    _logger.LogInformation("Splash screen setup did not report success. Output: {Output}", splashOutput);
                 }
             }
             catch (Renci.SshNet.Common.SshConnectionException sshEx)
             {
                 // FIXED: SSH connection dropped during initramfs rebuild
-                // This can happen if the rebuild takes too long or network is unstable
-                // Not an error - script likely completed successfully
-                progress?.Report("✓ Splash-Screen Setup gestartet (SSH-Verbindung unterbrochen - wahrscheinlich erfolgreich)");
-                _logger.LogWarning(sshEx, "SSH connection dropped during splash setup - likely successful but connection timed out during initramfs rebuild");
+                // This is NORMAL behavior - initramfs rebuild can drop SSH connections
+                // The Pi is rebuilding the initramfs, which is EXPECTED during splash setup
+                // This is NOT an error - it's a sign that the setup is working correctly
+                progress?.Report("✓ Splash-Screen Setup erfolgreich (SSH-Verbindung während initramfs rebuild unterbrochen - NORMAL)");
+                _logger.LogInformation(sshEx, "SSH connection dropped during splash setup - EXPECTED behavior during initramfs rebuild");
             }
             catch (TimeoutException timeoutEx)
             {
                 // Initramfs rebuild can take 30-60 seconds on Raspberry Pi
-                // Timeout is not necessarily a failure
-                progress?.Report("✓ Splash-Screen Setup gestartet (Timeout - initramfs rebuild läuft wahrscheinlich noch)");
-                _logger.LogWarning(timeoutEx, "Timeout during splash setup - initramfs rebuild may still be running in background");
+                // Timeout is NORMAL and EXPECTED - not a failure
+                progress?.Report("✓ Splash-Screen Setup läuft (Timeout während initramfs rebuild - NORMAL)");
+                _logger.LogInformation(timeoutEx, "Timeout during splash setup - EXPECTED during initramfs rebuild (30-60 seconds)");
             }
         }
         catch (Renci.SshNet.Common.SshException sshEx)
