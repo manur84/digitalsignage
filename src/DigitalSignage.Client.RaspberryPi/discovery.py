@@ -109,6 +109,69 @@ def get_eth0_network_info() -> Optional[Dict[str, str]]:
     return None
 
 
+def filter_and_prioritize_ips(ips: List[str]) -> List[str]:
+    """
+    Filter out localhost/invalid IPs and prioritize by type.
+
+    Priority order:
+    1. Private network IPs (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
+    2. Other valid IPs
+
+    Filters out:
+    - Localhost/loopback (127.x.x.x, ::1)
+    - Unspecified (0.0.0.0, ::)
+    - Link-local (169.254.x.x, fe80::/10)
+    - Invalid IPs
+
+    Args:
+        ips: List of IP address strings
+
+    Returns:
+        Filtered and prioritized list of IP addresses
+    """
+    import ipaddress
+
+    valid_ips = []
+    private_ips = []
+
+    for ip_str in ips:
+        try:
+            ip = ipaddress.ip_address(ip_str)
+
+            # Filter out invalid IPs
+            if ip.is_loopback:
+                logger.debug(f"Filtering out loopback IP: {ip_str}")
+                continue
+            if ip.is_unspecified:
+                logger.debug(f"Filtering out unspecified IP: {ip_str}")
+                continue
+            if ip.is_link_local:
+                logger.debug(f"Filtering out link-local IP: {ip_str}")
+                continue
+
+            # Categorize by priority
+            if ip.is_private:
+                private_ips.append(ip_str)
+                logger.debug(f"Found private IP: {ip_str}")
+            else:
+                valid_ips.append(ip_str)
+                logger.debug(f"Found public IP: {ip_str}")
+
+        except (ValueError, TypeError) as e:
+            logger.debug(f"Invalid IP address '{ip_str}': {e}")
+            continue
+
+    # Return private IPs first, then other valid IPs
+    result = private_ips + valid_ips
+
+    if not result:
+        logger.warning(f"All IPs filtered out from list: {ips}")
+    else:
+        logger.debug(f"Filtered IPs: {result} (from {ips})")
+
+    return result
+
+
 @dataclass
 class ServerInfo:
     """Information about a discovered server"""
@@ -120,15 +183,19 @@ class ServerInfo:
     ssl_enabled: bool
     timestamp: datetime
 
+    def __post_init__(self):
+        """Filter and prioritize IPs after initialization"""
+        self.local_ips = filter_and_prioritize_ips(self.local_ips)
+
     def get_urls(self) -> List[str]:
-        """Get all possible WebSocket URLs for this server"""
+        """Get all possible WebSocket URLs for this server (filtered and prioritized)"""
         return [
             f"{self.protocol}://{ip}:{self.port}/{self.endpoint_path}"
             for ip in self.local_ips
         ]
 
     def get_primary_url(self) -> str:
-        """Get the first/primary WebSocket URL"""
+        """Get the first/primary WebSocket URL (best IP)"""
         urls = self.get_urls()
         return urls[0] if urls else ""
 

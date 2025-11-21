@@ -101,22 +101,137 @@ class DeviceManager:
         return platform.platform()
 
     def get_ip_address(self) -> str:
-        """Get primary IP address"""
+        """
+        Get primary non-localhost IP address.
+
+        Tries multiple methods to find the best IP address:
+        1. Socket trick to Google DNS (fastest, most accurate)
+        2. netifaces library (if available)
+        3. psutil network interfaces
+        4. Fallback to hostname resolution
+
+        Filters out localhost/loopback addresses (127.x.x.x, ::1).
+        Prefers private network addresses (192.168.x.x, 10.x.x.x, 172.16-31.x.x).
+
+        Returns:
+            Primary IP address, or "0.0.0.0" if none found (not localhost!)
+        """
         import socket
+        import ipaddress
+
+        def is_valid_ip(ip_str: str) -> bool:
+            """Check if IP is valid and not localhost/loopback"""
+            try:
+                ip = ipaddress.ip_address(ip_str)
+                # Exclude loopback (127.0.0.0/8, ::1)
+                if ip.is_loopback:
+                    return False
+                # Exclude unspecified (0.0.0.0, ::)
+                if ip.is_unspecified:
+                    return False
+                # Exclude link-local (169.254.0.0/16, fe80::/10)
+                if ip.is_link_local:
+                    return False
+                return True
+            except (ValueError, TypeError):
+                return False
+
+        # Method 1: Socket trick (most reliable)
         try:
-            # Use context manager for proper socket cleanup
             with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
                 # Connect to a public DNS server (doesn't actually send data)
                 s.connect(("8.8.8.8", 80))
                 ip = s.getsockname()[0]
-                if ip:
+                if ip and is_valid_ip(ip):
+                    logger.debug(f"Got IP via socket method: {ip}")
                     return ip
         except socket.error as e:
-            logger.debug(f"Could not get IP address via socket: {e}")
+            logger.debug(f"Socket method failed: {e}")
         except Exception as e:
-            logger.warning(f"Unexpected error getting IP address: {e}")
+            logger.debug(f"Unexpected error in socket method: {e}")
 
-        return "127.0.0.1"
+        # Method 2: netifaces library (if available)
+        try:
+            import netifaces
+            # Get all interfaces except loopback
+            interfaces = [i for i in netifaces.interfaces() if i != 'lo']
+
+            # Prioritize eth0, wlan0
+            for priority_iface in ['eth0', 'wlan0']:
+                if priority_iface in interfaces:
+                    try:
+                        addrs = netifaces.ifaddresses(priority_iface)
+                        if netifaces.AF_INET in addrs:
+                            for addr_info in addrs[netifaces.AF_INET]:
+                                ip = addr_info.get('addr')
+                                if ip and is_valid_ip(ip):
+                                    logger.debug(f"Got IP via netifaces ({priority_iface}): {ip}")
+                                    return ip
+                    except Exception as e:
+                        logger.debug(f"Error getting IP from {priority_iface}: {e}")
+
+            # Try other interfaces
+            for iface in interfaces:
+                if iface in ['eth0', 'wlan0']:
+                    continue  # Already tried
+                try:
+                    addrs = netifaces.ifaddresses(iface)
+                    if netifaces.AF_INET in addrs:
+                        for addr_info in addrs[netifaces.AF_INET]:
+                            ip = addr_info.get('addr')
+                            if ip and is_valid_ip(ip):
+                                logger.debug(f"Got IP via netifaces ({iface}): {ip}")
+                                return ip
+                except Exception as e:
+                    logger.debug(f"Error getting IP from {iface}: {e}")
+
+        except ImportError:
+            logger.debug("netifaces not available")
+        except Exception as e:
+            logger.debug(f"netifaces method failed: {e}")
+
+        # Method 3: psutil network interfaces
+        try:
+            import psutil
+            net_if_addrs = psutil.net_if_addrs()
+
+            # Prioritize eth0, wlan0
+            for priority_iface in ['eth0', 'wlan0']:
+                if priority_iface in net_if_addrs:
+                    for addr in net_if_addrs[priority_iface]:
+                        if addr.family == socket.AF_INET:
+                            ip = addr.address
+                            if ip and is_valid_ip(ip):
+                                logger.debug(f"Got IP via psutil ({priority_iface}): {ip}")
+                                return ip
+
+            # Try other interfaces
+            for iface, addrs in net_if_addrs.items():
+                if iface in ['lo', 'eth0', 'wlan0']:
+                    continue  # Skip loopback and already tried
+                for addr in addrs:
+                    if addr.family == socket.AF_INET:
+                        ip = addr.address
+                        if ip and is_valid_ip(ip):
+                            logger.debug(f"Got IP via psutil ({iface}): {ip}")
+                            return ip
+
+        except Exception as e:
+            logger.debug(f"psutil method failed: {e}")
+
+        # Method 4: Hostname resolution (last resort)
+        try:
+            hostname = socket.gethostname()
+            ip = socket.gethostbyname(hostname)
+            if ip and is_valid_ip(ip):
+                logger.debug(f"Got IP via hostname resolution: {ip}")
+                return ip
+        except Exception as e:
+            logger.debug(f"Hostname resolution failed: {e}")
+
+        # No valid IP found
+        logger.warning("Could not determine valid IP address - all methods failed")
+        return "0.0.0.0"  # Use 0.0.0.0 instead of 127.0.0.1 to indicate "no valid IP"
 
     def get_mac_address(self) -> str:
         """Get MAC address"""
