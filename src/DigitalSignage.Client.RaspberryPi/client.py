@@ -343,14 +343,20 @@ class DigitalSignageClient:
             if self.config.show_cached_layout_on_disconnect:
                 # Show cached layout continuously (no status screen switching)
                 logger.info("Disconnect behavior: Showing cached layout (no status screen)")
+
+                # CRITICAL FIX: Load cached layout FIRST before starting reconnection
+                # This ensures the layout is displayed and visible BEFORE reconnection attempts
+                # which might show status screens that would cover the cached layout
                 future = asyncio.run_coroutine_threadsafe(
                     self.load_cached_layout(),
                     self.event_loop
                 )
+
                 # Add a callback to handle any exceptions in the coroutine
                 def handle_future_exception(fut):
                     try:
                         fut.result()
+                        logger.info("Cached layout loaded successfully - now starting reconnection in background")
                     except Exception as e:
                         logger.error(f"Error loading cached layout: {e}", exc_info=True)
                 future.add_done_callback(handle_future_exception)
@@ -996,11 +1002,16 @@ class DigitalSignageClient:
     async def start_reconnection(self):
         """
         Start automatic reconnection with exponential backoff and server discovery
-        
+
         OPTIMIZED for smooth status screen transitions:
         - No unnecessary screen switches
         - Smooth countdown updates
         - Efficient event processing
+
+        CRITICAL FIX for cached layout mode:
+        - When show_cached_layout_on_disconnect=True, NO status screens are shown
+        - Reconnection happens silently in background
+        - Cached layout remains visible throughout
         """
         if self.reconnection_in_progress:
             logger.info("Reconnection already in progress, skipping")
@@ -1009,7 +1020,7 @@ class DigitalSignageClient:
         self.reconnection_in_progress = True
         self.stop_reconnection = False
         attempt = 0
-        retry_delays = [5, 10, 20, 30, 60]  # Exponential backoff delays (seconds)
+        retry_delays = [10, 20, 30, 60, 120]  # LONGER delays to prevent rapid looping (10s, 20s, 30s, 60s, 120s)
 
         logger.info("=" * 70)
         logger.info("AUTOMATIC RECONNECTION STARTED")
@@ -1018,6 +1029,7 @@ class DigitalSignageClient:
         # Log disconnect behavior mode
         if self.config.show_cached_layout_on_disconnect:
             logger.info("Reconnect mode: SILENT (no status screens, cached layout displayed)")
+            logger.info("Reconnection will happen in background without disturbing cached layout display")
         else:
             logger.info("Reconnect mode: VISIBLE (status screens shown during reconnection)")
 
@@ -1036,11 +1048,13 @@ class DigitalSignageClient:
                 delay_index = min(attempt - 1, len(retry_delays) - 1)
                 retry_delay = retry_delays[delay_index]
 
-                logger.info(f"Reconnection attempt #{attempt}")
+                logger.info(f"Reconnection attempt #{attempt} (retry in {retry_delay}s after failure)")
 
-                # Step 1: Try server discovery if enabled
+                # CRITICAL FIX: Skip discovery if showing cached layout
+                # Discovery causes "Auto Discovery" status screen to flash
+                # When cached layout is shown, we want SILENT reconnection
                 discovered_url = None
-                if self.config.auto_discover:
+                if self.config.auto_discover and not self.config.show_cached_layout_on_disconnect:
                     logger.info("Attempting server discovery...")
                     try:
                         from discovery import discover_server
@@ -1049,9 +1063,7 @@ class DigitalSignageClient:
                         if discovered_url:
                             logger.info(f"✓ Server discovered: {discovered_url}")
 
-                            # CRITICAL FIX: Only show "Server Found" if NOT already connected
-                            # AND if not showing cached layout
-                            # This prevents showing "Server Found" when we're actually already online
+                            # Show "Server Found" only if NOT showing cached layout
                             if not self.connected and self.display_renderer and not self.config.show_cached_layout_on_disconnect:
                                 self.display_renderer.status_screen_manager.show_server_found(discovered_url)
 
@@ -1071,6 +1083,8 @@ class DigitalSignageClient:
                             logger.info("No server discovered, using configured address")
                     except Exception as e:
                         logger.warning(f"Server discovery failed: {e}")
+                elif self.config.show_cached_layout_on_disconnect:
+                    logger.debug("Skipping auto-discovery (silent reconnection mode with cached layout)")
 
                 # Step 2: Attempt connection
                 server_url = self.config.get_server_url()
@@ -1111,29 +1125,39 @@ class DigitalSignageClient:
                 except Exception as e:
                     logger.warning(f"Connection attempt failed: {e}")
 
-                # Step 3: Wait before retry with OPTIMIZED countdown display
+                # Step 3: Wait before retry with LONGER delays to prevent rapid looping
                 if not self.connected and not self.stop_reconnection:
-                    logger.info(f"Waiting {retry_delay} seconds before next attempt...")
+                    logger.info(f"Server unreachable - waiting {retry_delay} seconds before next attempt...")
 
-                    # OPTIMIZED: Update status screen every 3 seconds instead of every second
-                    # This reduces CPU usage and makes animations smoother
-                    update_interval = 3
-                    
-                    for remaining in range(retry_delay, 0, -1):
-                        if self.stop_reconnection or self.connected:
-                            break
+                    # CRITICAL FIX: When showing cached layout, NO status screen updates
+                    # Just wait silently in background
+                    if self.config.show_cached_layout_on_disconnect:
+                        logger.debug(f"Silent wait {retry_delay}s (cached layout remains visible)")
+                        # Simple sleep without status updates
+                        for remaining in range(retry_delay, 0, -1):
+                            if self.stop_reconnection or self.connected:
+                                break
+                            await asyncio.sleep(1)
+                    else:
+                        # OPTIMIZED: Update status screen every 5 seconds (was 3s)
+                        # This reduces CPU usage and prevents rapid screen switching
+                        update_interval = 5
 
-                        # Update status screen every 3 seconds (or on first/last second)
-                        if (remaining % update_interval == 0) or remaining == retry_delay or remaining == 1:
-                            if self.display_renderer and not self.config.show_cached_layout_on_disconnect:
-                                self.display_renderer.status_screen_manager.show_reconnecting(
-                                    server_url,
-                                    attempt,
-                                    remaining,
-                                    self.config.client_id
-                                )
+                        for remaining in range(retry_delay, 0, -1):
+                            if self.stop_reconnection or self.connected:
+                                break
 
-                        await asyncio.sleep(1)
+                            # Update status screen every 5 seconds (or on first/last second)
+                            if (remaining % update_interval == 0) or remaining == retry_delay or remaining == 1:
+                                if self.display_renderer and not self.config.show_cached_layout_on_disconnect:
+                                    self.display_renderer.status_screen_manager.show_reconnecting(
+                                        server_url,
+                                        attempt,
+                                        remaining,
+                                        self.config.client_id
+                                    )
+
+                            await asyncio.sleep(1)
 
             if self.connected:
                 logger.info("Reconnection successful")
