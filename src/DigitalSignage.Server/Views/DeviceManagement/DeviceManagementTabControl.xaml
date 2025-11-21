@@ -114,7 +114,7 @@
 
                 <!-- Toolbar -->
                 <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="12,8">
-                    <TextBlock Text="Registered Devices" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,16,0"/>
+                    <TextBlock Text="Registered Devices" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,16,0" Foreground="White"/>
                 </StackPanel>
 
                 <!-- DataGrid with Professional Styling -->
