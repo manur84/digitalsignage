@@ -242,17 +242,19 @@
                         </DataGridTemplateColumn>
 
                         <!-- Assigned Layout Column -->
-                        <DataGridTextColumn Header="Assigned Layout" Binding="{Binding AssignedLayoutName}" Width="1.5*" MinWidth="140">
+                        <DataGridTextColumn Header="Assigned Layout" Binding="{Binding AssignedLayoutName, TargetNullValue='(None)', FallbackValue='(None)'}" Width="1.5*" MinWidth="140">
                             <DataGridTextColumn.ElementStyle>
                                 <Style TargetType="TextBlock">
                                     <Setter Property="VerticalAlignment" Value="Center"/>
                                     <Setter Property="Foreground" Value="#424242"/>
                                     <Setter Property="FontStyle" Value="Italic"/>
                                     <Style.Triggers>
-                                        <Trigger Property="Text" Value="">
-                                            <Setter Property="Text" Value="(None)"/>
+                                        <DataTrigger Binding="{Binding AssignedLayoutName}" Value="{x:Null}">
                                             <Setter Property="Foreground" Value="#BDBDBD"/>
-                                        </Trigger>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding AssignedLayoutName}" Value="">
+                                            <Setter Property="Foreground" Value="#BDBDBD"/>
+                                        </DataTrigger>
                                     </Style.Triggers>
                                 </Style>
                             </DataGridTextColumn.ElementStyle>
