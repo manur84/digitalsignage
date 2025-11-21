@@ -40,6 +40,9 @@ public class DigitalSignageDbContext : DbContext
     public DbSet<Alert> Alerts => Set<Alert>();
     public DbSet<AlertRule> AlertRules => Set<AlertRule>();
 
+    // Mobile app entities
+    public DbSet<MobileAppRegistration> MobileAppRegistrations => Set<MobileAppRegistration>();
+
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         base.OnConfiguring(optionsBuilder);
@@ -396,6 +399,56 @@ public class DigitalSignageDbContext : DbContext
             entity.HasIndex(e => e.IsResolved);
             entity.HasIndex(e => e.Severity);
             entity.HasIndex(e => new { e.EntityType, e.EntityId });
+        });
+
+        // Configure MobileAppRegistration
+        modelBuilder.Entity<MobileAppRegistration>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.DeviceName)
+                .IsRequired()
+                .HasMaxLength(200);
+
+            entity.Property(e => e.DeviceIdentifier)
+                .IsRequired()
+                .HasMaxLength(100);
+
+            entity.Property(e => e.AppVersion)
+                .IsRequired()
+                .HasMaxLength(50);
+
+            entity.Property(e => e.Platform)
+                .IsRequired()
+                .HasMaxLength(50);
+
+            entity.Property(e => e.Status)
+                .HasConversion<string>();
+
+            entity.Property(e => e.Token)
+                .HasMaxLength(500);
+
+            entity.Property(e => e.Permissions)
+                .HasMaxLength(200);
+
+            entity.Property(e => e.AuthorizedBy)
+                .HasMaxLength(200);
+
+            entity.Property(e => e.Notes)
+                .HasMaxLength(1000);
+
+            // Indexes
+            entity.HasIndex(e => e.DeviceIdentifier)
+                .IsUnique();
+
+            entity.HasIndex(e => e.Token)
+                .IsUnique();
+
+            entity.HasIndex(e => e.Status);
+
+            entity.HasIndex(e => e.RegisteredAt);
+
+            entity.HasIndex(e => e.LastSeenAt);
         });
     }
 }

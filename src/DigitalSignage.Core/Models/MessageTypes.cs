@@ -73,4 +73,27 @@ public static class MessageTypes
     /// Data source update pushed to clients
     /// </summary>
     public const string DataUpdate = "DATA_UPDATE";
+
+    // ============================================
+    // MOBILE APP MESSAGES
+    // ============================================
+
+    // Mobile App → Server
+    public const string AppRegister = "APP_REGISTER";
+    public const string AppHeartbeat = "APP_HEARTBEAT";
+    public const string RequestClientList = "REQUEST_CLIENT_LIST";
+    public const string SendCommand = "SEND_COMMAND";
+    public const string AssignLayout = "ASSIGN_LAYOUT";
+    public const string RequestScreenshot = "REQUEST_SCREENSHOT";
+    public const string RequestLayoutList = "REQUEST_LAYOUT_LIST";
+
+    // Server → Mobile App
+    public const string AppAuthorizationRequired = "APP_AUTHORIZATION_REQUIRED";
+    public const string AppAuthorized = "APP_AUTHORIZED";
+    public const string AppRejected = "APP_REJECTED";
+    public const string ClientListUpdate = "CLIENT_LIST_UPDATE";
+    public const string ClientStatusChanged = "CLIENT_STATUS_CHANGED";
+    public const string ScreenshotResponse = "SCREENSHOT_RESPONSE";
+    public const string LayoutListResponse = "LAYOUT_LIST_RESPONSE";
+    public const string CommandResult = "COMMAND_RESULT";
 }

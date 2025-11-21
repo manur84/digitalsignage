@@ -692,6 +692,78 @@ namespace DigitalSignage.Data.Migrations
                     b.ToTable("MediaFiles");
                 });
 
+            modelBuilder.Entity("DigitalSignage.Core.Models.MobileAppRegistration", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AppVersion")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("AuthorizedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AuthorizedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DeviceIdentifier")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DeviceName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("LastSeenAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Permissions")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Platform")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("RegisteredAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Token")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DeviceIdentifier")
+                        .IsUnique();
+
+                    b.HasIndex("LastSeenAt");
+
+                    b.HasIndex("RegisteredAt");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("Token")
+                        .IsUnique();
+
+                    b.ToTable("MobileAppRegistrations");
+                });
+
             modelBuilder.Entity("DigitalSignage.Data.Entities.User", b =>
                 {
                     b.Property<int>("Id")
