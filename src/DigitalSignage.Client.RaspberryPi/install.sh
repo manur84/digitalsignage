@@ -748,15 +748,20 @@ if [ -f "$CMDLINE_FILE" ]; then
     fi
 
     # Parameters to add (if not already present)
+    # CRITICAL ORDER: 'quiet' MUST come before 'loglevel=3'
+    # quiet sets kernel log level to 4 (warnings), then loglevel=3 overrides it to errors only
     PLYMOUTH_PARAMS=(
-        "quiet"                           # Suppress boot messages
-        "splash"                          # Enable splash screen
-        "plymouth.ignore-serial-consoles" # Ignore serial consoles for Plymouth
-        "logo.nologo"                     # Remove Raspberry Pi logo
-        "vt.global_cursor_default=0"      # Hide blinking cursor
-        "loglevel=3"                      # Suppress kernel messages (errors + warnings only)
-        "consoleblank=0"                  # Disable console blanking
-        "fbcon=map:0"                     # Framebuffer console mapping (use default fb0)
+        "quiet"                           # MUST BE FIRST: Sets kernel log level to warnings (4)
+        "loglevel=3"                      # MUST BE AFTER quiet: Override to errors only (3)
+        "splash"                          # Enable Plymouth splash screen
+        "plymouth.ignore-serial-consoles" # Prevent Plymouth from showing on serial consoles
+        "plymouth.nolog"                  # Disable Plymouth logging to console (prevents log breakthrough)
+        "logo.nologo"                     # Remove Raspberry Pi logo overlay
+        "vt.global_cursor_default=0"      # Hide blinking text cursor
+        "rd.udev.log_level=3"             # Suppress initramfs udev messages (errors only)
+        "udev.log_level=3"                # Suppress regular udev messages (errors only)
+        "consoleblank=0"                  # Disable automatic screen blanking
+        "fbcon=map:0"                     # Use default framebuffer (fb0/HDMI)
     )
 
     # Add missing parameters
@@ -850,6 +855,49 @@ if [ -f "$CONFIG_TXT" ]; then
     show_success "config.txt configured for Plymouth"
 else
     show_warning "config.txt not found at $CONFIG_TXT - Plymouth may not work correctly"
+fi
+
+# Step 2.5: Configure /etc/rc.local to disable dmesg console output
+# This prevents kernel messages from breaking through Plymouth splash
+show_info "Configuring /etc/rc.local to suppress dmesg console output..."
+
+RC_LOCAL="/etc/rc.local"
+DMESG_CMD="dmesg --console-off"
+
+# Ensure rc.local exists
+if [ ! -f "$RC_LOCAL" ]; then
+    cat > "$RC_LOCAL" <<'EOF'
+#!/bin/sh -e
+#
+# rc.local
+#
+# This script is executed at the end of each multiuser runlevel.
+# Make sure that the script will "exit 0" on success or any other
+# value on error.
+
+exit 0
+EOF
+    chmod +x "$RC_LOCAL"
+    show_success "Created /etc/rc.local"
+fi
+
+# Add dmesg --console-off if not already present
+if ! grep -q "$DMESG_CMD" "$RC_LOCAL"; then
+    # Check if file ends with 'exit 0'
+    if grep -q "^exit 0$" "$RC_LOCAL"; then
+        # Insert dmesg command before 'exit 0'
+        sed -i "/^exit 0$/i # Digital Signage: Prevent kernel messages from breaking through Plymouth\\n$DMESG_CMD || true\\n" "$RC_LOCAL"
+        show_success "Added 'dmesg --console-off' to /etc/rc.local (prevents kernel messages breakthrough)"
+    else
+        # File doesn't end with 'exit 0', append at end
+        echo "" >> "$RC_LOCAL"
+        echo "# Digital Signage: Prevent kernel messages from breaking through Plymouth" >> "$RC_LOCAL"
+        echo "$DMESG_CMD || true" >> "$RC_LOCAL"
+        echo "exit 0" >> "$RC_LOCAL"
+        show_success "Added 'dmesg --console-off' and 'exit 0' to /etc/rc.local"
+    fi
+else
+    show_info "dmesg --console-off already configured in /etc/rc.local"
 fi
 
 # Step 3: Run Plymouth splash screen setup script

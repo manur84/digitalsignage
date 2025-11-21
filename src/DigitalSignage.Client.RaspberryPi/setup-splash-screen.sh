@@ -28,13 +28,18 @@ PIX_SCRIPT="$PLYMOUTH_THEME_DIR/pix.script"
 
 echo "Using boot directory: $BOOT_DIR"
 
+# CRITICAL ORDER: 'quiet' MUST come before 'loglevel=3'
+# quiet sets kernel log level to 4 (warnings), then loglevel=3 overrides it to errors only
 CMDLINE_FLAGS=(
-  "logo.nologo"
-  "loglevel=3"
-  "quiet"
-  "splash"
-  "vt.global_cursor_default=0"
-  "plymouth.ignore-serial-consoles"
+  "quiet"                           # MUST BE FIRST: Sets kernel log level to warnings (4)
+  "loglevel=3"                      # MUST BE AFTER quiet: Override to errors only (3)
+  "splash"                          # Enable Plymouth splash screen
+  "plymouth.ignore-serial-consoles" # Prevent Plymouth from showing on serial consoles
+  "plymouth.nolog"                  # Disable Plymouth logging to console (prevents log breakthrough)
+  "logo.nologo"                     # Remove Raspberry Pi logo overlay
+  "vt.global_cursor_default=0"      # Hide blinking text cursor
+  "rd.udev.log_level=3"             # Suppress initramfs udev messages (errors only)
+  "udev.log_level=3"                # Suppress regular udev messages (errors only)
   # WARNING: fbcon=map controls which framebuffer the console uses
   # Options:
   #   - fbcon=map:0 uses default fb0 (HDMI) - RECOMMENDED
@@ -60,16 +65,24 @@ require_logo() {
   fi
 }
 
-append_config_txt() {
-  # CRITICAL FIX: REMOVE/COMMENT disable_splash=1 to ENABLE Plymouth splash screen
-  # disable_splash=1 DISABLES the splash screen - we want it ENABLED!
-  if grep -Eq '^disable_splash=1' "$CONFIG_TXT"; then
-    sed -i 's/^disable_splash=1/#disable_splash=1 # Commented by Digital Signage setup/' "$CONFIG_TXT"
-    echo "Commented out disable_splash=1 in $CONFIG_TXT (enables splash screen)"
-  else
-    echo "disable_splash not found or already disabled in $CONFIG_TXT"
-  fi
-}
+# NOTE: disable_splash=1 configuration is handled by install.sh
+# DO NOT modify disable_splash setting here!
+#
+# IMPORTANT CLARIFICATION:
+#   - disable_splash=1 disables the RAINBOW FIRMWARE SPLASH (colored square at boot)
+#   - disable_splash=1 does NOT disable Plymouth splash screen
+#   - Plymouth works independently and shows AFTER the firmware stage
+#   - We WANT disable_splash=1 to remain active to prevent the rainbow splash
+#
+# The install.sh script adds disable_splash=1 to config.txt to eliminate
+# the rainbow splash screen, which is the correct configuration.
+#
+# This function has been removed to prevent conflicts with install.sh
+#
+# append_config_txt() {
+#   # REMOVED: This function incorrectly commented out disable_splash=1
+#   # which would re-enable the unwanted rainbow splash screen
+# }
 
 patch_cmdline() {
   # cmdline.txt is a single line; keep existing args and append missing ones.
@@ -239,7 +252,7 @@ main() {
   require_root
   require_logo
 
-  append_config_txt
+  # NOTE: disable_splash=1 is handled by install.sh - do not modify here
   patch_cmdline
   install_packages
 
