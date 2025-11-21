@@ -283,8 +283,18 @@ class WebInterface:
                         logger.warning(f"Invalid burn_in_screensaver_timeout provided: {data['burn_in_screensaver_timeout']}")
 
                 # Save configuration to file
-                self.client.config.save()
-                logger.info(f"Settings updated and saved: {', '.join(updated_fields)}")
+                try:
+                    self.client.config.save()
+                    logger.info(f"Settings updated and saved: {', '.join(updated_fields)}")
+                except PermissionError as perm_err:
+                    # Specific handling for permission errors
+                    logger.error(f"Permission denied saving settings: {perm_err}")
+                    return jsonify({
+                        'success': False,
+                        'error': 'Permission denied saving settings',
+                        'details': str(perm_err),
+                        'fix': 'Run: sudo chmod 666 /opt/digitalsignage-client/config.json'
+                    }), 500
 
                 return jsonify({
                     'success': True,
@@ -292,6 +302,15 @@ class WebInterface:
                     'updated_fields': updated_fields,
                     'timestamp': datetime.utcnow().isoformat()
                 })
+            except PermissionError as perm_err:
+                # Catch permission errors at top level
+                logger.error(f"Permission denied updating settings: {perm_err}")
+                return jsonify({
+                    'success': False,
+                    'error': 'Permission denied',
+                    'details': str(perm_err),
+                    'fix': 'Run: sudo chmod 666 /opt/digitalsignage-client/config.json'
+                }), 500
             except Exception as e:
                 logger.error(f"Error updating settings: {e}", exc_info=True)
                 return jsonify({'success': False, 'error': str(e)}), 500

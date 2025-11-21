@@ -573,7 +573,19 @@ EOF
     CURRENT_HOSTNAME=$(hostname)
     sed -i "s/GENERATED_ON_FIRST_RUN/$CURRENT_HOSTNAME/g" "$INSTALL_DIR/config.json"
 
-    show_success "Default config.json created (client_id: $CURRENT_HOSTNAME)"
+    # CRITICAL: Set permissions to 666 (rw-rw-rw-) so web interface can write
+    chmod 666 "$INSTALL_DIR/config.json"
+
+    show_success "Default config.json created (client_id: $CURRENT_HOSTNAME, permissions: 666)"
+else
+    # CRITICAL: Fix permissions on existing config.json if needed
+    CURRENT_PERMS=$(stat -c '%a' "$INSTALL_DIR/config.json" 2>/dev/null || echo "000")
+    if [ "$CURRENT_PERMS" != "666" ]; then
+        chmod 666 "$INSTALL_DIR/config.json"
+        show_success "Fixed config.json permissions: 666 (was: $CURRENT_PERMS)"
+    else
+        show_info "config.json permissions already correct: 666"
+    fi
 fi
 
 # Set ownership

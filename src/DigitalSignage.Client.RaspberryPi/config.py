@@ -101,12 +101,60 @@ class Config:
             return config
 
     def save(self, config_path: str = "/opt/digitalsignage-client/config.json"):
-        """Save configuration to file"""
+        """Save configuration to file with atomic write and proper permissions"""
+        import tempfile
+        import shutil
+        import os
+        import stat
+        import logging
+
+        logger = logging.getLogger(__name__)
         config_file = Path(config_path)
         config_file.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(config_file, 'w') as f:
-            json.dump(asdict(self), f, indent=2)
+        try:
+            # ATOMIC WRITE: Write to temporary file first, then move
+            # This prevents corruption if write is interrupted
+            temp_fd, temp_path = tempfile.mkstemp(
+                dir=config_file.parent,
+                prefix='.config_',
+                suffix='.json.tmp',
+                text=True
+            )
+
+            try:
+                # Write to temp file
+                with os.fdopen(temp_fd, 'w') as f:
+                    json.dump(asdict(self), f, indent=2)
+
+                # Set permissions BEFORE moving (rw-rw-rw-)
+                # This allows both root and regular users to write
+                os.chmod(temp_path, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP | stat.S_IROTH | stat.S_IWOTH)
+
+                # Atomic move (replaces old file)
+                shutil.move(temp_path, config_file)
+
+                logger.debug(f"Configuration saved to {config_file} (atomic write with permissions 666)")
+
+            except Exception as e:
+                # Clean up temp file on error
+                try:
+                    os.unlink(temp_path)
+                except Exception:
+                    pass
+                raise
+
+        except PermissionError as e:
+            logger.error(f"Permission denied saving config to {config_file}: {e}")
+            logger.error(f"Fix: sudo chmod 666 {config_file}")
+            raise PermissionError(
+                f"Cannot write to {config_file}. "
+                f"Run: sudo chmod 666 {config_file} "
+                f"or ensure the file has correct permissions."
+            ) from e
+        except Exception as e:
+            logger.error(f"Failed to save configuration: {e}", exc_info=True)
+            raise
 
     def update_from_server(self, server_config: dict) -> bool:
         """Update configuration from server UPDATE_CONFIG message
