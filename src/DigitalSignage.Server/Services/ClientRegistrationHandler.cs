@@ -251,6 +251,18 @@ internal class ClientRegistrationHandler
         // Create new client - ensure DeviceInfo is properly populated
         var deviceInfo = registerMessage.DeviceInfo ?? new DeviceInfo();
 
+        // DEBUG: Log incoming DeviceInfo to verify data is being received
+        _logger.LogInformation("Creating new client with DeviceInfo from registration:");
+        _logger.LogInformation("  Model: {Model}", deviceInfo.Model);
+        _logger.LogInformation("  OsVersion: {OsVersion}", deviceInfo.OsVersion);
+        _logger.LogInformation("  ClientVersion: {ClientVersion}", deviceInfo.ClientVersion);
+        _logger.LogInformation("  Hostname: {Hostname}", deviceInfo.Hostname);
+        _logger.LogInformation("  MdnsName: {MdnsName}", deviceInfo.MdnsName);
+        _logger.LogInformation("  Resolution: {Width}x{Height}", deviceInfo.ScreenWidth, deviceInfo.ScreenHeight);
+        _logger.LogInformation("  Memory: {MemoryUsed}/{MemoryTotal}", deviceInfo.MemoryUsed, deviceInfo.MemoryTotal);
+        _logger.LogInformation("  Disk: {DiskUsed}/{DiskTotal}", deviceInfo.DiskUsed, deviceInfo.DiskTotal);
+        _logger.LogInformation("  Uptime: {Uptime}s", deviceInfo.Uptime);
+
         var client = new RaspberryPiClient
         {
             Id = string.IsNullOrWhiteSpace(registerMessage.ClientId) ? Guid.NewGuid().ToString() : registerMessage.ClientId,
@@ -277,20 +289,32 @@ internal class ClientRegistrationHandler
 
         if (incoming != null)
         {
-            // Update all fields from incoming data
+            // CRITICAL FIX: Always update string fields from incoming data (even if empty)
+            // This ensures Model, OsVersion, ClientVersion are always set from registration
             merged.Hostname = incoming.Hostname ?? merged.Hostname;
-            merged.Model = incoming.Model ?? merged.Model;
-            merged.OsVersion = incoming.OsVersion ?? merged.OsVersion;
-            merged.ClientVersion = incoming.ClientVersion ?? merged.ClientVersion;
+            merged.MdnsName = incoming.MdnsName ?? merged.MdnsName;  // Also update MdnsName
+
+            // Always update these critical fields from incoming (don't preserve old values)
+            merged.Model = !string.IsNullOrWhiteSpace(incoming.Model) ? incoming.Model : merged.Model;
+            merged.OsVersion = !string.IsNullOrWhiteSpace(incoming.OsVersion) ? incoming.OsVersion : merged.OsVersion;
+            merged.ClientVersion = !string.IsNullOrWhiteSpace(incoming.ClientVersion) ? incoming.ClientVersion : merged.ClientVersion;
+
+            // Numeric fields: only update if incoming value is valid (> 0)
             merged.ScreenWidth = incoming.ScreenWidth > 0 ? incoming.ScreenWidth : merged.ScreenWidth;
             merged.ScreenHeight = incoming.ScreenHeight > 0 ? incoming.ScreenHeight : merged.ScreenHeight;
-            merged.CpuTemperature = incoming.CpuTemperature > 0 ? incoming.CpuTemperature : merged.CpuTemperature;
-            merged.CpuUsage = incoming.CpuUsage > 0 ? incoming.CpuUsage : merged.CpuUsage;
+
+            // Hardware metrics: always update with current values (even if 0)
+            // CPU/Memory/Disk can legitimately be 0 or low values
+            merged.CpuTemperature = incoming.CpuTemperature;  // Can be 0 if sensor fails
+            merged.CpuUsage = incoming.CpuUsage;  // Can be 0 if idle
             merged.MemoryTotal = incoming.MemoryTotal > 0 ? incoming.MemoryTotal : merged.MemoryTotal;
-            merged.MemoryUsed = incoming.MemoryUsed > 0 ? incoming.MemoryUsed : merged.MemoryUsed;
+            merged.MemoryUsed = incoming.MemoryUsed;  // Can be 0
             merged.DiskTotal = incoming.DiskTotal > 0 ? incoming.DiskTotal : merged.DiskTotal;
-            merged.DiskUsed = incoming.DiskUsed > 0 ? incoming.DiskUsed : merged.DiskUsed;
-            merged.Uptime = incoming.Uptime > 0 ? incoming.Uptime : merged.Uptime;
+            merged.DiskUsed = incoming.DiskUsed;  // Can be 0
+            merged.Uptime = incoming.Uptime;  // Can be 0 right after boot
+
+            _logger.LogDebug("Merged DeviceInfo: Model={Model}, OS={OsVersion}, Version={ClientVersion}, Resolution={Width}x{Height}",
+                merged.Model, merged.OsVersion, merged.ClientVersion, merged.ScreenWidth, merged.ScreenHeight);
         }
 
         return merged;

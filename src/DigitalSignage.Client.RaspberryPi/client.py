@@ -522,27 +522,15 @@ class DigitalSignageClient:
         try:
             device_info = await self.device_manager.get_device_info()
 
+            # CRITICAL FIX: Send COMPLETE device_info dictionary instead of manually selecting fields
+            # This ensures all fields (Model, OsVersion, ClientVersion, Resolution, etc.) are sent
+            # Previously, we were manually building DeviceInfo which could miss fields
             register_message = {
                 "Type": "REGISTER",
                 "ClientId": self.config.client_id,
                 "MacAddress": device_info["MacAddress"],
                 "IpAddress": device_info["IpAddress"],
-                "DeviceInfo": {
-                    "Hostname": device_info.get("Hostname"),
-                    "MdnsName": device_info.get("MdnsName"),
-                    "Model": device_info["Model"],
-                    "OsVersion": device_info["OsVersion"],
-                    "ClientVersion": device_info["ClientVersion"],
-                    "CpuTemperature": device_info["CpuTemperature"],
-                    "CpuUsage": device_info["CpuUsage"],
-                    "MemoryTotal": device_info["MemoryTotal"],
-                    "MemoryUsed": device_info["MemoryUsed"],
-                    "DiskTotal": device_info["DiskTotal"],
-                    "DiskUsed": device_info["DiskUsed"],
-                    "ScreenWidth": device_info["ScreenWidth"],
-                    "ScreenHeight": device_info["ScreenHeight"],
-                    "Uptime": device_info["Uptime"]
-                },
+                "DeviceInfo": device_info,  # Send complete device info
                 "Timestamp": datetime.utcnow().isoformat()
             }
 
@@ -552,6 +540,9 @@ class DigitalSignageClient:
                 logger.info("Sending registration with token")
             else:
                 logger.info("Sending registration without token (for existing clients)")
+
+            # DEBUG: Log what we're sending
+            logger.info(f"Registering with DeviceInfo: Model={device_info.get('Model')}, OS={device_info.get('OsVersion')}, Version={device_info.get('ClientVersion')}, Resolution={device_info.get('ScreenWidth')}x{device_info.get('ScreenHeight')}")
 
             self.send_message(register_message)
             logger.info("Client registered with server")

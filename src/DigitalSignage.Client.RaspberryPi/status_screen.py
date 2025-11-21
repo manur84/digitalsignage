@@ -409,9 +409,11 @@ class StatusScreen(QWidget):
 
     def show_connection_error(self, server_url: str, error_message: str, client_id: str = "Unknown"):
         """Show 'Connection Error' screen"""
-        layout = QVBoxLayout(self)
-        layout.setAlignment(Qt.AlignCenter)
-        layout.setSpacing(self.spacing)
+        # CRITICAL FIX: Clear previous screen FIRST
+        self.clear_screen()
+
+        # CRITICAL FIX: Use _create_layout_widget() for consistency
+        layout = self._create_layout_widget()
 
         # Error icon
         error_icon = QLabel("✗", self)
@@ -484,7 +486,10 @@ class StatusScreen(QWidget):
 
         layout.addStretch()
 
-        self.setLayout(layout)
+        # CRITICAL FIX: Only set layout if it's not already set
+        if self.layout() != layout:
+            self.setLayout(layout)
+
         self.update()
 
         # CRITICAL FIX: Ensure status screen is ALWAYS visible and on top
@@ -637,10 +642,20 @@ class StatusScreen(QWidget):
         logger.info("[DEBUG] show_no_layout_assigned() completed successfully")
 
     def show_server_disconnected(self, server_url: str, client_id: str = "Unknown"):
-        """Show 'Server Disconnected - Searching...' screen"""
-        layout = QVBoxLayout(self)
-        layout.setAlignment(Qt.AlignCenter)
-        layout.setSpacing(self.spacing)
+        """
+        Show 'Server Disconnected - Searching...' screen
+
+        CRITICAL FIXES:
+        - Use _create_layout_widget() for proper layout management
+        - Call clear_screen() first to remove previous content
+        - Consistent with other status screen methods
+        """
+        # CRITICAL FIX: Clear previous screen FIRST
+        self.clear_screen()
+
+        # CRITICAL FIX: Use _create_layout_widget() instead of creating layout directly
+        # This ensures proper cleanup and reuse
+        layout = self._create_layout_widget()
 
         # Spinner
         spinner = SpinnerWidget(self.spinner_size, self.COLOR_WARNING, self)
@@ -652,20 +667,14 @@ class StatusScreen(QWidget):
         layout.addWidget(spinner_container)
         self.animated_widgets.append(spinner)
 
-        # Warning icon (smaller than spinner)
-        warning_icon = QLabel("⚠", self)
-        warning_icon.setStyleSheet(f"color: {self.COLOR_WARNING}; font-size: {int(self.icon_font_size * 0.7)}pt; font-weight: bold;")
-        warning_icon.setAlignment(Qt.AlignCenter)
-        layout.addWidget(warning_icon)
-
-        # Title
-        title_label = QLabel("Server Disconnected", self)
+        # Title - German (consistent with other screens)
+        title_label = QLabel("Server Getrennt", self)
         title_label.setStyleSheet(f"color: {self.COLOR_WARNING}; font-size: {self.title_font_size}pt; font-weight: bold;")
         title_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(title_label)
 
-        # Searching message with animated dots
-        searching_label = AnimatedDotsLabel("Searching for server", self)
+        # Searching message with animated dots - German
+        searching_label = AnimatedDotsLabel("Suche Server", self)
         searching_label.setStyleSheet(f"color: {self.COLOR_TEXT_PRIMARY}; font-size: {self.subtitle_font_size}pt;")
         searching_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(searching_label)
@@ -675,7 +684,7 @@ class StatusScreen(QWidget):
         layout.addSpacing(self.spacing)
 
         # Last known server
-        server_label = QLabel(f"Last Known Server: {server_url}", self)
+        server_label = QLabel(f"Letzter bekannter Server: {server_url}", self)
         server_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: {self.body_font_size}pt;")
         server_label.setAlignment(Qt.AlignCenter)
         server_label.setWordWrap(True)
@@ -690,8 +699,8 @@ class StatusScreen(QWidget):
         # Spacer
         layout.addSpacing(self.large_spacing)
 
-        # Info message
-        info_label = QLabel("Automatic reconnection in progress\nNo action required", self)
+        # Info message - German
+        info_label = QLabel("Automatische Wiederverbindung läuft\nKeine Aktion erforderlich", self)
         info_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: {self.body_font_size}pt;")
         info_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(info_label)
@@ -718,14 +727,17 @@ class StatusScreen(QWidget):
             qr_layout.addStretch()
             layout.addWidget(qr_container)
 
-            qr_label = QLabel("Scan to view client dashboard", self)
+            qr_label = QLabel("Scannen um Client-Dashboard zu öffnen", self)
             qr_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: {self.small_font_size}pt;")
             qr_label.setAlignment(Qt.AlignCenter)
             layout.addWidget(qr_label)
 
         layout.addStretch()
 
-        self.setLayout(layout)
+        # CRITICAL FIX: Only set layout if it's not already set
+        if self.layout() != layout:
+            self.setLayout(layout)
+
         self.update()
 
         # CRITICAL FIX: Ensure status screen is ALWAYS visible and on top
@@ -737,9 +749,11 @@ class StatusScreen(QWidget):
 
     def show_reconnecting(self, server_url: str, attempt: int, retry_in: int, client_id: str = "Unknown"):
         """Show 'Reconnecting...' screen with retry countdown"""
-        layout = QVBoxLayout(self)
-        layout.setAlignment(Qt.AlignCenter)
-        layout.setSpacing(self.spacing)
+        # CRITICAL FIX: Clear previous screen FIRST
+        self.clear_screen()
+
+        # CRITICAL FIX: Use _create_layout_widget() for consistency
+        layout = self._create_layout_widget()
 
         # Spinner
         spinner = SpinnerWidget(self.spinner_size, self.COLOR_PRIMARY, self)
@@ -815,7 +829,10 @@ class StatusScreen(QWidget):
 
         layout.addStretch()
 
-        self.setLayout(layout)
+        # CRITICAL FIX: Only set layout if it's not already set
+        if self.layout() != layout:
+            self.setLayout(layout)
+
         self.update()
 
         # CRITICAL FIX: Ensure status screen is ALWAYS visible and on top
@@ -827,9 +844,11 @@ class StatusScreen(QWidget):
 
     def show_server_found(self, server_url: str):
         """Show 'Server Found - Connecting...' screen"""
-        layout = QVBoxLayout(self)
-        layout.setAlignment(Qt.AlignCenter)
-        layout.setSpacing(self.spacing)
+        # CRITICAL FIX: Clear previous screen FIRST
+        self.clear_screen()
+
+        # CRITICAL FIX: Use _create_layout_widget() for consistency
+        layout = self._create_layout_widget()
 
         # Success icon
         success_icon = QLabel("✓", self)
@@ -862,7 +881,10 @@ class StatusScreen(QWidget):
 
         layout.addStretch()
 
-        self.setLayout(layout)
+        # CRITICAL FIX: Only set layout if it's not already set
+        if self.layout() != layout:
+            self.setLayout(layout)
+
         self.update()
 
         # CRITICAL FIX: Ensure status screen is ALWAYS visible and on top
@@ -874,9 +896,11 @@ class StatusScreen(QWidget):
 
     def show_discovery_failed(self, attempts: int, config_path: str):
         """Show 'Auto-Discovery Failed' screen when max attempts reached"""
-        layout = QVBoxLayout(self)
-        layout.setAlignment(Qt.AlignCenter)
-        layout.setSpacing(self.spacing)
+        # CRITICAL FIX: Clear previous screen FIRST
+        self.clear_screen()
+
+        # CRITICAL FIX: Use _create_layout_widget() for consistency
+        layout = self._create_layout_widget()
 
         # Error icon
         error_icon = QLabel("⚠", self)
@@ -928,7 +952,10 @@ class StatusScreen(QWidget):
 
         layout.addStretch()
 
-        self.setLayout(layout)
+        # CRITICAL FIX: Only set layout if it's not already set
+        if self.layout() != layout:
+            self.setLayout(layout)
+
         self.update()
 
         # CRITICAL FIX: Ensure status screen is ALWAYS visible and on top
