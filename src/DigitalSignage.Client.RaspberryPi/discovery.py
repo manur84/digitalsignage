@@ -113,9 +113,12 @@ def filter_and_prioritize_ips(ips: List[str]) -> List[str]:
     """
     Filter out localhost/invalid IPs and prioritize by type.
 
-    Priority order:
-    1. Private network IPs (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
-    2. Other valid IPs
+    Priority order (lower number = higher priority):
+    1. 192.168.x.x (Class C private network - highest priority)
+    2. 10.x.x.x (Class A private network)
+    3. 172.16-31.x.x (Class B private network)
+    4. Other private IPs
+    5. Public IPs (lowest priority)
 
     Filters out:
     - Localhost/loopback (127.x.x.x, ::1)
@@ -131,8 +134,45 @@ def filter_and_prioritize_ips(ips: List[str]) -> List[str]:
     """
     import ipaddress
 
+    def ip_priority(ip_str: str) -> int:
+        """
+        Calculate IP priority (lower number = higher priority).
+
+        Returns:
+            0 = 192.168.x.x (highest priority - typical home/office network)
+            1 = 10.x.x.x (corporate network)
+            2 = 172.16-31.x.x (corporate network)
+            3 = other private IPs
+            4 = public IPs (lowest priority)
+            999 = invalid IP
+        """
+        try:
+            ip = ipaddress.ip_address(ip_str)
+
+            if ip.is_private:
+                # Sub-prioritize private IPs by subnet
+                if ip_str.startswith('192.168.'):
+                    return 0  # Highest priority - typical home/office network
+                elif ip_str.startswith('10.'):
+                    return 1  # Corporate network
+                elif ip_str.startswith('172.'):
+                    # Check if 172.16-31.x.x (Class B private)
+                    octets = ip_str.split('.')
+                    if len(octets) >= 2:
+                        try:
+                            second_octet = int(octets[1])
+                            if 16 <= second_octet <= 31:
+                                return 2  # Class B private
+                        except ValueError:
+                            pass
+                    return 3  # Other 172.x.x.x
+                return 3  # Other private IP ranges
+            else:
+                return 4  # Public IP - lowest priority for local network discovery
+        except (ValueError, TypeError):
+            return 999  # Invalid IP
+
     valid_ips = []
-    private_ips = []
 
     for ip_str in ips:
         try:
@@ -149,25 +189,24 @@ def filter_and_prioritize_ips(ips: List[str]) -> List[str]:
                 logger.debug(f"Filtering out link-local IP: {ip_str}")
                 continue
 
-            # Categorize by priority
-            if ip.is_private:
-                private_ips.append(ip_str)
-                logger.debug(f"Found private IP: {ip_str}")
-            else:
-                valid_ips.append(ip_str)
-                logger.debug(f"Found public IP: {ip_str}")
+            # Add to valid list
+            valid_ips.append(ip_str)
+            priority = ip_priority(ip_str)
+            logger.debug(f"Valid IP: {ip_str} (priority: {priority})")
 
         except (ValueError, TypeError) as e:
             logger.debug(f"Invalid IP address '{ip_str}': {e}")
             continue
 
-    # Return private IPs first, then other valid IPs
-    result = private_ips + valid_ips
+    # Sort by priority (192.168.x.x first, then 10.x.x.x, etc.)
+    result = sorted(valid_ips, key=ip_priority)
 
     if not result:
         logger.warning(f"All IPs filtered out from list: {ips}")
     else:
-        logger.debug(f"Filtered IPs: {result} (from {ips})")
+        logger.debug(f"Filtered and prioritized IPs: {result} (from {ips})")
+        if result:
+            logger.info(f"Best IP selected: {result[0]} (priority: {ip_priority(result[0])})")
 
     return result
 

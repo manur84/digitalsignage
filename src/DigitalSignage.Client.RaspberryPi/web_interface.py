@@ -315,6 +315,67 @@ class WebInterface:
                 logger.error(f"Error updating settings: {e}", exc_info=True)
                 return jsonify({'success': False, 'error': str(e)}), 500
 
+        @self.app.route('/api/discovered-servers')
+        def api_get_discovered_servers():
+            """
+            Get list of discovered Digital Signage servers via auto-discovery.
+            Uses both mDNS and UDP broadcast to find all available servers.
+            IPs are automatically filtered (localhost removed) and prioritized (192.168.x.x first).
+            """
+            try:
+                # Import discovery module
+                try:
+                    from discovery import discover_all_servers
+                except ImportError as import_err:
+                    logger.error(f"Discovery module not available: {import_err}")
+                    return jsonify({
+                        'success': False,
+                        'error': 'Discovery module not available',
+                        'servers': []
+                    }), 503
+
+                # Trigger discovery with short timeout (3 seconds for web UI responsiveness)
+                logger.info("Starting server discovery via web interface...")
+                servers = discover_all_servers(timeout=3.0, use_mdns=True, use_udp=True)
+
+                # Convert ServerInfo objects to dictionaries
+                result = []
+                for server in servers:
+                    server_dict = {
+                        'server_name': server.server_name,
+                        'ips': server.local_ips,  # Already filtered and prioritized by discovery module!
+                        'port': server.port,
+                        'protocol': server.protocol,
+                        'ssl_enabled': server.ssl_enabled,
+                        'endpoint_path': server.endpoint_path,
+                        'urls': server.get_urls(),  # All possible WebSocket URLs
+                        'primary_url': server.get_primary_url(),  # Best URL (first IP)
+                        'timestamp': server.timestamp.isoformat()
+                    }
+                    result.append(server_dict)
+
+                logger.info(f"Discovery complete. Found {len(result)} server(s)")
+
+                # Log discovered servers for debugging
+                for server in result:
+                    logger.info(f"  - {server['server_name']}: {server['ips']} (primary: {server['ips'][0] if server['ips'] else 'N/A'})")
+
+                return jsonify({
+                    'success': True,
+                    'servers': result,
+                    'count': len(result),
+                    'timestamp': datetime.utcnow().isoformat()
+                })
+
+            except Exception as e:
+                logger.error(f"Error discovering servers: {e}", exc_info=True)
+                return jsonify({
+                    'success': False,
+                    'error': str(e),
+                    'servers': [],
+                    'timestamp': datetime.utcnow().isoformat()
+                }), 500
+
         @self.app.route('/api/cache/layouts')
         def api_get_cached_layouts():
             """Get list of all cached layouts"""
