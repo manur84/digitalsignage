@@ -107,6 +107,10 @@
     </Window.Resources>
 
     <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="217*"/>
+            <ColumnDefinition Width="683*"/>
+        </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
@@ -119,7 +123,7 @@
                 Background="White"
                 BorderBrush="#E0E0E0"
                 BorderThickness="0,0,0,1"
-                Padding="20,15">
+                Padding="20,15" Grid.ColumnSpan="2" Margin="0,0,0,531" Grid.RowSpan="2">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
@@ -127,11 +131,11 @@
                 </Grid.ColumnDefinitions>
 
                 <StackPanel Grid.Column="0">
-                    <TextBlock Text="{Binding DeviceName}"
+                    <TextBlock
                                FontSize="20"
                                FontWeight="Bold"
                                Foreground="#333333"/>
-                    <TextBlock Text="{Binding Hostname}"
+                    <TextBlock
                                FontSize="13"
                                Foreground="#666666"
                                Margin="0,4,0,0"/>
@@ -164,7 +168,7 @@
         </Border>
 
         <!-- Main Content -->
-        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="20">
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="20" Grid.ColumnSpan="2">
             <StackPanel>
                 <!-- Device Information Section -->
                 <Border Background="White"
@@ -377,11 +381,11 @@
         </ScrollViewer>
 
         <!-- Status Bar -->
-        <Border Grid.Row="2"
+        <Border Grid.Row="1"
                 Background="White"
                 BorderBrush="#E0E0E0"
                 BorderThickness="0,1,0,0"
-                Padding="20,10">
+                Padding="20,10" Grid.ColumnSpan="2" Margin="0,531,0,0" Grid.RowSpan="2">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
@@ -412,7 +416,7 @@
                 Background="White"
                 BorderBrush="#E0E0E0"
                 BorderThickness="0,1,0,0"
-                Padding="20,15">
+                Padding="20,15" Grid.ColumnSpan="2" Margin="0,10,0,0" Height="67" VerticalAlignment="Top">
             <StackPanel Orientation="Horizontal"
                         HorizontalAlignment="Right">
                 <Button Content="Close"
