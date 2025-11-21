@@ -495,34 +495,56 @@ class StatusScreen(QWidget):
         logger.info("Status screen: Connection Error")
 
     def show_no_layout_assigned(self, client_id: str, server_url: str, ip_address: str = "Unknown"):
-        """Show 'No Layout Assigned' screen"""
-        layout = QVBoxLayout(self)
-        layout.setAlignment(Qt.AlignCenter)
-        layout.setSpacing(self.spacing)
+        """Show 'No Layout Assigned' screen - FIXED: Proper screen clearing and widget visibility"""
+        logger.info("[DEBUG] show_no_layout_assigned() entered")
+        logger.info(f"[DEBUG] Parameters: client_id={client_id}, server_url={server_url}, ip_address={ip_address}")
+        logger.info(f"[DEBUG] Current visible: {self.isVisible()}")
+        logger.info(f"[DEBUG] Current layout: {self.layout()}")
+
+        # CRITICAL FIX: Clear previous screen FIRST
+        logger.info("[DEBUG] Calling clear_screen() to remove previous content...")
+        self.clear_screen()
+        logger.info("[DEBUG] clear_screen() completed")
+
+        # CRITICAL FIX: Use _create_layout_widget() instead of creating layout directly
+        # This ensures proper cleanup and reuse
+        logger.info("[DEBUG] Creating/reusing layout widget...")
+        layout = self._create_layout_widget()
+        logger.info(f"[DEBUG] Layout widget obtained: {layout is not None}")
 
         # Warning icon
+        logger.info("[DEBUG] Creating warning icon...")
         warning_icon = QLabel("⚠", self)
         warning_icon.setStyleSheet(f"color: {self.COLOR_WARNING}; font-size: {self.icon_font_size}pt; font-weight: bold;")
         warning_icon.setAlignment(Qt.AlignCenter)
+        warning_icon.setVisible(True)  # EXPLICIT visibility
         layout.addWidget(warning_icon)
+        logger.info(f"[DEBUG] Warning icon created: visible={warning_icon.isVisible()}, text='{warning_icon.text()}'")
 
         # Title
+        logger.info("[DEBUG] Creating title label...")
         title_label = QLabel("No Layout Assigned", self)
         title_label.setStyleSheet(f"color: {self.COLOR_WARNING}; font-size: {self.title_font_size}pt; font-weight: bold;")
         title_label.setAlignment(Qt.AlignCenter)
+        title_label.setVisible(True)  # EXPLICIT visibility
         layout.addWidget(title_label)
+        logger.info(f"[DEBUG] Title created: visible={title_label.isVisible()}, text='{title_label.text()}'")
 
         # Message
+        logger.info("[DEBUG] Creating message label...")
         message_label = QLabel("This device is connected but has not been assigned a layout", self)
         message_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: {self.subtitle_font_size}pt;")
         message_label.setAlignment(Qt.AlignCenter)
         message_label.setWordWrap(True)
+        message_label.setVisible(True)  # EXPLICIT visibility
         layout.addWidget(message_label)
+        logger.info(f"[DEBUG] Message created: visible={message_label.isVisible()}")
 
         # Spacer
         layout.addSpacing(self.large_spacing)
 
         # Device info
+        logger.info("[DEBUG] Creating device info label...")
         device_info = [
             f"Client ID: {client_id}",
             f"IP Address: {ip_address}",
@@ -531,12 +553,15 @@ class StatusScreen(QWidget):
         info_label = QLabel("\n".join(device_info), self)
         info_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: {self.body_font_size}pt;")
         info_label.setAlignment(Qt.AlignCenter)
+        info_label.setVisible(True)  # EXPLICIT visibility
         layout.addWidget(info_label)
+        logger.info(f"[DEBUG] Device info created: visible={info_label.isVisible()}")
 
         # Spacer
         layout.addSpacing(self.large_spacing)
 
         # Instructions for admin
+        logger.info("[DEBUG] Creating instructions label...")
         instructions = [
             "Administrator Actions:",
             "1. Log in to the Digital Signage Management Server",
@@ -547,9 +572,12 @@ class StatusScreen(QWidget):
         instructions_label = QLabel("\n".join(instructions), self)
         instructions_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: {self.body_font_size}pt; background-color: #2A2A2A; padding: {self.padding}px; border-radius: 10px;")
         instructions_label.setAlignment(Qt.AlignCenter)
+        instructions_label.setVisible(True)  # EXPLICIT visibility
         layout.addWidget(instructions_label)
+        logger.info(f"[DEBUG] Instructions created: visible={instructions_label.isVisible()}")
 
         # QR code with web dashboard URL
+        logger.info("[DEBUG] Creating QR code...")
         layout.addSpacing(self.spacing)
         dashboard_url = f"http://{ip_address}:5000"
         qr_widget = self._create_qr_code(dashboard_url, self.qr_size)
@@ -559,24 +587,54 @@ class StatusScreen(QWidget):
             qr_layout.addStretch()
             qr_layout.addWidget(qr_widget)
             qr_layout.addStretch()
+            qr_container.setVisible(True)  # EXPLICIT visibility
+            qr_widget.setVisible(True)  # EXPLICIT visibility
             layout.addWidget(qr_container)
 
             qr_label = QLabel("Scan to view client dashboard", self)
             qr_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: {self.small_font_size}pt;")
             qr_label.setAlignment(Qt.AlignCenter)
+            qr_label.setVisible(True)  # EXPLICIT visibility
             layout.addWidget(qr_label)
+            logger.info(f"[DEBUG] QR code created: widget visible={qr_widget.isVisible()}, label visible={qr_label.isVisible()}")
+        else:
+            logger.warning("[DEBUG] QR widget creation failed!")
 
         layout.addStretch()
 
-        self.setLayout(layout)
+        # CRITICAL FIX: Only set layout if it's not already set
+        logger.info(f"[DEBUG] Setting layout - current layout: {self.layout()}, new layout: {layout}")
+        if self.layout() != layout:
+            self.setLayout(layout)
+            logger.info("[DEBUG] Layout set to status screen widget")
+        else:
+            logger.info("[DEBUG] Layout already set, skipping setLayout() call")
+
+        logger.info(f"[DEBUG] Layout set, widget count: {layout.count()}")
+
+        # CRITICAL FIX: Force update
+        logger.info("[DEBUG] Forcing widget update...")
         self.update()
+        self.repaint()  # FORCE immediate repaint
+        logger.info("[DEBUG] Widget update and repaint completed")
 
         # CRITICAL FIX: Ensure status screen is ALWAYS visible and on top
+        logger.info("[DEBUG] Ensuring window visibility...")
+        logger.info(f"[DEBUG] Before show: visible={self.isVisible()}, fullscreen={self.isFullScreen()}")
+
         self.showFullScreen()
         self.raise_()
         self.activateWindow()
+        self.setFocus()
 
-        logger.info("Status screen: No Layout Assigned")
+        logger.info(f"[DEBUG] After show: visible={self.isVisible()}, fullscreen={self.isFullScreen()}")
+        logger.info("[DEBUG] Window shown fullscreen, raised, and activated")
+
+        logger.info("✓ Status screen: No Layout Assigned - SCREEN FULLY CONFIGURED")
+        logger.info(f"[DEBUG] Final widget count in layout: {layout.count()}")
+        logger.info(f"[DEBUG] Status screen size: {self.width()}x{self.height()}")
+        logger.info(f"[DEBUG] Status screen position: ({self.x()}, {self.y()})")
+        logger.info("[DEBUG] show_no_layout_assigned() completed successfully")
 
     def show_server_disconnected(self, server_url: str, client_id: str = "Unknown"):
         """Show 'Server Disconnected - Searching...' screen"""

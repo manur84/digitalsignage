@@ -607,28 +607,51 @@ class DigitalSignageClient:
 
                 # Schedule a check for "no layout assigned" after 10 seconds
                 async def check_for_no_layout():
+                    logger.info("[DEBUG] check_for_no_layout() - Starting 10 second wait...")
                     await asyncio.sleep(10)
+
                     # CRITICAL FIX: Check if layout was assigned DURING the wait period
                     # This prevents showing "No Layout Assigned" when a layout is already displayed
+                    logger.info("[DEBUG] check_for_no_layout() - Wait completed, checking conditions...")
+                    logger.info(f"[DEBUG]   connected: {self.connected}")
+                    logger.info(f"[DEBUG]   current_layout: {self.current_layout}")
+                    logger.info(f"[DEBUG]   display_renderer: {self.display_renderer is not None}")
+
                     if self.connected and not self.current_layout and self.display_renderer:
                         # ADDITIONAL CHECK: Ensure status screen is not already cleared
                         # If status screen was cleared, it means a layout was rendered
-                        if not self.display_renderer.status_screen_manager.is_showing_status:
+                        is_showing_status = self.display_renderer.status_screen_manager.is_showing_status
+                        logger.info(f"[DEBUG]   is_showing_status: {is_showing_status}")
+
+                        if not is_showing_status:
                             logger.info("Status screen already cleared by layout rendering - skipping 'No Layout Assigned' screen")
                             return
 
-                        logger.info("No layout received after 10 seconds - showing 'No Layout Assigned' screen")
+                        logger.info("✓ CONDITIONS MET - No layout received after 10 seconds - showing 'No Layout Assigned' screen")
+
                         # Get IP address
+                        logger.info("[DEBUG] Getting device info for IP address...")
                         device_info = await self.device_manager.get_device_info()
                         ip_address = device_info.get("IpAddress", "Unknown")
                         server_url = self.config.get_server_url()
-                        self.display_renderer.status_screen_manager.show_no_layout_assigned(
-                            self.config.client_id,
-                            server_url,
-                            ip_address
-                        )
+
+                        logger.info(f"[DEBUG] Calling show_no_layout_assigned():")
+                        logger.info(f"[DEBUG]   client_id: {self.config.client_id}")
+                        logger.info(f"[DEBUG]   server_url: {server_url}")
+                        logger.info(f"[DEBUG]   ip_address: {ip_address}")
+
+                        try:
+                            self.display_renderer.status_screen_manager.show_no_layout_assigned(
+                                self.config.client_id,
+                                server_url,
+                                ip_address
+                            )
+                            logger.info("[DEBUG] ✓ show_no_layout_assigned() completed successfully")
+                        except Exception as e:
+                            logger.error(f"[DEBUG] ✗ ERROR calling show_no_layout_assigned(): {e}", exc_info=True)
                     else:
                         logger.debug("Layout assigned during registration wait period - not showing 'No Layout Assigned' screen")
+                        logger.debug(f"  Reason: connected={self.connected}, has_layout={self.current_layout is not None}, has_renderer={self.display_renderer is not None}")
 
                 asyncio.create_task(check_for_no_layout())
 
