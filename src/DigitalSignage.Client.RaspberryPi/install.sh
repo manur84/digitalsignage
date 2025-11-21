@@ -756,7 +756,7 @@ if [ -f "$CMDLINE_FILE" ]; then
         "vt.global_cursor_default=0"      # Hide blinking cursor
         "loglevel=3"                      # Suppress kernel messages (errors + warnings only)
         "consoleblank=0"                  # Disable console blanking
-        "fbcon=map:10"                    # Framebuffer console mapping (tries fb1 then fb0)
+        "fbcon=map:0"                     # Framebuffer console mapping (use default fb0)
     )
 
     # Add missing parameters

@@ -638,6 +638,33 @@ class StatusScreen(QWidget):
         info_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(info_label)
 
+        # Spacer
+        layout.addSpacing(self.large_spacing)
+
+        # QR code with web dashboard URL
+        try:
+            from device_manager import DeviceManager
+            device_mgr = DeviceManager()
+            ip_address = device_mgr.get_ip_address()
+        except Exception:
+            # Fallback to localhost if device manager unavailable
+            ip_address = "localhost"
+
+        dashboard_url = f"http://{ip_address}:5000"
+        qr_widget = self._create_qr_code(dashboard_url, self.qr_size)
+        if qr_widget:
+            qr_container = QWidget()
+            qr_layout = QHBoxLayout(qr_container)
+            qr_layout.addStretch()
+            qr_layout.addWidget(qr_widget)
+            qr_layout.addStretch()
+            layout.addWidget(qr_container)
+
+            qr_label = QLabel("Scan to view client dashboard", self)
+            qr_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: {self.small_font_size}pt;")
+            qr_label.setAlignment(Qt.AlignCenter)
+            layout.addWidget(qr_label)
+
         layout.addStretch()
 
         self.setLayout(layout)
@@ -700,6 +727,33 @@ class StatusScreen(QWidget):
         id_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: {self.body_font_size}pt;")
         id_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(id_label)
+
+        # Spacer
+        layout.addSpacing(self.large_spacing)
+
+        # QR code with web dashboard URL
+        try:
+            from device_manager import DeviceManager
+            device_mgr = DeviceManager()
+            ip_address = device_mgr.get_ip_address()
+        except Exception:
+            # Fallback to localhost if device manager unavailable
+            ip_address = "localhost"
+
+        dashboard_url = f"http://{ip_address}:5000"
+        qr_widget = self._create_qr_code(dashboard_url, self.qr_size)
+        if qr_widget:
+            qr_container = QWidget()
+            qr_layout = QHBoxLayout(qr_container)
+            qr_layout.addStretch()
+            qr_layout.addWidget(qr_widget)
+            qr_layout.addStretch()
+            layout.addWidget(qr_container)
+
+            qr_label = QLabel("Scan to view client dashboard", self)
+            qr_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: {self.small_font_size}pt;")
+            qr_label.setAlignment(Qt.AlignCenter)
+            layout.addWidget(qr_label)
 
         layout.addStretch()
 

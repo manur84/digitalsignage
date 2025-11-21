@@ -37,12 +37,12 @@ CMDLINE_FLAGS=(
   "plymouth.ignore-serial-consoles"
   # WARNING: fbcon=map controls which framebuffer the console uses
   # Options:
-  #   - fbcon=map:10 for dual-display (tries fb1 then falls back to fb0) - RECOMMENDED
+  #   - fbcon=map:0 uses default fb0 (HDMI) - RECOMMENDED
+  #   - fbcon=map:10 for dual-display (tries fb1 then falls back to fb0)
   #   - fbcon=map:2 maps to fb2 (may DISABLE CLI if fb2 doesn't exist!)
   #   - fbcon=map:1 to use fb1 explicitly
-  #   - Omit this flag to use default fb0
-  # Using fbcon=map:10 is safer as it falls back gracefully:
-  "fbcon=map:10"
+  # Using fbcon=map:0 for standard HDMI display:
+  "fbcon=map:0"
 )
 
 require_root() {
@@ -228,11 +228,11 @@ configure_plymouth() {
   echo "  2. Run: sudo update-initramfs -u -k $KERNEL_VERSION"
   echo "  3. Reboot"
   echo ""
-  echo "Framebuffer console mapping (already configured as fbcon=map:10):"
-  echo "  - fbcon=map:10 (CURRENT): tries fb1 then falls back to fb0 (RECOMMENDED)"
+  echo "Framebuffer console mapping (already configured as fbcon=map:0):"
+  echo "  - fbcon=map:0 (CURRENT): uses default fb0 (HDMI) - RECOMMENDED"
+  echo "  - fbcon=map:10: tries fb1 then falls back to fb0 (for dual-display)"
   echo "  - fbcon=map:2: maps to fb2 (WARNING: may disable CLI if fb2 doesn't exist!)"
   echo "  - fbcon=map:1: uses fb1 explicitly"
-  echo "  - No flag: uses default fb0"
 }
 
 main() {
