@@ -520,7 +520,7 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand(CanExecute = nameof(CanExecuteClientCommand))]
-    private void ShowDeviceDetails()
+    private async void ShowDeviceDetails()
     {
         if (SelectedClient == null) return;
 
@@ -529,14 +529,30 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
             _logger.LogInformation("Opening device details for {ClientName}", SelectedClient.Name);
             StatusMessage = $"Opening device details for {SelectedClient.Name}...";
 
+            // CRITICAL FIX: Reload client from service to get fresh data including DeviceInfo
+            // This ensures we have the latest database values merged with in-memory cache
+            var clientResult = await _clientService.GetClientByIdAsync(SelectedClient.Id);
+            if (clientResult.IsFailure || clientResult.Value == null)
+            {
+                _logger.LogError("Failed to reload client {ClientId}: {Error}", SelectedClient.Id, clientResult.ErrorMessage);
+                StatusMessage = $"Failed to load client details: {clientResult.ErrorMessage}";
+                return;
+            }
+
+            var freshClient = clientResult.Value;
+            _logger.LogInformation("Reloaded client {ClientId} - DeviceInfo null: {IsNull}, Model: '{Model}'",
+                freshClient.Id,
+                freshClient.DeviceInfo == null,
+                freshClient.DeviceInfo?.Model ?? "NULL");
+
             var viewModel = _serviceProvider.GetRequiredService<DeviceDetailViewModel>();
             var window = new Views.DeviceDetailWindow(viewModel)
             {
                 Owner = System.Windows.Application.Current.MainWindow
             };
 
-            // Load the device information into the view model
-            viewModel.LoadDeviceInfo(SelectedClient);
+            // Load the FRESH device information into the view model
+            viewModel.LoadDeviceInfo(freshClient);
 
             window.Show();
             StatusMessage = $"Device details opened for {SelectedClient.Name}";
