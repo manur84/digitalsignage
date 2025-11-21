@@ -737,7 +737,8 @@ if [ -f "$CMDLINE_FILE" ]; then
     fi
 
     # Read current cmdline (single line)
-    CURRENT_CMDLINE=$(tr '\n' ' ' < "$CMDLINE_FILE" | tr -s ' ')
+    # Convert newlines and tabs to spaces, then collapse multiple spaces
+    CURRENT_CMDLINE=$(tr '\n\t' '  ' < "$CMDLINE_FILE" | tr -s ' ' | xargs)
 
     # CRITICAL: Remove console=tty1 or replace with console=tty3 to hide boot messages
     # This prevents boot messages from appearing on the main display
@@ -763,16 +764,17 @@ if [ -f "$CMDLINE_FILE" ]; then
     for param in "${PLYMOUTH_PARAMS[@]}"; do
         # Special handling for parameters with values (e.g., loglevel=3)
         param_name=$(echo "$param" | cut -d'=' -f1)
-        if echo "$CURRENT_CMDLINE" | grep -qw "$param_name"; then
-            # Parameter exists, check if value needs update
-            if ! echo "$CURRENT_CMDLINE" | grep -qw "$param"; then
-                # Remove old parameter and add new one
-                CURRENT_CMDLINE=$(echo "$CURRENT_CMDLINE" | sed "s/${param_name}=[^ ]*/${param}/g")
-                CMDLINE_MODIFIED=true
-                echo "  ↻ Updated: $param"
-            else
-                echo "  ✓ Already present: $param"
-            fi
+
+        # Use space-padded matching for more reliable detection
+        # This prevents false positives and ensures we match complete parameters
+        if echo " $CURRENT_CMDLINE " | grep -q " $param "; then
+            # Exact parameter already present (including value if any)
+            echo "  ✓ Already present: $param"
+        elif echo " $CURRENT_CMDLINE " | grep -q " ${param_name}="; then
+            # Parameter exists but with different value - update it
+            CURRENT_CMDLINE=$(echo "$CURRENT_CMDLINE" | sed "s/\<${param_name}=[^ ]*/${param}/g")
+            CMDLINE_MODIFIED=true
+            echo "  ↻ Updated: $param"
         else
             # Parameter doesn't exist, add it
             CURRENT_CMDLINE="$CURRENT_CMDLINE $param"
@@ -783,9 +785,19 @@ if [ -f "$CMDLINE_FILE" ]; then
 
     # Write updated cmdline.txt if modified
     if [ "$CMDLINE_MODIFIED" = true ]; then
-        # Trim leading/trailing spaces and write
-        echo "$CURRENT_CMDLINE" | xargs | tr -d '\n' > "$CMDLINE_FILE"
+        # Trim leading/trailing spaces, ensure single line, no trailing newline
+        TRIMMED_CMDLINE=$(echo "$CURRENT_CMDLINE" | xargs)
+        printf "%s" "$TRIMMED_CMDLINE" > "$CMDLINE_FILE"
         show_success "Updated cmdline.txt with Plymouth parameters"
+
+        # Verify the write was successful and no duplicates exist
+        VERIFY_CMDLINE=$(cat "$CMDLINE_FILE")
+        for param in "${PLYMOUTH_PARAMS[@]}"; do
+            count=$(echo " $VERIFY_CMDLINE " | grep -o " $param " | wc -l)
+            if [ "$count" -gt 1 ]; then
+                show_warning "Duplicate detected for '$param' - this shouldn't happen!"
+            fi
+        done
     else
         show_info "cmdline.txt already configured"
     fi
