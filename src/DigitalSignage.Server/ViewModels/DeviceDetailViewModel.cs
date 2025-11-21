@@ -176,11 +176,18 @@ public partial class DeviceDetailViewModel : ObservableObject, IDisposable
                 client.DeviceInfo?.DiskUsed ?? 0,
                 client.DeviceInfo?.DiskTotal ?? 0);
 
+            // Ensure DeviceInfo is never null
+            if (client.DeviceInfo == null)
+            {
+                _logger.LogWarning("Client {ClientId} has null DeviceInfo - creating default", client.Id);
+                client.DeviceInfo = new DeviceInfo();
+            }
+
             // Basic information
             DeviceName = string.IsNullOrWhiteSpace(client.Name) ? client.DeviceInfo.Hostname : client.Name;
-            Hostname = client.DeviceInfo.Hostname;
-            IpAddress = client.IpAddress;
-            MacAddress = client.MacAddress;
+            Hostname = client.DeviceInfo.Hostname ?? string.Empty;
+            IpAddress = client.IpAddress ?? string.Empty;
+            MacAddress = client.MacAddress ?? string.Empty;
             Status = client.Status.ToString();
             Location = string.IsNullOrWhiteSpace(client.Location) ? "Not set" : client.Location;
             Group = string.IsNullOrWhiteSpace(client.Group) ? "Not set" : client.Group;
@@ -190,7 +197,7 @@ public partial class DeviceDetailViewModel : ObservableObject, IDisposable
             OsVersion = string.IsNullOrWhiteSpace(client.DeviceInfo.OsVersion) ? "Unknown" : client.DeviceInfo.OsVersion;
             ClientVersion = string.IsNullOrWhiteSpace(client.DeviceInfo.ClientVersion) ? "Unknown" : client.DeviceInfo.ClientVersion;
             Resolution = $"{client.DeviceInfo.ScreenWidth}x{client.DeviceInfo.ScreenHeight}";
-            AssignedLayout = client.AssignedLayoutName;
+            AssignedLayout = client.AssignedLayoutName ?? "Not assigned";
 
             // Hardware metrics
             CpuUsage = client.DeviceInfo.CpuUsage;
