@@ -48,6 +48,11 @@ public interface IClientService
     Task<Result> UpdateClientConfigAsync(string clientId, UpdateConfigMessage config, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Updates a client's properties (Name, Group, Location)
+    /// </summary>
+    Task<Result> UpdateClientAsync(string clientId, string? name = null, string? group = null, string? location = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Event raised when a client connects
     /// </summary>
     event EventHandler<string>? ClientConnected;

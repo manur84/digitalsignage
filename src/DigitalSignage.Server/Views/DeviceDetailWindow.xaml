@@ -98,6 +98,18 @@
             <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
 
+        <!-- Editable Value Style -->
+        <Style x:Key="EditableValueStyle" TargetType="TextBox">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Foreground" Value="#333333"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="#CCCCCC"/>
+            <Setter Property="Padding" Value="4,2"/>
+            <Setter Property="Background" Value="White"/>
+        </Style>
+
         <!-- Status Badge Style -->
         <Style x:Key="StatusBadgeStyle" TargetType="Border">
             <Setter Property="CornerRadius" Value="3"/>
@@ -127,7 +139,7 @@
                 </Grid.ColumnDefinitions>
 
                 <StackPanel Grid.Column="0">
-                    <TextBlock Text="{Binding Name}"
+                    <TextBlock Text="{Binding DeviceName}"
                                FontSize="20"
                                FontWeight="Bold"
                                Foreground="#333333"/>
@@ -212,9 +224,9 @@
 
                             <!-- Row 4 -->
                             <TextBlock Grid.Row="3" Grid.Column="0" Text="Group:" Style="{StaticResource LabelStyle}" Margin="0,0,0,8"/>
-                            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding Group}" Style="{StaticResource ValueStyle}" Margin="0,0,0,8"/>
+                            <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding Group, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource EditableValueStyle}" Margin="0,0,0,8"/>
                             <TextBlock Grid.Row="3" Grid.Column="2" Text="Location:" Style="{StaticResource LabelStyle}" Margin="12,0,0,8"/>
-                            <TextBlock Grid.Row="3" Grid.Column="3" Text="{Binding Location}" Style="{StaticResource ValueStyle}" Margin="0,0,0,8"/>
+                            <TextBox Grid.Row="3" Grid.Column="3" Text="{Binding Location, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource EditableValueStyle}" Margin="0,0,0,8"/>
 
                             <!-- Row 5 -->
                             <TextBlock Grid.Row="4" Grid.Column="0" Text="Assigned Layout:" Style="{StaticResource LabelStyle}"/>
@@ -415,6 +427,10 @@
                 Padding="20,15">
             <StackPanel Orientation="Horizontal"
                         HorizontalAlignment="Right">
+                <Button Content="Save Changes"
+                        Command="{Binding SaveChangesCommand}"
+                        Style="{StaticResource PrimaryButtonStyle}"
+                        Margin="0,0,10,0"/>
                 <Button Content="Close"
                         Command="{Binding CloseCommand}"
                         Style="{StaticResource SecondaryButtonStyle}"/>

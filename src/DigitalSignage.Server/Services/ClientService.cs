@@ -594,6 +594,78 @@ public class ClientService : IClientService, IDisposable
         }
     }
 
+    /// <summary>
+    /// Update client properties (Name, Group, Location)
+    /// </summary>
+    public async Task<Result> UpdateClientAsync(
+        string clientId,
+        string? name = null,
+        string? group = null,
+        string? location = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            ThrowIfDisposed();
+
+            if (string.IsNullOrWhiteSpace(clientId))
+            {
+                _logger.LogWarning("UpdateClientAsync called with null or empty clientId");
+                return Result.Failure("Client ID cannot be empty");
+            }
+
+            if (!_clients.TryGetValue(clientId, out var client))
+            {
+                _logger.LogWarning("Client {ClientId} not found for update", clientId);
+                return Result.Failure($"Client '{clientId}' not found");
+            }
+
+            // Update in-memory client
+            if (name != null)
+                client.Name = name;
+            if (group != null)
+                client.Group = string.IsNullOrWhiteSpace(group) ? null : group;
+            if (location != null)
+                client.Location = string.IsNullOrWhiteSpace(location) ? null : location;
+
+            // Update in database
+            using var scope = _serviceProvider.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<DigitalSignageDbContext>();
+
+            var dbClient = await dbContext.Clients.FindAsync(new object[] { clientId }, cancellationToken);
+            if (dbClient != null)
+            {
+                if (name != null)
+                    dbClient.Name = name;
+                if (group != null)
+                    dbClient.Group = string.IsNullOrWhiteSpace(group) ? null : group;
+                if (location != null)
+                    dbClient.Location = string.IsNullOrWhiteSpace(location) ? null : location;
+
+                await dbContext.SaveChangesAsync(cancellationToken);
+                _logger.LogInformation("Updated client {ClientId} (Name: {Name}, Group: {Group}, Location: {Location})",
+                    clientId, dbClient.Name, dbClient.Group ?? "None", dbClient.Location ?? "None");
+            }
+
+            return Result.Success();
+        }
+        catch (ObjectDisposedException ex)
+        {
+            _logger.LogError(ex, "ClientService has been disposed");
+            return Result.Failure("Service is no longer available", ex);
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning("Client update cancelled for {ClientId}", clientId);
+            return Result.Failure("Operation was cancelled");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to update client {ClientId}", clientId);
+            return Result.Failure($"Failed to update client: {ex.Message}", ex);
+        }
+    }
+
 
     /// <summary>
     /// Throws ObjectDisposedException if service has been disposed
