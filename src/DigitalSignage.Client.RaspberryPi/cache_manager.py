@@ -84,10 +84,31 @@ class CacheManager:
                 )
             """)
 
+            # Create indices for better query performance
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_layouts_is_current
+                ON layouts(is_current)
+            """)
+
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_layouts_expires_at
+                ON layouts(expires_at)
+            """)
+
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_layout_data_layout_id
+                ON layout_data(layout_id)
+            """)
+
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_layout_data_expires_at
+                ON layout_data(expires_at)
+            """)
+
             conn.commit()
             conn.close()
 
-            logger.info("Cache database initialized successfully")
+            logger.info("Cache database initialized successfully with indices")
         except Exception as e:
             logger.error(f"Failed to initialize cache database: {e}")
             raise
@@ -242,19 +263,17 @@ class CacheManager:
     def get_current_layout(self) -> Optional[Tuple[Dict[str, Any], Dict[str, Any]]]:
         """
         Get the current active layout and its data from cache
-        Automatically removes expired entries before retrieval
+        PERFORMANCE OPTIMIZED: Cleanup only if needed (lazy cleanup)
 
         Returns:
             Tuple of (layout, layout_data) or None if no cached layout exists
         """
         try:
-            # Cleanup expired entries first
-            self.cleanup_expired_entries()
-
             conn = sqlite3.connect(str(self.db_path))
             cursor = conn.cursor()
 
             # Get current layout (not expired)
+            # PERFORMANCE: Expiry check is done in query (using index), no separate cleanup needed
             now = datetime.utcnow().isoformat()
             cursor.execute("""
                 SELECT id, layout_json, cached_at
@@ -280,12 +299,15 @@ class CacheManager:
                 conn.close()
                 return None
 
-            # Get layout data
+            # Get layout data (not expired)
+            # PERFORMANCE: Filter out expired data in query
+            now = datetime.utcnow().isoformat()
             cursor.execute("""
                 SELECT data_source_id, data_json
                 FROM layout_data
                 WHERE layout_id = ?
-            """, (layout_id,))
+                  AND (expires_at IS NULL OR expires_at > ?)
+            """, (layout_id, now))
 
             layout_data = {}
             for data_row in cursor.fetchall():
@@ -340,12 +362,15 @@ class CacheManager:
                 conn.close()
                 return None
 
-            # Get layout data
+            # Get layout data (not expired)
+            # PERFORMANCE: Filter out expired data in query
+            now = datetime.utcnow().isoformat()
             cursor.execute("""
                 SELECT data_source_id, data_json
                 FROM layout_data
                 WHERE layout_id = ?
-            """, (layout_id,))
+                  AND (expires_at IS NULL OR expires_at > ?)
+            """, (layout_id, now))
 
             layout_data = {}
             for data_row in cursor.fetchall():

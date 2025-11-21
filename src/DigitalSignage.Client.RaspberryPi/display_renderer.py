@@ -428,6 +428,8 @@ class DisplayRenderer(QWidget):
 
         try:
             # === COMPLETE CLEANUP OF OLD LAYOUT ===
+            # PERFORMANCE: Disable updates during cleanup to prevent flickering and improve performance
+            self.setUpdatesEnabled(False)
 
             # 1. Stop and clear ALL timers (datetime elements)
             if hasattr(self, '_datetime_timers'):
@@ -454,7 +456,7 @@ class DisplayRenderer(QWidget):
                 except Exception as e:
                     logger.warning(f"Failed to delete element: {e}")
             self.elements.clear()
-            
+
             # CRITICAL FIX: Reset PNG label references after cleanup
             # This prevents "wrapped C/C++ object has been deleted" error
             self._png_label = None
@@ -483,7 +485,8 @@ class DisplayRenderer(QWidget):
             # BUGFIX: Changed from white to status screen background color to prevent flash
             self.setStyleSheet("background-color: #1a1a2e;")
 
-            # 6. Force immediate update to clear display
+            # 6. Re-enable updates and trigger single repaint after cleanup
+            self.setUpdatesEnabled(True)
             self.update()
 
             logger.debug("Complete layout cleanup finished")
@@ -628,7 +631,10 @@ class DisplayRenderer(QWidget):
 
             if not self._rendering_png_only:
                 logger.info(f"Rendering {len(elements_sorted)} elements with scaling factors X={scale_x:.4f}, Y={scale_y:.4f}")
-                
+
+                # PERFORMANCE OPTIMIZATION: Disable updates during batch element creation
+                self.setUpdatesEnabled(False)
+
                 for element_data in elements_sorted:
                     try:
                         # CRITICAL: create_element() uses self._scale_x and self._scale_y
@@ -644,9 +650,12 @@ class DisplayRenderer(QWidget):
                         logger.error(f"Failed to create element: {e}")
                         failed_count += 1
 
+                # PERFORMANCE: Re-enable updates and trigger single repaint
+                self.setUpdatesEnabled(True)
+                self.update()
+
                 logger.info(f"✓ Layout '{layout_name}' rendered: {rendered_count} elements created, {failed_count} failed")
                 logger.info(f"   All elements scaled to client display resolution {display_width}x{display_height}")
-                self.update()
 
         except Exception as e:
             logger.error(f"Failed to render layout '{layout_name}': {e}")

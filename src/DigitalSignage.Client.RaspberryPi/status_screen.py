@@ -305,9 +305,7 @@ class StatusScreen(QWidget):
         self.raise_()
         self.activateWindow()
 
-        # CRITICAL FIX: Do NOT call processEvents() when using qasync
-        # qasync automatically processes Qt events via the integrated event loop
-        self.repaint()
+        # Note: repaint() removed - update() is sufficient and less CPU intensive
 
         logger.info("Status screen: Discovering Server (Auto-Discovery Active)")
 
@@ -353,9 +351,6 @@ class StatusScreen(QWidget):
         self.showFullScreen()
         self.raise_()
         self.activateWindow()
-
-        # CRITICAL FIX: Do NOT call processEvents() when using qasync
-        self.repaint()
 
         logger.info(f"Status screen: Connecting (attempt {attempt})")
 
@@ -409,9 +404,6 @@ class StatusScreen(QWidget):
         self.showFullScreen()
         self.raise_()
         self.activateWindow()
-
-        # CRITICAL FIX: Do NOT call processEvents() when using qasync
-        self.repaint()
 
         logger.info(f"Status screen: Waiting for Layout")
 
@@ -499,7 +491,6 @@ class StatusScreen(QWidget):
         self.showFullScreen()
         self.raise_()
         self.activateWindow()
-        self.repaint()
 
         logger.info("Status screen: Connection Error")
 
@@ -584,7 +575,6 @@ class StatusScreen(QWidget):
         self.showFullScreen()
         self.raise_()
         self.activateWindow()
-        self.repaint()
 
         logger.info("Status screen: No Layout Assigned")
 
@@ -657,7 +647,6 @@ class StatusScreen(QWidget):
         self.showFullScreen()
         self.raise_()
         self.activateWindow()
-        self.repaint()
 
         logger.info("Status screen: Server Disconnected - Searching")
 
@@ -721,7 +710,6 @@ class StatusScreen(QWidget):
         self.showFullScreen()
         self.raise_()
         self.activateWindow()
-        self.repaint()
 
         logger.info(f"Status screen: Reconnecting (attempt {attempt}, retry in {retry_in}s)")
 
@@ -769,7 +757,6 @@ class StatusScreen(QWidget):
         self.showFullScreen()
         self.raise_()
         self.activateWindow()
-        self.repaint()
 
         logger.info("Status screen: Server Found - Connecting")
 
@@ -836,7 +823,6 @@ class StatusScreen(QWidget):
         self.showFullScreen()
         self.raise_()
         self.activateWindow()
-        self.repaint()
 
         logger.info(f"Status screen: Discovery Failed (after {attempts} attempts)")
 
@@ -1037,11 +1023,8 @@ class StatusScreenManager:
         self.status_screen.activateWindow()
         # showFullScreen() nicht nötig - wurde schon im __init__ aufgerufen
 
-        # Force immediate repaint for smooth appearance
-        self.status_screen.repaint()
-
-        # CRITICAL FIX: Do NOT call processEvents() when using qasync
-        # qasync automatically processes Qt events via the integrated event loop
+        # update() is sufficient - repaint() removed for better performance
+        self.status_screen.update()
 
         # Start keep-alive timer to ensure status screen stays visible
         self._start_keep_alive_timer()
@@ -1057,8 +1040,8 @@ class StatusScreenManager:
         from PyQt5.QtCore import QTimer
         self._keep_alive_timer = QTimer()
         self._keep_alive_timer.timeout.connect(self._keep_status_screen_on_top)
-        self._keep_alive_timer.start(1000)  # Re-raise every 1 second
-        logger.debug("Status screen keep-alive timer started (1s interval)")
+        self._keep_alive_timer.start(3000)  # Re-raise every 3 seconds (reduced CPU usage)
+        logger.debug("Status screen keep-alive timer started (3s interval)")
 
     def _keep_status_screen_on_top(self):
         """Periodically called to ensure status screen stays on top"""
