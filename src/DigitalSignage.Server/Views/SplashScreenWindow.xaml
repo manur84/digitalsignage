@@ -65,7 +65,7 @@
                 BorderThickness="1"
                 CornerRadius="16"
                 Padding="0"
-                SnapsToDevicePixels="True" Height="509" Width="NaN">
+                SnapsToDevicePixels="True" Height="509" Width="560">
 
             <Border.Effect>
                 <DropShadowEffect Color="#000000" Direction="270" ShadowDepth="2"
@@ -81,10 +81,10 @@
                 <!-- Content area -->
                 <StackPanel
                           HorizontalAlignment="Center"
-                          VerticalAlignment="Center" Height="362" Width="666">
+                          VerticalAlignment="Center" Height="362" Width="520">
 
                     <!-- Logo - STATIC (no animation) - LARGER SIZE -->
-                    <Grid Height="320" Margin="0,0,0,20" Width="500">
+                    <Grid Height="280" Margin="0,0,0,20" Width="360">
                         <Image x:Name="LogoImage"
                                Stretch="Uniform"
                                HorizontalAlignment="Center"
