@@ -332,9 +332,13 @@ public class RemoteClientInstallerService
 
     /// <summary>
     /// Configures boot splash screen with the DigitalSignage logo after installation.
+    /// CRITICAL: This method MUST NEVER throw exceptions - all errors are logged and suppressed
+    /// to prevent app crashes during splash screen setup (which is non-critical).
     /// </summary>
     private async Task SetupSplashScreenAsync(SshClient ssh, string username, string password, CancellationToken cancellationToken, IProgress<string>? progress)
     {
+        // CRITICAL: Top-level try-catch to prevent ANY exception from escaping
+        // Splash screen setup is NON-CRITICAL and should never crash the application
         try
         {
             var isRoot = string.Equals(username, "root", StringComparison.OrdinalIgnoreCase);
@@ -363,7 +367,10 @@ fi
             string? checkResult;
             try
             {
-                checkResult = await Task.Run(() => checkCmd.Execute(), cancellationToken);
+                // CRITICAL FIX: Remove Task.Run() wrapper
+                // Execute synchronously to ensure exceptions are properly caught
+                // Task.Run() was causing exceptions to escape the try-catch block
+                checkResult = checkCmd.Execute();
             }
             catch (Renci.SshNet.Common.SshConnectionException sshEx)
             {
@@ -433,7 +440,10 @@ fi
 
             try
             {
-                var splashOutput = await Task.Run(() => splashCmd.Execute(), cancellationToken);
+                // CRITICAL FIX: Remove Task.Run() wrapper
+                // Execute synchronously to ensure exceptions are properly caught
+                // Task.Run() was causing exceptions to escape the try-catch block
+                var splashOutput = splashCmd.Execute();
 
                 if (splashOutput?.Contains("SPLASH_SETUP_SUCCESS", StringComparison.OrdinalIgnoreCase) == true)
                 {
@@ -455,6 +465,12 @@ fi
                 progress?.Report("✓ Splash-Screen Setup erfolgreich (SSH-Verbindung während initramfs rebuild unterbrochen - NORMAL)");
                 _logger.LogInformation(sshEx, "SSH connection dropped during splash setup - EXPECTED behavior during initramfs rebuild");
             }
+            catch (Renci.SshNet.Common.SshException sshGenericEx)
+            {
+                // Any other SSH exception during splash setup
+                progress?.Report("⚠ SSH-Fehler beim Splash-Screen-Setup (nicht kritisch)");
+                _logger.LogInformation(sshGenericEx, "SSH error during splash setup - continuing");
+            }
             catch (TimeoutException timeoutEx)
             {
                 // Initramfs rebuild can take 30-60 seconds on Raspberry Pi
@@ -462,16 +478,23 @@ fi
                 progress?.Report("✓ Splash-Screen Setup läuft (Timeout während initramfs rebuild - NORMAL)");
                 _logger.LogInformation(timeoutEx, "Timeout during splash setup - EXPECTED during initramfs rebuild (30-60 seconds)");
             }
+            catch (Exception ex)
+            {
+                // Catch ANY other exception during splash command execution
+                progress?.Report("⚠ Fehler beim Splash-Screen-Setup (nicht kritisch)");
+                _logger.LogInformation(ex, "Error during splash setup command - continuing");
+            }
         }
         catch (Renci.SshNet.Common.SshException sshEx)
         {
-            // General SSH errors (authentication, network, etc.)
-            _logger.LogWarning(sshEx, "SSH error during splash screen setup (non-critical)");
+            // CRITICAL: Top-level SSH exception catch - prevents app crash
+            _logger.LogWarning(sshEx, "SSH error during splash screen setup (non-critical) - caught at top level");
             progress?.Report("⚠ Splash-Screen-Setup übersprungen (SSH-Fehler, nicht kritisch)");
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Unexpected error during splash screen setup (non-critical)");
+            // CRITICAL: Top-level catch-all - prevents app crash from ANY exception
+            _logger.LogWarning(ex, "Unexpected error during splash screen setup (non-critical) - caught at top level");
             progress?.Report("⚠ Splash-Screen-Setup übersprungen (Fehler, nicht kritisch)");
         }
     }
