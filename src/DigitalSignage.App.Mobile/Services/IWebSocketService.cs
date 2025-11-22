@@ -57,6 +57,18 @@ public interface IWebSocketService
 	/// <param name="cancellationToken">Cancellation token.</param>
 	/// <returns>Base64-encoded PNG image data, or null if failed.</returns>
 	Task<string?> RequestScreenshotAsync(Guid deviceId, int timeoutSeconds = 10, CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// Registers the mobile app with the server and waits for authorization.
+	/// </summary>
+	/// <param name="deviceName">Device name.</param>
+	/// <param name="deviceIdentifier">Unique device identifier.</param>
+	/// <param name="platform">Platform name (iOS, Android, etc.).</param>
+	/// <param name="appVersion">App version.</param>
+	/// <param name="timeoutSeconds">Timeout in seconds to wait for authorization.</param>
+	/// <param name="cancellationToken">Cancellation token.</param>
+	/// <returns>Mobile App ID assigned by server.</returns>
+	Task<Guid> RegisterAndWaitForAuthorizationAsync(string deviceName, string deviceIdentifier, string platform, string appVersion, int timeoutSeconds = 30, CancellationToken cancellationToken = default);
 }
 
 /// <summary>

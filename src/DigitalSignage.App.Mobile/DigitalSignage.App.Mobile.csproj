@@ -16,7 +16,7 @@
 		<ApplicationTitle>Digital Signage</ApplicationTitle>
 
 		<!-- App Identifier -->
-		<ApplicationId>com.digitalsignage.mobileapp</ApplicationId>
+		<ApplicationId>com.digitalsignage.mobileapp2024</ApplicationId>
 
 		<!-- Versions -->
 		<ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
@@ -65,5 +65,15 @@
 	<ItemGroup Condition="$(TargetFramework.StartsWith('net8.0-ios'))">
 		<BundleResource Include="Platforms\iOS\PrivacyInfo.xcprivacy" LogicalName="PrivacyInfo.xcprivacy" />
 	</ItemGroup>
+
+	<!-- iOS Code Signing for Development -->
+	<PropertyGroup Condition="$(TargetFramework.Contains('-ios')) and '$(Configuration)' == 'Debug'">
+		<CodesignKey>Apple Development: manuel@rheinhard.one (7XVJM9BF52)</CodesignKey>
+		<CodesignProvision>Automatic</CodesignProvision>
+		<CodesignEntitlements>Platforms/iOS/Entitlements.plist</CodesignEntitlements>
+		<DevelopmentTeam>RCG8W782J8</DevelopmentTeam>
+		<MtouchLink>SdkOnly</MtouchLink>
+		<RuntimeIdentifier>ios-arm64</RuntimeIdentifier>
+	</PropertyGroup>
 
 </Project>

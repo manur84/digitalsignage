@@ -7,9 +7,18 @@ namespace DigitalSignage.App.Mobile.Views;
 /// </summary>
 public partial class LoginPage : ContentPage
 {
-	public LoginPage(LoginViewModel viewModel)
+	public LoginPage()
 	{
 		InitializeComponent();
-		BindingContext = viewModel;
+	}
+
+	protected override void OnHandlerChanged()
+	{
+		base.OnHandlerChanged();
+
+		if (Handler?.MauiContext != null && BindingContext == null)
+		{
+			BindingContext = Handler.MauiContext.Services.GetService<LoginViewModel>();
+		}
 	}
 }

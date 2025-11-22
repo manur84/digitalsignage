@@ -68,11 +68,7 @@ public partial class LoginViewModel : BaseViewModel
 			{
 				await _discoveryService.StartScanningAsync();
 
-				var servers = _discoveryService.GetDiscoveredServers();
-				foreach (var server in servers)
-				{
-					DiscoveredServers.Add(server);
-				}
+				// Servers are added via OnServerDiscovered event handler, no need to add them again here
 
 				StatusMessage = DiscoveredServers.Count > 0
 					? $"Found {DiscoveredServers.Count} server(s)"
@@ -130,17 +126,24 @@ public partial class LoginViewModel : BaseViewModel
 	{
 		await ExecuteAsync(async () =>
 		{
-			StatusMessage = $"Connecting to {serverUrl}...";
-
-			// Register with server
-			var mobileAppId = await _authService.RegisterAppAsync(
-				serverUrl,
-				string.IsNullOrWhiteSpace(RegistrationToken) ? null : RegistrationToken);
-
-			StatusMessage = "Registration successful. Connecting to WebSocket...";
+			StatusMessage = $"Connecting to {webSocketUrl}...";
 
 			// Connect WebSocket
 			await _webSocketService.ConnectAsync(webSocketUrl);
+
+			StatusMessage = "Connected to WebSocket. Registering with server...";
+
+			// Get device info
+			var deviceInfo = await _authService.GetDeviceInfoAsync();
+
+			// Register with server via WebSocket
+			var mobileAppId = await _webSocketService.RegisterAndWaitForAuthorizationAsync(
+				deviceInfo.Name,
+				deviceInfo.Identifier,
+				deviceInfo.Platform,
+				deviceInfo.AppVersion);
+
+			StatusMessage = "Registration successful!";
 
 			// Save settings
 			var settings = new AppSettings

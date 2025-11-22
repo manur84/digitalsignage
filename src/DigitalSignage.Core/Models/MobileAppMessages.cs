@@ -199,7 +199,7 @@ public class ClientInfo
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? IpAddress { get; set; }
-    public string Status { get; set; } = string.Empty; // Online, Offline, Warning
+    public DeviceStatus Status { get; set; } = DeviceStatus.Offline;
     public string? Resolution { get; set; }
     public DeviceInfoData? DeviceInfo { get; set; }
     public DateTime LastSeen { get; set; }
@@ -233,9 +233,9 @@ public class ClientStatusChangedMessage : Message
     }
 
     public Guid DeviceId { get; set; }
-    public string Status { get; set; } = string.Empty;
+    public DeviceStatus Status { get; set; } = DeviceStatus.Offline;
     public string? Reason { get; set; }
-    public DateTime Timestamp { get; set; }
+    public new DateTime Timestamp { get; set; }
 }
 
 /// <summary>

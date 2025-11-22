@@ -21,6 +21,7 @@ public class WebSocketService : IWebSocketService, IDisposable
 	private string? _webSocketUrl;
 	private int _reconnectAttempts;
 	private readonly ConcurrentDictionary<Guid, TaskCompletionSource<string?>> _screenshotRequests = new();
+	private TaskCompletionSource<Guid>? _registrationTcs;
 
 	/// <inheritdoc/>
 	public event EventHandler<ConnectionState>? ConnectionStateChanged;
@@ -267,6 +268,55 @@ public class WebSocketService : IWebSocketService, IDisposable
 		_receiveLoopTask = null;
 	}
 
+	/// <summary>
+	/// Registers the mobile app with the server and waits for authorization.
+	/// </summary>
+	public async Task<Guid> RegisterAndWaitForAuthorizationAsync(string deviceName, string deviceIdentifier, string platform, string appVersion, int timeoutSeconds = 30, CancellationToken cancellationToken = default)
+	{
+		if (State != ConnectionState.Connected)
+			throw new InvalidOperationException("Not connected to server");
+
+		// Create a task completion source for registration
+		_registrationTcs = new TaskCompletionSource<Guid>();
+
+		try
+		{
+			// Send registration message
+			var registerMessage = new AppRegisterMessage
+			{
+				DeviceName = deviceName,
+				DeviceIdentifier = deviceIdentifier,
+				Platform = platform,
+				AppVersion = appVersion
+			};
+
+			await SendJsonAsync(registerMessage, cancellationToken);
+			Console.WriteLine("Sent APP_REGISTER message");
+
+			// Wait for APP_AUTHORIZED response with timeout
+			using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
+			using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
+
+			linkedCts.Token.Register(() =>
+			{
+				_registrationTcs.TrySetCanceled();
+			});
+
+			var mobileAppId = await _registrationTcs.Task;
+			Console.WriteLine($"Registration successful. MobileAppId: {mobileAppId}");
+			return mobileAppId;
+		}
+		catch (OperationCanceledException)
+		{
+			Console.WriteLine("Registration timed out");
+			throw new TimeoutException("Registration timed out. The server did not respond in time.");
+		}
+		finally
+		{
+			_registrationTcs = null;
+		}
+	}
+
 	/// <inheritdoc/>
 	public async Task SendCommandAsync(Guid deviceId, string command, Dictionary<string, object>? parameters = null, CancellationToken cancellationToken = default)
 	{
@@ -354,8 +404,29 @@ public class WebSocketService : IWebSocketService, IDisposable
 
 			var messageType = typeElement.GetString();
 
+			// Handle APP_AUTHORIZED response
+			if (messageType == MobileAppMessageTypes.AppAuthorized)
+			{
+				if (root.TryGetProperty("mobileAppId", out var mobileAppIdElement) &&
+				    Guid.TryParse(mobileAppIdElement.GetString(), out var mobileAppId))
+				{
+					Console.WriteLine($"Received APP_AUTHORIZED with MobileAppId: {mobileAppId}");
+					_registrationTcs?.TrySetResult(mobileAppId);
+				}
+				else
+				{
+					Console.WriteLine("APP_AUTHORIZED message missing mobileAppId");
+					_registrationTcs?.TrySetException(new InvalidOperationException("Server response missing mobileAppId"));
+				}
+			}
+			// Handle APP_AUTHORIZATION_REQUIRED response
+			else if (messageType == MobileAppMessageTypes.AppAuthorizationRequired)
+			{
+				Console.WriteLine("Received APP_AUTHORIZATION_REQUIRED - manual authorization needed on server");
+				_registrationTcs?.TrySetException(new InvalidOperationException("Manual authorization required on server"));
+			}
 			// Handle screenshot response
-			if (messageType == MobileAppMessageTypes.ScreenshotResponse)
+			else if (messageType == MobileAppMessageTypes.ScreenshotResponse)
 			{
 				var response = JsonSerializer.Deserialize<ScreenshotResponseMessage>(message, new JsonSerializerOptions
 				{

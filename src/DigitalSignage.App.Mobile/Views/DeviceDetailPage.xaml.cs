@@ -8,14 +8,19 @@ namespace DigitalSignage.App.Mobile.Views;
 /// </summary>
 public partial class DeviceDetailPage : ContentPage
 {
-	private readonly DeviceDetailViewModel _viewModel;
-
-	public DeviceDetailPage(DeviceDetailViewModel viewModel)
+	public DeviceDetailPage()
 	{
 		InitializeComponent();
+	}
 
-		_viewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
-		BindingContext = _viewModel;
+	protected override void OnHandlerChanged()
+	{
+		base.OnHandlerChanged();
+
+		if (Handler?.MauiContext != null && BindingContext == null)
+		{
+			BindingContext = Handler.MauiContext.Services.GetService<DeviceDetailViewModel>();
+		}
 	}
 
 	/// <summary>

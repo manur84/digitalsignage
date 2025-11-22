@@ -155,23 +155,23 @@ public class ServerDiscoveryService : IServerDiscoveryService
 			// Parse TXT records for additional info
 			if (service.Properties != null && service.Properties.Count > 0)
 			{
-				foreach (var property in service.Properties)
+				// Iterate through all TXT record dictionaries
+				foreach (var props in service.Properties)
 				{
-					var key = property.Key.ToLowerInvariant();
-					var value = property.Value;
-
-					switch (key)
+					if (props.TryGetValue("version", out var version))
 					{
-						case "version":
-							server.Version = value;
-							break;
-						case "ssl":
-							server.UseSSL = value.Equals("true", StringComparison.OrdinalIgnoreCase) || value == "1";
-							break;
-						case "clients":
-							if (int.TryParse(value, out var clients))
-								server.ConnectedClients = clients;
-							break;
+						server.Version = version;
+					}
+
+					if (props.TryGetValue("ssl", out var ssl))
+					{
+						server.UseSSL = ssl.Equals("true", StringComparison.OrdinalIgnoreCase) || ssl == "1";
+					}
+
+					if (props.TryGetValue("clients", out var clientsStr) &&
+					    int.TryParse(clientsStr, out var clients))
+					{
+						server.ConnectedClients = clients;
 					}
 				}
 			}

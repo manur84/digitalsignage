@@ -4,8 +4,7 @@
              xmlns:vm="clr-namespace:DigitalSignage.App.Mobile.ViewModels"
              x:Class="DigitalSignage.App.Mobile.Views.DeviceDetailPage"
              x:DataType="vm:DeviceDetailViewModel"
-             Title="{Binding Title}"
-             Shell.BackButtonBehavior="{OnBackButtonPressed=OnBackButtonPressed}">
+             Title="{Binding Title}">
 
     <ContentPage.Resources>
         <ResourceDictionary>

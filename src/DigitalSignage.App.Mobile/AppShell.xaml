@@ -11,14 +11,12 @@
         <ShellContent
             Title="Login"
             ContentTemplate="{DataTemplate local:LoginPage}"
-            Route="login"
-            Icon="lock.png" />
+            Route="login" />
 
         <ShellContent
             Title="Devices"
             ContentTemplate="{DataTemplate local:DeviceListPage}"
-            Route="devices"
-            Icon="devices.png" />
+            Route="devices" />
     </TabBar>
 
 </Shell>

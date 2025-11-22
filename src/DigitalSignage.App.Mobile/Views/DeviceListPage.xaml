@@ -71,7 +71,7 @@
                                 <!-- Device Info -->
                                 <Label Grid.Column="1"
                                        Grid.Row="0"
-                                       Text="{Binding Hostname}"
+                                       Text="{Binding Name}"
                                        FontSize="18"
                                        FontAttributes="Bold" />
 

@@ -93,11 +93,12 @@ public partial class DeviceDetailViewModel : BaseViewModel
 			return;
 		}
 
-		StatusColor = Device.Status?.ToLowerInvariant() switch
+		StatusColor = Device.Status switch
 		{
-			"online" => "Green",
-			"offline" => "Red",
-			"warning" => "Orange",
+			DeviceStatus.Online => "Green",
+			DeviceStatus.Offline => "Red",
+			DeviceStatus.Warning => "Orange",
+			DeviceStatus.Error => "Red",
 			_ => "Gray"
 		};
 	}
