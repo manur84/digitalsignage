@@ -6,7 +6,7 @@ Implements pixel-shifting and screensaver functionality to prevent OLED/LCD burn
 
 import logging
 from typing import Optional, Tuple
-from PyQt5.QtCore import QTimer, QPropertyAnimation, QEasingCurve, QPoint
+from PyQt5.QtCore import QTimer, QPropertyAnimation, QEasingCurve, QPoint, Qt
 from PyQt5.QtWidgets import QWidget
 from PyQt5.QtGui import QColor, QPainter, QLinearGradient
 import random
@@ -240,8 +240,8 @@ class ScreenSaverWidget(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowFlags(self.windowFlags() | self.Qt.WindowStaysOnTopHint)
-        self.setAttribute(self.Qt.WA_TranslucentBackground, False)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint)
+        self.setAttribute(Qt.WA_TranslucentBackground, False)
 
         # Animation state
         self.gradient_offset = 0.0
