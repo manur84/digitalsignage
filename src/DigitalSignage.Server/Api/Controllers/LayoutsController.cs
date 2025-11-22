@@ -42,19 +42,25 @@ public class LayoutsController : ControllerBase
         {
             _logger.LogDebug("Getting all layouts");
 
-            var layouts = await _layoutService.GetAllLayoutsAsync();
+            var layoutsResult = await _layoutService.GetAllLayoutsAsync();
 
-            var layoutDtos = layouts.Select(l => new LayoutDto
+            if (!layoutsResult.IsSuccess)
             {
-                Id = l.Id,
+                _logger.LogWarning("Failed to get layouts: {Error}", layoutsResult.ErrorMessage);
+                return StatusCode(500, layoutsResult.ErrorMessage ?? "Failed to get layouts");
+            }
+
+            var layoutDtos = layoutsResult.Value.Select(l => new LayoutDto
+            {
+                Id = int.TryParse(l.Id, out var layoutId) ? layoutId : 0,
                 Name = l.Name ?? "Unnamed Layout",
                 Description = l.Description,
-                Width = l.Width,
-                Height = l.Height,
+                Width = l.Resolution?.Width ?? 1920,
+                Height = l.Resolution?.Height ?? 1080,
                 BackgroundColor = l.BackgroundColor,
                 ElementCount = l.Elements?.Count ?? 0,
-                CreatedAt = l.CreatedAt,
-                ModifiedAt = l.ModifiedAt,
+                CreatedAt = l.Created,
+                ModifiedAt = l.Modified,
                 ActiveDeviceCount = 0 // TODO: Calculate from client assignments
             }).ToList();
 
@@ -84,41 +90,45 @@ public class LayoutsController : ControllerBase
         {
             _logger.LogDebug("Getting layout {LayoutId} (includeElements: {IncludeElements})", id, includeElements);
 
-            var layout = await _layoutService.GetLayoutAsync(id);
+            var layoutResult = await _layoutService.GetLayoutByIdAsync(id.ToString());
 
-            if (layout == null)
+            if (!layoutResult.IsSuccess || layoutResult.Value == null)
             {
                 _logger.LogWarning("Layout {LayoutId} not found", id);
                 return NotFound($"Layout {id} not found");
             }
 
+            var layout = layoutResult.Value;
+
             var layoutDto = new LayoutDetailDto
             {
-                Id = layout.Id,
+                Id = int.TryParse(layout.Id, out var layoutId) ? layoutId : 0,
                 Name = layout.Name ?? "Unnamed Layout",
                 Description = layout.Description,
-                Width = layout.Width,
-                Height = layout.Height,
+                Width = layout.Resolution?.Width ?? 1920,
+                Height = layout.Resolution?.Height ?? 1080,
                 BackgroundColor = layout.BackgroundColor,
                 ElementCount = layout.Elements?.Count ?? 0,
-                CreatedAt = layout.CreatedAt,
-                ModifiedAt = layout.ModifiedAt,
+                CreatedAt = layout.Created,
+                ModifiedAt = layout.Modified,
                 ActiveDeviceCount = 0, // TODO: Calculate from client assignments
                 Elements = new(),
-                LayoutJson = includeElements ? layout.LayoutJson : null
+                LayoutJson = includeElements ? System.Text.Json.JsonSerializer.Serialize(layout) : null
             };
 
             if (includeElements && layout.Elements != null)
             {
                 layoutDto.Elements = layout.Elements.Select(e => new LayoutElementDto
                 {
-                    Id = e.Id,
+                    Id = Guid.TryParse(e.Id, out var elementId) ? elementId : Guid.Empty,
                     Type = e.Type ?? "Unknown",
-                    X = e.X,
-                    Y = e.Y,
-                    Width = e.Width,
-                    Height = e.Height,
-                    Content = e.Content
+                    X = (int)(e.Position?.X ?? 0),
+                    Y = (int)(e.Position?.Y ?? 0),
+                    Width = (int)(e.Size?.Width ?? 0),
+                    Height = (int)(e.Size?.Height ?? 0),
+                    Content = e.Properties?.GetValueOrDefault("Text")?.ToString() ??
+                             e.Properties?.GetValueOrDefault("Content")?.ToString() ??
+                             string.Empty
                 }).ToList();
             }
 
@@ -166,12 +176,14 @@ public class LayoutsController : ControllerBase
             var client = clientResult.Value;
 
             // Validate layout exists
-            var layout = await _layoutService.GetLayoutAsync(request.LayoutId);
-            if (layout == null)
+            var layoutResult = await _layoutService.GetLayoutByIdAsync(request.LayoutId.ToString());
+            if (!layoutResult.IsSuccess || layoutResult.Value == null)
             {
                 _logger.LogWarning("Layout {LayoutId} not found", request.LayoutId);
                 return NotFound($"Layout {request.LayoutId} not found");
             }
+
+            var layout = layoutResult.Value;
 
             // Assign layout to device
             var result = await _clientService.AssignLayoutAsync(deviceId.ToString(), request.LayoutId.ToString());

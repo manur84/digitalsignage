@@ -63,7 +63,8 @@ public class ServerInfoController : ControllerBase
             var connectedClientCount = clients.Count(c => c.Status == Core.Models.ClientStatus.Online);
             var registeredMobileAppCount = await _mobileAppService.GetAllRegistrationsAsync();
 
-            var layouts = await _layoutService.GetAllLayoutsAsync();
+            var layoutsResult = await _layoutService.GetAllLayoutsAsync();
+            var layouts = layoutsResult.IsSuccess ? layoutsResult.Value : new List<Core.Models.DisplayLayout>();
 
             // Get WebSocket status (simplified - no IsRunning/Port properties on ICommunicationService)
             var webSocketStatus = _webSocketService != null ? "Running" : "Not Available";
@@ -147,7 +148,8 @@ public class ServerInfoController : ControllerBase
 
             var clientsResult = await _clientService.GetAllClientsAsync();
             var clients = clientsResult.IsSuccess ? clientsResult.Value : new List<Core.Models.RaspberryPiClient>();
-            var layouts = await _layoutService.GetAllLayoutsAsync();
+            var layoutsResult = await _layoutService.GetAllLayoutsAsync();
+            var layouts = layoutsResult.IsSuccess ? layoutsResult.Value : new List<Core.Models.DisplayLayout>();
             var mobileApps = await _mobileAppService.GetAllRegistrationsAsync();
 
             // Get process information

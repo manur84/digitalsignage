@@ -45,7 +45,7 @@ public class DeviceDto
     /// <summary>
     /// Currently assigned layout ID
     /// </summary>
-    public int? CurrentLayoutId { get; set; }
+    public string? CurrentLayoutId { get; set; }
 
     /// <summary>
     /// Currently assigned layout name
