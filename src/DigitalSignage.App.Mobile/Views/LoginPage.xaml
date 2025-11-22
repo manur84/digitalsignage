@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:viewmodels="clr-namespace:DigitalSignage.App.Mobile.ViewModels"
+             xmlns:models="clr-namespace:DigitalSignage.App.Mobile.Models"
+             x:Class="DigitalSignage.App.Mobile.Views.LoginPage"
+             x:DataType="viewmodels:LoginViewModel"
+             Title="{Binding Title}">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="20" Spacing="15">
+
+            <!-- Header -->
+            <Label Text="Digital Signage"
+                   FontSize="32"
+                   FontAttributes="Bold"
+                   HorizontalOptions="Center"
+                   Margin="0,20,0,10" />
+
+            <Label Text="Connect to your Digital Signage server"
+                   FontSize="16"
+                   HorizontalOptions="Center"
+                   TextColor="{DynamicResource Gray600}"
+                   Margin="0,0,0,30" />
+
+            <!-- Status Message -->
+            <Frame BorderColor="{DynamicResource Gray300}"
+                   BackgroundColor="{DynamicResource Gray100}"
+                   Padding="15"
+                   CornerRadius="8">
+                <Label Text="{Binding StatusMessage}"
+                       FontSize="14"
+                       HorizontalTextAlignment="Center"
+                       TextColor="{DynamicResource Gray900}" />
+            </Frame>
+
+            <!-- Scan Section -->
+            <Label Text="Auto Discovery"
+                   FontSize="18"
+                   FontAttributes="Bold"
+                   Margin="0,10,0,5" />
+
+            <Button Text="Scan for Servers"
+                    Command="{Binding StartScanCommand}"
+                    IsEnabled="{Binding IsScanning, Converter={StaticResource InvertedBoolConverter}}"
+                    BackgroundColor="{DynamicResource Primary}"
+                    TextColor="White"
+                    HeightRequest="50"
+                    CornerRadius="8" />
+
+            <Button Text="Stop Scanning"
+                    Command="{Binding StopScanCommand}"
+                    IsVisible="{Binding IsScanning}"
+                    BackgroundColor="{DynamicResource Secondary}"
+                    TextColor="White"
+                    HeightRequest="50"
+                    CornerRadius="8" />
+
+            <ActivityIndicator IsRunning="{Binding IsScanning}"
+                              IsVisible="{Binding IsScanning}"
+                              Color="{DynamicResource Primary}"
+                              HeightRequest="40" />
+
+            <!-- Discovered Servers -->
+            <Label Text="Discovered Servers"
+                   FontSize="16"
+                   FontAttributes="Bold"
+                   Margin="0,20,0,5"
+                   IsVisible="{Binding DiscoveredServers.Count}" />
+
+            <CollectionView ItemsSource="{Binding DiscoveredServers}"
+                           SelectionMode="Single"
+                           SelectedItem="{Binding SelectedServer}">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="models:DiscoveredServer">
+                        <Frame BorderColor="{DynamicResource Gray300}"
+                               BackgroundColor="White"
+                               Padding="15"
+                               Margin="0,5"
+                               CornerRadius="8">
+                            <Frame.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:LoginViewModel}}, Path=ConnectToSelectedServerCommand}" />
+                            </Frame.GestureRecognizers>
+                            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                                <Label Text="{Binding DisplayName}"
+                                       FontSize="16"
+                                       FontAttributes="Bold"
+                                       Grid.Column="0"
+                                       Grid.Row="0" />
+                                <Label Text="{Binding Description}"
+                                       FontSize="12"
+                                       TextColor="{DynamicResource Gray600}"
+                                       Grid.Column="0"
+                                       Grid.Row="1" />
+                                <Image Source="chevron_right.png"
+                                       WidthRequest="20"
+                                       HeightRequest="20"
+                                       Grid.Column="1"
+                                       Grid.RowSpan="2"
+                                       VerticalOptions="Center" />
+                            </Grid>
+                        </Frame>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+                <CollectionView.EmptyView>
+                    <Label Text="No servers found"
+                           FontSize="14"
+                           TextColor="{DynamicResource Gray600}"
+                           HorizontalOptions="Center"
+                           Margin="0,10" />
+                </CollectionView.EmptyView>
+            </CollectionView>
+
+            <!-- Manual Entry Toggle -->
+            <Button Text="Or enter server manually"
+                    Command="{Binding ToggleManualEntryCommand}"
+                    BackgroundColor="Transparent"
+                    TextColor="{DynamicResource Primary}"
+                    FontAttributes="Bold"
+                    Margin="0,20,0,0" />
+
+            <!-- Manual Entry Section -->
+            <VerticalStackLayout Spacing="10"
+                                IsVisible="{Binding ShowManualEntry}">
+                <Label Text="Manual Connection"
+                       FontSize="18"
+                       FontAttributes="Bold" />
+
+                <Entry Placeholder="Server URL (e.g., 192.168.1.100:8080)"
+                       Text="{Binding ManualServerUrl}"
+                       Keyboard="Url"
+                       ClearButtonVisibility="WhileEditing" />
+
+                <Entry Placeholder="Registration Token (optional)"
+                       Text="{Binding RegistrationToken}"
+                       IsPassword="True"
+                       ClearButtonVisibility="WhileEditing" />
+
+                <Button Text="Connect"
+                        Command="{Binding ConnectManuallyCommand}"
+                        BackgroundColor="{DynamicResource Primary}"
+                        TextColor="White"
+                        HeightRequest="50"
+                        CornerRadius="8" />
+            </VerticalStackLayout>
+
+            <!-- Loading Overlay -->
+            <ActivityIndicator IsRunning="{Binding IsBusy}"
+                              IsVisible="{Binding IsBusy}"
+                              Color="{DynamicResource Primary}"
+                              HeightRequest="60"
+                              VerticalOptions="Center"
+                              HorizontalOptions="Center" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+
+</ContentPage>
