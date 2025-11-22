@@ -19,6 +19,7 @@ public class MetricsEndpointService : BackgroundService
     private readonly MetricsService _metricsService;
     private HttpListener? _httpListener;
     private const int MetricsPort = 8091;
+    private readonly List<Task> _runningHandlers = new();
 
     public MetricsEndpointService(
         ILogger<MetricsEndpointService> logger,
@@ -45,7 +46,15 @@ public class MetricsEndpointService : BackgroundService
                 try
                 {
                     var context = await _httpListener.GetContextAsync();
-                    _ = Task.Run(() => HandleMetricsRequestAsync(context), stoppingToken);
+
+                    // Track handler task and clean up completed tasks
+                    var handlerTask = Task.Run(() => HandleMetricsRequestAsync(context), stoppingToken);
+
+                    lock (_runningHandlers)
+                    {
+                        _runningHandlers.Add(handlerTask);
+                        _runningHandlers.RemoveAll(t => t.IsCompleted);
+                    }
                 }
                 catch (HttpListenerException) when (stoppingToken.IsCancellationRequested)
                 {
@@ -148,6 +157,30 @@ public class MetricsEndpointService : BackgroundService
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Error stopping metrics endpoint");
+            }
+        }
+
+        // Wait for all running handlers to complete (with timeout)
+        Task[] handlers;
+        lock (_runningHandlers)
+        {
+            handlers = _runningHandlers.ToArray();
+        }
+
+        if (handlers.Length > 0)
+        {
+            _logger.LogDebug("Waiting for {Count} metrics handlers to complete", handlers.Length);
+            try
+            {
+                await Task.WhenAll(handlers).WaitAsync(TimeSpan.FromSeconds(5), cancellationToken);
+            }
+            catch (TimeoutException)
+            {
+                _logger.LogWarning("Some metrics handlers did not complete in time");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error waiting for metrics handlers");
             }
         }
 

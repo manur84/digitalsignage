@@ -212,6 +212,8 @@ public static class DatabaseInitializer
             ON ""MobileAppRegistrations"" (""LastSeenAt"");
         ";
 
+        // SQL is static literal string - no SQL injection risk
+        // ExecuteSqlRaw is appropriate for DDL statements (CREATE TABLE, CREATE INDEX)
         dbContext.Database.ExecuteSqlRaw(sql);
 
         // Add migration history entry if it doesn't exist
@@ -234,6 +236,7 @@ public static class DatabaseInitializer
             if (count == 0)
             {
                 // Entry doesn't exist, so add it
+                // SQL is static literal string - no SQL injection risk
                 dbContext.Database.ExecuteSqlRaw(
                     @"INSERT INTO ""__EFMigrationsHistory"" (""MigrationId"", ""ProductVersion"")
                       VALUES ('20251121000000_AddMobileAppRegistrations', '8.0.0')"

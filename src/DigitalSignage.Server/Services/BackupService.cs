@@ -66,16 +66,16 @@ public class BackupService
                 _logger.LogInformation("Created target directory: {Directory}", targetDirectory);
             }
 
-            // Copy main database file (avoid blocking thread)
+            // Copy main database file using async file I/O
             _logger.LogInformation("Copying database file from {Source} to {Target}", sourcePath, targetPath);
-            await Task.Run(() => File.Copy(sourcePath, targetPath, overwrite: true));
+            await CopyFileAsync(sourcePath, targetPath);
 
             // Also copy WAL (Write-Ahead Log) file if it exists
             var sourceWalPath = $"{sourcePath}-wal";
             if (File.Exists(sourceWalPath))
             {
                 var targetWalPath = $"{targetPath}-wal";
-                await Task.Run(() => File.Copy(sourceWalPath, targetWalPath, overwrite: true));
+                await CopyFileAsync(sourceWalPath, targetWalPath);
                 _logger.LogInformation("Copied WAL file");
             }
 
@@ -84,7 +84,7 @@ public class BackupService
             if (File.Exists(sourceShmPath))
             {
                 var targetShmPath = $"{targetPath}-shm";
-                await Task.Run(() => File.Copy(sourceShmPath, targetShmPath, overwrite: true));
+                await CopyFileAsync(sourceShmPath, targetShmPath);
                 _logger.LogInformation("Copied SHM file");
             }
 
@@ -155,7 +155,7 @@ public class BackupService
             if (File.Exists(targetPath))
             {
                 _logger.LogInformation("Creating safety backup of current database: {SafetyBackup}", safetyBackupPath);
-                await Task.Run(() => File.Copy(targetPath, safetyBackupPath, overwrite: true));
+                await CopyFileAsync(targetPath, safetyBackupPath);
                 _logger.LogInformation("Safety backup created successfully");
             }
 
@@ -165,25 +165,25 @@ public class BackupService
 
             if (File.Exists(walPath))
             {
-                await Task.Run(() => File.Delete(walPath));
+                File.Delete(walPath);
                 _logger.LogInformation("Deleted existing WAL file");
             }
 
             if (File.Exists(shmPath))
             {
-                await Task.Run(() => File.Delete(shmPath));
+                File.Delete(shmPath);
                 _logger.LogInformation("Deleted existing SHM file");
             }
 
             // Restore from backup
             _logger.LogInformation("Copying backup file to database location");
-            await Task.Run(() => File.Copy(backupPath, targetPath, overwrite: true));
+            await CopyFileAsync(backupPath, targetPath);
 
             // Copy WAL file if it exists
             var backupWalPath = $"{backupPath}-wal";
             if (File.Exists(backupWalPath))
             {
-                await Task.Run(() => File.Copy(backupWalPath, walPath, overwrite: true));
+                await CopyFileAsync(backupWalPath, walPath);
                 _logger.LogInformation("Restored WAL file");
             }
 
@@ -191,7 +191,7 @@ public class BackupService
             var backupShmPath = $"{backupPath}-shm";
             if (File.Exists(backupShmPath))
             {
-                await Task.Run(() => File.Copy(backupShmPath, shmPath, overwrite: true));
+                await CopyFileAsync(backupShmPath, shmPath);
                 _logger.LogInformation("Restored SHM file");
             }
 
@@ -205,7 +205,7 @@ public class BackupService
                 if (File.Exists(safetyBackupPath))
                 {
                     _logger.LogWarning("Attempting to rollback using safety backup");
-                    await Task.Run(() => File.Copy(safetyBackupPath, targetPath, overwrite: true));
+                    await CopyFileAsync(safetyBackupPath, targetPath);
                 }
 
                 return Result.Failure("Database restore verification failed. Rolled back to previous state.");
@@ -225,7 +225,7 @@ public class BackupService
                     if (File.Exists(safetyBackupPath))
                     {
                         _logger.LogWarning("Attempting to rollback using safety backup");
-                        await Task.Run(() => File.Copy(safetyBackupPath, targetPath, overwrite: true));
+                        await CopyFileAsync(safetyBackupPath, targetPath);
                     }
 
                     return Result.Failure("Restored database is not valid. Rolled back to previous state.");
@@ -241,7 +241,7 @@ public class BackupService
                 if (File.Exists(safetyBackupPath))
                 {
                     _logger.LogWarning("Attempting to rollback using safety backup");
-                    await Task.Run(() => File.Copy(safetyBackupPath, targetPath, overwrite: true));
+                    await CopyFileAsync(safetyBackupPath, targetPath);
                 }
 
                 return Result.Failure($"Restored database connection failed: {dbEx.Message}. Rolled back to previous state.");
@@ -274,7 +274,7 @@ public class BackupService
     /// </summary>
     /// <param name="backupDirectory">Directory to search for backups</param>
     /// <returns>List of backup file information</returns>
-    public async Task<List<BackupInfo>> GetAvailableBackupsAsync(string? backupDirectory = null)
+    public Task<List<BackupInfo>> GetAvailableBackupsAsync(string? backupDirectory = null)
     {
         try
         {
@@ -283,32 +283,56 @@ public class BackupService
             if (!Directory.Exists(searchDirectory))
             {
                 _logger.LogWarning("Backup directory not found: {Directory}", searchDirectory);
-                return new List<BackupInfo>();
+                return Task.FromResult(new List<BackupInfo>());
             }
 
-            var backupFiles = await Task.Run(() =>
-            {
-                return Directory.GetFiles(searchDirectory, "*.db")
-                    .Where(f => f.Contains("backup", StringComparison.OrdinalIgnoreCase))
-                    .Select(f => new BackupInfo
-                    {
-                        FilePath = f,
-                        FileName = Path.GetFileName(f),
-                        CreatedDate = File.GetCreationTime(f),
-                        Size = new FileInfo(f).Length
-                    })
-                    .OrderByDescending(b => b.CreatedDate)
-                    .ToList();
-            });
+            // Directory.GetFiles is synchronous but fast for local filesystem
+            var backupFiles = Directory.GetFiles(searchDirectory, "*.db")
+                .Where(f => f.Contains("backup", StringComparison.OrdinalIgnoreCase))
+                .Select(f => new BackupInfo
+                {
+                    FilePath = f,
+                    FileName = Path.GetFileName(f),
+                    CreatedDate = File.GetCreationTime(f),
+                    Size = new FileInfo(f).Length
+                })
+                .OrderByDescending(b => b.CreatedDate)
+                .ToList();
 
             _logger.LogInformation("Found {Count} backup files in {Directory}", backupFiles.Count, searchDirectory);
-            return backupFiles;
+            return Task.FromResult(backupFiles);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to get available backups");
-            return new List<BackupInfo>();
+            return Task.FromResult(new List<BackupInfo>());
         }
+    }
+
+    /// <summary>
+    /// Asynchronously copy a file using FileStream for non-blocking I/O
+    /// </summary>
+    private static async Task CopyFileAsync(string sourcePath, string targetPath)
+    {
+        const int bufferSize = 81920; // 80KB buffer for better performance
+
+        await using var sourceStream = new FileStream(
+            sourcePath,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.Read,
+            bufferSize,
+            FileOptions.Asynchronous | FileOptions.SequentialScan);
+
+        await using var targetStream = new FileStream(
+            targetPath,
+            FileMode.Create,
+            FileAccess.Write,
+            FileShare.None,
+            bufferSize,
+            FileOptions.Asynchronous | FileOptions.SequentialScan);
+
+        await sourceStream.CopyToAsync(targetStream);
     }
 }
 

@@ -23,6 +23,7 @@ public class HealthCheckService : BackgroundService
     private readonly ICommunicationService _communicationService;
     private HttpListener? _httpListener;
     private const int HealthCheckPort = 8090;
+    private readonly List<Task> _runningHandlers = new();
 
     public HealthCheckService(
         ILogger<HealthCheckService> logger,
@@ -50,7 +51,15 @@ public class HealthCheckService : BackgroundService
                 try
                 {
                     var context = await _httpListener.GetContextAsync();
-                    _ = Task.Run(() => HandleHealthCheckAsync(context), stoppingToken);
+
+                    // Track handler task and clean up completed tasks
+                    var handlerTask = Task.Run(() => HandleHealthCheckAsync(context), stoppingToken);
+
+                    lock (_runningHandlers)
+                    {
+                        _runningHandlers.Add(handlerTask);
+                        _runningHandlers.RemoveAll(t => t.IsCompleted);
+                    }
                 }
                 catch (HttpListenerException) when (stoppingToken.IsCancellationRequested)
                 {
@@ -239,6 +248,30 @@ public class HealthCheckService : BackgroundService
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Error stopping health check endpoint");
+            }
+        }
+
+        // Wait for all running handlers to complete (with timeout)
+        Task[] handlers;
+        lock (_runningHandlers)
+        {
+            handlers = _runningHandlers.ToArray();
+        }
+
+        if (handlers.Length > 0)
+        {
+            _logger.LogDebug("Waiting for {Count} health check handlers to complete", handlers.Length);
+            try
+            {
+                await Task.WhenAll(handlers).WaitAsync(TimeSpan.FromSeconds(5), cancellationToken);
+            }
+            catch (TimeoutException)
+            {
+                _logger.LogWarning("Some health check handlers did not complete in time");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error waiting for health check handlers");
             }
         }
 
