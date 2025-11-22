@@ -43,6 +43,9 @@ public static class DatabaseInitializer
             // Apply migrations
             ApplyPendingMigrations(dbContext);
 
+            // Ensure critical tables exist (fallback if migrations fail)
+            EnsureCriticalTablesExist(dbContext);
+
             // Verify database connection
             VerifyDatabaseConnection(dbContext);
 
@@ -119,6 +122,97 @@ public static class DatabaseInitializer
         else
         {
             Log.Information("Database is up to date - no pending migrations");
+        }
+    }
+
+    private static void EnsureCriticalTablesExist(DigitalSignageDbContext dbContext)
+    {
+        Log.Information("Verifying critical database tables exist...");
+
+        try
+        {
+            // Check if MobileAppRegistrations table exists
+            var tableExists = dbContext.Database.ExecuteSqlRaw(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='MobileAppRegistrations'"
+            ) >= 0;
+
+            // If table doesn't exist, create it manually
+            if (!tableExists)
+            {
+                Log.Warning("MobileAppRegistrations table not found - creating manually");
+                CreateMobileAppRegistrationsTable(dbContext);
+                Log.Information("MobileAppRegistrations table created successfully");
+            }
+            else
+            {
+                Log.Information("All critical tables verified and present");
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Error checking critical tables - will attempt to create");
+
+            try
+            {
+                CreateMobileAppRegistrationsTable(dbContext);
+                Log.Information("MobileAppRegistrations table created as fallback");
+            }
+            catch (Exception createEx)
+            {
+                Log.Error(createEx, "Failed to create MobileAppRegistrations table");
+                // Don't throw - let app continue, the error will be caught when accessing the table
+            }
+        }
+    }
+
+    private static void CreateMobileAppRegistrationsTable(DigitalSignageDbContext dbContext)
+    {
+        var sql = @"
+            CREATE TABLE IF NOT EXISTS ""MobileAppRegistrations"" (
+                ""Id"" TEXT NOT NULL PRIMARY KEY,
+                ""DeviceName"" TEXT NOT NULL,
+                ""DeviceIdentifier"" TEXT NOT NULL,
+                ""AppVersion"" TEXT NOT NULL,
+                ""Platform"" TEXT NOT NULL,
+                ""Status"" TEXT NOT NULL,
+                ""Token"" TEXT NULL,
+                ""Permissions"" TEXT NULL,
+                ""AuthorizedBy"" TEXT NULL,
+                ""Notes"" TEXT NULL,
+                ""RegisteredAt"" TEXT NOT NULL,
+                ""LastSeenAt"" TEXT NULL,
+                ""AuthorizedAt"" TEXT NULL
+            );
+
+            CREATE UNIQUE INDEX IF NOT EXISTS ""IX_MobileAppRegistrations_DeviceIdentifier""
+            ON ""MobileAppRegistrations"" (""DeviceIdentifier"");
+
+            CREATE UNIQUE INDEX IF NOT EXISTS ""IX_MobileAppRegistrations_Token""
+            ON ""MobileAppRegistrations"" (""Token"");
+
+            CREATE INDEX IF NOT EXISTS ""IX_MobileAppRegistrations_Status""
+            ON ""MobileAppRegistrations"" (""Status"");
+
+            CREATE INDEX IF NOT EXISTS ""IX_MobileAppRegistrations_RegisteredAt""
+            ON ""MobileAppRegistrations"" (""RegisteredAt"");
+
+            CREATE INDEX IF NOT EXISTS ""IX_MobileAppRegistrations_LastSeenAt""
+            ON ""MobileAppRegistrations"" (""LastSeenAt"");
+        ";
+
+        dbContext.Database.ExecuteSqlRaw(sql);
+
+        // Add migration history entry if it doesn't exist
+        var historyExists = dbContext.Database.ExecuteSqlRaw(
+            "SELECT 1 FROM __EFMigrationsHistory WHERE MigrationId='20251121000000_AddMobileAppRegistrations'"
+        ) >= 0;
+
+        if (!historyExists)
+        {
+            dbContext.Database.ExecuteSqlRaw(
+                @"INSERT INTO ""__EFMigrationsHistory"" (""MigrationId"", ""ProductVersion"")
+                  VALUES ('20251121000000_AddMobileAppRegistrations', '8.0.0')"
+            );
         }
     }
 
