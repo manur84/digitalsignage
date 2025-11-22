@@ -22,6 +22,11 @@ public class ClientService : IClientService, IDisposable
     private Task? _initializationTask;
     private bool _disposed = false;
 
+    // Cleanup timer for removing old/stale clients from memory cache
+    private readonly System.Threading.Timer? _cleanupTimer;
+    private const int CleanupIntervalHours = 1; // Run cleanup every hour
+    private const int StaleClientDays = 30; // Remove clients not seen in 30 days
+
     /// <summary>
     /// Event raised when a client connects
     /// </summary>
@@ -74,6 +79,16 @@ public class ClientService : IClientService, IDisposable
 
         // Track the initialization task instead of fire-and-forget
         _initializationTask = InitializeClientsWithRetryAsync();
+
+        // Initialize cleanup timer (runs every hour to remove stale clients from cache)
+        _cleanupTimer = new System.Threading.Timer(
+            callback: _ => CleanupStaleClientsAsync().ConfigureAwait(false),
+            state: null,
+            dueTime: TimeSpan.FromHours(CleanupIntervalHours),
+            period: TimeSpan.FromHours(CleanupIntervalHours)
+        );
+        _logger.LogDebug("Client cleanup timer initialized (interval: {Hours}h, stale threshold: {Days} days)",
+            CleanupIntervalHours, StaleClientDays);
     }
 
     private async Task InitializeClientsWithRetryAsync()
@@ -681,8 +696,50 @@ public class ClientService : IClientService, IDisposable
     }
 
     /// <summary>
-    /// Disposes managed resources
+    /// Removes stale clients from the in-memory cache (clients not seen in StaleClientDays)
+    /// This prevents the cache from growing indefinitely with old/inactive clients
+    /// Note: Only removes from cache, not from database
     /// </summary>
+    private async Task CleanupStaleClientsAsync()
+    {
+        if (_disposed)
+            return;
+
+        try
+        {
+            var cutoffDate = DateTime.UtcNow.AddDays(-StaleClientDays);
+            var staleClients = _clients.Values
+                .Where(c => c.LastSeen < cutoffDate && c.Status == ClientStatus.Offline)
+                .ToList();
+
+            if (staleClients.Count == 0)
+            {
+                _logger.LogDebug("Client cleanup: No stale clients found");
+                return;
+            }
+
+            _logger.LogInformation("Client cleanup: Found {Count} stale clients (not seen since {Date})",
+                staleClients.Count, cutoffDate);
+
+            foreach (var client in staleClients)
+            {
+                if (_clients.TryRemove(client.Id, out _))
+                {
+                    _logger.LogDebug("Removed stale client {ClientId} ({Name}) from cache (last seen: {LastSeen})",
+                        client.Id, client.DisplayName, client.LastSeen);
+                }
+            }
+
+            _logger.LogInformation("Client cleanup: Removed {Count} stale clients from cache", staleClients.Count);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during client cleanup");
+        }
+
+        await Task.CompletedTask;
+    }
+
     public void Dispose()
     {
         Dispose(true);
@@ -701,6 +758,7 @@ public class ClientService : IClientService, IDisposable
         if (disposing)
         {
             // Dispose managed resources
+            _cleanupTimer?.Dispose();
             _initSemaphore?.Dispose();
             _logger.LogInformation("ClientService disposed");
         }

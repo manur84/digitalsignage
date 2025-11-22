@@ -156,8 +156,8 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
                 _logger.LogInformation("  - wss://{IP}:{Port}/ws", ip, _currentPort);
             }
 
-            // Start accepting clients
-            _acceptClientsTask = Task.Run(() => AcceptClientsAsync(_cancellationTokenSource.Token, certificate));
+            // Start accepting clients (no Task.Run needed - already async)
+            _acceptClientsTask = AcceptClientsAsync(_cancellationTokenSource.Token, certificate);
 
             await Task.CompletedTask;
         }
@@ -439,8 +439,8 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
             {
                 var tcpClient = await _tcpListener.AcceptTcpClientAsync(cancellationToken);
 
-                // Track handler task instead of fire-and-forget
-                var handlerTask = Task.Run(() => HandleTcpClientAsync(tcpClient, certificate, cancellationToken), cancellationToken);
+                // Track handler task (no Task.Run needed - already async)
+                var handlerTask = HandleTcpClientAsync(tcpClient, certificate, cancellationToken);
                 _allHandlerTasks.Add(handlerTask);
             }
             catch (OperationCanceledException)

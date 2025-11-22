@@ -1,10 +1,10 @@
 # Code Issues Checklist
 Generiert: 2025-11-22
-Aktualisiert: 2025-11-22 (PHASE 1 & 2 abgeschlossen)
+Aktualisiert: 2025-11-22 (PHASE 1, 2 & 3 abgeschlossen - Alle Warnungen behoben!)
 
 ## Übersicht
-- **Kritische Fehler:** 8 → ✅ 8 BEHOBEN/DOKUMENTIERT
-- **Warnungen:** 14 → ✅ 11 BEHOBEN, 3 TODO
+- **Kritische Fehler:** 8 → ✅ 8 BEHOBEN/DOKUMENTIERT (100%)
+- **Warnungen:** 14 → ✅ 14 BEHOBEN (100%)
 - **Verbesserungen:** 11 → 📝 Alle für separaten Sprint geplant
 
 ## 🔴 KRITISCH (Sofort beheben)
@@ -32,8 +32,8 @@ Aktualisiert: 2025-11-22 (PHASE 1 & 2 abgeschlossen)
 | 14 | LogStorageService.cs | 161 | ExportLogs() | String Concatenation in LINQ | StringBuilder für Performance | ✅ BEHOBEN (2025-11-22) |
 | 15 | NetworkScannerService.cs | - | ScanNetworkAsync() | Kein Dispose für UdpClient | using-Block hinzufügen | ✅ HAT BEREITS using-Block |
 | 16 | MdnsDiscoveryService.cs | - | DiscoverAsync() | Potentielles Resource Leak | IDisposable Pattern prüfen | ✅ HAT BEREITS Dispose |
-| 17 | WebSocketCommunicationService.cs | 160, 443 | StartAsync(), AcceptClientsAsync() | Task.Run für lang laufende Operations | HostedService Pattern verwenden | 📝 TODO: Architektur-Änderung (separater Sprint) |
-| 18 | ClientService.cs | - | Mehrere | ConcurrentDictionary ohne Timeout für alte Einträge | Cleanup-Timer implementieren | 📝 TODO: Separate Implementierung |
+| 17 | WebSocketCommunicationService.cs | 160, 443 | StartAsync(), AcceptClientsAsync() | Task.Run für lang laufende Operations | Task.Run entfernen (async Methoden direkt starten) | ✅ BEHOBEN (2025-11-22) |
+| 18 | ClientService.cs | - | Mehrere | ConcurrentDictionary ohne Timeout für alte Einträge | Cleanup-Timer implementieren | ✅ BEHOBEN (2025-11-22) |
 | 19 | LogStorageService.cs | 175 | GetStatistics() | Dictionary statt ConcurrentDictionary in async Context | ConcurrentDictionary verwenden | ✅ HAT BEREITS ConcurrentDictionary |
 | 20 | AlertService.cs | 394 | ParseConfiguration() | Dictionary Rückgabe nicht thread-safe | ImmutableDictionary oder ConcurrentDictionary | ✅ KEIN PROBLEM (lokal erstellt) |
 | 21 | SystemDiagnosticsService.cs | 105 | GetDiagnosticsAsync() | Kommentar über .Result vermeiden | Code bereits korrekt, Kommentar entfernen | ✅ BEHOBEN (vorher) |
@@ -76,10 +76,10 @@ Aktualisiert: 2025-11-22 (PHASE 1 & 2 abgeschlossen)
 
 ### 📝 Verbleibende Aufgaben
 
-**Für nächste Session:**
-- [x] Issue #12: RemoteSshConnectionManager Timeout-Handling → ✅ BEHOBEN (2025-11-22)
-- [ ] Issue #17: WebSocketCommunicationService Architektur
-- [ ] Issue #18: ClientService Cleanup-Timer
+**Abgeschlossen (2025-11-22 - Session 2):**
+- [x] Issue #12: RemoteSshConnectionManager Timeout-Handling → ✅ BEHOBEN
+- [x] Issue #17: WebSocketCommunicationService Task.Run → ✅ BEHOBEN (Task.Run entfernt)
+- [x] Issue #18: ClientService Cleanup-Timer → ✅ BEHOBEN (Timer implementiert)
 
 **Nächster Sprint (Architektur):**
 - [ ] Issue #23-33: Umfangreiche Refactoring-Aufgaben
