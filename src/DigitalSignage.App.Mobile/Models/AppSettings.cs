@@ -44,4 +44,27 @@ public class AppSettings
 	/// Gets or sets the device name registered with the server.
 	/// </summary>
 	public string? DeviceName { get; set; }
+
+	/// <summary>
+	/// Gets or sets the API base URL (e.g., "https://192.168.1.100:5000").
+	/// If not set, defaults to ServerUrl with port 5000.
+	/// </summary>
+	public string? ApiBaseUrl { get; set; }
+
+	/// <summary>
+	/// Gets or sets the authentication token for API requests.
+	/// </summary>
+	public string? ApiAuthToken { get; set; }
+
+	/// <summary>
+	/// Gets or sets whether to prefer REST API over WebSocket for commands.
+	/// Default: false (WebSocket preferred with REST API fallback).
+	/// </summary>
+	public bool PreferRestApi { get; set; } = false;
+
+	/// <summary>
+	/// Gets or sets the API request timeout in seconds.
+	/// Default: 30 seconds.
+	/// </summary>
+	public int ApiTimeoutSeconds { get; set; } = 30;
 }

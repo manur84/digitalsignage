@@ -8,10 +8,12 @@ namespace DigitalSignage.App.Mobile.ViewModels;
 
 /// <summary>
 /// View model for the device detail page with remote control capabilities.
+/// Uses WebSocket for commands with REST API as fallback.
 /// </summary>
 [QueryProperty(nameof(Device), "Device")]
 public partial class DeviceDetailViewModel : BaseViewModel
 {
+	private readonly IApiService _apiService;
 	private readonly IWebSocketService _webSocketService;
 
 	[ObservableProperty]
@@ -44,8 +46,9 @@ public partial class DeviceDetailViewModel : BaseViewModel
 	[ObservableProperty]
 	private string _temperatureColor = "Gray";
 
-	public DeviceDetailViewModel(IWebSocketService webSocketService)
+	public DeviceDetailViewModel(IApiService apiService, IWebSocketService webSocketService)
 	{
+		_apiService = apiService ?? throw new ArgumentNullException(nameof(apiService));
 		_webSocketService = webSocketService ?? throw new ArgumentNullException(nameof(webSocketService));
 	}
 
@@ -159,7 +162,7 @@ public partial class DeviceDetailViewModel : BaseViewModel
 
 		await ExecuteAsync(async () =>
 		{
-			await _webSocketService.SendCommandAsync(Device.Id, "Restart");
+			await SendCommandWithFallbackAsync("Restart");
 			await ShowSuccessAsync("Restart command sent successfully. The device will restart shortly.");
 		}, "Failed to send restart command");
 	}
@@ -174,14 +177,37 @@ public partial class DeviceDetailViewModel : BaseViewModel
 
 		await ExecuteAsync(async () =>
 		{
-			var imageData = await _webSocketService.RequestScreenshotAsync(Device.Id);
+			string? imageData = null;
+
+			// Try REST API first (more reliable for screenshots)
+			try
+			{
+				var screenshotResponse = await _apiService.RequestScreenshotAsync(Device.Id);
+				imageData = screenshotResponse.ImageBase64;
+				ScreenshotTimestamp = screenshotResponse.CapturedAt;
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine($"REST API screenshot failed, trying WebSocket: {ex.Message}");
+
+				// Fallback to WebSocket
+				try
+				{
+					imageData = await _webSocketService.RequestScreenshotAsync(Device.Id);
+					ScreenshotTimestamp = DateTime.Now;
+				}
+				catch (Exception wsEx)
+				{
+					Console.WriteLine($"WebSocket screenshot also failed: {wsEx.Message}");
+					throw; // Re-throw to be caught by ExecuteAsync
+				}
+			}
 
 			if (!string.IsNullOrEmpty(imageData))
 			{
 				// Decode base64 to image
 				var bytes = Convert.FromBase64String(imageData);
 				ScreenshotImage = ImageSource.FromStream(() => new MemoryStream(bytes));
-				ScreenshotTimestamp = DateTime.Now;
 				await ShowSuccessAsync("Screenshot captured successfully");
 			}
 			else
@@ -235,16 +261,45 @@ public partial class DeviceDetailViewModel : BaseViewModel
 
 		await ExecuteAsync(async () =>
 		{
-			// Request updated device info
-			// This would typically trigger a RequestClientList message
-			// For now, just show a message
-			await Task.Delay(500);
-			await ShowSuccessAsync("Device information refreshed");
+			// Fetch updated device info from REST API
+			try
+			{
+				var deviceDetail = await _apiService.GetDeviceByIdAsync(Device.Id);
+
+				// Update device information
+				Device.Name = deviceDetail.Name;
+				Device.Status = ParseDeviceStatus(deviceDetail.Status);
+				Device.IpAddress = deviceDetail.IpAddress;
+				Device.Location = deviceDetail.Location;
+				Device.LastSeen = deviceDetail.LastSeen;
+				Device.AssignedLayoutId = deviceDetail.CurrentLayoutId;
+				Device.AssignedLayoutName = deviceDetail.CurrentLayoutName;
+
+				if (Device.DeviceInfo == null)
+					Device.DeviceInfo = new DeviceInfoData();
+
+				Device.DeviceInfo.CpuUsage = deviceDetail.CpuUsage;
+				Device.DeviceInfo.MemoryUsage = deviceDetail.MemoryUsage;
+				Device.DeviceInfo.Temperature = deviceDetail.Temperature;
+				Device.DeviceInfo.DiskUsage = deviceDetail.DiskUsage;
+				Device.DeviceInfo.OsVersion = deviceDetail.OperatingSystem;
+
+				UpdateStatusColor();
+				UpdateHardwareMetrics();
+
+				await ShowSuccessAsync("Device information refreshed");
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine($"Error refreshing device info: {ex.Message}");
+				throw;
+			}
 		}, "Failed to refresh device information");
 	}
 
 	/// <summary>
 	/// Sends a simple command to the device.
+	/// Uses WebSocket with REST API fallback.
 	/// </summary>
 	private async Task SendSimpleCommandAsync(string command, string displayName)
 	{
@@ -253,9 +308,59 @@ public partial class DeviceDetailViewModel : BaseViewModel
 
 		await ExecuteAsync(async () =>
 		{
-			await _webSocketService.SendCommandAsync(Device.Id, command);
+			await SendCommandWithFallbackAsync(command);
 			await ShowSuccessAsync($"{displayName} command sent successfully");
 		}, $"Failed to send {displayName} command");
+	}
+
+	/// <summary>
+	/// Sends a command to the device with fallback from WebSocket to REST API.
+	/// </summary>
+	private async Task SendCommandWithFallbackAsync(string command)
+	{
+		if (Device == null)
+			throw new InvalidOperationException("Device is null");
+
+		try
+		{
+			// Try WebSocket first (faster, real-time)
+			await _webSocketService.SendCommandAsync(Device.Id, command);
+			Console.WriteLine($"Command '{command}' sent via WebSocket");
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"WebSocket command failed, trying REST API: {ex.Message}");
+
+			// Fallback to REST API
+			try
+			{
+				var response = await _apiService.SendCommandAsync(Device.Id, command);
+				if (!response.Success)
+					throw new InvalidOperationException(response.Message);
+
+				Console.WriteLine($"Command '{command}' sent via REST API");
+			}
+			catch (Exception apiEx)
+			{
+				Console.WriteLine($"REST API command also failed: {apiEx.Message}");
+				throw; // Re-throw to be caught by ExecuteAsync
+			}
+		}
+	}
+
+	/// <summary>
+	/// Parses device status string to enum.
+	/// </summary>
+	private DeviceStatus ParseDeviceStatus(string status)
+	{
+		return status?.ToLowerInvariant() switch
+		{
+			"online" => DeviceStatus.Online,
+			"offline" => DeviceStatus.Offline,
+			"error" => DeviceStatus.Error,
+			"warning" => DeviceStatus.Warning,
+			_ => DeviceStatus.Offline
+		};
 	}
 
 	/// <summary>
