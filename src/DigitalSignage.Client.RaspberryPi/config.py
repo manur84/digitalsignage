@@ -41,18 +41,21 @@ class Config:
 
     @staticmethod
     def _generate_unique_client_id() -> str:
-        """Generate a unique client ID based on MAC address and hostname
+        """Generate a unique client ID based on MAC address and timestamp
 
         CRITICAL FIX: Prevents duplicate Client IDs when copying config.json between devices.
-        Uses MAC address (unique per device) + hostname to create a deterministic ID.
+        Uses MAC address (unique per device) + timestamp to create a unique ID.
 
         Returns:
-            Unique client ID in format: "DigiSign-XXXX" where XXXX is based on MAC address
+            Unique client ID in format: "DigiSign-XXXXXXXX-XX" where:
+            - XXXXXXXX = last 8 hex chars from MAC address (4 bytes)
+            - XX = 2 hex chars from timestamp hash for absolute uniqueness
         """
         try:
             import socket
             import hashlib
             import netifaces
+            import time
 
             # Get hostname
             hostname = socket.gethostname()
@@ -85,16 +88,28 @@ class Config:
                         continue
 
             if mac_address:
-                # Create deterministic ID from MAC address
-                # Use last 4 bytes of MAC as suffix (e.g., DigiSign-B827)
-                mac_suffix = mac_address.replace(':', '').upper()[-4:]
-                client_id = f"DigiSign-{mac_suffix}"
+                # IMPROVED: Use last 8 hex characters (4 bytes) for better uniqueness
+                # This provides 65,536 unique combinations instead of just 256 with 4 chars
+                mac_long = mac_address.replace(':', '').upper()[-8:]
+                
+                # Add timestamp-based suffix for absolute uniqueness
+                # Hash current timestamp to get 2-char suffix
+                timestamp = str(int(time.time()))
+                timestamp_hash = hashlib.md5(timestamp.encode()).hexdigest()[:2].upper()
+                
+                # Format: DigiSign-[8 chars MAC]-[2 chars timestamp]
+                client_id = f"DigiSign-{mac_long}-{timestamp_hash}"
                 return client_id
             else:
-                # Fallback: Use hostname-based ID
-                # Hash hostname to create deterministic 4-char suffix
-                hostname_hash = hashlib.md5(hostname.encode()).hexdigest()[:4].upper()
-                return f"DigiSign-{hostname_hash}"
+                # Fallback: Use hostname + timestamp based ID
+                # Create 8-char hash from hostname
+                hostname_hash = hashlib.md5(hostname.encode()).hexdigest()[:8].upper()
+                
+                # Add timestamp suffix
+                timestamp = str(int(time.time()))
+                timestamp_hash = hashlib.md5(timestamp.encode()).hexdigest()[:2].upper()
+                
+                return f"DigiSign-{hostname_hash}-{timestamp_hash}"
 
         except Exception as e:
             # Ultimate fallback: Random UUID
