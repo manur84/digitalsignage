@@ -39,6 +39,24 @@ public interface IWebSocketService
 	/// Sends a JSON object to the server.
 	/// </summary>
 	Task SendJsonAsync<T>(T data, CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// Sends a command to a specific device.
+	/// </summary>
+	/// <param name="deviceId">Target device ID.</param>
+	/// <param name="command">Command to send (e.g., Restart, VolumeUp, ScreenOn).</param>
+	/// <param name="parameters">Optional command parameters.</param>
+	/// <param name="cancellationToken">Cancellation token.</param>
+	Task SendCommandAsync(Guid deviceId, string command, Dictionary<string, object>? parameters = null, CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// Requests a screenshot from a specific device.
+	/// </summary>
+	/// <param name="deviceId">Target device ID.</param>
+	/// <param name="timeoutSeconds">Timeout in seconds to wait for screenshot response.</param>
+	/// <param name="cancellationToken">Cancellation token.</param>
+	/// <returns>Base64-encoded PNG image data, or null if failed.</returns>
+	Task<string?> RequestScreenshotAsync(Guid deviceId, int timeoutSeconds = 10, CancellationToken cancellationToken = default);
 }
 
 /// <summary>

@@ -52,8 +52,13 @@ public partial class DeviceListViewModel : BaseViewModel
 		if (device == null)
 			return;
 
-		// TODO: Navigate to device details page
-		await ShowSuccessAsync($"Selected device: {device.Hostname}");
+		// Navigate to device detail page with the selected device
+		var navigationParameter = new Dictionary<string, object>
+		{
+			["Device"] = device
+		};
+
+		await Shell.Current.GoToAsync("devicedetail", navigationParameter);
 	}
 
 	private void LoadDevices()

@@ -1,6 +1,8 @@
+using System.Collections.Concurrent;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
+using DigitalSignage.Core.Models;
 
 namespace DigitalSignage.App.Mobile.Services;
 
@@ -18,6 +20,7 @@ public class WebSocketService : IWebSocketService, IDisposable
 	private Task? _receiveLoopTask;
 	private string? _webSocketUrl;
 	private int _reconnectAttempts;
+	private readonly ConcurrentDictionary<Guid, TaskCompletionSource<string?>> _screenshotRequests = new();
 
 	/// <inheritdoc/>
 	public event EventHandler<ConnectionState>? ConnectionStateChanged;
@@ -224,6 +227,11 @@ public class WebSocketService : IWebSocketService, IDisposable
 						messageBuilder.Clear();
 
 						Console.WriteLine($"Received message: {message.Substring(0, Math.Min(100, message.Length))}...");
+
+						// Process message internally first (for screenshot responses, etc.)
+						ProcessMessage(message);
+
+						// Then notify external listeners
 						MessageReceived?.Invoke(this, message);
 					}
 				}
@@ -257,6 +265,121 @@ public class WebSocketService : IWebSocketService, IDisposable
 		_webSocket = null;
 
 		_receiveLoopTask = null;
+	}
+
+	/// <inheritdoc/>
+	public async Task SendCommandAsync(Guid deviceId, string command, Dictionary<string, object>? parameters = null, CancellationToken cancellationToken = default)
+	{
+		if (deviceId == Guid.Empty)
+			throw new ArgumentException("Device ID cannot be empty", nameof(deviceId));
+
+		if (string.IsNullOrWhiteSpace(command))
+			throw new ArgumentException("Command cannot be null or empty", nameof(command));
+
+		var message = new SendCommandMessage
+		{
+			TargetDeviceId = deviceId,
+			Command = command,
+			Parameters = parameters
+		};
+
+		await SendJsonAsync(message, cancellationToken);
+		Console.WriteLine($"Sent command '{command}' to device {deviceId}");
+	}
+
+	/// <inheritdoc/>
+	public async Task<string?> RequestScreenshotAsync(Guid deviceId, int timeoutSeconds = 10, CancellationToken cancellationToken = default)
+	{
+		if (deviceId == Guid.Empty)
+			throw new ArgumentException("Device ID cannot be empty", nameof(deviceId));
+
+		if (timeoutSeconds <= 0)
+			throw new ArgumentException("Timeout must be greater than 0", nameof(timeoutSeconds));
+
+		// Create a task completion source for this screenshot request
+		var tcs = new TaskCompletionSource<string?>();
+		_screenshotRequests[deviceId] = tcs;
+
+		try
+		{
+			// Send screenshot request
+			var message = new RequestScreenshotMessage
+			{
+				DeviceId = deviceId
+			};
+
+			await SendJsonAsync(message, cancellationToken);
+			Console.WriteLine($"Sent screenshot request to device {deviceId}");
+
+			// Wait for response with timeout
+			using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
+			using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
+
+			linkedCts.Token.Register(() =>
+			{
+				tcs.TrySetCanceled();
+			});
+
+			var result = await tcs.Task;
+			Console.WriteLine($"Received screenshot response from device {deviceId}: {(result != null ? "Success" : "Failed")}");
+			return result;
+		}
+		catch (OperationCanceledException)
+		{
+			Console.WriteLine($"Screenshot request timed out for device {deviceId}");
+			return null;
+		}
+		finally
+		{
+			_screenshotRequests.TryRemove(deviceId, out _);
+		}
+	}
+
+	/// <summary>
+	/// Processes received messages and handles screenshot responses.
+	/// </summary>
+	private void ProcessMessage(string message)
+	{
+		try
+		{
+			// Try to deserialize as a generic message to get the type
+			var jsonDoc = JsonDocument.Parse(message);
+			var root = jsonDoc.RootElement;
+
+			if (!root.TryGetProperty("type", out var typeElement))
+			{
+				Console.WriteLine("Message has no 'type' property");
+				return;
+			}
+
+			var messageType = typeElement.GetString();
+
+			// Handle screenshot response
+			if (messageType == MobileAppMessageTypes.ScreenshotResponse)
+			{
+				var response = JsonSerializer.Deserialize<ScreenshotResponseMessage>(message, new JsonSerializerOptions
+				{
+					PropertyNameCaseInsensitive = true
+				});
+
+				if (response != null && _screenshotRequests.TryGetValue(response.DeviceId, out var tcs))
+				{
+					if (response.Success)
+					{
+						tcs.TrySetResult(response.ImageData);
+					}
+					else
+					{
+						Console.WriteLine($"Screenshot failed: {response.ErrorMessage}");
+						tcs.TrySetResult(null);
+					}
+				}
+			}
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"Error processing message: {ex.Message}");
+		}
 	}
 
 	/// <summary>

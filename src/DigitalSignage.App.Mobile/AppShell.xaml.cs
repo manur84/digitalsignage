@@ -1,3 +1,5 @@
+using DigitalSignage.App.Mobile.Views;
+
 namespace DigitalSignage.App.Mobile;
 
 /// <summary>
@@ -8,5 +10,8 @@ public partial class AppShell : Shell
 	public AppShell()
 	{
 		InitializeComponent();
+
+		// Register routes for navigation
+		Routing.RegisterRoute("devicedetail", typeof(DeviceDetailPage));
 	}
 }
