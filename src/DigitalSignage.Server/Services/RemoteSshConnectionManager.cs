@@ -84,32 +84,49 @@ internal class RemoteSshConnectionManager
 
     /// <summary>
     /// Connects an SSH or SFTP client with timeout handling
+    /// Combines CancellationToken with explicit timeout to prevent indefinite hangs
     /// </summary>
     public async Task ConnectWithTimeoutAsync(BaseClient client, CancellationToken cancellationToken)
     {
-        // Run connect on TP so we can cancel/timeout gracefully
-        await Task.Run(() =>
+        // FIXED: Combine CancellationToken with explicit timeout (Issue #12)
+        // ConnectionInfo has 15s timeout, but we add an additional safety timeout of 20s
+        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
+
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            try
+            // Run connect on thread pool so we can cancel/timeout gracefully
+            var connectTask = Task.Run(() =>
             {
-                client.Connect();
-            }
-            catch (SshAuthenticationException)
-            {
-                // Re-throw authentication exceptions with original details
-                // These will be caught at service level for user-friendly error messages
-                throw;
-            }
-            catch (SocketException)
-            {
-                throw new SshConnectionException("SSH socket connection failed");
-            }
-            catch (SshConnectionException)
-            {
-                throw;
-            }
-        }, cancellationToken);
+                linkedCts.Token.ThrowIfCancellationRequested();
+                try
+                {
+                    client.Connect();
+                }
+                catch (SshAuthenticationException)
+                {
+                    // Re-throw authentication exceptions with original details
+                    // These will be caught at service level for user-friendly error messages
+                    throw;
+                }
+                catch (SocketException)
+                {
+                    throw new SshConnectionException("SSH socket connection failed");
+                }
+                catch (SshConnectionException)
+                {
+                    throw;
+                }
+            }, linkedCts.Token);
+
+            await connectTask;
+        }
+        catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
+        {
+            // Timeout occurred (not normal cancellation)
+            _logger.LogError("SSH connection timed out after 20 seconds");
+            throw new TimeoutException("SSH connection timed out after 20 seconds");
+        }
     }
 
     /// <summary>
