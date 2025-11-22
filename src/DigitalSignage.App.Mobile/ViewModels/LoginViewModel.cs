@@ -105,11 +105,13 @@ public partial class LoginViewModel : BaseViewModel
 			return;
 
 		var url = ManualServerUrl.Trim();
-		if (!url.StartsWith("http://") && !url.StartsWith("https://"))
-			url = "https://" + url;
 
-		var wsUrl = url.Replace("https://", "wss://").Replace("http://", "ws://") + "/ws";
-		await ConnectToServerAsync(url, wsUrl);
+		// Remove any protocol prefix
+		url = url.Replace("http://", "").Replace("https://", "").Replace("ws://", "").Replace("wss://", "");
+
+		// Force WSS-only (server only accepts WSS)
+		var wsUrl = "wss://" + url + "/ws";
+		await ConnectToServerAsync("https://" + url, wsUrl);
 	}
 
 	[RelayCommand]

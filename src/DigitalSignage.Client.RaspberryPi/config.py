@@ -16,7 +16,7 @@ class Config:
     server_port: int = 8080
     endpoint_path: str = "ws/"  # WebSocket endpoint path (default: ws/)
     registration_token: str = ""  # Token for client registration (required for new clients)
-    use_ssl: bool = False  # WSS (WebSocket Secure) - currently not implemented on server
+    use_ssl: bool = True  # WSS (WebSocket Secure) - REQUIRED, server only accepts WSS
     verify_ssl: bool = False  # Set to False for self-signed certificates
     fullscreen: bool = True
     log_level: str = "INFO"
@@ -69,7 +69,7 @@ class Config:
                     'server_port': 8080,
                     'endpoint_path': 'ws/',  # Default WebSocket endpoint path
                     'registration_token': '',
-                    'use_ssl': False,
+                    'use_ssl': True,  # REQUIRED - server only accepts WSS
                     'verify_ssl': False,  # Default to False for self-signed certs
                     'fullscreen': True,
                     'log_level': 'INFO',
@@ -205,8 +205,8 @@ class Config:
             server_host=os.getenv("DS_SERVER_HOST", "localhost"),
             server_port=int(os.getenv("DS_SERVER_PORT", "8080")),
             registration_token=os.getenv("DS_REGISTRATION_TOKEN", ""),
-            use_ssl=os.getenv("DS_USE_SSL", "false").lower() == "true",
-            verify_ssl=os.getenv("DS_VERIFY_SSL", "true").lower() == "true",
+            use_ssl=os.getenv("DS_USE_SSL", "true").lower() == "true",  # Default: true (WSS required)
+            verify_ssl=os.getenv("DS_VERIFY_SSL", "false").lower() == "true",  # Default: false (self-signed certs)
             fullscreen=os.getenv("DS_FULLSCREEN", "true").lower() == "true",
             log_level=os.getenv("DS_LOG_LEVEL", "INFO"),
             auto_discover=os.getenv("DS_AUTO_DISCOVER", "false").lower() == "true",

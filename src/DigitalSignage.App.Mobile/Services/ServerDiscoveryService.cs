@@ -150,7 +150,7 @@ public class ServerDiscoveryService : IServerDiscoveryService
 				IPAddress = ipAddress,
 				Port = port,
 				DiscoveredAt = DateTime.Now,
-				UseSSL = true // Default to HTTPS (required by iOS)
+				UseSSL = true // ALWAYS use WSS (server only accepts WSS)
 			};
 
 			// Parse TXT records for additional info
@@ -164,9 +164,11 @@ public class ServerDiscoveryService : IServerDiscoveryService
 						server.Version = version;
 					}
 
+					// NOTE: UseSSL is always true, ignoring TXT record
 					if (props.TryGetValue("ssl", out var ssl))
 					{
-						server.UseSSL = ssl.Equals("true", StringComparison.OrdinalIgnoreCase) || ssl == "1";
+						// Ignore - server only accepts WSS
+						// server.UseSSL = ssl.Equals("true", StringComparison.OrdinalIgnoreCase) || ssl == "1";
 					}
 
 					if (props.TryGetValue("clients", out var clientsStr) &&
