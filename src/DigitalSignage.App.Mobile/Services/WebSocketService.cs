@@ -396,7 +396,8 @@ public class WebSocketService : IWebSocketService, IDisposable
 			var jsonDoc = JsonDocument.Parse(message);
 			var root = jsonDoc.RootElement;
 
-			if (!root.TryGetProperty("type", out var typeElement))
+			// Try both lowercase and PascalCase for 'type' property (server uses PascalCase)
+			if (!root.TryGetProperty("type", out var typeElement) && !root.TryGetProperty("Type", out typeElement))
 			{
 				Console.WriteLine("Message has no 'type' property");
 				return;
@@ -407,8 +408,11 @@ public class WebSocketService : IWebSocketService, IDisposable
 			// Handle APP_AUTHORIZED response
 			if (messageType == MobileAppMessageTypes.AppAuthorized)
 			{
-				if (root.TryGetProperty("mobileAppId", out var mobileAppIdElement) &&
-				    Guid.TryParse(mobileAppIdElement.GetString(), out var mobileAppId))
+				// Try both lowercase and PascalCase for property names (server uses PascalCase)
+				var hasMobileAppId = root.TryGetProperty("mobileAppId", out var mobileAppIdElement) ||
+				                      root.TryGetProperty("MobileAppId", out mobileAppIdElement);
+
+				if (hasMobileAppId && Guid.TryParse(mobileAppIdElement.GetString(), out var mobileAppId))
 				{
 					Console.WriteLine($"Received APP_AUTHORIZED with MobileAppId: {mobileAppId}");
 					_registrationTcs?.TrySetResult(mobileAppId);
