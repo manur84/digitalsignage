@@ -13,6 +13,7 @@ using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using JsonException = Newtonsoft.Json.JsonException;
 using JsonSerializer = Newtonsoft.Json.JsonSerializer;
 
@@ -550,22 +551,34 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
         {
             _logger.LogDebug("Received message from {ConnectionId}: {Length} bytes", connection.ConnectionId, messageJson.Length);
 
-            // Deserialize using Newtonsoft.Json (same as WebSocketMessageSerializer)
+            // First parse JSON to extract the message type
+            var jsonObject = JObject.Parse(messageJson);
+            var messageType = jsonObject["type"]?.ToString() ?? jsonObject["Type"]?.ToString();
+
+            if (string.IsNullOrWhiteSpace(messageType))
+            {
+                _logger.LogWarning("Message from {ConnectionId} missing 'type' field", connection.ConnectionId);
+                return;
+            }
+
+            _logger.LogDebug("Processing message type: {MessageType} from {ConnectionId}", messageType, connection.ConnectionId);
+
+            // Deserialize to the correct concrete message type based on the type field
             var settings = new JsonSerializerSettings
             {
-                TypeNameHandling = TypeNameHandling.Auto,
                 NullValueHandling = NullValueHandling.Ignore,
                 DefaultValueHandling = DefaultValueHandling.Include
             };
 
-            var message = JsonConvert.DeserializeObject<Message>(messageJson, settings);
+            Message? message = DeserializeMessageByType(messageType, messageJson, settings);
+
             if (message == null)
             {
-                _logger.LogWarning("Failed to deserialize message from {ConnectionId}", connection.ConnectionId);
+                _logger.LogWarning("Failed to deserialize message type {MessageType} from {ConnectionId}", messageType, connection.ConnectionId);
                 return;
             }
 
-            _logger.LogDebug("Processing message type: {MessageType} from {ConnectionId}", message.Type, connection.ConnectionId);
+            _logger.LogDebug("Successfully deserialized message type: {MessageType} from {ConnectionId}", message.Type, connection.ConnectionId);
 
             // Check if this is a mobile app message
             if (IsMobileAppMessage(message))
@@ -606,6 +619,46 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
         }
     }
 
+
+    // ============================================
+    // MESSAGE DESERIALIZATION
+    // ============================================
+
+    /// <summary>
+    /// Deserialize a JSON message to the correct concrete Message type based on the message type field
+    /// </summary>
+    private Message? DeserializeMessageByType(string messageType, string messageJson, JsonSerializerSettings settings)
+    {
+        try
+        {
+            return messageType switch
+            {
+                // Mobile App → Server messages
+                MobileAppMessageTypes.AppRegister => JsonConvert.DeserializeObject<AppRegisterMessage>(messageJson, settings),
+                MobileAppMessageTypes.AppHeartbeat => JsonConvert.DeserializeObject<AppHeartbeatMessage>(messageJson, settings),
+                MobileAppMessageTypes.RequestClientList => JsonConvert.DeserializeObject<RequestClientListMessage>(messageJson, settings),
+                MobileAppMessageTypes.SendCommand => JsonConvert.DeserializeObject<SendCommandMessage>(messageJson, settings),
+                MobileAppMessageTypes.AssignLayout => JsonConvert.DeserializeObject<AssignLayoutMessage>(messageJson, settings),
+                MobileAppMessageTypes.RequestScreenshot => JsonConvert.DeserializeObject<RequestScreenshotMessage>(messageJson, settings),
+                MobileAppMessageTypes.RequestLayoutList => JsonConvert.DeserializeObject<RequestLayoutListMessage>(messageJson, settings),
+
+                // Device → Server messages (Raspberry Pi clients)
+                MessageTypes.Register => JsonConvert.DeserializeObject<RegisterMessage>(messageJson, settings),
+                MessageTypes.Heartbeat => JsonConvert.DeserializeObject<HeartbeatMessage>(messageJson, settings),
+                MessageTypes.StatusReport => JsonConvert.DeserializeObject<StatusReportMessage>(messageJson, settings),
+                MessageTypes.Screenshot => JsonConvert.DeserializeObject<ScreenshotMessage>(messageJson, settings),
+                MessageTypes.Log => JsonConvert.DeserializeObject<LogMessage>(messageJson, settings),
+                MessageTypes.UpdateConfigResponse => JsonConvert.DeserializeObject<UpdateConfigResponseMessage>(messageJson, settings),
+
+                _ => null
+            };
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogError(ex, "Failed to deserialize message type {MessageType}", messageType);
+            return null;
+        }
+    }
 
     // ============================================
     // MOBILE APP MESSAGE HANDLING
