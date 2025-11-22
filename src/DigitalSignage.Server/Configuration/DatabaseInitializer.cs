@@ -1,4 +1,5 @@
 using System.IO;
+using System.Data;
 using DigitalSignage.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -131,10 +132,21 @@ public static class DatabaseInitializer
 
         try
         {
-            // Check if MobileAppRegistrations table exists
-            var tableExists = dbContext.Database.ExecuteSqlRaw(
-                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='MobileAppRegistrations'"
-            ) >= 0;
+            // Check if MobileAppRegistrations table exists by trying to query it
+            bool tableExists = false;
+            try
+            {
+                // This will throw if table doesn't exist
+                _ = dbContext.MobileAppRegistrations.Any();
+                tableExists = true;
+                Log.Information("MobileAppRegistrations table exists");
+            }
+            catch (Exception)
+            {
+                // Table doesn't exist
+                tableExists = false;
+                Log.Information("MobileAppRegistrations table does not exist");
+            }
 
             // If table doesn't exist, create it manually
             if (!tableExists)
@@ -203,16 +215,39 @@ public static class DatabaseInitializer
         dbContext.Database.ExecuteSqlRaw(sql);
 
         // Add migration history entry if it doesn't exist
-        var historyExists = dbContext.Database.ExecuteSqlRaw(
-            "SELECT 1 FROM __EFMigrationsHistory WHERE MigrationId='20251121000000_AddMobileAppRegistrations'"
-        ) >= 0;
-
-        if (!historyExists)
+        try
         {
-            dbContext.Database.ExecuteSqlRaw(
-                @"INSERT INTO ""__EFMigrationsHistory"" (""MigrationId"", ""ProductVersion"")
-                  VALUES ('20251121000000_AddMobileAppRegistrations', '8.0.0')"
-            );
+            // Check if migration history entry already exists
+            var checkSql = @"SELECT COUNT(*) FROM __EFMigrationsHistory
+                           WHERE MigrationId = '20251121000000_AddMobileAppRegistrations'";
+
+            using var command = dbContext.Database.GetDbConnection().CreateCommand();
+            command.CommandText = checkSql;
+
+            if (command.Connection?.State != System.Data.ConnectionState.Open)
+            {
+                command.Connection?.Open();
+            }
+
+            var count = Convert.ToInt32(command.ExecuteScalar() ?? 0);
+
+            if (count == 0)
+            {
+                // Entry doesn't exist, so add it
+                dbContext.Database.ExecuteSqlRaw(
+                    @"INSERT INTO ""__EFMigrationsHistory"" (""MigrationId"", ""ProductVersion"")
+                      VALUES ('20251121000000_AddMobileAppRegistrations', '8.0.0')"
+                );
+                Log.Information("Added migration history entry for MobileAppRegistrations");
+            }
+            else
+            {
+                Log.Information("Migration history entry already exists for MobileAppRegistrations");
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Could not check/add migration history entry - may already exist");
         }
     }
 
