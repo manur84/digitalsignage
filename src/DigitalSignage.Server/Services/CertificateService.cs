@@ -149,18 +149,28 @@ public class CertificateService : ICertificateService
         try
         {
             // Load certificate with private key
-            // X509KeyStorageFlags.Exportable allows the private key to be exported
-            // X509KeyStorageFlags.PersistKeySet stores the private key in the key container
-            var cert = new X509Certificate2(
-                path,
-                password,
-                X509KeyStorageFlags.Exportable | X509KeyStorageFlags.PersistKeySet);
+            // CRITICAL FLAGS for Windows Certificate Store compatibility:
+            // - MachineKeySet: Store key in LocalMachine (not CurrentUser)
+            // - PersistKeySet: Save the private key persistently in certificate store
+            // - Exportable: Allow private key to be exported (needed for backups)
+            var flags = X509KeyStorageFlags.MachineKeySet |
+                       X509KeyStorageFlags.PersistKeySet |
+                       X509KeyStorageFlags.Exportable;
 
-            _logger.LogDebug("Certificate loaded from {Path}", path);
-            _logger.LogDebug("Has Private Key: {HasPrivateKey}", cert.HasPrivateKey);
-            _logger.LogDebug("Subject: {Subject}", cert.Subject);
-            _logger.LogDebug("Issuer: {Issuer}", cert.Issuer);
-            _logger.LogDebug("Valid From: {NotBefore} To: {NotAfter}", cert.NotBefore, cert.NotAfter);
+            var cert = new X509Certificate2(path, password, flags);
+
+            _logger.LogInformation(
+                "Certificate loaded from file: {Path}", path);
+            _logger.LogInformation(
+                "  Subject: {Subject}", cert.Subject);
+            _logger.LogInformation(
+                "  Issuer: {Issuer}", cert.Issuer);
+            _logger.LogInformation(
+                "  Thumbprint: {Thumbprint}", cert.Thumbprint);
+            _logger.LogInformation(
+                "  Has Private Key: {HasPrivateKey}", cert.HasPrivateKey);
+            _logger.LogInformation(
+                "  Valid From: {NotBefore} To: {NotAfter}", cert.NotBefore, cert.NotAfter);
 
             return cert;
         }

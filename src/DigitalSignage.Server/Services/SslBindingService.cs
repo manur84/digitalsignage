@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography.X509Certificates;
 using System.Security.Principal;
@@ -28,10 +29,13 @@ public class SslBindingService : ISslBindingService
     /// <summary>
     /// Ensure SSL binding exists for the certificate and port
     /// </summary>
-    public async Task<bool> EnsureSslBindingAsync(X509Certificate2 certificate, int port)
+    public async Task<bool> EnsureSslBindingAsync(X509Certificate2 certificate, int port, string pfxPath, string password)
     {
         if (certificate == null)
             throw new ArgumentNullException(nameof(certificate));
+
+        if (string.IsNullOrWhiteSpace(pfxPath))
+            throw new ArgumentException("PFX path is required for PowerShell fallback", nameof(pfxPath));
 
         if (!OperatingSystem.IsWindows())
         {
@@ -57,13 +61,13 @@ public class SslBindingService : ISslBindingService
             // Windows Error 1312 means certificate is not found in LocalMachine\My store
             // netsh can only bind certificates that exist in the certificate store
             _logger.LogInformation("Importing certificate to Windows Certificate Store (LocalMachine\\My)...");
-            if (!await ImportCertificateToStoreAsync(certificate))
+            if (!await ImportCertificateToStoreAsync(certificate, pfxPath, password))
             {
                 _logger.LogError("Failed to import certificate to Windows store - cannot proceed with SSL binding");
                 _logger.LogError("Manual fix required:");
                 _logger.LogError("  1. Open certlm.msc (Certificate Manager - Local Computer)");
                 _logger.LogError("  2. Navigate to Personal > Certificates");
-                _logger.LogError("  3. Import the certificate file from: certs/digitalsignage.pfx");
+                _logger.LogError("  3. Import the certificate file from: {0}", pfxPath);
                 _logger.LogError("  4. Restart the server application");
                 return false;
             }
@@ -150,7 +154,7 @@ public class SslBindingService : ISslBindingService
     /// Import certificate to Windows Certificate Store (LocalMachine\My)
     /// Required before netsh can bind the certificate to a port
     /// </summary>
-    private async Task<bool> ImportCertificateToStoreAsync(X509Certificate2 certificate)
+    private async Task<bool> ImportCertificateToStoreAsync(X509Certificate2 certificate, string pfxPath, string password)
     {
         if (!OperatingSystem.IsWindows())
         {
@@ -160,88 +164,96 @@ public class SslBindingService : ISslBindingService
 
         try
         {
-            await Task.CompletedTask; // Make method async-compatible
-
-            // Open LocalMachine\My Certificate Store with write access
-            using var store = new X509Store(StoreName.My, StoreLocation.LocalMachine);
-            store.Open(OpenFlags.ReadWrite);
-
-            try
+            // 1. Validate certificate has private key
+            if (!certificate.HasPrivateKey)
             {
-                // Check if certificate already exists in store
-                var existing = store.Certificates.Find(
-                    X509FindType.FindByThumbprint,
-                    certificate.Thumbprint,
-                    validOnly: false
-                );
+                _logger.LogError("Certificate does not have a private key - cannot be used for SSL binding");
+                _logger.LogError("The certificate must be created with a private key (e.g., from PFX file)");
+                return false;
+            }
 
-                if (existing.Count > 0)
+            _logger.LogInformation(
+                "Importing certificate to LocalMachine\\My store (Thumbprint: {Thumbprint})",
+                certificate.Thumbprint);
+
+            // 2. Try standard .NET X509Store import first
+            using (var store = new X509Store(StoreName.My, StoreLocation.LocalMachine))
+            {
+                store.Open(OpenFlags.ReadWrite);
+
+                try
                 {
-                    _logger.LogInformation("Certificate already exists in LocalMachine\\My store (Thumbprint: {Thumbprint})", certificate.Thumbprint);
+                    // Check if certificate already exists
+                    var existing = store.Certificates.Find(
+                        X509FindType.FindByThumbprint,
+                        certificate.Thumbprint,
+                        validOnly: false
+                    );
 
-                    // Verify the existing certificate has a private key
-                    var existingCert = existing[0];
-                    if (!existingCert.HasPrivateKey)
+                    if (existing.Count > 0)
                     {
-                        _logger.LogWarning("Existing certificate lacks private key - attempting to replace...");
-                        store.Remove(existingCert);
+                        _logger.LogInformation("Certificate already exists in store");
+
+                        // Verify private key is accessible
+                        var existingCert = existing[0];
+                        if (existingCert.HasPrivateKey)
+                        {
+                            _logger.LogInformation("Existing certificate has private key - OK");
+                            return true;
+                        }
+                        else
+                        {
+                            _logger.LogWarning("Existing certificate MISSING private key - removing and re-importing");
+                            store.Remove(existingCert);
+                        }
                     }
-                    else
-                    {
-                        return true;
-                    }
+
+                    // Import certificate
+                    store.Add(certificate);
+                    _logger.LogInformation("Certificate added to store via X509Store API");
                 }
-
-                // Verify the certificate has a private key before importing
-                if (!certificate.HasPrivateKey)
+                finally
                 {
-                    _logger.LogError("Certificate does not have a private key - cannot be used for SSL binding");
-                    _logger.LogError("The certificate must be created with a private key (e.g., from PFX file)");
-                    return false;
+                    store.Close();
                 }
+            }
 
-                // Import certificate to store
-                _logger.LogInformation("Importing certificate to LocalMachine\\My store...");
-                store.Add(certificate);
-                _logger.LogInformation("Certificate imported successfully (Thumbprint: {Thumbprint})", certificate.Thumbprint);
+            // 3. Verify import with delay for Windows Store sync
+            await Task.Delay(500);
 
-                // Verify import succeeded
+            using (var store = new X509Store(StoreName.My, StoreLocation.LocalMachine))
+            {
+                store.Open(OpenFlags.ReadOnly);
                 var verification = store.Certificates.Find(
                     X509FindType.FindByThumbprint,
                     certificate.Thumbprint,
                     validOnly: false
                 );
+                store.Close();
 
                 if (verification.Count == 0)
                 {
-                    _logger.LogError("Certificate import verification failed - certificate not found in store after import");
-                    return false;
+                    _logger.LogError("Certificate not found after .NET import - trying PowerShell fallback");
+                    return await ImportCertificateViaPowerShellAsync(pfxPath, password, certificate.Thumbprint);
                 }
 
-                var verifiedCert = verification[0];
-                _logger.LogDebug("Certificate verification:");
-                _logger.LogDebug("  Subject: {Subject}", verifiedCert.Subject);
-                _logger.LogDebug("  Issuer: {Issuer}", verifiedCert.Issuer);
-                _logger.LogDebug("  Thumbprint: {Thumbprint}", verifiedCert.Thumbprint);
-                _logger.LogDebug("  Has Private Key: {HasPrivateKey}", verifiedCert.HasPrivateKey);
-                _logger.LogDebug("  Valid From: {NotBefore}", verifiedCert.NotBefore);
-                _logger.LogDebug("  Valid To: {NotAfter}", verifiedCert.NotAfter);
+                if (!verification[0].HasPrivateKey)
+                {
+                    _logger.LogError("Certificate imported but private key missing - trying PowerShell fallback");
+                    return await ImportCertificateViaPowerShellAsync(pfxPath, password, certificate.Thumbprint);
+                }
 
+                _logger.LogInformation("Certificate successfully imported with private key");
+                _logger.LogDebug("  Subject: {Subject}", verification[0].Subject);
+                _logger.LogDebug("  Issuer: {Issuer}", verification[0].Issuer);
+                _logger.LogDebug("  Has Private Key: {HasPrivateKey}", verification[0].HasPrivateKey);
                 return true;
-            }
-            finally
-            {
-                store.Close();
             }
         }
         catch (System.Security.Cryptography.CryptographicException ex)
         {
-            _logger.LogError(ex, "Cryptographic error importing certificate to Windows store");
-            _logger.LogError("This may indicate:");
-            _logger.LogError("  - Certificate file is corrupted");
-            _logger.LogError("  - Certificate password is incorrect (if PFX)");
-            _logger.LogError("  - Certificate format is unsupported");
-            return false;
+            _logger.LogError(ex, "Cryptographic error importing certificate - trying PowerShell fallback");
+            return await ImportCertificateViaPowerShellAsync(pfxPath, password, certificate.Thumbprint);
         }
         catch (UnauthorizedAccessException ex)
         {
@@ -252,6 +264,96 @@ public class SslBindingService : ISslBindingService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unexpected error importing certificate to Windows store");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Import certificate via PowerShell Import-PfxCertificate cmdlet
+    /// This is a fallback method when X509Store.Add() fails to properly persist the private key
+    /// </summary>
+    private async Task<bool> ImportCertificateViaPowerShellAsync(string pfxPath, string password, string thumbprint)
+    {
+        try
+        {
+            _logger.LogInformation("Attempting certificate import via PowerShell...");
+
+            if (!File.Exists(pfxPath))
+            {
+                _logger.LogError("PFX file not found: {Path}", pfxPath);
+                return false;
+            }
+
+            // Escape single quotes in password and path for PowerShell
+            var escapedPassword = password.Replace("'", "''");
+            var escapedPath = pfxPath.Replace("'", "''");
+
+            var psCommand = $@"
+                $ErrorActionPreference = 'Stop'
+                try {{
+                    $pwd = ConvertTo-SecureString -String '{escapedPassword}' -Force -AsPlainText
+                    $cert = Import-PfxCertificate -FilePath '{escapedPath}' -CertStoreLocation Cert:\LocalMachine\My -Password $pwd -Exportable
+                    if ($cert) {{
+                        Write-Output ""Certificate imported: $($cert.Thumbprint)""
+                        $verifyThumbprint = '{thumbprint}'
+                        if ($cert.Thumbprint -eq $verifyThumbprint) {{
+                            Write-Output 'SUCCESS'
+                        }} else {{
+                            Write-Output ""ERROR: Thumbprint mismatch. Expected: $verifyThumbprint, Got: $($cert.Thumbprint)""
+                        }}
+                    }} else {{
+                        Write-Output 'ERROR: Import-PfxCertificate returned null'
+                    }}
+                }}
+                catch {{
+                    Write-Output ""ERROR: $_""
+                }}
+            ";
+
+            var processInfo = new ProcessStartInfo
+            {
+                FileName = "powershell.exe",
+                Arguments = $"-NoProfile -ExecutionPolicy Bypass -Command \"{psCommand}\"",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using var process = Process.Start(processInfo);
+            if (process == null)
+            {
+                _logger.LogError("Failed to start PowerShell process");
+                return false;
+            }
+
+            var output = await process.StandardOutput.ReadToEndAsync();
+            var error = await process.StandardError.ReadToEndAsync();
+            await process.WaitForExitAsync();
+
+            _logger.LogDebug("PowerShell output: {Output}", output);
+            if (!string.IsNullOrWhiteSpace(error))
+            {
+                _logger.LogDebug("PowerShell stderr: {Error}", error);
+            }
+
+            if (output.Contains("SUCCESS"))
+            {
+                _logger.LogInformation("Certificate imported successfully via PowerShell");
+                return true;
+            }
+
+            _logger.LogError("PowerShell import failed");
+            _logger.LogError("Output: {Output}", output);
+            if (!string.IsNullOrWhiteSpace(error))
+            {
+                _logger.LogError("Error: {Error}", error);
+            }
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Exception during PowerShell certificate import");
             return false;
         }
     }

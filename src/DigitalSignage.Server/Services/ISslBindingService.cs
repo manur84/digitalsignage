@@ -26,8 +26,10 @@ public interface ISslBindingService
     /// </summary>
     /// <param name="certificate">SSL certificate to bind</param>
     /// <param name="port">Port number to bind to</param>
+    /// <param name="pfxPath">Path to PFX file (used for PowerShell fallback)</param>
+    /// <param name="password">Certificate password (used for PowerShell fallback)</param>
     /// <returns>True if binding was successfully configured, false otherwise</returns>
-    Task<bool> EnsureSslBindingAsync(X509Certificate2 certificate, int port);
+    Task<bool> EnsureSslBindingAsync(X509Certificate2 certificate, int port, string pfxPath, string password);
 
     /// <summary>
     /// Remove SSL binding from a port

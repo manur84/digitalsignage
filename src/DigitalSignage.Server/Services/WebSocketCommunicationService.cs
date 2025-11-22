@@ -102,7 +102,14 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
                             _logger.LogInformation("Attempting automatic SSL binding configuration...");
 
                             var currentPort = _settings.Port;
-                            var bindingSuccess = await _sslBindingService.EnsureSslBindingAsync(certificate, currentPort);
+                            var pfxPath = _settings.CertificatePath ?? string.Empty;
+                            var password = _settings.CertificatePassword ?? string.Empty;
+
+                            var bindingSuccess = await _sslBindingService.EnsureSslBindingAsync(
+                                certificate,
+                                currentPort,
+                                pfxPath,
+                                password);
 
                             if (bindingSuccess)
                             {
