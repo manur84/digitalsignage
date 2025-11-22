@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using DigitalSignage.Server.ViewModels;
 using DigitalSignage.Server.Services;
+using DigitalSignage.Server.MessageHandlers;
 using DigitalSignage.Server.Configuration;
 using DigitalSignage.Server.Helpers;
 using DigitalSignage.Core.Interfaces;
@@ -256,7 +257,7 @@ For detailed diagnostics, run:
             // Step 7: Register event handlers
             await progressManager.ExecuteStepAsync(() =>
             {
-                MessageHandlerService.ScreenshotReceived += OnScreenshotReceived;
+                ScreenshotMessageHandler.ScreenshotReceived += OnScreenshotReceived;
                 Log.Information("Screenshot event handler registered");
             });
 
@@ -338,7 +339,7 @@ Common Solutions:
     protected override async void OnExit(ExitEventArgs e)
     {
         // Unsubscribe from screenshot events
-        MessageHandlerService.ScreenshotReceived -= OnScreenshotReceived;
+        ScreenshotMessageHandler.ScreenshotReceived -= OnScreenshotReceived;
 
         if (_host != null)
         {

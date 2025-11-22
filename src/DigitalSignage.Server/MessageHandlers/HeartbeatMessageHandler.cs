@@ -9,7 +9,7 @@ namespace DigitalSignage.Server.MessageHandlers;
 
 /// <summary>
 /// Handles heartbeat messages from clients
-/// Lightweight handler for frequent messages
+/// Moved from MessageHandlerService.HandleHeartbeatMessageAsync
 /// </summary>
 public class HeartbeatMessageHandler : MessageHandlerBase
 {
@@ -28,26 +28,22 @@ public class HeartbeatMessageHandler : MessageHandlerBase
 
     public override async Task HandleAsync(Message message, string connectionId, CancellationToken cancellationToken = default)
     {
-        if (message is not HeartbeatMessage heartbeatMessage)
-        {
-            _logger.LogWarning("Invalid message type for HeartbeatMessageHandler: {Type}", message?.GetType().Name);
-            return;
-        }
-
         try
         {
-            _logger.LogTrace("Processing heartbeat from connection {ConnectionId}", connectionId);
+            var heartbeatMessage = message as HeartbeatMessage;
+            if (heartbeatMessage != null)
+            {
+                await _clientService.UpdateClientStatusAsync(
+                    heartbeatMessage.ClientId,
+                    heartbeatMessage.Status,
+                    heartbeatMessage.DeviceInfo);
 
-            // Update client's last seen timestamp
-            // ClientService should have a lightweight UpdateLastSeen method
-            await _clientService.UpdateClientLastSeenAsync(connectionId);
-
-            _logger.LogTrace("Heartbeat processed for {ConnectionId}", connectionId);
+                _logger.LogDebug("Heartbeat received from client {ClientId}", heartbeatMessage.ClientId);
+            }
         }
         catch (Exception ex)
         {
-            // Heartbeat failures should not be critical - log and continue
-            _logger.LogWarning(ex, "Error processing heartbeat from {ConnectionId}", connectionId);
+            _logger.LogError(ex, "Error handling HEARTBEAT message from client {ClientId}", connectionId);
         }
     }
 }
