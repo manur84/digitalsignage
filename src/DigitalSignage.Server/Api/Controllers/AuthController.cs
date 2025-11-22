@@ -71,11 +71,11 @@ public class AuthController : ControllerBase
 
             if (!result.IsSuccess)
             {
-                _logger.LogWarning("Failed to create pending registration: {Error}", result.Error);
+                _logger.LogWarning("Failed to create pending registration: {Error}", result.ErrorMessage);
                 return BadRequest(new RegisterMobileAppResponse
                 {
                     Success = false,
-                    Message = result.Error ?? "Failed to create registration request"
+                    Message = result.ErrorMessage ?? "Failed to create registration request"
                 });
             }
 
@@ -116,11 +116,11 @@ public class AuthController : ControllerBase
 
             if (!result.IsSuccess)
             {
-                _logger.LogWarning("Failed to get registration status for {RequestId}: {Error}", requestId, result.Error);
+                _logger.LogWarning("Failed to get registration status for {RequestId}: {Error}", requestId, result.ErrorMessage);
                 return NotFound(new CheckRegistrationStatusResponse
                 {
                     Status = "NotFound",
-                    Message = result.Error ?? "Registration request not found"
+                    Message = result.ErrorMessage ?? "Registration request not found"
                 });
             }
 
