@@ -247,7 +247,19 @@ class StatusScreen(QWidget):
         Screen 1: AUTO DISCOVERY
         Shown during auto-discovery phase (searching for server via mDNS/UDP)
         QR code: Device info + search status
+
+        ANTI-FLICKER: Only recreates screen if device info actually changed
         """
+        # ANTI-FLICKER FIX: Check if we need to recreate the screen
+        # Only recreate if device info changed (e.g., IP address changed)
+        if hasattr(self, '_last_auto_discovery_info'):
+            if self._last_auto_discovery_info == device_info:
+                logger.debug("Auto-discovery screen already showing with same info - skipping recreation to prevent flicker")
+                return
+
+        # Store current info for next call
+        self._last_auto_discovery_info = device_info.copy() if device_info else {}
+
         layout = self._create_layout()
 
         # Spinner
@@ -311,6 +323,13 @@ class StatusScreen(QWidget):
         layout.addStretch()
 
         self.setLayout(layout)
+
+        # ANTI-FLICKER: Disable updates during layout setup
+        self.setUpdatesEnabled(False)
+        self.setLayout(layout)
+        self.setUpdatesEnabled(True)
+
+        # ANTI-FLICKER: Single update at the end
         self.update()
         self.showFullScreen()
         self.raise_()
@@ -702,17 +721,27 @@ class StatusScreenManager:
             return {'Hostname': 'Unknown', 'IpAddress': 'Unknown', 'MacAddress': 'Unknown'}
 
     def show_auto_discovery(self):
-        """Show auto-discovery screen (Screen 1)"""
+        """Show auto-discovery screen (Screen 1)
+
+        ANTI-FLICKER: Checks state and device info before recreation
+        """
         with self._state_lock:
+            device_info = self._get_device_info()
+
+            # ANTI-FLICKER FIX: Check if already showing with same data
             if self._current_state == ScreenState.AUTO_DISCOVERY:
-                logger.debug("Already showing auto-discovery screen - skipping")
-                return
+                # Already showing auto-discovery - check if device info changed
+                if hasattr(self, '_last_device_info') and self._last_device_info == device_info:
+                    logger.debug("Already showing auto-discovery screen with same device info - skipping recreation to prevent flicker")
+                    return
+                else:
+                    logger.debug("Auto-discovery screen active but device info changed - will update")
 
             logger.info("STATE TRANSITION: %s -> AUTO_DISCOVERY", self._current_state.value)
             self._current_state = ScreenState.AUTO_DISCOVERY
+            self._last_device_info = device_info.copy() if device_info else {}
 
             self._clear_display_renderer()
-            device_info = self._get_device_info()
             self.status_screen.show_auto_discovery(device_info)
             self._start_keep_alive_timer()
 
@@ -809,13 +838,25 @@ class StatusScreenManager:
         logger.debug("Status screen keep-alive timer started")
 
     def _keep_status_screen_on_top(self):
-        """Periodically ensure status screen stays on top"""
+        """Periodically ensure status screen stays on top
+
+        ANTI-FLICKER: Only performs minimal operations to keep window on top
+        Avoids unnecessary showFullScreen() calls that cause redraws
+        """
         with self._state_lock:
             if self._current_state != ScreenState.NONE and self.status_screen:
                 try:
-                    self.status_screen.raise_()
-                    self.status_screen.activateWindow()
+                    # ANTI-FLICKER FIX: Only raise/activate if not already on top
+                    # Check if window is already active before making unnecessary calls
+                    if not self.status_screen.isActiveWindow():
+                        self.status_screen.raise_()
+                        self.status_screen.activateWindow()
+                        logger.debug("Status screen raised to stay on top")
+
+                    # ANTI-FLICKER FIX: Only call showFullScreen() if actually not fullscreen
+                    # This prevents constant redraws from redundant showFullScreen() calls
                     if not self.status_screen.isFullScreen():
                         self.status_screen.showFullScreen()
+                        logger.debug("Status screen set to fullscreen")
                 except Exception as e:
                     logger.warning(f"Failed to keep status screen on top: {e}")
