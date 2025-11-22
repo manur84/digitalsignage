@@ -389,9 +389,11 @@ class DigitalSignageClient:
             logger.info(f"Input server_url: {server_url}")
 
             # Parse URL to extract components
-            # server_url format: http://host:port/path or https://host:port/path
-            # We need: ws://host:port/path or wss://host:port/path
-            ws_url = server_url.replace('http://', 'ws://').replace('https://', 'wss://')
+            # server_url format: https://host:port/path (ALWAYS HTTPS - no HTTP support)
+            # We need: wss://host:port/path (ALWAYS WSS - no WS support)
+            # CRITICAL: FORCE WSS-only connection regardless of input URL
+            # Even if someone manually set http:// in config, we convert to wss://
+            ws_url = server_url.replace('https://', 'wss://').replace('http://', 'wss://')  # FORCE WSS
 
             logger.info(f"Converted to WebSocket URL: {ws_url}")
 
