@@ -46,8 +46,9 @@ public class AppSettings
 	public string? DeviceName { get; set; }
 
 	/// <summary>
-	/// Gets or sets the API base URL (e.g., "https://192.168.1.100:5000").
-	/// If not set, defaults to ServerUrl with port 5000.
+	/// Gets or sets the API base URL (e.g., "https://192.168.1.100:5001").
+	/// If not set, defaults to ServerUrl with port 5001.
+	/// HTTPS is required for iOS App Transport Security.
 	/// </summary>
 	public string? ApiBaseUrl { get; set; }
 

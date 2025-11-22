@@ -20,8 +20,8 @@ public class ApiHost : IHostedService, IDisposable
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<ApiHost> _logger;
     private IWebHost? _webHost;
-    private int _currentPort = 5000;
-    private readonly int[] _portFallbacks = { 5000, 5001, 5002, 5003, 5004, 5005 };
+    private int _currentPort = 5001;
+    private readonly int[] _portFallbacks = { 5001, 5002, 5003, 5004, 5005, 5006 };
 
     public ApiHost(IServiceProvider serviceProvider, ILogger<ApiHost> logger)
     {
@@ -30,7 +30,7 @@ public class ApiHost : IHostedService, IDisposable
     }
 
     /// <summary>
-    /// Gets the URL where the API is accessible
+    /// Gets the URL where the API is accessible (HTTPS)
     /// </summary>
     public string? ApiUrl { get; private set; }
 
@@ -47,8 +47,8 @@ public class ApiHost : IHostedService, IDisposable
                 _webHost = BuildWebHost(port);
                 await _webHost.StartAsync(cancellationToken);
 
-                ApiUrl = $"http://localhost:{port}";
-                _logger.LogInformation("REST API server started successfully on port {Port}", port);
+                ApiUrl = $"https://localhost:{port}";
+                _logger.LogInformation("REST API server started successfully on HTTPS port {Port}", port);
                 _logger.LogInformation("Swagger UI available at: {SwaggerUrl}", $"{ApiUrl}/swagger");
                 return;
             }
@@ -93,21 +93,15 @@ public class ApiHost : IHostedService, IDisposable
         return new WebHostBuilder()
             .UseKestrel(options =>
             {
-                // Listen on all network interfaces for HTTP
+                // Listen on all network interfaces for HTTPS only
+                // iOS requires HTTPS due to App Transport Security (ATS)
                 options.ListenAnyIP(port, listenOptions =>
                 {
                     listenOptions.Protocols = HttpProtocols.Http1AndHttp2;
+                    // Use development certificate for HTTPS
+                    // In production, configure proper SSL certificate
+                    listenOptions.UseHttps();
                 });
-
-                // Optional: Add HTTPS support
-                // Uncomment the following lines to enable HTTPS
-                /*
-                options.ListenAnyIP(port + 1000, listenOptions =>
-                {
-                    listenOptions.Protocols = HttpProtocols.Http1AndHttp2;
-                    listenOptions.UseHttps(); // Requires certificate configuration
-                });
-                */
 
                 // Increase request limits for screenshot uploads
                 options.Limits.MaxRequestBodySize = 52428800; // 50 MB

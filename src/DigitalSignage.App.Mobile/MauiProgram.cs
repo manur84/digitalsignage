@@ -24,7 +24,8 @@ public static class MauiProgram
 				fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
 			});
 
-		// Register HttpClient with custom configuration
+		// Register HttpClient with custom configuration for HTTPS
+		// iOS requires HTTPS due to App Transport Security (ATS)
 		builder.Services.AddHttpClient<IApiService, ApiService>(client =>
 		{
 			// Configure default headers
@@ -35,7 +36,7 @@ public static class MauiProgram
 		.ConfigurePrimaryHttpMessageHandler(() =>
 		{
 			// Allow self-signed certificates for development
-			// TODO: Make this configurable in production
+			// In production, use valid SSL certificates and remove this override
 			var handler = new HttpClientHandler
 			{
 				ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true

@@ -10,13 +10,14 @@ namespace DigitalSignage.App.Mobile.Services;
 
 /// <summary>
 /// Implementation of REST API service for Digital Signage server communication.
-/// Provides HTTP-based communication as an alternative/complement to WebSocket.
+/// Provides HTTPS-based communication as an alternative/complement to WebSocket.
+/// All communication uses HTTPS for security (required by iOS App Transport Security).
 /// </summary>
 public class ApiService : IApiService
 {
 	private readonly HttpClient _httpClient;
 	private readonly ILogger<ApiService> _logger;
-	private string _baseUrl = "http://localhost:5000";
+	private string _baseUrl = "https://localhost:5001";
 	private string? _authToken;
 
 	/// <summary>
