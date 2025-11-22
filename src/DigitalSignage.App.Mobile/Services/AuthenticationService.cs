@@ -5,24 +5,17 @@ namespace DigitalSignage.App.Mobile.Services;
 
 /// <summary>
 /// Implementation of authentication service.
+/// Uses REST API for registration with polling for approval status.
 /// </summary>
 public class AuthenticationService : IAuthenticationService
 {
-	private readonly HttpClient _httpClient;
+	private readonly IApiService _apiService;
 	private readonly ISecureStorageService _secureStorage;
 
-	public AuthenticationService(ISecureStorageService secureStorage)
+	public AuthenticationService(IApiService apiService, ISecureStorageService secureStorage)
 	{
+		_apiService = apiService ?? throw new ArgumentNullException(nameof(apiService));
 		_secureStorage = secureStorage ?? throw new ArgumentNullException(nameof(secureStorage));
-		_httpClient = new HttpClient();
-
-		// Allow self-signed certificates for development
-		// TODO: Make this configurable in production
-		var handler = new HttpClientHandler
-		{
-			ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true
-		};
-		_httpClient = new HttpClient(handler);
 	}
 
 	/// <inheritdoc/>
@@ -33,35 +26,87 @@ public class AuthenticationService : IAuthenticationService
 
 		try
 		{
+			// Set server URL for API service
+			_apiService.SetServerUrl(serverUrl);
+
+			// Get device information
 			var deviceInfo = await GetDeviceInfoAsync();
 
-			var requestData = new
+			Console.WriteLine($"Registering mobile app: {deviceInfo.Name} ({deviceInfo.Platform})");
+
+			// Send registration request via REST API
+			var registrationResponse = await _apiService.RegisterAsync(
+				deviceInfo.Name,
+				deviceInfo.Platform,
+				deviceInfo.AppVersion,
+				deviceInfo.Identifier,
+				deviceInfo.OSVersion);
+
+			if (!registrationResponse.Success)
 			{
-				DeviceName = deviceInfo.Name,
-				DeviceIdentifier = deviceInfo.Identifier,
-				Platform = deviceInfo.Platform,
-				OSVersion = deviceInfo.OSVersion,
-				AppVersion = deviceInfo.AppVersion,
-				RegistrationToken = registrationToken
-			};
+				throw new InvalidOperationException(
+					registrationResponse.Message ?? "Registration failed");
+			}
 
-			var response = await _httpClient.PostAsJsonAsync(
-				$"{serverUrl}/api/mobile/register",
-				requestData);
+			var requestId = registrationResponse.RequestId;
+			Console.WriteLine($"Registration request sent. RequestId: {requestId}");
+			Console.WriteLine($"Message: {registrationResponse.Message}");
 
-			response.EnsureSuccessStatusCode();
+			// Poll for approval status (every 5 seconds for up to 5 minutes)
+			const int maxAttempts = 60; // 5 minutes with 5-second intervals
+			const int pollingIntervalMs = 5000;
 
-			var result = await response.Content.ReadFromJsonAsync<RegistrationResponse>();
-			if (result == null || result.MobileAppId == Guid.Empty)
-				throw new InvalidOperationException("Invalid registration response from server");
+			for (int attempt = 1; attempt <= maxAttempts; attempt++)
+			{
+				Console.WriteLine($"Checking registration status (attempt {attempt}/{maxAttempts})...");
 
-			Console.WriteLine($"Successfully registered with server. MobileAppId: {result.MobileAppId}");
-			return result.MobileAppId;
+				var statusResponse = await _apiService.CheckRegistrationStatusAsync(requestId);
+
+				if (statusResponse.Status.Equals("Approved", StringComparison.OrdinalIgnoreCase))
+				{
+					// Registration approved - save token and mobile app ID
+					if (string.IsNullOrWhiteSpace(statusResponse.Token))
+						throw new InvalidOperationException("Approved but no token received");
+
+					if (!statusResponse.MobileAppId.HasValue || statusResponse.MobileAppId.Value == Guid.Empty)
+						throw new InvalidOperationException("Approved but no mobile app ID received");
+
+					Console.WriteLine($"Registration approved! MobileAppId: {statusResponse.MobileAppId.Value}");
+
+					// Set authentication token for future API calls
+					_apiService.SetAuthenticationToken(statusResponse.Token);
+
+					// Save token to secure storage
+					await _secureStorage.SaveAsync("AuthToken", statusResponse.Token);
+					await _secureStorage.SaveAsync("MobileAppId", statusResponse.MobileAppId.Value.ToString());
+
+					return statusResponse.MobileAppId.Value;
+				}
+				else if (statusResponse.Status.Equals("Denied", StringComparison.OrdinalIgnoreCase))
+				{
+					throw new InvalidOperationException(
+						$"Registration was denied: {statusResponse.Message}");
+				}
+				else if (statusResponse.Status.Equals("Pending", StringComparison.OrdinalIgnoreCase))
+				{
+					// Still pending - wait and try again
+					Console.WriteLine($"Status: Pending - {statusResponse.Message}");
+
+					if (attempt < maxAttempts)
+						await Task.Delay(pollingIntervalMs);
+				}
+				else
+				{
+					Console.WriteLine($"Unknown status: {statusResponse.Status}");
+				}
+			}
+
+			throw new InvalidOperationException(
+				"Registration request timed out. The request is still pending approval. Please try again later.");
 		}
-		catch (HttpRequestException ex)
+		catch (InvalidOperationException)
 		{
-			Console.WriteLine($"HTTP error during registration: {ex.Message}");
-			throw new InvalidOperationException("Failed to connect to server. Please check the server URL and network connection.", ex);
+			throw; // Re-throw our own exceptions
 		}
 		catch (Exception ex)
 		{
@@ -126,11 +171,5 @@ public class AuthenticationService : IAuthenticationService
 		}
 
 		return deviceId;
-	}
-
-	private class RegistrationResponse
-	{
-		public Guid MobileAppId { get; set; }
-		public string? Message { get; set; }
 	}
 }
