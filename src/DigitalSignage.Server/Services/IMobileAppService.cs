@@ -54,6 +54,13 @@ public interface IMobileAppService
     Task<MobileAppRegistration?> ValidateTokenAsync(string token);
 
     /// <summary>
+    /// Validate authentication token and return app ID
+    /// </summary>
+    /// <param name="token">Token to validate</param>
+    /// <returns>App ID if valid</returns>
+    Task<Result<Guid>> ValidateTokenAsync2(string token);
+
+    /// <summary>
     /// Get registration by ID
     /// </summary>
     /// <param name="appId">Registration ID</param>
@@ -101,4 +108,24 @@ public interface IMobileAppService
     /// <param name="appId">Registration ID</param>
     /// <returns>Success result</returns>
     Task<Result> DeleteRegistrationAsync(Guid appId);
+
+    /// <summary>
+    /// Create a pending registration and return request ID
+    /// </summary>
+    Task<Result<Guid>> CreatePendingRegistrationAsync(
+        string deviceName,
+        string platform,
+        string appVersion,
+        string? deviceModel = null,
+        string? osVersion = null);
+
+    /// <summary>
+    /// Get registration status by request ID
+    /// </summary>
+    Task<Result<(string Status, string? Token, Guid? MobileAppId)>> GetRegistrationStatusAsync(Guid requestId);
+
+    /// <summary>
+    /// Get mobile app by ID
+    /// </summary>
+    Task<Result<MobileAppRegistration>> GetMobileAppAsync(Guid appId);
 }
