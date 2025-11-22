@@ -162,6 +162,9 @@ public static class ServiceCollectionExtensions
         services.AddMemoryCache();
         services.AddSingleton<StartupCacheService>();
 
+        // Layout Distribution
+        services.AddSingleton<ClientLayoutDistributor>();
+
         return services;
     }
 
