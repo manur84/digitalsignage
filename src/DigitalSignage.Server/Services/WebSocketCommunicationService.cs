@@ -1061,7 +1061,9 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
                 Parameters = message.Parameters
             };
 
-            await SendMessageAsync(targetSocket, commandMessage);
+            // CRITICAL FIX: Use public SendMessageAsync with clientId, NOT private method with socket
+            // This ensures proper JSON serialization settings (TypeNameHandling, DefaultValueHandling, etc.)
+            await SendMessageAsync(targetClientId, commandMessage, CancellationToken.None);
 
             // Acknowledge to mobile app
             await SendMessageAsync(connection, new CommandResultMessage
@@ -1185,7 +1187,9 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
                 Command = "Screenshot"
             };
 
-            await SendMessageAsync(targetSocket, screenshotMessage);
+            // CRITICAL FIX: Use public SendMessageAsync with clientId, NOT private method with socket
+            // This ensures proper JSON serialization settings (TypeNameHandling, DefaultValueHandling, etc.)
+            await SendMessageAsync(targetClientId, screenshotMessage, CancellationToken.None);
 
             _logger.LogInformation("Mobile app requested screenshot from device {DeviceId}", message.DeviceId);
 
