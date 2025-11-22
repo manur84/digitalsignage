@@ -16,6 +16,9 @@ namespace DigitalSignage.Server.Services;
 /// </summary>
 public class SslWebSocketConnection : IDisposable
 {
+    // Timeout for reading WebSocket frames to prevent DoS attacks
+    private const int ReadTimeoutSeconds = 30;
+
     private readonly TcpClient _tcpClient;
     private readonly SslStream _sslStream;
     private readonly ILogger _logger;
@@ -302,19 +305,31 @@ public class SslWebSocketConnection : IDisposable
     }
 
     /// <summary>
-    /// Read exact number of bytes from stream
+    /// Read exact number of bytes from stream with timeout protection
     /// </summary>
     private static async Task<int> ReadExactAsync(Stream stream, byte[] buffer, int offset, int count, CancellationToken cancellationToken)
     {
-        int totalRead = 0;
-        while (totalRead < count)
+        // Create timeout cancellation token to prevent DoS attacks
+        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(ReadTimeoutSeconds));
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
+
+        try
         {
-            var read = await stream.ReadAsync(buffer, offset + totalRead, count - totalRead, cancellationToken);
-            if (read == 0)
-                break;
-            totalRead += read;
+            int totalRead = 0;
+            while (totalRead < count)
+            {
+                var read = await stream.ReadAsync(buffer, offset + totalRead, count - totalRead, linkedCts.Token);
+                if (read == 0)
+                    break;
+                totalRead += read;
+            }
+            return totalRead;
         }
-        return totalRead;
+        catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
+        {
+            // Timeout occurred (not normal cancellation)
+            throw new TimeoutException($"Read operation timed out after {ReadTimeoutSeconds} seconds");
+        }
     }
 
     public void Dispose()
