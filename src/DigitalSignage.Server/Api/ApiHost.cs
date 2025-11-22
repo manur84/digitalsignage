@@ -129,8 +129,6 @@ public class ApiHost : IHostedService, IDisposable
                 RegisterSharedService<IMobileAppService>(services);
                 RegisterSharedService<IClientService>(services);
                 RegisterSharedService<ILayoutService>(services);
-                RegisterSharedService<IDeviceControlService>(services);
-                RegisterSharedService<IScreenshotService>(services);
                 RegisterSharedService<ICommunicationService>(services);
 
                 // Add logging

@@ -59,8 +59,8 @@ public class MobileAppAuthenticationHandler : AuthenticationHandler<Authenticati
 
             if (!validation.IsSuccess)
             {
-                Logger.LogWarning("Token validation failed: {Error}", validation.Error);
-                return AuthenticateResult.Fail($"Invalid token: {validation.Error}");
+                Logger.LogWarning("Token validation failed: {Error}", validation.ErrorMessage);
+                return AuthenticateResult.Fail($"Invalid token: {validation.ErrorMessage}");
             }
 
             var appId = validation.Value;

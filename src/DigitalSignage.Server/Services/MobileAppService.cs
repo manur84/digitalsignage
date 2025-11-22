@@ -400,7 +400,7 @@ public class MobileAppService : IMobileAppService
             var result = await RegisterAppAsync(deviceName, deviceIdentifier, appVersion, platform);
 
             if (!result.IsSuccess)
-                return Result<Guid>.Failure(result.Error!);
+                return Result<Guid>.Failure(result.ErrorMessage!);
 
             return Result<Guid>.Success(result.Value!.Id);
         }

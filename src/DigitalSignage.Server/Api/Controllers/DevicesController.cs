@@ -67,7 +67,7 @@ public class DevicesController : ControllerBase
                 Status = c.Status.ToString(),
                 LastSeen = c.LastSeen,
                 Resolution = c.DeviceInfo != null ? $"{c.DeviceInfo.ScreenWidth}x{c.DeviceInfo.ScreenHeight}" : null,
-                CurrentLayoutId = !string.IsNullOrEmpty(c.AssignedLayoutId) ? Guid.Parse(c.AssignedLayoutId) : null,
+                CurrentLayoutId = c.AssignedLayoutId,
                 CurrentLayoutName = c.AssignedLayout?.Name,
                 IpAddress = c.IpAddress,
                 OperatingSystem = c.DeviceInfo?.OsVersion,
@@ -120,7 +120,7 @@ public class DevicesController : ControllerBase
                 Status = client.Status.ToString(),
                 LastSeen = client.LastSeen,
                 Resolution = client.DeviceInfo != null ? $"{client.DeviceInfo.ScreenWidth}x{client.DeviceInfo.ScreenHeight}" : null,
-                CurrentLayoutId = !string.IsNullOrEmpty(client.AssignedLayoutId) ? Guid.Parse(client.AssignedLayoutId) : null,
+                CurrentLayoutId = client.AssignedLayoutId,
                 CurrentLayoutName = client.AssignedLayout?.Name,
                 IpAddress = client.IpAddress,
                 OperatingSystem = client.DeviceInfo?.OsVersion,
@@ -170,10 +170,16 @@ public class DevicesController : ControllerBase
             );
 
             // Send command via ClientService
+            // Convert Dictionary<string, string> to Dictionary<string, object>
+            Dictionary<string, object>? parameters = request.Parameters?.ToDictionary(
+                kvp => kvp.Key,
+                kvp => (object)kvp.Value
+            );
+
             var result = await _clientService.SendCommandAsync(
                 id.ToString(),
                 request.Command,
-                request.Parameters
+                parameters
             );
 
             if (!result.IsSuccess)
