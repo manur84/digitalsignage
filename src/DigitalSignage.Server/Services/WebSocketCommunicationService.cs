@@ -275,10 +275,19 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
         _logger.LogWarning("CRITICAL DEBUG: Looking for client {ClientId} in _clients dictionary: {Exists}",
             clientId, _clients.ContainsKey(clientId));
 
-        if (_clients.TryGetValue(clientId, out var connection))
+        var lookupClientId = clientId;
+        if (!_clients.ContainsKey(lookupClientId)
+            && Guid.TryParse(clientId, out var guid)
+            && _clientGuidMap.TryGetValue(guid, out var mappedId))
+        {
+            lookupClientId = mappedId;
+            _logger.LogWarning("Resolved GUID {Guid} to client ID {ClientId} for sending", guid, lookupClientId);
+        }
+
+        if (_clients.TryGetValue(lookupClientId, out var connection))
         {
             _logger.LogWarning("CRITICAL DEBUG: Found connection for {ClientId}, IsConnected={IsConnected}",
-                clientId, connection.IsConnected);
+                lookupClientId, connection.IsConnected);
 
             try
             {
