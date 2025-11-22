@@ -53,6 +53,21 @@ public class SslBindingService : ISslBindingService
             _logger.LogDebug("Certificate Thumbprint: {Thumbprint}", certificate.Thumbprint);
             _logger.LogDebug("App ID: {{{AppId}}}", _settings.SslAppId);
 
+            // CRITICAL FIX: Import certificate to Windows Certificate Store BEFORE netsh binding
+            // Windows Error 1312 means certificate is not found in LocalMachine\My store
+            // netsh can only bind certificates that exist in the certificate store
+            _logger.LogInformation("Importing certificate to Windows Certificate Store (LocalMachine\\My)...");
+            if (!await ImportCertificateToStoreAsync(certificate))
+            {
+                _logger.LogError("Failed to import certificate to Windows store - cannot proceed with SSL binding");
+                _logger.LogError("Manual fix required:");
+                _logger.LogError("  1. Open certlm.msc (Certificate Manager - Local Computer)");
+                _logger.LogError("  2. Navigate to Personal > Certificates");
+                _logger.LogError("  3. Import the certificate file from: certs/digitalsignage.pfx");
+                _logger.LogError("  4. Restart the server application");
+                return false;
+            }
+
             // Check if binding already exists
             var existingThumbprint = await GetBoundCertificateThumbprintAsync(port);
 
@@ -84,8 +99,30 @@ public class SslBindingService : ISslBindingService
 
             if (!addResult.Success)
             {
-                _logger.LogError("Failed to add SSL binding: {Error}", addResult.Error);
-                _logger.LogError("netsh output: {Output}", addResult.Output);
+                // Check for specific error codes
+                if (addResult.Output?.Contains("1312") == true || addResult.Error?.Contains("1312") == true)
+                {
+                    _logger.LogError("SSL Binding Error 1312 - Certificate not found in Windows Certificate Store");
+                    _logger.LogError("The certificate was imported but may not be accessible to netsh");
+                    _logger.LogError("This can happen if:");
+                    _logger.LogError("  1. Certificate import failed silently");
+                    _logger.LogError("  2. Certificate is in wrong store location");
+                    _logger.LogError("  3. Certificate lacks private key");
+                    _logger.LogError("");
+                    _logger.LogError("Manual troubleshooting steps:");
+                    _logger.LogError("  1. Open PowerShell as Administrator");
+                    _logger.LogError("  2. Run: Get-ChildItem -Path Cert:\\LocalMachine\\My");
+                    _logger.LogError("  3. Verify certificate with thumbprint {0} exists", certificate.Thumbprint);
+                    _logger.LogError("  4. If missing, import manually:");
+                    _logger.LogError("     Import-PfxCertificate -FilePath \"certs\\digitalsignage.pfx\" -CertStoreLocation Cert:\\LocalMachine\\My -Exportable");
+                    _logger.LogError("  5. Then bind manually:");
+                    _logger.LogError("     netsh http add sslcert ipport=0.0.0.0:{0} certhash={1} appid={{{2}}}", port, certificate.Thumbprint, _settings.SslAppId);
+                }
+                else
+                {
+                    _logger.LogError("Failed to add SSL binding: {Error}", addResult.Error);
+                    _logger.LogError("netsh output: {Output}", addResult.Output);
+                }
                 return false;
             }
 
@@ -105,6 +142,116 @@ public class SslBindingService : ISslBindingService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error configuring SSL binding for port {Port}", port);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Import certificate to Windows Certificate Store (LocalMachine\My)
+    /// Required before netsh can bind the certificate to a port
+    /// </summary>
+    private async Task<bool> ImportCertificateToStoreAsync(X509Certificate2 certificate)
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            _logger.LogWarning("Certificate store import is only supported on Windows");
+            return false;
+        }
+
+        try
+        {
+            await Task.CompletedTask; // Make method async-compatible
+
+            // Open LocalMachine\My Certificate Store with write access
+            using var store = new X509Store(StoreName.My, StoreLocation.LocalMachine);
+            store.Open(OpenFlags.ReadWrite);
+
+            try
+            {
+                // Check if certificate already exists in store
+                var existing = store.Certificates.Find(
+                    X509FindType.FindByThumbprint,
+                    certificate.Thumbprint,
+                    validOnly: false
+                );
+
+                if (existing.Count > 0)
+                {
+                    _logger.LogInformation("Certificate already exists in LocalMachine\\My store (Thumbprint: {Thumbprint})", certificate.Thumbprint);
+
+                    // Verify the existing certificate has a private key
+                    var existingCert = existing[0];
+                    if (!existingCert.HasPrivateKey)
+                    {
+                        _logger.LogWarning("Existing certificate lacks private key - attempting to replace...");
+                        store.Remove(existingCert);
+                    }
+                    else
+                    {
+                        return true;
+                    }
+                }
+
+                // Verify the certificate has a private key before importing
+                if (!certificate.HasPrivateKey)
+                {
+                    _logger.LogError("Certificate does not have a private key - cannot be used for SSL binding");
+                    _logger.LogError("The certificate must be created with a private key (e.g., from PFX file)");
+                    return false;
+                }
+
+                // Import certificate to store
+                _logger.LogInformation("Importing certificate to LocalMachine\\My store...");
+                store.Add(certificate);
+                _logger.LogInformation("Certificate imported successfully (Thumbprint: {Thumbprint})", certificate.Thumbprint);
+
+                // Verify import succeeded
+                var verification = store.Certificates.Find(
+                    X509FindType.FindByThumbprint,
+                    certificate.Thumbprint,
+                    validOnly: false
+                );
+
+                if (verification.Count == 0)
+                {
+                    _logger.LogError("Certificate import verification failed - certificate not found in store after import");
+                    return false;
+                }
+
+                var verifiedCert = verification[0];
+                _logger.LogDebug("Certificate verification:");
+                _logger.LogDebug("  Subject: {Subject}", verifiedCert.Subject);
+                _logger.LogDebug("  Issuer: {Issuer}", verifiedCert.Issuer);
+                _logger.LogDebug("  Thumbprint: {Thumbprint}", verifiedCert.Thumbprint);
+                _logger.LogDebug("  Has Private Key: {HasPrivateKey}", verifiedCert.HasPrivateKey);
+                _logger.LogDebug("  Valid From: {NotBefore}", verifiedCert.NotBefore);
+                _logger.LogDebug("  Valid To: {NotAfter}", verifiedCert.NotAfter);
+
+                return true;
+            }
+            finally
+            {
+                store.Close();
+            }
+        }
+        catch (System.Security.Cryptography.CryptographicException ex)
+        {
+            _logger.LogError(ex, "Cryptographic error importing certificate to Windows store");
+            _logger.LogError("This may indicate:");
+            _logger.LogError("  - Certificate file is corrupted");
+            _logger.LogError("  - Certificate password is incorrect (if PFX)");
+            _logger.LogError("  - Certificate format is unsupported");
+            return false;
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogError(ex, "Access denied importing certificate to Windows store");
+            _logger.LogError("This requires Administrator privileges");
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected error importing certificate to Windows store");
             return false;
         }
     }

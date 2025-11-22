@@ -513,6 +513,154 @@ class StatusScreen(QWidget):
 
         logger.info("STATUS SCREEN: No Layout Assigned")
 
+    def show_default_status(self):
+        """Show default connection status when no specific state is active"""
+        try:
+            layout = self._create_layout()
+
+            # Spinner
+            spinner = SpinnerWidget(self.spinner_size, self.COLOR_PRIMARY, self)
+            spinner_container = QWidget()
+            spinner_layout = QHBoxLayout(spinner_container)
+            spinner_layout.addStretch()
+            spinner_layout.addWidget(spinner)
+            spinner_layout.addStretch()
+            layout.addWidget(spinner_container)
+            self.animated_widgets.append(spinner)
+
+            # Title with animated dots
+            title_label = AnimatedDotsLabel("Verbindung wird hergestellt", self)
+            title_label.setStyleSheet(f"color: {self.COLOR_PRIMARY}; font-size: {self.title_font_size}pt; font-weight: bold;")
+            title_label.setAlignment(Qt.AlignCenter)
+            layout.addWidget(title_label)
+            self.animated_widgets.append(title_label)
+
+            layout.addSpacing(self.large_spacing)
+
+            # Logo (if available)
+            import os
+            logo_path = os.path.join(os.path.dirname(__file__), 'digisign-logo.png')
+            if os.path.exists(logo_path):
+                logo_label = QLabel(self)
+                pixmap = QPixmap(logo_path)
+                # Scale to 30% of screen size
+                scaled = pixmap.scaled(
+                    int(self.screen_width * 0.3),
+                    int(self.screen_height * 0.3),
+                    Qt.KeepAspectRatio,
+                    Qt.SmoothTransformation
+                )
+                logo_label.setPixmap(scaled)
+                logo_label.setAlignment(Qt.AlignCenter)
+                layout.addWidget(logo_label)
+
+            layout.addStretch()
+
+            self.setLayout(layout)
+            self.update()
+            self.showFullScreen()
+            self.raise_()
+            self.activateWindow()
+
+            logger.info("STATUS SCREEN: Default Connection Status")
+        except Exception as e:
+            logger.error(f"Error showing default status: {e}", exc_info=True)
+
+    def show_connection_failed(self, error_message: str):
+        """Show connection failed status with error details"""
+        try:
+            layout = self._create_layout()
+
+            # Error icon
+            error_icon = QLabel("✗", self)
+            error_icon.setStyleSheet(f"color: {self.COLOR_ERROR}; font-size: {self.icon_font_size}pt; font-weight: bold;")
+            error_icon.setAlignment(Qt.AlignCenter)
+            layout.addWidget(error_icon)
+
+            # Title
+            title_label = QLabel("Verbindung fehlgeschlagen", self)
+            title_label.setStyleSheet(f"color: {self.COLOR_ERROR}; font-size: {self.title_font_size}pt; font-weight: bold;")
+            title_label.setAlignment(Qt.AlignCenter)
+            layout.addWidget(title_label)
+
+            layout.addSpacing(self.spacing)
+
+            # Error message
+            error_label = QLabel(error_message, self)
+            error_label.setStyleSheet(f"color: {self.COLOR_TEXT_SECONDARY}; font-size: {self.subtitle_font_size}pt;")
+            error_label.setAlignment(Qt.AlignCenter)
+            error_label.setWordWrap(True)
+            layout.addWidget(error_label)
+
+            layout.addSpacing(self.large_spacing)
+
+            # Retry message
+            retry_label = QLabel("Automatische Wiederverbindung läuft...", self)
+            retry_label.setStyleSheet(f"color: {self.COLOR_TEXT_PRIMARY}; font-size: {self.body_font_size}pt;")
+            retry_label.setAlignment(Qt.AlignCenter)
+            layout.addWidget(retry_label)
+
+            layout.addStretch()
+
+            self.setLayout(layout)
+            self.update()
+            self.showFullScreen()
+            self.raise_()
+            self.activateWindow()
+
+            logger.info(f"STATUS SCREEN: Connection Failed - {error_message}")
+        except Exception as e:
+            logger.error(f"Error showing connection failed status: {e}", exc_info=True)
+
+    def show_reconnecting(self, attempt: int, max_attempts: int, retry_in: int):
+        """Show reconnecting status with attempt counter and countdown"""
+        try:
+            layout = self._create_layout()
+
+            # Spinner (orange for reconnecting)
+            spinner = SpinnerWidget(self.spinner_size, self.COLOR_WARNING, self)
+            spinner_container = QWidget()
+            spinner_layout = QHBoxLayout(spinner_container)
+            spinner_layout.addStretch()
+            spinner_layout.addWidget(spinner)
+            spinner_layout.addStretch()
+            layout.addWidget(spinner_container)
+            self.animated_widgets.append(spinner)
+
+            # Title
+            title_label = AnimatedDotsLabel("Erneuter Verbindungsversuch", self)
+            title_label.setStyleSheet(f"color: {self.COLOR_WARNING}; font-size: {self.title_font_size}pt; font-weight: bold;")
+            title_label.setAlignment(Qt.AlignCenter)
+            layout.addWidget(title_label)
+            self.animated_widgets.append(title_label)
+
+            layout.addSpacing(self.spacing)
+
+            # Attempt counter
+            attempt_label = QLabel(f"Versuch {attempt} von {max_attempts}", self)
+            attempt_label.setStyleSheet(f"color: {self.COLOR_TEXT_PRIMARY}; font-size: {self.subtitle_font_size}pt;")
+            attempt_label.setAlignment(Qt.AlignCenter)
+            layout.addWidget(attempt_label)
+
+            # Countdown
+            if retry_in > 0:
+                countdown_label = QLabel(f"Nächster Versuch in {retry_in} Sekunden", self)
+                countdown_label.setStyleSheet(f"color: {self.COLOR_WARNING}; font-size: {self.subtitle_font_size}pt; font-weight: bold;")
+                countdown_label.setAlignment(Qt.AlignCenter)
+                layout.addWidget(countdown_label)
+
+            layout.addStretch()
+
+            self.setLayout(layout)
+            self.update()
+            self.showFullScreen()
+            self.raise_()
+            self.activateWindow()
+
+            logger.info(f"STATUS SCREEN: Reconnecting (attempt {attempt}/{max_attempts}, retry in {retry_in}s)")
+        except Exception as e:
+            logger.error(f"Error showing reconnecting status: {e}", exc_info=True)
+
     def show_server_offline(self, server_url: str, retry_info: Dict[str, Any], device_info: Dict[str, Any], auto_discovery_active: bool):
         """
         Screen 4: SERVER OFFLINE
@@ -783,6 +931,36 @@ class StatusScreenManager:
             device_info = self._get_device_info()
             retry_info = {'attempt': attempt, 'retry_in': retry_in}
             self.status_screen.show_server_offline(server_url, retry_info, device_info, auto_discovery_active)
+            self._start_keep_alive_timer()
+
+    def show_default_status(self):
+        """Show default connection status (fallback when state is unclear)"""
+        with self._state_lock:
+            logger.info("STATE TRANSITION: %s -> DEFAULT_STATUS", self._current_state.value)
+            self._current_state = ScreenState.CONNECTING  # Treat as connecting state
+
+            self._clear_display_renderer()
+            self.status_screen.show_default_status()
+            self._start_keep_alive_timer()
+
+    def show_connection_failed(self, error_message: str):
+        """Show connection failed screen with error details"""
+        with self._state_lock:
+            logger.info("STATE TRANSITION: %s -> CONNECTION_FAILED", self._current_state.value)
+            self._current_state = ScreenState.SERVER_OFFLINE  # Treat as server offline
+
+            self._clear_display_renderer()
+            self.status_screen.show_connection_failed(error_message)
+            self._start_keep_alive_timer()
+
+    def show_reconnecting(self, attempt: int, max_attempts: int, retry_in: int):
+        """Show reconnecting screen with progress"""
+        with self._state_lock:
+            logger.info("STATE TRANSITION: %s -> RECONNECTING (attempt %d/%d)", self._current_state.value, attempt, max_attempts)
+            self._current_state = ScreenState.SERVER_OFFLINE  # Treat as server offline
+
+            self._clear_display_renderer()
+            self.status_screen.show_reconnecting(attempt, max_attempts, retry_in)
             self._start_keep_alive_timer()
 
     def clear_status_screen(self):
