@@ -377,4 +377,41 @@ public class CertificateService : ICertificateService
         _logger.LogDebug("Certificate validation passed");
         return true;
     }
+
+    /// <summary>
+    /// Get the thumbprint (hash) of a certificate
+    /// </summary>
+    public string GetCertificateThumbprint(X509Certificate2 certificate)
+    {
+        if (certificate == null)
+            throw new ArgumentNullException(nameof(certificate));
+
+        return certificate.Thumbprint;
+    }
+
+    /// <summary>
+    /// Get or generate the Application ID (GUID) for SSL binding
+    /// Returns the configured AppId from ServerSettings, or generates a consistent GUID
+    /// </summary>
+    public string GetCertificateAppId()
+    {
+        // Use configured SslAppId if available
+        if (!string.IsNullOrWhiteSpace(_settings.SslAppId))
+        {
+            // Validate it's a valid GUID format
+            if (Guid.TryParse(_settings.SslAppId, out _))
+            {
+                return _settings.SslAppId;
+            }
+            else
+            {
+                _logger.LogWarning("Configured SslAppId '{SslAppId}' is not a valid GUID, using default", _settings.SslAppId);
+            }
+        }
+
+        // Default: Use a consistent GUID for DigitalSignage Server
+        // This GUID should remain constant to allow multiple instances to share the same binding
+        const string defaultAppId = "12345678-1234-1234-1234-123456789ABC";
+        return defaultAppId;
+    }
 }

@@ -45,6 +45,24 @@ public class ServerSettings
     public string? CertificatePassword { get; set; }
 
     /// <summary>
+    /// Application ID (GUID) for SSL binding via netsh
+    /// Used by Windows HTTP.SYS to identify the application that owns the SSL binding
+    /// </summary>
+    public string SslAppId { get; set; } = "12345678-1234-1234-1234-123456789ABC";
+
+    /// <summary>
+    /// Automatically configure SSL binding via netsh on startup
+    /// Requires Administrator privileges
+    /// </summary>
+    public bool AutoConfigureSslBinding { get; set; } = true;
+
+    /// <summary>
+    /// Automatically configure URL ACL via netsh on startup
+    /// Requires Administrator privileges
+    /// </summary>
+    public bool AutoConfigureUrlAcl { get; set; } = true;
+
+    /// <summary>
     /// WebSocket endpoint path
     /// </summary>
     public string EndpointPath { get; set; } = "/ws/";
