@@ -78,26 +78,24 @@
                                Padding="15"
                                Margin="0,5"
                                CornerRadius="8">
-                            <Frame.GestureRecognizers>
-                                <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:LoginViewModel}}, Path=ConnectToSelectedServerCommand}" />
-                            </Frame.GestureRecognizers>
-                            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                            <Grid RowDefinitions="Auto,Auto,Auto">
                                 <Label Text="{Binding DisplayName}"
                                        FontSize="16"
                                        FontAttributes="Bold"
-                                       Grid.Column="0"
                                        Grid.Row="0" />
                                 <Label Text="{Binding Description}"
                                        FontSize="12"
                                        TextColor="{DynamicResource Gray600}"
-                                       Grid.Column="0"
-                                       Grid.Row="1" />
-                                <Image Source="chevron_right.png"
-                                       WidthRequest="20"
-                                       HeightRequest="20"
-                                       Grid.Column="1"
-                                       Grid.RowSpan="2"
-                                       VerticalOptions="Center" />
+                                       Grid.Row="1"
+                                       Margin="0,5,0,10" />
+                                <Button Text="Connect"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:LoginViewModel}}, Path=ConnectToSelectedServerCommand}"
+                                        CommandParameter="{Binding .}"
+                                        BackgroundColor="{DynamicResource Primary}"
+                                        TextColor="White"
+                                        HeightRequest="40"
+                                        CornerRadius="8"
+                                        Grid.Row="2" />
                             </Grid>
                         </Frame>
                     </DataTemplate>

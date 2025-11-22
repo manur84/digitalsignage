@@ -89,13 +89,13 @@ public partial class LoginViewModel : BaseViewModel
 		StatusMessage = "Scan stopped";
 	}
 
-	[RelayCommand(CanExecute = nameof(CanConnectToSelectedServer))]
-	private async Task ConnectToSelectedServerAsync()
+	[RelayCommand]
+	private async Task ConnectToSelectedServerAsync(DiscoveredServer? server)
 	{
-		if (SelectedServer == null)
+		if (server == null)
 			return;
 
-		await ConnectToServerAsync(SelectedServer.Url, SelectedServer.WebSocketUrl);
+		await ConnectToServerAsync(server.Url, server.WebSocketUrl);
 	}
 
 	[RelayCommand(CanExecute = nameof(CanConnectManually))]
@@ -117,8 +117,6 @@ public partial class LoginViewModel : BaseViewModel
 	{
 		ShowManualEntry = !ShowManualEntry;
 	}
-
-	private bool CanConnectToSelectedServer() => SelectedServer != null && !IsBusy;
 
 	private bool CanConnectManually() => !string.IsNullOrWhiteSpace(ManualServerUrl) && !IsBusy;
 
@@ -188,11 +186,6 @@ public partial class LoginViewModel : BaseViewModel
 				StatusMessage = $"Found {DiscoveredServers.Count} server(s)";
 			}
 		});
-	}
-
-	partial void OnSelectedServerChanged(DiscoveredServer? value)
-	{
-		ConnectToSelectedServerCommand.NotifyCanExecuteChanged();
 	}
 
 	partial void OnManualServerUrlChanged(string value)
