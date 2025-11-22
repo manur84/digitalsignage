@@ -55,26 +55,30 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
         {
             _cancellationTokenSource = new CancellationTokenSource();
 
-            // SSL is disabled - using HTTP/WS for simplicity
-            // For production SSL, use a reverse proxy (nginx/caddy/IIS)
+            // Check SSL configuration
             if (_settings.EnableSsl)
             {
                 _logger.LogWarning("===================================================================");
-                _logger.LogWarning("SSL CONFIGURATION SIMPLIFIED");
+                _logger.LogWarning("WSS (WEBSOCKET SECURE) NOT YET IMPLEMENTED");
                 _logger.LogWarning("===================================================================");
                 _logger.LogWarning("");
-                _logger.LogWarning("SSL/TLS is configured but will be ignored.");
-                _logger.LogWarning("The server now runs in HTTP/WS mode for development simplicity.");
+                _logger.LogWarning("SSL/TLS configuration is enabled but WebSocket Secure (WSS) with");
+                _logger.LogWarning("TcpListener + SslStream is not yet fully implemented.");
                 _logger.LogWarning("");
-                _logger.LogWarning("FOR PRODUCTION SSL:");
-                _logger.LogWarning("  Use a reverse proxy (nginx, caddy, or IIS) for SSL termination");
-                _logger.LogWarning("  This is the industry-standard approach and much simpler than");
-                _logger.LogWarning("  Windows netsh SSL bindings or HttpListener SSL configuration.");
+                _logger.LogWarning("The server will run in HTTP/WS mode for now.");
                 _logger.LogWarning("");
-                _logger.LogWarning("See README for nginx configuration example.");
+                _logger.LogWarning("TEMPORARY WORKAROUND:");
+                _logger.LogWarning("  - Python clients: Set use_ssl = False");
+                _logger.LogWarning("  - Mobile apps: Use ws:// instead of wss://");
+                _logger.LogWarning("");
+                _logger.LogWarning("PLANNED IMPLEMENTATION:");
+                _logger.LogWarning("  - TcpListener + SslStream for WSS");
+                _logger.LogWarning("  - Self-signed certificate support");
+                _logger.LogWarning("  - No netsh complexity");
+                _logger.LogWarning("");
                 _logger.LogWarning("===================================================================");
 
-                // Force disable SSL
+                // Force disable SSL temporarily
                 _settings.EnableSsl = false;
             }
 

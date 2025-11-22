@@ -16,8 +16,8 @@ class Config:
     server_port: int = 8080
     endpoint_path: str = "ws/"  # WebSocket endpoint path (default: ws/)
     registration_token: str = ""  # Token for client registration (required for new clients)
-    use_ssl: bool = False
-    verify_ssl: bool = True
+    use_ssl: bool = False  # WSS (WebSocket Secure) - currently not implemented on server
+    verify_ssl: bool = False  # Set to False for self-signed certificates
     fullscreen: bool = True
     log_level: str = "INFO"
     cache_dir: str = str(Path.home() / ".digitalsignage" / "cache")
@@ -70,7 +70,7 @@ class Config:
                     'endpoint_path': 'ws/',  # Default WebSocket endpoint path
                     'registration_token': '',
                     'use_ssl': False,
-                    'verify_ssl': True,
+                    'verify_ssl': False,  # Default to False for self-signed certs
                     'fullscreen': True,
                     'log_level': 'INFO',
                     'cache_dir': str(Path.home() / ".digitalsignage" / "cache"),

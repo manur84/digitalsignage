@@ -141,9 +141,8 @@ public static class ServiceCollectionExtensions
         // Infrastructure Services
         services.AddScoped<IAuthenticationService, AuthenticationService>();
         services.AddSingleton<IMobileAppService, MobileAppService>();
-        // SSL services removed - using HTTP for development, nginx for production SSL
-        // services.AddSingleton<ICertificateService, CertificateService>();
-        // services.AddSingleton<ISslBindingService, SslBindingService>();
+        // SSL/Certificate services for WSS (WebSocket Secure)
+        services.AddSingleton<ICertificateService, CertificateService>();
         services.AddSingleton<LogStorageService>();
         services.AddSingleton<QueryCacheService>();
         services.AddSingleton<AlertService>();
@@ -181,9 +180,6 @@ public static class ServiceCollectionExtensions
         // Register NetworkDiscoveryService as both interface and hosted service
         services.AddSingleton<INetworkDiscoveryService, NetworkDiscoveryService>();
         services.AddHostedService(sp => (NetworkDiscoveryService)sp.GetRequiredService<INetworkDiscoveryService>());
-
-        // Register REST API Host service
-        services.AddHostedService<Api.ApiHost>();
 
         return services;
     }

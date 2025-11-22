@@ -60,16 +60,8 @@ public interface ICertificateService
 
     /// <summary>
     /// Get the thumbprint (hash) of a certificate
-    /// Used for netsh SSL binding configuration
     /// </summary>
     /// <param name="certificate">Certificate to get thumbprint from</param>
     /// <returns>Certificate thumbprint in hexadecimal format</returns>
     string GetCertificateThumbprint(X509Certificate2 certificate);
-
-    /// <summary>
-    /// Get or generate the Application ID (GUID) for SSL binding
-    /// This GUID is used by netsh to identify the application that owns the SSL binding
-    /// </summary>
-    /// <returns>Application GUID in string format</returns>
-    string GetCertificateAppId();
 }

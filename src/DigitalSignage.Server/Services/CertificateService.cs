@@ -56,7 +56,8 @@ public class CertificateService : ICertificateService
     }
 
     /// <summary>
-    /// Get or create a server certificate for SSL/TLS connections
+    /// Get or create a server certificate for WSS (WebSocket Secure) connections
+    /// Simplified version without Windows Certificate Store complexity
     /// </summary>
     public X509Certificate2? GetOrCreateServerCertificate()
     {
@@ -67,35 +68,32 @@ public class CertificateService : ICertificateService
             return null;
         }
 
-        _logger.LogInformation("SSL is enabled - loading or generating certificate...");
+        _logger.LogInformation("WSS (WebSocket Secure) enabled - loading or generating certificate...");
 
         // Try to load from configured path first
         if (!string.IsNullOrWhiteSpace(_settings.CertificatePath))
         {
             var cert = LoadCertificateFromFile(_settings.CertificatePath, _settings.CertificatePassword);
-            if (cert != null)
+            if (cert != null && ValidateServerCertificate(cert))
             {
-                if (ValidateServerCertificate(cert))
-                {
-                    _logger.LogInformation("Successfully loaded certificate from {Path}", _settings.CertificatePath);
-                    _logger.LogInformation("Certificate Subject: {Subject}", cert.Subject);
-                    _logger.LogInformation("Certificate Issuer: {Issuer}", cert.Issuer);
-                    _logger.LogInformation("Certificate Valid: {NotBefore} to {NotAfter}",
-                        cert.NotBefore, cert.NotAfter);
-                    return cert;
-                }
-                else
-                {
-                    _logger.LogWarning("Certificate from {Path} is not valid for server use", _settings.CertificatePath);
-                    cert.Dispose();
-                }
+                _logger.LogInformation("Successfully loaded certificate from {Path}", _settings.CertificatePath);
+                _logger.LogInformation("Certificate Subject: {Subject}", cert.Subject);
+                _logger.LogInformation("Certificate Issuer: {Issuer}", cert.Issuer);
+                _logger.LogInformation("Certificate Valid: {NotBefore} to {NotAfter}",
+                    cert.NotBefore, cert.NotAfter);
+                return cert;
+            }
+            else if (cert != null)
+            {
+                _logger.LogWarning("Certificate from {Path} is not valid for server use", _settings.CertificatePath);
+                cert.Dispose();
             }
         }
 
         // No valid certificate found - generate self-signed for development
-        _logger.LogWarning("No valid certificate found - generating self-signed certificate for development");
-        _logger.LogWarning("⚠️  Self-signed certificates are NOT secure for production use!");
-        _logger.LogWarning("⚠️  Clients will need to accept/trust this certificate manually");
+        _logger.LogWarning("No valid certificate found - generating self-signed certificate");
+        _logger.LogWarning("Self-signed certificates are for DEVELOPMENT ONLY!");
+        _logger.LogWarning("Clients will need to disable SSL verification or trust this certificate");
 
         try
         {
@@ -115,9 +113,8 @@ public class CertificateService : ICertificateService
             var generatedCert = LoadCertificateFromFile(certPath, defaultPassword);
             if (generatedCert != null)
             {
-                _logger.LogInformation("✅ Self-signed certificate generated and loaded successfully");
+                _logger.LogInformation("Self-signed certificate generated and loaded successfully");
                 _logger.LogInformation("Certificate saved to: {Path}", certPath);
-                _logger.LogInformation("Certificate password: {Password}", defaultPassword);
                 return generatedCert;
             }
         }
@@ -149,13 +146,9 @@ public class CertificateService : ICertificateService
         try
         {
             // Load certificate with private key
-            // CRITICAL FLAGS for Windows Certificate Store compatibility:
-            // - MachineKeySet: Store key in LocalMachine (not CurrentUser)
-            // - PersistKeySet: Save the private key persistently in certificate store
-            // - Exportable: Allow private key to be exported (needed for backups)
-            var flags = X509KeyStorageFlags.MachineKeySet |
-                       X509KeyStorageFlags.PersistKeySet |
-                       X509KeyStorageFlags.Exportable;
+            // Simplified flags for WSS - no Windows Certificate Store persistence needed
+            // - Exportable: Allow private key to be exported (needed for SslStream)
+            var flags = X509KeyStorageFlags.Exportable;
 
             var cert = new X509Certificate2(path, password, flags);
 
@@ -397,31 +390,5 @@ public class CertificateService : ICertificateService
             throw new ArgumentNullException(nameof(certificate));
 
         return certificate.Thumbprint;
-    }
-
-    /// <summary>
-    /// Get or generate the Application ID (GUID) for SSL binding
-    /// Returns the configured AppId from ServerSettings, or generates a consistent GUID
-    /// </summary>
-    public string GetCertificateAppId()
-    {
-        // Use configured SslAppId if available
-        if (!string.IsNullOrWhiteSpace(_settings.SslAppId))
-        {
-            // Validate it's a valid GUID format
-            if (Guid.TryParse(_settings.SslAppId, out _))
-            {
-                return _settings.SslAppId;
-            }
-            else
-            {
-                _logger.LogWarning("Configured SslAppId '{SslAppId}' is not a valid GUID, using default", _settings.SslAppId);
-            }
-        }
-
-        // Default: Use a consistent GUID for DigitalSignage Server
-        // This GUID should remain constant to allow multiple instances to share the same binding
-        const string defaultAppId = "12345678-1234-1234-1234-123456789ABC";
-        return defaultAppId;
     }
 }
