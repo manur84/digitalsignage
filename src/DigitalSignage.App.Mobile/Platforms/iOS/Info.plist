@@ -42,5 +42,14 @@
 	<!-- Face ID/Touch ID -->
 	<key>NSFaceIDUsageDescription</key>
 	<string>Use Face ID to securely access the Digital Signage app</string>
+
+	<!-- Allow HTTP connections to local servers (Development) -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 </dict>
 </plist>

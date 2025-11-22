@@ -149,7 +149,8 @@ public class ServerDiscoveryService : IServerDiscoveryService
 				Hostname = host.DisplayName,
 				IPAddress = ipAddress,
 				Port = port,
-				DiscoveredAt = DateTime.Now
+				DiscoveredAt = DateTime.Now,
+				UseSSL = true // Default to HTTPS (required by iOS)
 			};
 
 			// Parse TXT records for additional info
@@ -175,6 +176,8 @@ public class ServerDiscoveryService : IServerDiscoveryService
 					}
 				}
 			}
+
+			Console.WriteLine($"Parsed server: {server.Url} (SSL: {server.UseSSL})");
 
 			return server;
 		}
