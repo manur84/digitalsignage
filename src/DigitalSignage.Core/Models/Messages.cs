@@ -9,6 +9,12 @@ public abstract class Message
     public string Type { get; set; } = string.Empty;
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
     public string SenderId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Protocol version (Semantic Versioning: MAJOR.MINOR.PATCH)
+    /// Optional for backward compatibility with legacy clients
+    /// </summary>
+    public string? Version { get; set; }
 }
 
 /// <summary>

@@ -39,6 +39,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
     private readonly IServiceProvider _serviceProvider; // For scoped service access
     private readonly ICertificateService _certificateService;
     private readonly MessageHandlerFactory _messageHandlerFactory;
+    private readonly MessageVersionValidator _versionValidator;
     private TcpListener? _tcpListener;
     private CancellationTokenSource? _cancellationTokenSource;
     private Task? _acceptClientsTask;
@@ -51,13 +52,15 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
         ServerSettings settings,
         IServiceProvider serviceProvider,
         ICertificateService certificateService,
-        MessageHandlerFactory messageHandlerFactory)
+        MessageHandlerFactory messageHandlerFactory,
+        MessageVersionValidator versionValidator)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
         _certificateService = certificateService ?? throw new ArgumentNullException(nameof(certificateService));
         _messageHandlerFactory = messageHandlerFactory ?? throw new ArgumentNullException(nameof(messageHandlerFactory));
+        _versionValidator = versionValidator ?? throw new ArgumentNullException(nameof(versionValidator));
         _messageSerializer = new WebSocketMessageSerializer(serializerLogger, enableCompression: true);
     }
 
@@ -316,6 +319,12 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
 
                 _logger.LogDebug("Serializing message type {MessageType} for client {ClientId}", message.Type, clientId);
 
+                // Add protocol version to outgoing message
+                if (string.IsNullOrWhiteSpace(message.Version))
+                {
+                    message.Version = _versionValidator.GetServerVersion().ToString();
+                }
+
                 var settings = new JsonSerializerSettings
                 {
                     TypeNameHandling = TypeNameHandling.Auto,
@@ -355,6 +364,12 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
 
     public async Task BroadcastMessageAsync(Message message, CancellationToken cancellationToken = default)
     {
+        // Add protocol version to outgoing message
+        if (string.IsNullOrWhiteSpace(message.Version))
+        {
+            message.Version = _versionValidator.GetServerVersion().ToString();
+        }
+
         var settings = new JsonSerializerSettings
         {
             TypeNameHandling = TypeNameHandling.Auto,
@@ -547,6 +562,9 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
             _clients.TryRemove(clientId, out _);
             _clientHandlerTasks.TryRemove(clientId, out _);
 
+            // Clean up version cache
+            _versionValidator.RemoveClientVersion(clientId);
+
             // Clean up mobile app connection if applicable
             if (_mobileAppConnections.TryRemove(clientId, out _))
             {
@@ -630,6 +648,49 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
 
             _logger.LogDebug("Processing message type: {MessageType} from {ConnectionId} (has $type: {HasTypeHint})",
                 messageType, connection.ConnectionId, hasTypeHint);
+
+            // ============================================
+            // MESSAGE VERSION VALIDATION
+            // ============================================
+
+            // Extract version from message (optional for backward compatibility)
+            var versionString = jsonObject["version"]?.ToString() ?? jsonObject["Version"]?.ToString();
+
+            // Validate client version
+            var versionResult = _versionValidator.ValidateVersion(versionString, connection.ConnectionId);
+
+            if (!versionResult.IsCompatible)
+            {
+                _logger.LogError("Incompatible protocol version from {ConnectionId}: {Message}",
+                    connection.ConnectionId, versionResult.Message);
+
+                // Send error message to client
+                try
+                {
+                    var errorResponse = new
+                    {
+                        type = "ERROR",
+                        message = versionResult.Message,
+                        serverVersion = versionResult.ServerVersion?.ToString(),
+                        clientVersion = versionResult.ClientVersion?.ToString()
+                    };
+
+                    var errorJson = JsonConvert.SerializeObject(errorResponse);
+                    await connection.SendTextAsync(errorJson, cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to send version error to client {ConnectionId}", connection.ConnectionId);
+                }
+
+                // Close connection with incompatible version
+                await connection.CloseAsync(cancellationToken);
+                return;
+            }
+
+            // Version is compatible - log for monitoring
+            _logger.LogDebug("Client {ConnectionId} version validated: {ClientVersion} (Server: {ServerVersion})",
+                connection.ConnectionId, versionResult.ClientVersion, versionResult.ServerVersion);
 
             Message? message;
 

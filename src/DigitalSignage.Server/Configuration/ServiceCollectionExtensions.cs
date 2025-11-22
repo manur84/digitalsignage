@@ -171,6 +171,9 @@ public static class ServiceCollectionExtensions
         // Mobile App Connection Manager
         services.AddSingleton<MobileAppConnectionManager>();
 
+        // Message Versioning
+        services.AddSingleton<MessageVersionValidator>();
+
         // Message Handlers (Handler Pattern for WebSocket messages)
         // Pi Client Message Handlers
         services.AddTransient<IMessageHandler, RegisterMessageHandler>();
