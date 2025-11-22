@@ -7,17 +7,24 @@ using Microsoft.Extensions.DependencyInjection;
 using System.Collections.Concurrent;
 using System.Linq;
 using System.Net;
-using System.Net.WebSockets;
+using System.Net.Sockets;
+using System.Net.Security;
+using System.Security.Authentication;
+using System.Security.Cryptography.X509Certificates;
+using System.Text;
+using Newtonsoft.Json;
+using JsonException = Newtonsoft.Json.JsonException;
+using JsonSerializer = Newtonsoft.Json.JsonSerializer;
 
 namespace DigitalSignage.Server.Services;
 
 public class WebSocketCommunicationService : ICommunicationService, IDisposable
 {
-    private readonly ConcurrentDictionary<string, WebSocket> _clients = new();
+    private readonly ConcurrentDictionary<string, SslWebSocketConnection> _clients = new();
     private readonly ConcurrentDictionary<string, Task> _clientHandlerTasks = new();
 
     // Mobile App Connections (separate from Pi clients)
-    private readonly ConcurrentDictionary<string, WebSocket> _mobileAppConnections = new();
+    private readonly ConcurrentDictionary<string, SslWebSocketConnection> _mobileAppConnections = new();
     private readonly ConcurrentDictionary<string, Guid> _mobileAppIds = new(); // Maps connection ID to app ID
     private readonly ConcurrentDictionary<string, string> _mobileAppTokens = new(); // Maps connection ID to token
 
@@ -25,20 +32,24 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
     private readonly WebSocketMessageSerializer _messageSerializer;
     private readonly ServerSettings _settings;
     private readonly IServiceProvider _serviceProvider; // For scoped service access
-    private HttpListener? _httpListener;
+    private readonly ICertificateService _certificateService;
+    private TcpListener? _tcpListener;
     private CancellationTokenSource? _cancellationTokenSource;
     private Task? _acceptClientsTask;
     private bool _disposed = false;
+    private int _currentPort;
 
     public WebSocketCommunicationService(
         ILogger<WebSocketCommunicationService> logger,
         ILogger<WebSocketMessageSerializer> serializerLogger,
         ServerSettings settings,
-        IServiceProvider serviceProvider)
+        IServiceProvider serviceProvider,
+        ICertificateService certificateService)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+        _certificateService = certificateService ?? throw new ArgumentNullException(nameof(certificateService));
         _messageSerializer = new WebSocketMessageSerializer(serializerLogger, enableCompression: true);
     }
 
@@ -55,179 +66,93 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
         {
             _cancellationTokenSource = new CancellationTokenSource();
 
-            // Check SSL configuration
-            if (_settings.EnableSsl)
+            // WSS-ONLY: SSL MUST be enabled
+            if (!_settings.EnableSsl)
             {
-                _logger.LogWarning("===================================================================");
-                _logger.LogWarning("WSS (WEBSOCKET SECURE) NOT YET IMPLEMENTED");
-                _logger.LogWarning("===================================================================");
-                _logger.LogWarning("");
-                _logger.LogWarning("SSL/TLS configuration is enabled but WebSocket Secure (WSS) with");
-                _logger.LogWarning("TcpListener + SslStream is not yet fully implemented.");
-                _logger.LogWarning("");
-                _logger.LogWarning("The server will run in HTTP/WS mode for now.");
-                _logger.LogWarning("");
-                _logger.LogWarning("TEMPORARY WORKAROUND:");
-                _logger.LogWarning("  - Python clients: Set use_ssl = False");
-                _logger.LogWarning("  - Mobile apps: Use ws:// instead of wss://");
-                _logger.LogWarning("");
-                _logger.LogWarning("PLANNED IMPLEMENTATION:");
-                _logger.LogWarning("  - TcpListener + SslStream for WSS");
-                _logger.LogWarning("  - Self-signed certificate support");
-                _logger.LogWarning("  - No netsh complexity");
-                _logger.LogWarning("");
-                _logger.LogWarning("===================================================================");
+                _logger.LogError("===================================================================");
+                _logger.LogError("SSL MUST BE ENABLED FOR WSS-ONLY MODE");
+                _logger.LogError("===================================================================");
+                _logger.LogError("");
+                _logger.LogError("This server now ONLY supports WSS (WebSocket Secure).");
+                _logger.LogError("Unencrypted WS connections are no longer supported.");
+                _logger.LogError("");
+                _logger.LogError("SOLUTION:");
+                _logger.LogError("  - Set EnableSsl=true in appsettings.json");
+                _logger.LogError("  - A self-signed certificate will be generated automatically");
+                _logger.LogError("");
+                _logger.LogError("===================================================================");
 
-                // Force disable SSL temporarily
-                _settings.EnableSsl = false;
+                throw new InvalidOperationException("WSS-ONLY mode requires SSL to be enabled. Set EnableSsl=true in appsettings.json");
             }
 
-            _httpListener = new HttpListener();
+            // Load or generate SSL certificate
+            var certificate = _certificateService.GetOrCreateServerCertificate();
+            if (certificate == null)
+            {
+                _logger.LogError("===================================================================");
+                _logger.LogError("FAILED TO LOAD SSL CERTIFICATE");
+                _logger.LogError("===================================================================");
+                _logger.LogError("");
+                _logger.LogError("Could not load or generate SSL certificate.");
+                _logger.LogError("");
+                _logger.LogError("Check:");
+                _logger.LogError("  - Certificate path: {CertPath}", _settings.CertificatePath);
+                _logger.LogError("  - Certificate password is correct");
+                _logger.LogError("  - Write permissions to certs/ directory");
+                _logger.LogError("");
+                _logger.LogError("===================================================================");
 
-            // ✅ LOGIC FIX: Use GetAvailablePort() to enable automatic port fallback
-            // This ensures AlternativePorts are actually tried when the configured port is in use
-            var actualPort = _settings.GetAvailablePort();
-            if (actualPort != _settings.Port)
+                throw new InvalidOperationException("SSL certificate required for WSS server");
+            }
+
+            // Get available port (with fallback support)
+            _currentPort = _settings.GetAvailablePort();
+            if (_currentPort != _settings.Port)
             {
                 _logger.LogInformation("Port fallback: Configured port {ConfiguredPort} in use, using {ActualPort} instead",
-                    _settings.Port, actualPort);
-                _settings.Port = actualPort; // Update settings with selected port
+                    _settings.Port, _currentPort);
             }
 
-            // Try different binding options in order of preference
-            var bindingAttempts = new List<(string prefix, string description)>();
+            _logger.LogInformation("===================================================================");
+            _logger.LogInformation("STARTING WSS (WEBSOCKET SECURE) SERVER");
+            _logger.LogInformation("===================================================================");
+            _logger.LogInformation("");
+            _logger.LogInformation("Transport: TcpListener + SslStream + WebSocket Protocol");
+            _logger.LogInformation("Port: {Port}", _currentPort);
+            _logger.LogInformation("Certificate: {Subject}", certificate.Subject);
+            _logger.LogInformation("Certificate Thumbprint: {Thumbprint}", certificate.Thumbprint);
+            _logger.LogInformation("Valid Until: {NotAfter}", certificate.NotAfter);
+            _logger.LogInformation("");
+            _logger.LogInformation("Client Configuration:");
+            _logger.LogInformation("  - Python clients: use_ssl=True, verify_ssl=False (self-signed)");
+            _logger.LogInformation("  - Mobile apps: Accept self-signed certificates");
+            _logger.LogInformation("");
+            _logger.LogInformation("===================================================================");
 
-            // 1. Try wildcard binding first (if URL ACL exists or running as admin)
-            if (UrlAclManager.IsUrlAclConfigured(_settings.Port) || UrlAclManager.IsRunningAsAdministrator())
-            {
-                bindingAttempts.Add((_settings.GetUrlPrefix(), "all interfaces"));
-            }
+            // Start TcpListener on all interfaces
+            _tcpListener = new TcpListener(IPAddress.Any, _currentPort);
+            _tcpListener.Start();
 
-            // 2. Try specific IP addresses
-            var localIPs = System.Net.Dns.GetHostAddresses(System.Net.Dns.GetHostName())
-                .Where(ip => ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
-                .Select(ip => ip.ToString());
-
-            foreach (var ip in localIPs)
-            {
-                var ipProtocol = _settings.EnableSsl ? "https" : "http";
-                bindingAttempts.Add(($"{ipProtocol}://{ip}:{_settings.Port}{_settings.EndpointPath}", $"IP {ip}"));
-            }
-
-            // 3. Always add localhost and 127.0.0.1 as fallbacks
-            bindingAttempts.Add((_settings.GetLocalhostPrefix(), "localhost"));
-            bindingAttempts.Add(($"{(_settings.EnableSsl ? "https" : "http")}://127.0.0.1:{_settings.Port}{_settings.EndpointPath}", "127.0.0.1"));
-
-            bool started = false;
-            string successfulPrefix = "";
-            string bindMode = "";
-
-            // Try each binding option
-            foreach (var (prefix, description) in bindingAttempts)
-            {
-                try
-                {
-                    _logger.LogDebug("Attempting to bind to {Prefix} ({Description})", prefix, description);
-
-                    // Clear any previous prefixes
-                    _httpListener.Prefixes.Clear();
-                    _httpListener.Prefixes.Add(prefix);
-
-                    _httpListener.Start();
-
-                    successfulPrefix = prefix;
-                    bindMode = description;
-                    started = true;
-
-                    _logger.LogInformation("Successfully bound to {Prefix} ({Description})", prefix, description);
-                    break;
-                }
-                catch (HttpListenerException ex) when (ex.ErrorCode == 5) // Access denied
-                {
-                    _logger.LogDebug("Access denied for {Prefix}, trying next option...", prefix);
-                    _httpListener?.Stop();
-                    _httpListener = new HttpListener(); // Create fresh listener
-                    continue;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogDebug(ex, "Failed to bind to {Prefix}, trying next option...", prefix);
-                    _httpListener?.Stop();
-                    _httpListener = new HttpListener(); // Create fresh listener
-                    continue;
-                }
-            }
-
-            if (!started)
-            {
-                _logger.LogError("===================================================================");
-                _logger.LogError("FAILED TO START WEBSOCKET SERVER");
-                _logger.LogError("===================================================================");
-                _logger.LogError("");
-                _logger.LogError("Could not bind to any network interface on port {Port}", _settings.Port);
-                _logger.LogError("");
-                _logger.LogError("SOLUTIONS:");
-                _logger.LogError("  1. Run setup-urlacl.bat as Administrator (recommended)");
-                _logger.LogError("  2. Run this application as Administrator");
-                _logger.LogError("  3. Check if another application is using port {Port}", _settings.Port);
-                _logger.LogError("  4. Check Windows Firewall settings");
-                _logger.LogError("");
-                _logger.LogError("===================================================================");
-
-                throw new InvalidOperationException(
-                    $"Cannot start WebSocket server on port {_settings.Port}. " +
-                    $"No binding option succeeded. Check logs for details.");
-            }
-
-            // Warn if running in limited mode
-            if (bindMode.Contains("localhost") || bindMode.Contains("127.0.0.1"))
-            {
-                _logger.LogWarning("===================================================================");
-                _logger.LogWarning("SERVER RUNNING IN LIMITED MODE");
-                _logger.LogWarning("===================================================================");
-                _logger.LogWarning("");
-                _logger.LogWarning("The server is only accessible from this machine.");
-                _logger.LogWarning("External clients (like Raspberry Pi) CANNOT connect!");
-                _logger.LogWarning("");
-                _logger.LogWarning("To enable external access:");
-                _logger.LogWarning("  1. Run setup-urlacl.bat as Administrator");
-                _logger.LogWarning("  2. Restart the application");
-                _logger.LogWarning("");
-                _logger.LogWarning("===================================================================");
-            }
-
-            // SSL is always disabled now - using HTTP/WS
-            var protocol = "HTTP/WS";
-            _logger.LogInformation("WebSocket server started on port {Port} using {Protocol} ({BindMode})",
-                _settings.Port, protocol, bindMode);
-            _logger.LogInformation("WebSocket endpoint: {Endpoint}", successfulPrefix);
+            _logger.LogInformation("WSS server listening on wss://0.0.0.0:{Port}/ws", _currentPort);
 
             // Show all available connection URLs
-            if (!bindMode.Contains("localhost") && !bindMode.Contains("127.0.0.1"))
+            var localIPs = System.Net.Dns.GetHostAddresses(System.Net.Dns.GetHostName())
+                .Where(ip => ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork);
+
+            _logger.LogInformation("Clients can connect using:");
+            foreach (var ip in localIPs)
             {
-                _logger.LogInformation("Clients can connect using:");
-                if (successfulPrefix.Contains("+"))
-                {
-                    // Wildcard binding - show all IPs
-                    foreach (var ip in localIPs)
-                    {
-                        _logger.LogInformation("  - ws://{IP}:{Port}{Path}", ip, _settings.Port, _settings.EndpointPath);
-                    }
-                }
-                else
-                {
-                    _logger.LogInformation("  - {Endpoint}", successfulPrefix.Replace("http://", "ws://").Replace("https://", "wss://"));
-                }
+                _logger.LogInformation("  - wss://{IP}:{Port}/ws", ip, _currentPort);
             }
 
-            // Track the accept clients task instead of fire-and-forget
-            _acceptClientsTask = Task.Run(() => AcceptClientsAsync(_cancellationTokenSource.Token));
+            // Start accepting clients
+            _acceptClientsTask = Task.Run(() => AcceptClientsAsync(_cancellationTokenSource.Token, certificate));
 
             await Task.CompletedTask;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to start WebSocket server");
+            _logger.LogError(ex, "Failed to start WSS server");
             throw;
         }
     }
@@ -236,60 +161,53 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
     {
         ThrowIfDisposed();
 
-        _logger.LogInformation("Stopping WebSocket communication service...");
+        _logger.LogInformation("Stopping WSS communication service...");
 
         // 1. Cancel accept loop
         _cancellationTokenSource?.Cancel();
 
-        // 2. Stop and close HTTP listener
-        if (_httpListener != null)
+        // 2. Stop TcpListener
+        if (_tcpListener != null)
         {
             try
             {
-                _httpListener.Stop();
-                _httpListener.Close();
-                _logger.LogDebug("HttpListener stopped and closed");
+                _tcpListener.Stop();
+                _logger.LogDebug("TcpListener stopped");
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Error stopping HttpListener");
+                _logger.LogWarning(ex, "Error stopping TcpListener");
             }
         }
 
         // 3. Close all client connections gracefully
-        var socketsSnapshot = _clients.Values.ToList();
-        var closeTasks = socketsSnapshot.Select(async socket =>
+        var connectionsSnapshot = _clients.Values.ToList();
+        var closeTasks = connectionsSnapshot.Select(async connection =>
         {
             try
             {
-                if (socket.State == WebSocketState.Open || socket.State == WebSocketState.CloseReceived)
-                {
-                    await socket.CloseAsync(
-                        WebSocketCloseStatus.NormalClosure,
-                        "Server shutting down",
-                        cancellationToken);
-                }
+                await connection.CloseAsync(cancellationToken);
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Error closing client WebSocket during shutdown");
+                _logger.LogWarning(ex, "Error closing client connection during shutdown");
             }
         });
 
         try
         {
             await Task.WhenAll(closeTasks);
-            _logger.LogInformation("All {Count} client connections closed", socketsSnapshot.Count);
+            _logger.LogInformation("All {Count} client connections closed", connectionsSnapshot.Count);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Error waiting for client connections to close");
         }
 
-        // 4. Dispose all sockets and clear dictionary
-        foreach (var socket in socketsSnapshot)
+        // 4. Dispose all connections and clear dictionary
+        foreach (var connection in connectionsSnapshot)
         {
-            try { socket.Dispose(); } catch { }
+            try { connection.Dispose(); } catch { }
         }
 
         // 5. Wait for accept clients task to complete (with 10s timeout)
@@ -339,7 +257,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
         _cancellationTokenSource = null;
         _acceptClientsTask = null;
 
-        _logger.LogInformation("WebSocket communication service stopped successfully");
+        _logger.LogInformation("WSS communication service stopped successfully");
     }
 
     public async Task SendMessageAsync(
@@ -349,18 +267,24 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
     {
         ThrowIfDisposed();
 
-        if (_clients.TryGetValue(clientId, out var socket))
+        if (_clients.TryGetValue(clientId, out var connection))
         {
             try
             {
-                if (socket.State != WebSocketState.Open)
+                if (!connection.IsConnected)
                 {
                     _logger.LogWarning("Cannot send message to client {ClientId}: connection not open", clientId);
                     return;
                 }
 
-                // Delegate to WebSocketMessageSerializer
-                await _messageSerializer.SendMessageAsync(socket, clientId, message, cancellationToken);
+                var settings = new JsonSerializerSettings
+                {
+                    TypeNameHandling = TypeNameHandling.Auto,
+                    NullValueHandling = NullValueHandling.Ignore,
+                    DefaultValueHandling = DefaultValueHandling.Include
+                };
+                var json = JsonConvert.SerializeObject(message, settings);
+                await connection.SendTextAsync(json, cancellationToken);
             }
             catch (Exception ex)
             {
@@ -376,18 +300,38 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
 
     public async Task BroadcastMessageAsync(Message message, CancellationToken cancellationToken = default)
     {
-        // Send to all connected clients using WebSocketMessageSerializer
-        var tasks = _clients.Select(kvp =>
-            _messageSerializer.SendMessageAsync(kvp.Value, kvp.Key, message, cancellationToken));
+        var settings = new JsonSerializerSettings
+        {
+            TypeNameHandling = TypeNameHandling.Auto,
+            NullValueHandling = NullValueHandling.Ignore,
+            DefaultValueHandling = DefaultValueHandling.Include
+        };
+        var json = JsonConvert.SerializeObject(message, settings);
+
+        // Send to all connected clients
+        var tasks = _clients.Values.Select(async connection =>
+        {
+            try
+            {
+                if (connection.IsConnected)
+                {
+                    await connection.SendTextAsync(json, cancellationToken);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to broadcast to connection {ConnectionId}", connection.ConnectionId);
+            }
+        });
 
         await Task.WhenAll(tasks);
     }
 
     public void UpdateClientId(string oldClientId, string newClientId)
     {
-        if (_clients.TryRemove(oldClientId, out var socket))
+        if (_clients.TryRemove(oldClientId, out var connection))
         {
-            _clients[newClientId] = socket;
+            _clients[newClientId] = connection;
             _logger.LogInformation("Updated WebSocket client ID mapping from {OldId} to {NewId}", oldClientId, newClientId);
         }
         else
@@ -396,125 +340,111 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
         }
     }
 
-    private async Task AcceptClientsAsync(CancellationToken cancellationToken)
+    private async Task AcceptClientsAsync(CancellationToken cancellationToken, X509Certificate2 certificate)
     {
-        while (!cancellationToken.IsCancellationRequested && _httpListener != null)
+        _logger.LogInformation("WSS accept loop started - waiting for client connections...");
+
+        while (!cancellationToken.IsCancellationRequested && _tcpListener != null)
         {
             try
             {
-                var context = await _httpListener.GetContextAsync();
-                if (context.Request.IsWebSocketRequest)
-                {
-                    var wsContext = await context.AcceptWebSocketAsync(null);
-                    var clientId = Guid.NewGuid().ToString();
-                    _clients[clientId] = wsContext.WebSocket;
-
-                    var ipAddress = context.Request.RemoteEndPoint?.Address.ToString() ?? "unknown";
-                    _logger.LogInformation("Client {ClientId} connected from {IpAddress}", clientId, ipAddress);
-
-                    ClientConnected?.Invoke(this, new ClientConnectedEventArgs
-                    {
-                        ClientId = clientId,
-                        IpAddress = ipAddress
-                    });
-
-                    // Track each client handler task instead of fire-and-forget
-                    var handlerTask = Task.Run(() => HandleClientAsync(clientId, wsContext.WebSocket, cancellationToken));
-                    _clientHandlerTasks[clientId] = handlerTask;
-                }
-                else
-                {
-                    context.Response.StatusCode = 400;
-                    context.Response.Close();
-                }
+                var tcpClient = await _tcpListener.AcceptTcpClientAsync(cancellationToken);
+                _ = Task.Run(() => HandleTcpClientAsync(tcpClient, certificate, cancellationToken), cancellationToken);
             }
-            catch (HttpListenerException ex)
+            catch (OperationCanceledException)
             {
-                _logger.LogError(ex, "HTTP listener error while accepting clients");
+                _logger.LogDebug("Accept clients task cancelled");
+                break;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Unexpected error while accepting clients");
+                _logger.LogError(ex, "Error accepting TCP client");
             }
         }
+
+        _logger.LogInformation("WSS accept loop stopped");
     }
 
-    private async Task HandleClientAsync(
-        string clientId,
-        WebSocket socket,
-        CancellationToken cancellationToken)
+    private async Task HandleTcpClientAsync(TcpClient tcpClient, X509Certificate2 certificate, CancellationToken cancellationToken)
     {
+        SslWebSocketConnection? connection = null;
+
         try
         {
-            while (socket.State == WebSocketState.Open && !cancellationToken.IsCancellationRequested)
+            var remoteEndPoint = tcpClient.Client.RemoteEndPoint?.ToString();
+            _logger.LogInformation("TCP client connecting from {RemoteEndPoint}", remoteEndPoint);
+
+            // SSL Handshake
+            var sslStream = new SslStream(tcpClient.GetStream(), false);
+            await sslStream.AuthenticateAsServerAsync(
+                certificate,
+                clientCertificateRequired: false,
+                enabledSslProtocols: SslProtocols.Tls12 | SslProtocols.Tls13,
+                checkCertificateRevocation: false
+            );
+
+            _logger.LogInformation("SSL handshake completed with {RemoteEndPoint} (Protocol: {Protocol})",
+                remoteEndPoint, sslStream.SslProtocol);
+
+            // WebSocket Handshake
+            connection = new SslWebSocketConnection(tcpClient, sslStream, _logger);
+
+            if (!await connection.PerformWebSocketHandshakeAsync(cancellationToken))
             {
-                try
-                {
-                    // Delegate to WebSocketMessageSerializer for receiving and deserializing
-                    var message = await _messageSerializer.ReceiveMessageAsync(socket, clientId, cancellationToken);
-
-                    if (message != null)
-                    {
-                        // Check if this is a mobile app message (has mobile app message type)
-                        if (IsMobileAppMessage(message))
-                        {
-                            await HandleMobileAppMessageAsync(clientId, socket, message, cancellationToken);
-                        }
-                        else
-                        {
-                            // For REGISTER messages, use the ClientId from the message for the event
-                            var eventClientId = clientId;
-                            if (message is RegisterMessage registerMsg && !string.IsNullOrWhiteSpace(registerMsg.ClientId))
-                            {
-                                eventClientId = registerMsg.ClientId;
-
-                                // Update the WebSocket client mapping if the client ID is different
-                                if (eventClientId != clientId)
-                                {
-                                    _logger.LogInformation("Client registering with ID {RegisteredId} (WebSocket connection ID: {ConnectionId})",
-                                        eventClientId, clientId);
-                                    UpdateClientId(clientId, eventClientId);
-                                    clientId = eventClientId; // Use the registered ID for the rest of the connection
-                                }
-                            }
-
-                            MessageReceived?.Invoke(this, new MessageReceivedEventArgs
-                            {
-                                ClientId = eventClientId,
-                                Message = message
-                            });
-                        }
-                    }
-                }
-                catch (WebSocketException ex) when (ex.WebSocketErrorCode == WebSocketError.ConnectionClosedPrematurely)
-                {
-                    _logger.LogInformation("Client {ClientId} closed connection without completing handshake", clientId);
-                    break;
-                }
-                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-                {
-                    _logger.LogDebug("Client {ClientId} message receive cancelled", clientId);
-                    break;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error processing message from client {ClientId}", clientId);
-                    // Continue processing to maintain connection
-                    continue;
-                }
+                _logger.LogWarning("WebSocket handshake failed for {RemoteEndPoint}", remoteEndPoint);
+                return;
             }
+
+            var clientId = connection.ConnectionId;
+            _clients[clientId] = connection;
+
+            _logger.LogInformation("WSS connection established: {ConnectionId} from {RemoteEndPoint}", clientId, remoteEndPoint);
+
+            ClientConnected?.Invoke(this, new ClientConnectedEventArgs
+            {
+                ClientId = clientId,
+                IpAddress = connection.ClientIpAddress ?? "unknown"
+            });
+
+            // Handle WebSocket messages
+            await HandleWebSocketConnectionAsync(connection, cancellationToken);
         }
-        catch (WebSocketException ex) when (ex.WebSocketErrorCode == WebSocketError.ConnectionClosedPrematurely)
+        catch (AuthenticationException ex)
         {
-            _logger.LogInformation("Client {ClientId} closed connection without completing handshake", clientId);
-        }
-        catch (WebSocketException ex)
-        {
-            _logger.LogWarning(ex, "WebSocket error for client {ClientId}: {ErrorCode}", clientId, ex.WebSocketErrorCode);
+            _logger.LogError(ex, "SSL authentication failed for {RemoteEndPoint}", tcpClient.Client.RemoteEndPoint);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Unexpected error handling client {ClientId}", clientId);
+            _logger.LogError(ex, "Error handling TCP/SSL client");
+        }
+        finally
+        {
+            connection?.Dispose();
+        }
+    }
+
+    private async Task HandleWebSocketConnectionAsync(SslWebSocketConnection connection, CancellationToken cancellationToken)
+    {
+        var clientId = connection.ConnectionId;
+
+        try
+        {
+            while (connection.IsConnected && !cancellationToken.IsCancellationRequested)
+            {
+                var frame = await connection.ReceiveFrameAsync(cancellationToken);
+
+                if (frame == null)
+                {
+                    _logger.LogInformation("Connection closed: {ConnectionId}", clientId);
+                    break;
+                }
+
+                await HandleWebSocketFrameAsync(connection, frame, cancellationToken);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error handling WebSocket connection {ConnectionId}", clientId);
         }
         finally
         {
@@ -538,17 +468,114 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
                 ClientId = clientId,
                 Reason = "Connection closed"
             });
-
-            if (socket.State == WebSocketState.Open)
-            {
-                await socket.CloseAsync(
-                    WebSocketCloseStatus.NormalClosure,
-                    "Closing",
-                    CancellationToken.None);
-            }
-            socket.Dispose();
         }
     }
+
+    private async Task HandleWebSocketFrameAsync(SslWebSocketConnection connection, WebSocketFrame frame, CancellationToken cancellationToken)
+    {
+        try
+        {
+            switch (frame.Opcode)
+            {
+                case WebSocketOpcode.Text:
+                    var message = Encoding.UTF8.GetString(frame.Payload);
+                    _logger.LogDebug("Received text message from {ConnectionId}: {Length} bytes", connection.ConnectionId, message.Length);
+
+                    await ProcessClientMessageAsync(connection, message, cancellationToken);
+                    break;
+
+                case WebSocketOpcode.Binary:
+                    _logger.LogDebug("Received binary message from {ConnectionId}: {Length} bytes", connection.ConnectionId, frame.Payload.Length);
+                    // Handle binary messages if needed
+                    break;
+
+                case WebSocketOpcode.Close:
+                    _logger.LogInformation("Client requested close: {ConnectionId}", connection.ConnectionId);
+                    await connection.CloseAsync(cancellationToken);
+                    break;
+
+                case WebSocketOpcode.Ping:
+                    _logger.LogDebug("Received ping from {ConnectionId}", connection.ConnectionId);
+                    await connection.SendFrameAsync(WebSocketOpcode.Pong, frame.Payload, cancellationToken);
+                    break;
+
+                case WebSocketOpcode.Pong:
+                    _logger.LogDebug("Received pong from {ConnectionId}", connection.ConnectionId);
+                    break;
+
+                default:
+                    _logger.LogWarning("Unsupported opcode: {Opcode} from {ConnectionId}", frame.Opcode, connection.ConnectionId);
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error handling WebSocket frame from {ConnectionId}", connection.ConnectionId);
+        }
+    }
+
+    private async Task ProcessClientMessageAsync(SslWebSocketConnection connection, string messageJson, CancellationToken cancellationToken)
+    {
+        try
+        {
+            _logger.LogDebug("Received message from {ConnectionId}: {Length} bytes", connection.ConnectionId, messageJson.Length);
+
+            // Deserialize using Newtonsoft.Json (same as WebSocketMessageSerializer)
+            var settings = new JsonSerializerSettings
+            {
+                TypeNameHandling = TypeNameHandling.Auto,
+                NullValueHandling = NullValueHandling.Ignore,
+                DefaultValueHandling = DefaultValueHandling.Include
+            };
+
+            var message = JsonConvert.DeserializeObject<Message>(messageJson, settings);
+            if (message == null)
+            {
+                _logger.LogWarning("Failed to deserialize message from {ConnectionId}", connection.ConnectionId);
+                return;
+            }
+
+            _logger.LogDebug("Processing message type: {MessageType} from {ConnectionId}", message.Type, connection.ConnectionId);
+
+            // Check if this is a mobile app message
+            if (IsMobileAppMessage(message))
+            {
+                await HandleMobileAppMessageAsync(connection.ConnectionId, connection, message, cancellationToken);
+            }
+            else
+            {
+                // For REGISTER messages, use the ClientId from the message for the event
+                var eventClientId = connection.ConnectionId;
+                if (message is RegisterMessage registerMsg && !string.IsNullOrWhiteSpace(registerMsg.ClientId))
+                {
+                    eventClientId = registerMsg.ClientId;
+
+                    // Update the WebSocket client mapping if the client ID is different
+                    if (eventClientId != connection.ConnectionId)
+                    {
+                        _logger.LogInformation("Client registering with ID {RegisteredId} (WebSocket connection ID: {ConnectionId})",
+                            eventClientId, connection.ConnectionId);
+                        UpdateClientId(connection.ConnectionId, eventClientId);
+                    }
+                }
+
+                MessageReceived?.Invoke(this, new MessageReceivedEventArgs
+                {
+                    ClientId = eventClientId,
+                    Message = message
+                });
+            }
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogError(ex, "Failed to deserialize message from {ConnectionId}", connection.ConnectionId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error processing client message from {ConnectionId}", connection.ConnectionId);
+        }
+    }
+
 
     // ============================================
     // MOBILE APP MESSAGE HANDLING
@@ -577,7 +604,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
     /// </summary>
     private async Task HandleMobileAppMessageAsync(
         string connectionId,
-        WebSocket socket,
+        SslWebSocketConnection connection,
         Message message,
         CancellationToken cancellationToken)
     {
@@ -589,54 +616,54 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
             switch (message.Type)
             {
                 case MobileAppMessageTypes.AppRegister:
-                    await HandleAppRegisterAsync(connectionId, socket, message as AppRegisterMessage);
+                    await HandleAppRegisterAsync(connectionId, connection, message as AppRegisterMessage);
                     break;
 
                 case MobileAppMessageTypes.AppHeartbeat:
-                    await HandleAppHeartbeatAsync(connectionId, socket, message as AppHeartbeatMessage);
+                    await HandleAppHeartbeatAsync(connectionId, connection, message as AppHeartbeatMessage);
                     break;
 
                 case MobileAppMessageTypes.RequestClientList:
-                    await HandleRequestClientListAsync(connectionId, socket, message as RequestClientListMessage);
+                    await HandleRequestClientListAsync(connectionId, connection, message as RequestClientListMessage);
                     break;
 
                 case MobileAppMessageTypes.SendCommand:
-                    await HandleSendCommandAsync(connectionId, socket, message as SendCommandMessage);
+                    await HandleSendCommandAsync(connectionId, connection, message as SendCommandMessage);
                     break;
 
                 case MobileAppMessageTypes.AssignLayout:
-                    await HandleAssignLayoutAsync(connectionId, socket, message as AssignLayoutMessage);
+                    await HandleAssignLayoutAsync(connectionId, connection, message as AssignLayoutMessage);
                     break;
 
                 case MobileAppMessageTypes.RequestScreenshot:
-                    await HandleRequestScreenshotAsync(connectionId, socket, message as RequestScreenshotMessage);
+                    await HandleRequestScreenshotAsync(connectionId, connection, message as RequestScreenshotMessage);
                     break;
 
                 case MobileAppMessageTypes.RequestLayoutList:
-                    await HandleRequestLayoutListAsync(connectionId, socket, message as RequestLayoutListMessage);
+                    await HandleRequestLayoutListAsync(connectionId, connection, message as RequestLayoutListMessage);
                     break;
 
                 default:
                     _logger.LogWarning("Unknown mobile app message type: {MessageType}", message.Type);
-                    await SendErrorAsync(socket, $"Unknown message type: {message.Type}");
+                    await SendErrorAsync(connection, $"Unknown message type: {message.Type}");
                     break;
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error handling mobile app message {MessageType}", message.Type);
-            await SendErrorAsync(socket, "Internal server error");
+            await SendErrorAsync(connection, "Internal server error");
         }
     }
 
     /// <summary>
     /// Handle mobile app registration
     /// </summary>
-    private async Task HandleAppRegisterAsync(string connectionId, WebSocket socket, AppRegisterMessage? message)
+    private async Task HandleAppRegisterAsync(string connectionId, SslWebSocketConnection connection, AppRegisterMessage? message)
     {
         if (message == null)
         {
-            await SendErrorAsync(socket, "Invalid registration message");
+            await SendErrorAsync(connection, "Invalid registration message");
             return;
         }
 
@@ -656,7 +683,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
                 var registration = result.Value;
 
                 // Track mobile app connection
-                _mobileAppConnections[connectionId] = socket;
+                _mobileAppConnections[connectionId] = connection;
                 _mobileAppIds[connectionId] = registration.Id;
 
                 // Fire event for new registration
@@ -667,7 +694,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
                 {
                     _mobileAppTokens[connectionId] = registration.Token;
 
-                    await SendMessageAsync(socket, new AppAuthorizedMessage
+                    await SendMessageAsync(connection, new AppAuthorizedMessage
                     {
                         Token = registration.Token,
                         Permissions = registration.Permissions.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList(),
@@ -679,7 +706,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
                 else
                 {
                     // Send authorization required message
-                    await SendMessageAsync(socket, new AppAuthorizationRequiredMessage
+                    await SendMessageAsync(connection, new AppAuthorizationRequiredMessage
                     {
                         AppId = registration.Id,
                         Status = "pending",
@@ -691,20 +718,20 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
             }
             else
             {
-                await SendErrorAsync(socket, result.ErrorMessage ?? "Registration failed");
+                await SendErrorAsync(connection, result.ErrorMessage ?? "Registration failed");
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error during mobile app registration");
-            await SendErrorAsync(socket, "Registration failed");
+            await SendErrorAsync(connection, "Registration failed");
         }
     }
 
     /// <summary>
     /// Handle mobile app heartbeat
     /// </summary>
-    private async Task HandleAppHeartbeatAsync(string connectionId, WebSocket socket, AppHeartbeatMessage? message)
+    private async Task HandleAppHeartbeatAsync(string connectionId, SslWebSocketConnection connection, AppHeartbeatMessage? message)
     {
         if (message == null) return;
 
@@ -724,18 +751,18 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
     /// <summary>
     /// Handle request for client list
     /// </summary>
-    private async Task HandleRequestClientListAsync(string connectionId, WebSocket socket, RequestClientListMessage? message)
+    private async Task HandleRequestClientListAsync(string connectionId, SslWebSocketConnection connection, RequestClientListMessage? message)
     {
         if (message == null)
         {
-            await SendErrorAsync(socket, "Invalid request");
+            await SendErrorAsync(connection, "Invalid request");
             return;
         }
 
         // Validate token
         if (!_mobileAppTokens.TryGetValue(connectionId, out var token))
         {
-            await SendErrorAsync(socket, "Not authenticated");
+            await SendErrorAsync(connection, "Not authenticated");
             return;
         }
 
@@ -749,13 +776,13 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
             var registration = await mobileAppService.ValidateTokenAsync(token);
             if (registration == null)
             {
-                await SendErrorAsync(socket, "Unauthorized");
+                await SendErrorAsync(connection, "Unauthorized");
                 return;
             }
 
             if (!await mobileAppService.HasPermissionAsync(token, AppPermission.View))
             {
-                await SendErrorAsync(socket, "Insufficient permissions");
+                await SendErrorAsync(connection, "Insufficient permissions");
                 return;
             }
 
@@ -763,7 +790,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
             var clientsResult = await clientService.GetAllClientsAsync();
             if (!clientsResult.IsSuccess)
             {
-                await SendErrorAsync(socket, "Failed to retrieve client list");
+                await SendErrorAsync(connection, "Failed to retrieve client list");
                 return;
             }
 
@@ -803,7 +830,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
                 Group = c.Group
             }).ToList();
 
-            await SendMessageAsync(socket, new ClientListUpdateMessage
+            await SendMessageAsync(connection, new ClientListUpdateMessage
             {
                 Clients = clientInfos
             });
@@ -813,25 +840,25 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error handling client list request");
-            await SendErrorAsync(socket, "Failed to retrieve client list");
+            await SendErrorAsync(connection, "Failed to retrieve client list");
         }
     }
 
     /// <summary>
     /// Handle send command to device
     /// </summary>
-    private async Task HandleSendCommandAsync(string connectionId, WebSocket socket, SendCommandMessage? message)
+    private async Task HandleSendCommandAsync(string connectionId, SslWebSocketConnection connection, SendCommandMessage? message)
     {
         if (message == null)
         {
-            await SendErrorAsync(socket, "Invalid command message");
+            await SendErrorAsync(connection, "Invalid command message");
             return;
         }
 
         // Validate token
         if (!_mobileAppTokens.TryGetValue(connectionId, out var token))
         {
-            await SendErrorAsync(socket, "Not authenticated");
+            await SendErrorAsync(connection, "Not authenticated");
             return;
         }
 
@@ -844,7 +871,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
             var registration = await mobileAppService.ValidateTokenAsync(token);
             if (registration == null || !await mobileAppService.HasPermissionAsync(token, AppPermission.Control))
             {
-                await SendErrorAsync(socket, "Unauthorized");
+                await SendErrorAsync(connection, "Unauthorized");
                 return;
             }
 
@@ -852,7 +879,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
             var targetClientId = message.TargetDeviceId.ToString();
             if (!_clients.TryGetValue(targetClientId, out var targetSocket))
             {
-                await SendErrorAsync(socket, "Device not connected");
+                await SendErrorAsync(connection, "Device not connected");
                 return;
             }
 
@@ -866,7 +893,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
             await SendMessageAsync(targetSocket, commandMessage);
 
             // Acknowledge to mobile app
-            await SendMessageAsync(socket, new CommandResultMessage
+            await SendMessageAsync(connection, new CommandResultMessage
             {
                 DeviceId = message.TargetDeviceId,
                 Command = message.Command,
@@ -879,25 +906,25 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error handling send command");
-            await SendErrorAsync(socket, "Failed to send command");
+            await SendErrorAsync(connection, "Failed to send command");
         }
     }
 
     /// <summary>
     /// Handle assign layout to device
     /// </summary>
-    private async Task HandleAssignLayoutAsync(string connectionId, WebSocket socket, AssignLayoutMessage? message)
+    private async Task HandleAssignLayoutAsync(string connectionId, SslWebSocketConnection connection, AssignLayoutMessage? message)
     {
         if (message == null)
         {
-            await SendErrorAsync(socket, "Invalid assign layout message");
+            await SendErrorAsync(connection, "Invalid assign layout message");
             return;
         }
 
         // Validate token
         if (!_mobileAppTokens.TryGetValue(connectionId, out var token))
         {
-            await SendErrorAsync(socket, "Not authenticated");
+            await SendErrorAsync(connection, "Not authenticated");
             return;
         }
 
@@ -911,7 +938,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
             var registration = await mobileAppService.ValidateTokenAsync(token);
             if (registration == null || !await mobileAppService.HasPermissionAsync(token, AppPermission.Manage))
             {
-                await SendErrorAsync(socket, "Unauthorized");
+                await SendErrorAsync(connection, "Unauthorized");
                 return;
             }
 
@@ -919,7 +946,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
             var result = await clientService.AssignLayoutAsync(message.DeviceId.ToString(), message.LayoutId);
             if (result.IsSuccess)
             {
-                await SendMessageAsync(socket, new CommandResultMessage
+                await SendMessageAsync(connection, new CommandResultMessage
                 {
                     DeviceId = message.DeviceId,
                     Command = "AssignLayout",
@@ -931,31 +958,31 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
             }
             else
             {
-                await SendErrorAsync(socket, result.ErrorMessage ?? "Failed to assign layout");
+                await SendErrorAsync(connection, result.ErrorMessage ?? "Failed to assign layout");
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error handling assign layout");
-            await SendErrorAsync(socket, "Failed to assign layout");
+            await SendErrorAsync(connection, "Failed to assign layout");
         }
     }
 
     /// <summary>
     /// Handle request screenshot from device
     /// </summary>
-    private async Task HandleRequestScreenshotAsync(string connectionId, WebSocket socket, RequestScreenshotMessage? message)
+    private async Task HandleRequestScreenshotAsync(string connectionId, SslWebSocketConnection connection, RequestScreenshotMessage? message)
     {
         if (message == null)
         {
-            await SendErrorAsync(socket, "Invalid screenshot request");
+            await SendErrorAsync(connection, "Invalid screenshot request");
             return;
         }
 
         // Validate token
         if (!_mobileAppTokens.TryGetValue(connectionId, out var token))
         {
-            await SendErrorAsync(socket, "Not authenticated");
+            await SendErrorAsync(connection, "Not authenticated");
             return;
         }
 
@@ -968,7 +995,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
             var registration = await mobileAppService.ValidateTokenAsync(token);
             if (registration == null || !await mobileAppService.HasPermissionAsync(token, AppPermission.View))
             {
-                await SendErrorAsync(socket, "Unauthorized");
+                await SendErrorAsync(connection, "Unauthorized");
                 return;
             }
 
@@ -976,7 +1003,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
             var targetClientId = message.DeviceId.ToString();
             if (!_clients.TryGetValue(targetClientId, out var targetSocket))
             {
-                await SendErrorAsync(socket, "Device not connected");
+                await SendErrorAsync(connection, "Device not connected");
                 return;
             }
 
@@ -998,25 +1025,25 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error handling screenshot request");
-            await SendErrorAsync(socket, "Failed to request screenshot");
+            await SendErrorAsync(connection, "Failed to request screenshot");
         }
     }
 
     /// <summary>
     /// Handle request for layout list
     /// </summary>
-    private async Task HandleRequestLayoutListAsync(string connectionId, WebSocket socket, RequestLayoutListMessage? message)
+    private async Task HandleRequestLayoutListAsync(string connectionId, SslWebSocketConnection connection, RequestLayoutListMessage? message)
     {
         if (message == null)
         {
-            await SendErrorAsync(socket, "Invalid layout list request");
+            await SendErrorAsync(connection, "Invalid layout list request");
             return;
         }
 
         // Validate token
         if (!_mobileAppTokens.TryGetValue(connectionId, out var token))
         {
-            await SendErrorAsync(socket, "Not authenticated");
+            await SendErrorAsync(connection, "Not authenticated");
             return;
         }
 
@@ -1030,7 +1057,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
             var registration = await mobileAppService.ValidateTokenAsync(token);
             if (registration == null || !await mobileAppService.HasPermissionAsync(token, AppPermission.View))
             {
-                await SendErrorAsync(socket, "Unauthorized");
+                await SendErrorAsync(connection, "Unauthorized");
                 return;
             }
 
@@ -1038,7 +1065,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
             var layoutsResult = await layoutService.GetAllLayoutsAsync();
             if (layoutsResult == null || !layoutsResult.IsSuccess || layoutsResult.Value == null || !layoutsResult.Value.Any())
             {
-                await SendErrorAsync(socket, "No layouts found");
+                await SendErrorAsync(connection, "No layouts found");
                 return;
             }
 
@@ -1055,7 +1082,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
                 Height = l.Resolution?.Height ?? 1080
             }).ToList();
 
-            await SendMessageAsync(socket, new LayoutListResponseMessage
+            await SendMessageAsync(connection, new LayoutListResponseMessage
             {
                 Layouts = layoutInfos
             });
@@ -1065,14 +1092,14 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error handling layout list request");
-            await SendErrorAsync(socket, "Failed to retrieve layout list");
+            await SendErrorAsync(connection, "Failed to retrieve layout list");
         }
     }
 
     /// <summary>
-    /// Send error message to WebSocket
+    /// Send error message to WebSocket connection
     /// </summary>
-    private async Task SendErrorAsync(WebSocket socket, string errorMessage)
+    private async Task SendErrorAsync(SslWebSocketConnection connection, string errorMessage)
     {
         try
         {
@@ -1083,7 +1110,13 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
                 ErrorMessage = errorMessage
             };
 
-            await _messageSerializer.SendMessageAsync(socket, "error", errorMsg, CancellationToken.None);
+            var settings = new JsonSerializerSettings
+            {
+                TypeNameHandling = TypeNameHandling.Auto,
+                NullValueHandling = NullValueHandling.Ignore
+            };
+            var json = JsonConvert.SerializeObject(errorMsg, settings);
+            await connection.SendTextAsync(json, CancellationToken.None);
         }
         catch (Exception ex)
         {
@@ -1092,13 +1125,19 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
     }
 
     /// <summary>
-    /// Send message directly to a WebSocket
+    /// Send message directly to a WebSocket connection
     /// </summary>
-    private async Task SendMessageAsync(WebSocket socket, Message message)
+    private async Task SendMessageAsync(SslWebSocketConnection connection, Message message)
     {
         try
         {
-            await _messageSerializer.SendMessageAsync(socket, "mobile-app", message, CancellationToken.None);
+            var settings = new JsonSerializerSettings
+            {
+                TypeNameHandling = TypeNameHandling.Auto,
+                NullValueHandling = NullValueHandling.Ignore
+            };
+            var json = JsonConvert.SerializeObject(message, settings);
+            await connection.SendTextAsync(json, CancellationToken.None);
         }
         catch (Exception ex)
         {
@@ -1187,14 +1226,13 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
             {
                 // Stop async should be called before dispose
                 // But if not, clean up what we can
-                _httpListener?.Close();
-                ((IDisposable?)_httpListener)?.Dispose();
+                _tcpListener?.Stop();
                 _cancellationTokenSource?.Dispose();
 
-                // Dispose any remaining sockets
-                foreach (var socket in _clients.Values.ToList())
+                // Dispose any remaining connections
+                foreach (var connection in _clients.Values.ToList())
                 {
-                    try { socket.Dispose(); } catch { }
+                    try { connection.Dispose(); } catch { }
                 }
 
                 _logger.LogInformation("WebSocketCommunicationService disposed");
