@@ -12,7 +12,7 @@ from dataclasses import dataclass, asdict
 class Config:
     """Client configuration"""
     client_id: str
-    server_host: str = "localhost"
+    server_host: str = ""  # CRITICAL FIX: NO default! Must be discovered or configured manually. NEVER localhost!
     server_port: int = 8080
     endpoint_path: str = "ws/"  # WebSocket endpoint path (default: ws/)
     registration_token: str = ""  # Token for client registration (required for new clients)
@@ -45,7 +45,34 @@ class Config:
         CRITICAL: Raspberry Pi client ONLY supports WSS, which requires HTTPS base URL.
         This URL will be converted to WSS in connect_websocket().
         HTTP is NOT supported - server requires secure connections only.
+
+        CRITICAL FIX: Validates that server_host is set (not empty, not localhost).
+        If server_host is not configured, raises ValueError to prevent localhost connection.
         """
+        import logging
+        logger = logging.getLogger(__name__)
+
+        # CRITICAL VALIDATION: Prevent localhost connections!
+        if not self.server_host or self.server_host.strip() == '':
+            error_msg = (
+                "CRITICAL ERROR: server_host is not configured! "
+                "Auto-discovery must find a server first. "
+                "Cannot connect to localhost - server must be on network."
+            )
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+
+        # CRITICAL VALIDATION: Block localhost/127.0.0.1 explicitly
+        if self.server_host.lower() in ['localhost', '127.0.0.1', '::1']:
+            error_msg = (
+                f"CRITICAL ERROR: server_host is '{self.server_host}' (localhost)! "
+                f"Client MUST NOT connect to localhost. "
+                f"Auto-discovery must find the actual server IP address. "
+                f"If auto-discovery failed, configure server_host manually in config.json."
+            )
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+
         protocol = "https"  # FORCE HTTPS-only - no insecure HTTP allowed
         # Ensure endpoint_path starts with / and has correct formatting
         endpoint = self.endpoint_path.strip('/')
@@ -73,8 +100,9 @@ class Config:
 
                 # Ensure all fields have defaults for backward compatibility
                 # This handles cases where old config.json files don't have new fields
+                # CRITICAL FIX: NO localhost default! Empty string means "must be discovered"
                 defaults = {
-                    'server_host': 'localhost',
+                    'server_host': '',  # CRITICAL: Empty = must be discovered, NEVER localhost!
                     'server_port': 8080,
                     'endpoint_path': 'ws/',  # Default WebSocket endpoint path
                     'registration_token': '',
@@ -235,16 +263,17 @@ class Config:
 
         # CRITICAL: Pi client ALWAYS uses use_ssl=True and verify_ssl=False
         # Ignore environment variables for these security-critical settings
+        # CRITICAL FIX: No localhost default! Empty string means "must be discovered"
         return cls(
             client_id=os.getenv("DS_CLIENT_ID", str(uuid.uuid4())),
-            server_host=os.getenv("DS_SERVER_HOST", "localhost"),
+            server_host=os.getenv("DS_SERVER_HOST", ""),  # CRITICAL: Empty = must discover, NEVER localhost!
             server_port=int(os.getenv("DS_SERVER_PORT", "8080")),
             registration_token=os.getenv("DS_REGISTRATION_TOKEN", ""),
             use_ssl=True,  # FORCED: Pi requires WSS-only (ignores DS_USE_SSL env var)
             verify_ssl=False,  # FORCED: Pi accepts self-signed certs (ignores DS_VERIFY_SSL env var)
             fullscreen=os.getenv("DS_FULLSCREEN", "true").lower() == "true",
             log_level=os.getenv("DS_LOG_LEVEL", "INFO"),
-            auto_discover=os.getenv("DS_AUTO_DISCOVER", "false").lower() == "true",
+            auto_discover=os.getenv("DS_AUTO_DISCOVER", "true").lower() == "true",  # CRITICAL: Default TRUE for env
             discovery_timeout=float(os.getenv("DS_DISCOVERY_TIMEOUT", "5.0")),
             remote_logging_enabled=os.getenv("DS_REMOTE_LOGGING", "true").lower() == "true",
             remote_logging_level=os.getenv("DS_REMOTE_LOG_LEVEL", "INFO"),
