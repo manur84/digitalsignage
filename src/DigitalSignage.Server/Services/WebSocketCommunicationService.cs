@@ -1398,6 +1398,78 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
     }
 
     /// <summary>
+    /// Send rejection notification to a specific mobile app
+    /// CRITICAL FIX: Notifies iOS App immediately when rejected (prevents "Waiting for approval" stuck state)
+    /// </summary>
+    public async Task SendRejectionNotificationAsync(Guid mobileAppId, string reason)
+    {
+        try
+        {
+            _logger.LogInformation("Sending rejection notification to mobile app {AppId}", mobileAppId);
+
+            // Find connection by MobileAppId
+            var connectionId = _mobileAppIds
+                .Where(kvp => kvp.Value == mobileAppId)
+                .Select(kvp => kvp.Key)
+                .FirstOrDefault();
+
+            if (connectionId == null)
+            {
+                _logger.LogWarning("Mobile app {AppId} not currently connected - cannot send rejection notification", mobileAppId);
+                return;
+            }
+
+            if (!_mobileAppConnections.TryGetValue(connectionId, out var connection))
+            {
+                _logger.LogWarning("Connection for mobile app {AppId} not found in connections dictionary", mobileAppId);
+                return;
+            }
+
+            // Send AppRejected message
+            var rejectionMessage = new AppRejectedMessage
+            {
+                Reason = reason
+            };
+
+            await SendMessageAsync(connection, rejectionMessage);
+
+            _logger.LogInformation("✓ Rejection notification sent successfully to mobile app {AppId} via WebSocket", mobileAppId);
+
+            // Optionally disconnect the rejected app after sending notification
+            // This ensures the app doesn't stay connected in rejected state
+            await Task.Delay(1000); // Give the app time to receive the message
+            await DisconnectMobileAppAsync(connectionId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error sending rejection notification to mobile app {AppId}", mobileAppId);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Disconnect a mobile app connection
+    /// </summary>
+    private async Task DisconnectMobileAppAsync(string connectionId)
+    {
+        try
+        {
+            if (_mobileAppConnections.TryRemove(connectionId, out var connection))
+            {
+                _mobileAppIds.TryRemove(connectionId, out _);
+                _mobileAppTokens.TryRemove(connectionId, out _);
+
+                await connection.CloseAsync(CancellationToken.None);
+                _logger.LogInformation("Mobile app connection {ConnectionId} closed", connectionId);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error disconnecting mobile app {ConnectionId}", connectionId);
+        }
+    }
+
+    /// <summary>
     /// Convert AppPermission flags to list of permission strings
     /// </summary>
     private static List<string> ConvertPermissionToList(AppPermission permissions)

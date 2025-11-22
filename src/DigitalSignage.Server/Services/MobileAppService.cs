@@ -217,6 +217,35 @@ public class MobileAppService : IMobileAppService
                 registration.DeviceName,
                 reason);
 
+            // CRITICAL FIX: Send rejection notification to iOS App via WebSocket
+            // This prevents the app from being stuck in "Waiting for approval" state
+            try
+            {
+                // Get WebSocketCommunicationService from service provider
+                var webSocketService = _serviceProvider.GetService<WebSocketCommunicationService>();
+
+                if (webSocketService != null)
+                {
+                    _logger.Information("Sending rejection notification to mobile app {AppId} via WebSocket", appId);
+
+                    // Send rejection notification to iOS App
+                    // The WebSocketCommunicationService will find the connection by MobileAppId
+                    await webSocketService.SendRejectionNotificationAsync(appId, reason);
+
+                    _logger.Information("Rejection notification sent successfully to mobile app {AppId}", appId);
+                }
+                else
+                {
+                    _logger.Warning("WebSocketCommunicationService not available - mobile app will poll for rejection status");
+                }
+            }
+            catch (Exception wsEx)
+            {
+                // Don't fail rejection if WebSocket notification fails
+                // The app can still poll for status or reconnect to get rejected state
+                _logger.Warning(wsEx, "Failed to send WebSocket rejection notification to mobile app {AppId} - app will need to poll or reconnect", appId);
+            }
+
             return Result.Success();
         }
         catch (Exception ex)
