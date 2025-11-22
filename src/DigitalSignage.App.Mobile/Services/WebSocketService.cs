@@ -429,6 +429,18 @@ public class WebSocketService : IWebSocketService, IDisposable
 				Console.WriteLine("Received APP_AUTHORIZATION_REQUIRED - manual authorization needed on server");
 				_registrationTcs?.TrySetException(new InvalidOperationException("Manual authorization required on server"));
 			}
+			// Handle APP_REJECTED response
+			else if (messageType == MobileAppMessageTypes.AppRejected)
+			{
+				// Try both lowercase and PascalCase for property names (server uses PascalCase)
+				var hasReason = root.TryGetProperty("reason", out var reasonElement) ||
+				                root.TryGetProperty("Reason", out reasonElement);
+
+				var reason = hasReason ? reasonElement.GetString() : "No reason provided";
+
+				Console.WriteLine($"Received APP_REJECTED - Reason: {reason}");
+				_registrationTcs?.TrySetException(new InvalidOperationException($"Registration rejected: {reason}"));
+			}
 			// Handle screenshot response
 			else if (messageType == MobileAppMessageTypes.ScreenshotResponse)
 			{

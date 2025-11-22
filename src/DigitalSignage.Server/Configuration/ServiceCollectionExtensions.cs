@@ -123,7 +123,12 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ILayoutService, LayoutService>();
         services.AddSingleton<IClientService, ClientService>();
         services.AddSingleton<IScribanService, ScribanService>();
-        services.AddSingleton<ICommunicationService, WebSocketCommunicationService>();
+
+        // CRITICAL FIX: Register WebSocketCommunicationService as both interface AND concrete class
+        // This allows MobileAppService to call SendApprovalNotificationAsync() which is not on ICommunicationService interface
+        services.AddSingleton<WebSocketCommunicationService>();
+        services.AddSingleton<ICommunicationService>(sp => sp.GetRequiredService<WebSocketCommunicationService>());
+
         services.AddSingleton<IDialogService, DialogService>();
 
         // Register SqlDataService for both IDataService and ISqlDataService
