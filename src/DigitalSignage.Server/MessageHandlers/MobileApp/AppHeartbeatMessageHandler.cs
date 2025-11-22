@@ -1,5 +1,6 @@
 using DigitalSignage.Core.Interfaces;
 using DigitalSignage.Core.Models;
+using DigitalSignage.Server.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System;

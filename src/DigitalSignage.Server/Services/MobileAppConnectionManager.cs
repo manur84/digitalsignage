@@ -207,6 +207,51 @@ public class MobileAppConnectionManager
     }
 
     /// <summary>
+    /// Send rejection notification to a specific mobile app
+    /// </summary>
+    public async Task SendRejectionNotificationAsync(Guid mobileAppId, string reason, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            _logger.LogInformation("Sending rejection notification to mobile app {AppId}", mobileAppId);
+
+            // Find connection by MobileAppId
+            var connectionId = _mobileAppIds
+                .Where(kvp => kvp.Value == mobileAppId)
+                .Select(kvp => kvp.Key)
+                .FirstOrDefault();
+
+            if (connectionId == null)
+            {
+                _logger.LogWarning("Mobile app {AppId} not currently connected - cannot send rejection notification", mobileAppId);
+                return;
+            }
+
+            var connection = GetConnection(connectionId);
+            if (connection == null)
+            {
+                _logger.LogWarning("Connection for mobile app {AppId} not found in connections dictionary", mobileAppId);
+                return;
+            }
+
+            // Send AppRejected message
+            var rejectionMessage = new AppRejectedMessage
+            {
+                Reason = reason
+            };
+
+            await SendMessageAsync(connectionId, rejectionMessage, cancellationToken);
+
+            _logger.LogInformation("✓ Rejection notification sent successfully to mobile app {AppId} via WebSocket", mobileAppId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error sending rejection notification to mobile app {AppId}", mobileAppId);
+            throw;
+        }
+    }
+
+    /// <summary>
     /// Send approval notification to a specific mobile app
     /// </summary>
     public async Task SendApprovalNotificationAsync(Guid mobileAppId, string token, AppPermission permissions, CancellationToken cancellationToken = default)
