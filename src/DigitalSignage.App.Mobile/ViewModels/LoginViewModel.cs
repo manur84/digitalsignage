@@ -124,119 +124,72 @@ public partial class LoginViewModel : BaseViewModel
 	{
 		await ExecuteAsync(async () =>
 		{
-			Guid mobileAppId;
-			string? authToken;
-
 			// Get existing credentials (if any)
 			var existingToken = await _secureStorage.GetAsync("AuthToken");
 			var existingAppIdStr = await _secureStorage.GetAsync("MobileAppId");
 			var existingAppId = Guid.TryParse(existingAppIdStr, out var parsedAppId) ? parsedAppId : (Guid?)null;
 
-			// Step 1: ALWAYS try WebSocket connection FIRST
-			try
-			{
-				StatusMessage = "Connecting to server via WebSocket...";
-				await _webSocketService.ConnectAsync(webSocketUrl);
+			// Get device info for registration
+			var deviceInfo = await _authService.GetDeviceInfoAsync();
 
-				// If we have existing credentials, try to authenticate
-				if (!string.IsNullOrEmpty(existingToken) && existingAppId.HasValue)
-				{
-					StatusMessage = "Authenticating with existing credentials...";
-
-					var heartbeatMessage = new
-					{
-						type = "APP_HEARTBEAT",
-						appId = existingAppId.Value,
-						token = existingToken
-					};
-					await _webSocketService.SendJsonAsync(heartbeatMessage);
-
-					StatusMessage = "Connected successfully!";
-
-					mobileAppId = existingAppId.Value;
-					authToken = existingToken;
-
-					// Save settings
-					var settings = new AppSettings
-					{
-						ServerUrl = serverUrl,
-						MobileAppId = mobileAppId,
-						AutoConnect = true,
-						LastConnected = DateTime.Now
-					};
-					await _secureStorage.SaveSettingsAsync(settings);
-
-					// Navigate to main page
-					await Shell.Current.GoToAsync("//devices");
-					return;
-				}
-				else
-				{
-					// No credentials - close WebSocket and fall through to HTTPS registration
-					Console.WriteLine("No existing credentials found. Switching to HTTPS registration...");
-					StatusMessage = "No credentials, trying HTTPS registration...";
-					// WebSocket will be closed and reconnected after registration
-				}
-			}
-			catch (Exception ex)
-			{
-				// WebSocket connection failed, fall back to HTTPS registration
-				Console.WriteLine($"WebSocket connection failed: {ex.Message}. Falling back to HTTPS registration...");
-				StatusMessage = "WebSocket failed, trying HTTPS registration...";
-			}
-
-			// Step 2: Fallback - Register via HTTPS REST API and poll for approval
-			StatusMessage = "Registering with server via HTTPS...";
-
-			mobileAppId = await _authService.RegisterAppAsync(
-				serverUrl,
-				RegistrationToken,
-				progressCallback: (status) =>
-				{
-					// Update UI from main thread
-					MainThread.BeginInvokeOnMainThread(() =>
-					{
-						StatusMessage = status;
-					});
-				});
-
-			StatusMessage = "Registration approved! Connecting to server...";
-
-			// Step 3: Get auth token from secure storage (saved by AuthenticationService)
-			authToken = await _secureStorage.GetAsync("AuthToken");
-			if (string.IsNullOrEmpty(authToken))
-			{
-				throw new InvalidOperationException("Authentication token not found after registration");
-			}
-
-			// Step 4: Connect WebSocket
+			// Connect to server via WebSocket
+			StatusMessage = "Connecting to server via WebSocket...";
 			await _webSocketService.ConnectAsync(webSocketUrl);
 
-			// Step 5: Authenticate the WebSocket connection with heartbeat message
-			StatusMessage = "Authenticating WebSocket connection...";
-
-			var heartbeat = new
+			// If we have existing credentials, try to authenticate
+			if (!string.IsNullOrEmpty(existingToken) && existingAppId.HasValue)
 			{
-				type = "APP_HEARTBEAT",
-				appId = mobileAppId,
-				token = authToken
-			};
-			await _webSocketService.SendJsonAsync(heartbeat);
+				StatusMessage = "Authenticating with existing credentials...";
 
-			StatusMessage = "Connected successfully!";
+				var heartbeatMessage = new
+				{
+					type = "APP_HEARTBEAT",
+					appId = existingAppId.Value,
+					token = existingToken
+				};
+				await _webSocketService.SendJsonAsync(heartbeatMessage);
 
-			// Save settings
-			var appSettings = new AppSettings
+				StatusMessage = "Connected successfully!";
+
+				// Save settings
+				var settings = new AppSettings
+				{
+					ServerUrl = serverUrl,
+					MobileAppId = existingAppId.Value,
+					AutoConnect = true,
+					LastConnected = DateTime.Now
+				};
+				await _secureStorage.SaveSettingsAsync(settings);
+
+				// Navigate to main page
+				await Shell.Current.GoToAsync("//devices");
+				return;
+			}
+
+			// No existing credentials - register new app via WebSocket
+			StatusMessage = "Registering new mobile app...";
+
+			var registrationMessage = new
 			{
-				ServerUrl = serverUrl,
-				MobileAppId = mobileAppId,
-				AutoConnect = true,
-				LastConnected = DateTime.Now
+				type = "REGISTER_MOBILE_APP",
+				deviceName = deviceInfo.Name,
+				platform = deviceInfo.Platform,
+				appVersion = deviceInfo.AppVersion,
+				deviceModel = deviceInfo.Identifier,
+				osVersion = deviceInfo.OSVersion,
+				token = !string.IsNullOrWhiteSpace(RegistrationToken) ? RegistrationToken : (string?)null
 			};
-			await _secureStorage.SaveSettingsAsync(appSettings);
 
-			// Navigate to main page
-			await Shell.Current.GoToAsync("//devices");
+			await _webSocketService.SendJsonAsync(registrationMessage);
+
+			StatusMessage = "Waiting for server approval...";
+
+			// TODO: Wait for registration response via WebSocket
+			// For now, show message that admin needs to approve
+			StatusMessage = "Please wait for admin to approve this device on the server.";
+
+			// Note: The actual approval handling will be done via WebSocket message handler
+			// When approved, the server will send a response with appId and token
 
 		}, "Failed to connect to server");
 	}
