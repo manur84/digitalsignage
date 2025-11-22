@@ -53,7 +53,7 @@ public class NetworkDiscoveryService : BackgroundService, INetworkDiscoveryServi
     {
         try
         {
-            var serverInfo = GetServerInfo();
+            var serverInfo = await GetServerInfoAsync();
 
             // Create service profile
             _serviceProfile = new ServiceProfile(
@@ -114,13 +114,13 @@ public class NetworkDiscoveryService : BackgroundService, INetworkDiscoveryServi
         await Task.CompletedTask;
     }
 
-    public void UpdateAdvertisement()
+    public async Task UpdateAdvertisementAsync()
     {
         try
         {
             if (_serviceProfile != null)
             {
-                var serverInfo = GetServerInfo();
+                var serverInfo = await GetServerInfoAsync();
 
                 // Update TXT records
                 _serviceProfile.Resources.Clear();
@@ -148,7 +148,7 @@ public class NetworkDiscoveryService : BackgroundService, INetworkDiscoveryServi
         }
     }
 
-    public ServerInfo GetServerInfo()
+    public async Task<ServerInfo> GetServerInfoAsync()
     {
         // Get server hostname
         var hostname = Dns.GetHostName();
@@ -177,7 +177,7 @@ public class NetworkDiscoveryService : BackgroundService, INetworkDiscoveryServi
         {
             try
             {
-                var result = _clientService.GetAllClientsAsync().GetAwaiter().GetResult();
+                var result = await _clientService.GetAllClientsAsync();
                 if (result.IsSuccess)
                 {
                     connectedClients = result.Value?.Count(c => c.Status == ClientStatus.Online) ?? 0;

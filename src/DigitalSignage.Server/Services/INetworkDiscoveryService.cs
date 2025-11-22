@@ -20,10 +20,10 @@ public interface INetworkDiscoveryService
     /// <summary>
     /// Get current server info
     /// </summary>
-    ServerInfo GetServerInfo();
+    Task<ServerInfo> GetServerInfoAsync();
 
     /// <summary>
     /// Update service advertisement (e.g., when connected clients count changes)
     /// </summary>
-    void UpdateAdvertisement();
+    Task UpdateAdvertisementAsync();
 }
