@@ -89,6 +89,10 @@ internal class ClientRegistrationHandler
 
             if (existingClient != null)
             {
+                // CRITICAL FIX: Client exists with this MAC - update it
+                _logger.LogDebug("Found existing client by MAC {MacAddress}: ID={ClientId}",
+                    registerMessage.MacAddress, existingClient.Id);
+
                 client = await UpdateExistingClientAsync(
                     dbContext,
                     existingClient,
@@ -98,6 +102,25 @@ internal class ClientRegistrationHandler
             }
             else
             {
+                // CRITICAL FIX: No client with this MAC found
+                // But check if the requested Client ID is already taken by another MAC
+                if (!string.IsNullOrWhiteSpace(registerMessage.ClientId))
+                {
+                    var clientWithSameId = await dbContext.Clients
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(c => c.Id == registerMessage.ClientId, cancellationToken);
+
+                    if (clientWithSameId != null)
+                    {
+                        _logger.LogWarning("Client ID {ClientId} already exists with different MAC (existing: {ExistingMac}, new: {NewMac}). " +
+                            "This is a NEW device with duplicated config. Will generate unique ID.",
+                            registerMessage.ClientId, clientWithSameId.MacAddress, registerMessage.MacAddress);
+
+                        // This is a NEW device with a duplicate config file
+                        // The CreateNewClient method will handle ID conflict resolution
+                    }
+                }
+
                 client = CreateNewClient(
                     dbContext,
                     registerMessage,
@@ -184,6 +207,56 @@ internal class ClientRegistrationHandler
             _logger.LogInformation("Client MAC {MacAddress} changing ID from {OldId} to {NewId}",
                 client.MacAddress, client.Id, registerMessage.ClientId);
 
+            // CRITICAL FIX: Check if new ID is already taken by a DIFFERENT client
+            var clientWithNewId = await dbContext.Clients
+                .AsNoTracking()
+                .FirstOrDefaultAsync(c => c.Id == registerMessage.ClientId, cancellationToken);
+
+            if (clientWithNewId != null && clientWithNewId.MacAddress != client.MacAddress)
+            {
+                // ID conflict: Another client is using this ID
+                _logger.LogWarning("Client ID {NewId} is already taken by another client (MAC: {ExistingMac}). " +
+                    "Will update the conflicting client's data instead of creating duplicate.",
+                    registerMessage.ClientId, clientWithNewId.MacAddress);
+
+                // Load the conflicting client for tracking
+                var conflictingClient = await dbContext.Clients.FindAsync(
+                    new object[] { registerMessage.ClientId }, 
+                    cancellationToken);
+
+                if (conflictingClient != null)
+                {
+                    // Update the conflicting client with new MAC and IP
+                    conflictingClient.MacAddress = registerMessage.MacAddress;
+                    conflictingClient.IpAddress = registerMessage.IpAddress ?? conflictingClient.IpAddress;
+                    conflictingClient.LastSeen = DateTime.UtcNow;
+                    conflictingClient.Status = ClientStatus.Online;
+                    conflictingClient.DeviceInfo = MergeDeviceInfo(conflictingClient.DeviceInfo, registerMessage.DeviceInfo);
+
+                    // Mark as modified
+                    dbContext.Entry(conflictingClient).State = EntityState.Modified;
+
+                    // Remove old client entry from database
+                    var oldClient = await dbContext.Clients.FindAsync(
+                        new object[] { existingClient.Id }, 
+                        cancellationToken);
+                    if (oldClient != null && oldClient.Id != conflictingClient.Id)
+                    {
+                        _logger.LogInformation("Removing old client entry {OldId} (MAC: {OldMac})",
+                            oldClient.Id, oldClient.MacAddress);
+                        dbContext.Clients.Remove(oldClient);
+                    }
+
+                    // Remove from cache
+                    clientsCache.TryRemove(existingClient.Id, out _);
+
+                    _logger.LogInformation("Updated conflicting client {ClientId} with new MAC {MacAddress}",
+                        conflictingClient.Id, conflictingClient.MacAddress);
+
+                    return conflictingClient;
+                }
+            }
+
             // Load the entity for tracking before removal
             var trackedClient = await dbContext.Clients.FindAsync(new object[] { existingClient.Id }, cancellationToken);
             if (trackedClient != null)
@@ -263,9 +336,47 @@ internal class ClientRegistrationHandler
         _logger.LogInformation("  Disk: {DiskUsed}/{DiskTotal}", deviceInfo.DiskUsed, deviceInfo.DiskTotal);
         _logger.LogInformation("  Uptime: {Uptime}s", deviceInfo.Uptime);
 
+        // CRITICAL FIX: Generate unique ID if client ID is already taken
+        var clientId = string.IsNullOrWhiteSpace(registerMessage.ClientId) 
+            ? Guid.NewGuid().ToString() 
+            : registerMessage.ClientId;
+
+        // Check if this ID is already taken
+        var existingClientWithId = dbContext.Clients
+            .AsNoTracking()
+            .FirstOrDefault(c => c.Id == clientId);
+
+        if (existingClientWithId != null)
+        {
+            _logger.LogWarning("Client ID {ClientId} is already taken (MAC: {ExistingMac}). " +
+                "Generating new unique ID for new client (MAC: {NewMac})",
+                clientId, existingClientWithId.MacAddress, registerMessage.MacAddress);
+
+            // Generate a unique ID based on hostname + timestamp or just GUID
+            if (!string.IsNullOrWhiteSpace(deviceInfo.Hostname))
+            {
+                // Try hostname-based ID with timestamp suffix
+                var timestamp = DateTime.UtcNow.ToString("yyyyMMddHHmmss");
+                clientId = $"{deviceInfo.Hostname}-{timestamp}";
+
+                // Double-check uniqueness
+                if (dbContext.Clients.AsNoTracking().Any(c => c.Id == clientId))
+                {
+                    clientId = Guid.NewGuid().ToString();
+                }
+            }
+            else
+            {
+                clientId = Guid.NewGuid().ToString();
+            }
+
+            _logger.LogInformation("Assigned new unique ID: {ClientId} for MAC {MacAddress}",
+                clientId, registerMessage.MacAddress);
+        }
+
         var client = new RaspberryPiClient
         {
-            Id = string.IsNullOrWhiteSpace(registerMessage.ClientId) ? Guid.NewGuid().ToString() : registerMessage.ClientId,
+            Id = clientId,
             IpAddress = registerMessage.IpAddress ?? "unknown",
             MacAddress = registerMessage.MacAddress,
             Group = assignedGroup,

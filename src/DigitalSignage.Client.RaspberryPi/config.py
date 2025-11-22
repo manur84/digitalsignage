@@ -39,6 +39,70 @@ class Config:
     # Network Interface Selection
     preferred_network_interface: str = ""  # Preferred network interface (e.g., "eth0", "wlan0") - empty for auto-select
 
+    @staticmethod
+    def _generate_unique_client_id() -> str:
+        """Generate a unique client ID based on MAC address and hostname
+
+        CRITICAL FIX: Prevents duplicate Client IDs when copying config.json between devices.
+        Uses MAC address (unique per device) + hostname to create a deterministic ID.
+
+        Returns:
+            Unique client ID in format: "DigiSign-XXXX" where XXXX is based on MAC address
+        """
+        try:
+            import socket
+            import hashlib
+            import netifaces
+
+            # Get hostname
+            hostname = socket.gethostname()
+
+            # Get MAC address of primary network interface
+            # Try to get MAC from active network interface (prefer eth0, then wlan0, then any)
+            mac_address = None
+            for interface_name in ['eth0', 'wlan0']:
+                try:
+                    if interface_name in netifaces.interfaces():
+                        addrs = netifaces.ifaddresses(interface_name)
+                        if netifaces.AF_LINK in addrs:
+                            mac_address = addrs[netifaces.AF_LINK][0]['addr']
+                            if mac_address and mac_address != '00:00:00:00:00:00':
+                                break
+                except Exception:
+                    continue
+
+            # Fallback: Use any interface with valid MAC
+            if not mac_address:
+                for interface in netifaces.interfaces():
+                    try:
+                        addrs = netifaces.ifaddresses(interface)
+                        if netifaces.AF_LINK in addrs:
+                            mac = addrs[netifaces.AF_LINK][0]['addr']
+                            if mac and mac != '00:00:00:00:00:00':
+                                mac_address = mac
+                                break
+                    except Exception:
+                        continue
+
+            if mac_address:
+                # Create deterministic ID from MAC address
+                # Use last 4 bytes of MAC as suffix (e.g., DigiSign-B827)
+                mac_suffix = mac_address.replace(':', '').upper()[-4:]
+                client_id = f"DigiSign-{mac_suffix}"
+                return client_id
+            else:
+                # Fallback: Use hostname-based ID
+                # Hash hostname to create deterministic 4-char suffix
+                hostname_hash = hashlib.md5(hostname.encode()).hexdigest()[:4].upper()
+                return f"DigiSign-{hostname_hash}"
+
+        except Exception as e:
+            # Ultimate fallback: Random UUID
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Failed to generate MAC-based client ID: {e}. Using random UUID.")
+            return str(uuid.uuid4())
+
     def get_server_url(self) -> str:
         """Get the full server URL - ALWAYS uses HTTPS (for WSS WebSocket connections)
 
@@ -130,6 +194,22 @@ class Config:
                 merged_data = defaults.copy()
                 merged_data.update(data)
 
+                # CRITICAL FIX: Regenerate client_id if it's a duplicate or generic
+                # This happens when config.json is copied between devices
+                # Check if client_id is missing or is a generic UUID (not MAC-based)
+                loaded_client_id = merged_data.get('client_id', '')
+                if not loaded_client_id or not loaded_client_id.startswith('DigiSign-'):
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.warning(f"Client ID '{loaded_client_id}' is not MAC-based. Regenerating unique ID...")
+                    merged_data['client_id'] = cls._generate_unique_client_id()
+                    logger.info(f"Generated new unique Client ID: {merged_data['client_id']}")
+
+                    # Save updated config immediately
+                    config = cls(**merged_data)
+                    config.save(config_path)
+                    return config
+
                 # CRITICAL: FORCE verify_ssl to False for Raspberry Pi client
                 # Self-signed certificates are standard in local deployments
                 # Even if config.json has verify_ssl=true, we IGNORE it for security and compatibility
@@ -141,8 +221,14 @@ class Config:
 
                 return cls(**merged_data)
         else:
-            # Create default configuration
-            config = cls(client_id=str(uuid.uuid4()))
+            # CRITICAL FIX: Create default configuration with MAC-based unique ID
+            # This ensures each device gets a unique ID from the start
+            import logging
+            logger = logging.getLogger(__name__)
+            unique_id = cls._generate_unique_client_id()
+            logger.info(f"Creating new config with unique Client ID: {unique_id}")
+
+            config = cls(client_id=unique_id)
             config.save(config_path)
             return config
 
