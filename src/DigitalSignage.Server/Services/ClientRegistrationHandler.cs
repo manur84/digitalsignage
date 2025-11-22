@@ -87,6 +87,14 @@ internal class ClientRegistrationHandler
                     {
                         _logger.LogWarning("Client registration without token from MAC {MacAddress} - checking if already registered",
                             registerMessage.MacAddress);
+
+                        // DEBUG: Log incoming DeviceInfo BEFORE any processing (for registrations without token)
+                        _logger.LogInformation("INCOMING DeviceInfo from registration message (no token):");
+                        _logger.LogInformation("  Model: '{Model}'", registerMessage.DeviceInfo?.Model ?? "NULL");
+                        _logger.LogInformation("  OsVersion: '{OsVersion}'", registerMessage.DeviceInfo?.OsVersion ?? "NULL");
+                        _logger.LogInformation("  ClientVersion: '{ClientVersion}'", registerMessage.DeviceInfo?.ClientVersion ?? "NULL");
+                        _logger.LogInformation("  Hostname: '{Hostname}'", registerMessage.DeviceInfo?.Hostname ?? "NULL");
+                        _logger.LogInformation("  Resolution: {Width}x{Height}", registerMessage.DeviceInfo?.ScreenWidth ?? 0, registerMessage.DeviceInfo?.ScreenHeight ?? 0);
                     }
 
                     // Check if client already exists by MAC address
@@ -153,6 +161,14 @@ internal class ClientRegistrationHandler
         CancellationToken cancellationToken)
     {
         _logger.LogInformation("Validating registration token for MAC {MacAddress}", registerMessage.MacAddress);
+
+        // DEBUG: Log incoming DeviceInfo BEFORE any processing
+        _logger.LogInformation("INCOMING DeviceInfo from registration message:");
+        _logger.LogInformation("  Model: '{Model}'", registerMessage.DeviceInfo?.Model ?? "NULL");
+        _logger.LogInformation("  OsVersion: '{OsVersion}'", registerMessage.DeviceInfo?.OsVersion ?? "NULL");
+        _logger.LogInformation("  ClientVersion: '{ClientVersion}'", registerMessage.DeviceInfo?.ClientVersion ?? "NULL");
+        _logger.LogInformation("  Hostname: '{Hostname}'", registerMessage.DeviceInfo?.Hostname ?? "NULL");
+        _logger.LogInformation("  Resolution: {Width}x{Height}", registerMessage.DeviceInfo?.ScreenWidth ?? 0, registerMessage.DeviceInfo?.ScreenHeight ?? 0);
 
         var validationResult = await authService.ValidateRegistrationTokenAsync(
             registerMessage.RegistrationToken!,
