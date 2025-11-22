@@ -160,6 +160,7 @@ public class AppAuthorizedMessage : Message
         Type = MobileAppMessageTypes.AppAuthorized;
     }
 
+    public Guid MobileAppId { get; set; }
     public string Token { get; set; } = string.Empty;
     public List<string> Permissions { get; set; } = new();
     public DateTime ExpiresAt { get; set; }

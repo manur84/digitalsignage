@@ -171,26 +171,48 @@ public partial class LoginViewModel : BaseViewModel
 			// No existing credentials - register new app via WebSocket
 			StatusMessage = "Registering new mobile app...";
 
-			var registrationMessage = new
+			try
 			{
-				type = "APP_REGISTER",  // CRITICAL: Must match server's MobileAppMessageTypes.AppRegister
-				deviceName = deviceInfo.Name,
-				platform = deviceInfo.Platform,
-				appVersion = deviceInfo.AppVersion,
-				deviceIdentifier = deviceInfo.Identifier,  // CRITICAL: Server expects "deviceIdentifier"
-				token = !string.IsNullOrWhiteSpace(RegistrationToken) ? RegistrationToken : (string?)null
-			};
+				// Use RegisterAndWaitForAuthorizationAsync which waits for server response
+				var mobileAppId = await _webSocketService.RegisterAndWaitForAuthorizationAsync(
+					deviceInfo.Name,
+					deviceInfo.Identifier,
+					deviceInfo.Platform,
+					deviceInfo.AppVersion,
+					timeoutSeconds: 300); // 5 minutes timeout
 
-			await _webSocketService.SendJsonAsync(registrationMessage);
+				StatusMessage = "Registration approved!";
 
-			StatusMessage = "Waiting for server approval...";
+				// Generate a token (using device identifier for now)
+				var token = deviceInfo.Identifier;
 
-			// TODO: Wait for registration response via WebSocket
-			// For now, show message that admin needs to approve
-			StatusMessage = "Please wait for admin to approve this device on the server.";
+				// Save credentials
+				await _secureStorage.SaveAsync("AuthToken", token);
+				await _secureStorage.SaveAsync("MobileAppId", mobileAppId.ToString());
 
-			// Note: The actual approval handling will be done via WebSocket message handler
-			// When approved, the server will send a response with appId and token
+				// Save settings
+				var settings = new AppSettings
+				{
+					ServerUrl = serverUrl,
+					MobileAppId = mobileAppId,
+					AutoConnect = true,
+					LastConnected = DateTime.Now
+				};
+				await _secureStorage.SaveSettingsAsync(settings);
+
+				StatusMessage = "Connected successfully!";
+
+				// Navigate to main page
+				await Shell.Current.GoToAsync("//devices");
+			}
+			catch (TimeoutException)
+			{
+				StatusMessage = "Registration request sent. Please wait for admin to approve this device on the server, then try connecting again.";
+			}
+			catch (InvalidOperationException ex) when (ex.Message.Contains("authorization required"))
+			{
+				StatusMessage = "Registration request sent. Please wait for admin to approve this device on the server, then try connecting again.";
+			}
 
 		}, "Failed to connect to server");
 	}
