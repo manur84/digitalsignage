@@ -772,7 +772,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
                 Id = Guid.TryParse(c.Id, out var guid) ? guid : Guid.Empty,
                 Name = c.Name ?? c.IpAddress ?? "Unknown",
                 IpAddress = c.IpAddress,
-                Status = c.Status.ToString(),
+                Status = ConvertToDeviceStatus(c.Status),
                 Resolution = c.DeviceInfo != null ? $"{c.DeviceInfo.ScreenWidth}x{c.DeviceInfo.ScreenHeight}" : null,
                 DeviceInfo = c.DeviceInfo != null ? new DeviceInfoData
                 {
@@ -1096,7 +1096,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
     /// <summary>
     /// Notify all connected mobile apps of client status change
     /// </summary>
-    public async Task NotifyMobileAppsClientStatusChangedAsync(Guid deviceId, string status)
+    public async Task NotifyMobileAppsClientStatusChangedAsync(Guid deviceId, DeviceStatus status)
     {
         var statusMessage = new ClientStatusChangedMessage
         {
@@ -1117,6 +1117,24 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
         {
             _logger.LogWarning(ex, "Error notifying mobile apps of client status change");
         }
+    }
+
+    /// <summary>
+    /// Converts ClientStatus to DeviceStatus for mobile app compatibility
+    /// </summary>
+    private static DeviceStatus ConvertToDeviceStatus(ClientStatus clientStatus)
+    {
+        return clientStatus switch
+        {
+            ClientStatus.Online => DeviceStatus.Online,
+            ClientStatus.Offline => DeviceStatus.Offline,
+            ClientStatus.Disconnected => DeviceStatus.Offline,
+            ClientStatus.Error => DeviceStatus.Error,
+            ClientStatus.Updating => DeviceStatus.Warning,
+            ClientStatus.Connecting => DeviceStatus.Warning,
+            ClientStatus.OfflineRecovery => DeviceStatus.Warning,
+            _ => DeviceStatus.Offline
+        };
     }
 
     /// <summary>
