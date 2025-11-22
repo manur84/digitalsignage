@@ -15,14 +15,49 @@
         <!-- App Registration Status Color Converter -->
         <converters:AppRegistrationStatusToColorConverter x:Key="AppStatusToColor"/>
 
-        <!-- Modern Button Style -->
-        <Style x:Key="ActionButton" TargetType="Button">
-            <Setter Property="Padding" Value="20,10"/>
-            <Setter Property="Margin" Value="0,0,10,0"/>
+        <!-- Modern Action Button Style (Inline in DataGrid) -->
+        <Style x:Key="InlineActionButton" TargetType="Button">
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="Margin" Value="3,0"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="MinWidth" Value="75"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                CornerRadius="4"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            TextBlock.Foreground="{TemplateBinding Foreground}"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Opacity" Value="0.85"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Opacity" Value="0.4"/>
+                    <Setter Property="Cursor" Value="Arrow"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Header Button Style -->
+        <Style x:Key="HeaderButton" TargetType="Button">
+            <Setter Property="Padding" Value="16,8"/>
+            <Setter Property="Margin" Value="8,0,0,0"/>
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="White"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
@@ -38,10 +73,6 @@
                 <Trigger Property="IsMouseOver" Value="True">
                     <Setter Property="Opacity" Value="0.9"/>
                 </Trigger>
-                <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Opacity" Value="0.5"/>
-                    <Setter Property="Cursor" Value="Arrow"/>
-                </Trigger>
             </Style.Triggers>
         </Style>
     </UserControl.Resources>
@@ -53,45 +84,57 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- Header -->
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,15">
-            <TextBlock Text="Mobile App Registrations"
-                       FontSize="24"
-                       FontWeight="Bold"
-                       Foreground="#333333"
-                       VerticalAlignment="Center"/>
+        <!-- Modern Header -->
+        <Border Grid.Row="0"
+                Background="#2196F3"
+                CornerRadius="8,8,0,0"
+                Padding="24,16"
+                Margin="0,0,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
 
-            <!-- Pending Count Badge -->
-            <Border Background="#FF9800"
-                    CornerRadius="12"
-                    Padding="10,4"
-                    Margin="15,0,0,0"
-                    VerticalAlignment="Center"
-                    Visibility="{Binding PendingCount, Converter={StaticResource BoolToVisibilityStandard}}">
-                <TextBlock Text="{Binding PendingCount, StringFormat='{}{0} Pending'}"
-                           Foreground="White"
-                           FontWeight="Bold"
-                           FontSize="12"/>
-            </Border>
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Mobile App Registrations"
+                              FontSize="22"
+                              FontWeight="SemiBold"
+                              Foreground="White"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                        <TextBlock Foreground="#BBDEFB" FontSize="13" Margin="0,0,20,0">
+                            <Run Text="📱"/>
+                            <Run Text="{Binding Registrations.Count, Mode=OneWay}"/>
+                            <Run Text="Total"/>
+                        </TextBlock>
+                        <Border Background="#FF9800"
+                                CornerRadius="10"
+                                Padding="8,3"
+                                VerticalAlignment="Center"
+                                Visibility="{Binding PendingCount, Converter={StaticResource BoolToVisibilityStandard}}">
+                            <TextBlock Foreground="White" FontWeight="SemiBold" FontSize="12">
+                                <Run Text="⏳"/>
+                                <Run Text="{Binding PendingCount, Mode=OneWay}"/>
+                                <Run Text="Pending"/>
+                            </TextBlock>
+                        </Border>
+                    </StackPanel>
+                </StackPanel>
 
-            <!-- Refresh Button -->
-            <Button Content="🔄 Refresh"
-                    Command="{Binding LoadRegistrationsCommand}"
-                    Background="#2196F3"
-                    Foreground="White"
-                    Padding="15,8"
-                    Margin="0,0,0,0"
-                    FontSize="13"
-                    Cursor="Hand"
-                    HorizontalAlignment="Right"
-                    Style="{StaticResource ActionButton}"/>
-        </StackPanel>
+                <!-- Refresh Button -->
+                <Button Grid.Column="1"
+                        Content="🔄 Refresh"
+                        Command="{Binding LoadRegistrationsCommand}"
+                        Background="#1976D2"
+                        Style="{StaticResource HeaderButton}"/>
+            </Grid>
+        </Border>
 
         <!-- App List -->
         <Border Grid.Row="1"
                 BorderBrush="#E0E0E0"
-                BorderThickness="1"
-                CornerRadius="4"
+                BorderThickness="1,0,1,1"
+                CornerRadius="0,0,8,8"
                 Background="White">
             <DataGrid ItemsSource="{Binding Registrations}"
                       SelectedItem="{Binding SelectedRegistration, Mode=TwoWay}"
@@ -100,23 +143,25 @@
                       IsReadOnly="True"
                       GridLinesVisibility="None"
                       HeadersVisibility="Column"
-                      RowHeight="45"
+                      RowHeight="60"
                       FontSize="13"
-                      AlternatingRowBackground="#F9F9F9"
+                      AlternatingRowBackground="#FAFAFA"
                       RowBackground="White"
                       CanUserResizeRows="False"
-                      CanUserReorderColumns="False">
+                      CanUserReorderColumns="False"
+                      CanUserAddRows="False"
+                      CanUserDeleteRows="False">
 
                 <DataGrid.ColumnHeaderStyle>
                     <Style TargetType="DataGridColumnHeader">
-                        <Setter Property="Background" Value="#F5F5F5"/>
-                        <Setter Property="Foreground" Value="#333333"/>
+                        <Setter Property="Background" Value="#2196F3"/>
+                        <Setter Property="Foreground" Value="White"/>
                         <Setter Property="FontWeight" Value="SemiBold"/>
                         <Setter Property="FontSize" Value="13"/>
-                        <Setter Property="Padding" Value="12,10"/>
-                        <Setter Property="BorderBrush" Value="#E0E0E0"/>
-                        <Setter Property="BorderThickness" Value="0,0,1,1"/>
-                        <Setter Property="Height" Value="40"/>
+                        <Setter Property="Padding" Value="12,12"/>
+                        <Setter Property="BorderBrush" Value="#1976D2"/>
+                        <Setter Property="BorderThickness" Value="0,0,1,0"/>
+                        <Setter Property="Height" Value="42"/>
                     </Style>
                 </DataGrid.ColumnHeaderStyle>
 
@@ -124,10 +169,10 @@
                     <Style TargetType="DataGridRow">
                         <Setter Property="Background" Value="White"/>
                         <Setter Property="Foreground" Value="#333333"/>
+                        <Setter Property="Margin" Value="0,1"/>
                         <Style.Triggers>
                             <Trigger Property="IsSelected" Value="True">
                                 <Setter Property="Background" Value="#E3F2FD"/>
-                                <Setter Property="Foreground" Value="#1976D2"/>
                             </Trigger>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter Property="Background" Value="#F5F5F5"/>
@@ -139,161 +184,344 @@
                 <DataGrid.CellStyle>
                     <Style TargetType="DataGridCell">
                         <Setter Property="BorderThickness" Value="0"/>
-                        <Setter Property="Padding" Value="12,8"/>
+                        <Setter Property="Padding" Value="12,0"/>
                         <Setter Property="VerticalAlignment" Value="Center"/>
+                        <Setter Property="Background" Value="Transparent"/>
                         <Style.Triggers>
                             <Trigger Property="IsSelected" Value="True">
                                 <Setter Property="Background" Value="Transparent"/>
-                                <Setter Property="BorderBrush" Value="Transparent"/>
+                                <Setter Property="Foreground" Value="#1976D2"/>
                             </Trigger>
                         </Style.Triggers>
                     </Style>
                 </DataGrid.CellStyle>
 
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="Device Name" Binding="{Binding DeviceName}" Width="*" MinWidth="150"/>
-                    <DataGridTextColumn Header="Platform" Binding="{Binding Platform}" Width="100"/>
-                    <DataGridTextColumn Header="App Version" Binding="{Binding AppVersion}" Width="100"/>
+                    <!-- Device Name -->
+                    <DataGridTextColumn Header="Device Name"
+                                       Binding="{Binding DeviceName}"
+                                       Width="*"
+                                       MinWidth="150">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="FontWeight" Value="Medium"/>
+                                <Setter Property="FontSize" Value="13"/>
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
 
-                    <DataGridTemplateColumn Header="Status" Width="120">
+                    <!-- Platform -->
+                    <DataGridTextColumn Header="Platform"
+                                       Binding="{Binding Platform}"
+                                       Width="90"/>
+
+                    <!-- Status Badge -->
+                    <DataGridTemplateColumn Header="Status" Width="110">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <Border Background="{Binding Status, Converter={StaticResource AppStatusToColor}}"
-                                        CornerRadius="4"
-                                        Padding="8,4">
+                                <Border CornerRadius="12"
+                                       Padding="10,5"
+                                       HorizontalAlignment="Center">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Status}" Value="Pending">
+                                                    <Setter Property="Background" Value="#FFF3E0"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Status}" Value="Approved">
+                                                    <Setter Property="Background" Value="#E8F5E9"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Status}" Value="Rejected">
+                                                    <Setter Property="Background" Value="#FFEBEE"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Status}" Value="Revoked">
+                                                    <Setter Property="Background" Value="#F5F5F5"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
                                     <TextBlock Text="{Binding Status}"
-                                               Foreground="White"
-                                               FontWeight="SemiBold"
-                                               HorizontalAlignment="Center"/>
+                                              FontWeight="SemiBold"
+                                              FontSize="11"
+                                              HorizontalAlignment="Center">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Status}" Value="Pending">
+                                                        <Setter Property="Foreground" Value="#F57C00"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding Status}" Value="Approved">
+                                                        <Setter Property="Foreground" Value="#388E3C"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding Status}" Value="Rejected">
+                                                        <Setter Property="Foreground" Value="#D32F2F"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding Status}" Value="Revoked">
+                                                        <Setter Property="Foreground" Value="#757575"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
                                 </Border>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
 
-                    <DataGridTextColumn Header="Registered At"
-                                        Binding="{Binding RegisteredAt, StringFormat='{}{0:yyyy-MM-dd HH:mm}'}"
-                                        Width="150"/>
+                    <!-- Registered At -->
+                    <DataGridTextColumn Header="Registered"
+                                       Binding="{Binding RegisteredAt, StringFormat='{}{0:dd.MM.yyyy HH:mm}'}"
+                                       Width="130">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="FontSize" Value="12"/>
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
 
-                    <DataGridTextColumn Header="Last Seen"
-                                        Binding="{Binding LastSeenAt, StringFormat='{}{0:yyyy-MM-dd HH:mm}'}"
-                                        Width="150"/>
+                    <!-- Action Buttons -->
+                    <DataGridTemplateColumn Header="Actions" Width="340">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal"
+                                          HorizontalAlignment="Center"
+                                          VerticalAlignment="Center">
 
-                    <DataGridTextColumn Header="Authorized By" Binding="{Binding AuthorizedBy}" Width="120"/>
+                                    <!-- Approve Button (only for Pending) -->
+                                    <Button Command="{Binding DataContext.ApproveCommand,
+                                                     RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                           ToolTip="Approve this device">
+                                        <Button.Style>
+                                            <Style TargetType="Button" BasedOn="{StaticResource InlineActionButton}">
+                                                <Setter Property="Background" Value="#4CAF50"/>
+                                                <Style.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter Property="Background" Value="#388E3C"/>
+                                                    </Trigger>
+                                                    <DataTrigger Binding="{Binding Status}" Value="Approved">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding Status}" Value="Rejected">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding Status}" Value="Revoked">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="✓" Margin="0,0,4,0" FontSize="13"/>
+                                            <TextBlock Text="Approve"/>
+                                        </StackPanel>
+                                    </Button>
+
+                                    <!-- Reject Button (only for Pending) -->
+                                    <Button Command="{Binding DataContext.RejectCommand,
+                                                     RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                           ToolTip="Reject this device">
+                                        <Button.Style>
+                                            <Style TargetType="Button" BasedOn="{StaticResource InlineActionButton}">
+                                                <Setter Property="Background" Value="#F44336"/>
+                                                <Style.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter Property="Background" Value="#D32F2F"/>
+                                                    </Trigger>
+                                                    <DataTrigger Binding="{Binding Status}" Value="Approved">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding Status}" Value="Rejected">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding Status}" Value="Revoked">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="✗" Margin="0,0,4,0" FontSize="13"/>
+                                            <TextBlock Text="Reject"/>
+                                        </StackPanel>
+                                    </Button>
+
+                                    <!-- Revoke Button (only for Approved) -->
+                                    <Button Command="{Binding DataContext.RevokeCommand,
+                                                     RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                           ToolTip="Revoke access for this device">
+                                        <Button.Style>
+                                            <Style TargetType="Button" BasedOn="{StaticResource InlineActionButton}">
+                                                <Setter Property="Background" Value="#FF9800"/>
+                                                <Style.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter Property="Background" Value="#F57C00"/>
+                                                    </Trigger>
+                                                    <DataTrigger Binding="{Binding Status}" Value="Pending">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding Status}" Value="Rejected">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding Status}" Value="Revoked">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="⊗" Margin="0,0,4,0" FontSize="13"/>
+                                            <TextBlock Text="Revoke"/>
+                                        </StackPanel>
+                                    </Button>
+
+                                    <!-- Edit/Details Button (for Approved) -->
+                                    <Button ToolTip="View details and edit permissions">
+                                        <Button.Style>
+                                            <Style TargetType="Button" BasedOn="{StaticResource InlineActionButton}">
+                                                <Setter Property="Background" Value="#2196F3"/>
+                                                <Style.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter Property="Background" Value="#1976D2"/>
+                                                    </Trigger>
+                                                    <DataTrigger Binding="{Binding Status}" Value="Pending">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding Status}" Value="Rejected">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding Status}" Value="Revoked">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="⚙" Margin="0,0,4,0" FontSize="13"/>
+                                            <TextBlock Text="Edit"/>
+                                        </StackPanel>
+                                    </Button>
+
+                                    <!-- Delete Button -->
+                                    <Button Command="{Binding DataContext.DeleteCommand,
+                                                     RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                           ToolTip="Delete this registration">
+                                        <Button.Style>
+                                            <Style TargetType="Button" BasedOn="{StaticResource InlineActionButton}">
+                                                <Setter Property="Background" Value="#757575"/>
+                                                <Setter Property="MinWidth" Value="65"/>
+                                                <Style.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter Property="Background" Value="#616161"/>
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="🗑" Margin="0,0,4,0"/>
+                                            <TextBlock Text="Delete"/>
+                                        </StackPanel>
+                                    </Button>
+                                </StackPanel>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
                 </DataGrid.Columns>
             </DataGrid>
         </Border>
 
-        <!-- Details Panel -->
+        <!-- Details Panel (Permissions Editor) -->
         <Border Grid.Row="2"
                 BorderBrush="#E0E0E0"
                 BorderThickness="1"
-                CornerRadius="4"
+                CornerRadius="8"
                 Background="White"
-                Padding="20"
-                Margin="0,15,0,0"
+                Padding="24"
+                Margin="0,16,0,0"
                 Visibility="{Binding SelectedRegistration, Converter={StaticResource BoolToVisibilityStandard}}">
             <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
 
-                <!-- Device Details -->
-                <StackPanel Grid.Row="0" Margin="0,0,0,15">
-                    <TextBlock Text="Device Details" FontWeight="Bold" FontSize="16" Foreground="#333333" Margin="0,0,0,10"/>
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Device Identifier:" FontWeight="SemiBold" Margin="0,0,10,5"/>
-                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding SelectedRegistration.DeviceIdentifier}" Margin="0,0,0,5"/>
-
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Notes:" FontWeight="SemiBold" Margin="0,0,10,0"/>
-                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SelectedRegistration.Notes}" TextWrapping="Wrap"/>
-                    </Grid>
-                </StackPanel>
-
-                <!-- Permissions Section -->
-                <StackPanel Grid.Row="1" Margin="0,0,0,15">
-                    <TextBlock Text="Permissions" FontWeight="Bold" FontSize="16" Foreground="#333333" Margin="0,0,0,10"/>
-
-                    <CheckBox Content="👁 View (Device List, Screenshots, Layouts)"
-                              IsChecked="{Binding ViewPermission, Mode=TwoWay}"
-                              Margin="0,5"
-                              FontSize="13"/>
-
-                    <CheckBox Content="🎮 Control (Restart, Commands, Volume)"
-                              IsChecked="{Binding ControlPermission, Mode=TwoWay}"
-                              Margin="0,5"
-                              FontSize="13"/>
-
-                    <CheckBox Content="⚙ Manage (Assign Layouts, Schedules)"
-                              IsChecked="{Binding ManagePermission, Mode=TwoWay}"
-                              Margin="0,5"
-                              FontSize="13"/>
-                </StackPanel>
-
-                <!-- Status Info -->
-                <StackPanel Grid.Row="2" Margin="0,0,0,15">
-                    <TextBlock FontSize="12" Foreground="#666666" TextWrapping="Wrap">
-                        <Run Text="Status: " FontWeight="SemiBold"/>
-                        <Run Text="{Binding SelectedRegistration.Status, Mode=OneWay}"/>
+                <StackPanel Grid.Column="0">
+                    <TextBlock FontWeight="SemiBold" FontSize="15" Foreground="#333333" Margin="0,0,0,12">
+                        <Run Text="📱"/>
+                        <Run Text="{Binding SelectedRegistration.DeviceName, Mode=OneWay}"/>
+                        <Run Text="-" Foreground="#999999"/>
+                        <Run Text="Permissions" Foreground="#999999"/>
                     </TextBlock>
-                    <TextBlock FontSize="12" Foreground="#666666" TextWrapping="Wrap" Margin="0,5,0,0">
-                        <Run Text="Registered: " FontWeight="SemiBold"/>
-                        <Run Text="{Binding SelectedRegistration.RegisteredAt, StringFormat='{}{0:yyyy-MM-dd HH:mm:ss}', Mode=OneWay}"/>
-                    </TextBlock>
-                    <TextBlock FontSize="12" Foreground="#666666" TextWrapping="Wrap" Margin="0,5,0,0"
-                               Visibility="{Binding SelectedRegistration.AuthorizedAt, Converter={StaticResource BoolToVisibilityStandard}}">
-                        <Run Text="Authorized: " FontWeight="SemiBold"/>
-                        <Run Text="{Binding SelectedRegistration.AuthorizedAt, StringFormat='{}{0:yyyy-MM-dd HH:mm:ss}', Mode=OneWay}"/>
-                        <Run Text=" by " FontWeight="SemiBold"/>
-                        <Run Text="{Binding SelectedRegistration.AuthorizedBy, Mode=OneWay}"/>
+
+                    <StackPanel Orientation="Horizontal">
+                        <CheckBox Content="👁 View (Devices, Layouts, Screenshots)"
+                                 IsChecked="{Binding ViewPermission, Mode=TwoWay}"
+                                 FontSize="13"
+                                 VerticalAlignment="Center"
+                                 Margin="0,0,20,0"/>
+
+                        <CheckBox Content="🎮 Control (Restart, Commands, Volume)"
+                                 IsChecked="{Binding ControlPermission, Mode=TwoWay}"
+                                 FontSize="13"
+                                 VerticalAlignment="Center"
+                                 Margin="0,0,20,0"/>
+
+                        <CheckBox Content="⚙ Manage (Assign Layouts, Schedules)"
+                                 IsChecked="{Binding ManagePermission, Mode=TwoWay}"
+                                 FontSize="13"
+                                 VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <TextBlock FontSize="11" Foreground="#999999" Margin="0,10,0,0">
+                        <Run Text="Device ID:"/>
+                        <Run Text="{Binding SelectedRegistration.DeviceIdentifier, Mode=OneWay}"/>
+                        <Run Text="  •  Platform:"/>
+                        <Run Text="{Binding SelectedRegistration.Platform, Mode=OneWay}"/>
+                        <Run Text="  •  Version:"/>
+                        <Run Text="{Binding SelectedRegistration.AppVersion, Mode=OneWay}"/>
                     </TextBlock>
                 </StackPanel>
 
-                <!-- Actions -->
-                <StackPanel Grid.Row="3" Orientation="Horizontal">
-                    <Button Content="✓ APPROVE"
-                            Command="{Binding ApproveCommand}"
-                            Background="#0078D4"
-                            Foreground="White"
-                            FontWeight="Bold"
-                            FontSize="14"
-                            Style="{StaticResource ActionButton}"/>
-
-                    <Button Content="✗ REJECT"
-                            Command="{Binding RejectCommand}"
-                            Background="#D13438"
-                            Foreground="White"
-                            FontWeight="Bold"
-                            FontSize="14"
-                            Style="{StaticResource ActionButton}"/>
-
-                    <Button Content="⊘ REVOKE"
-                            Command="{Binding RevokeCommand}"
-                            Background="#CA5010"
-                            Foreground="White"
-                            FontWeight="Bold"
-                            FontSize="14"
-                            Style="{StaticResource ActionButton}"/>
-
-                    <Button Content="🗑 DELETE"
-                            Command="{Binding DeleteCommand}"
-                            Background="#424242"
-                            Foreground="White"
-                            FontWeight="Bold"
-                            FontSize="14"
-                            Style="{StaticResource ActionButton}"/>
-                </StackPanel>
+                <!-- Save Button -->
+                <Button Grid.Column="1"
+                       Content="💾 Save Permissions"
+                       Command="{Binding ApproveCommand}"
+                       Background="#4CAF50"
+                       Foreground="White"
+                       FontWeight="SemiBold"
+                       FontSize="13"
+                       Padding="20,10"
+                       Margin="20,0,0,0"
+                       VerticalAlignment="Center"
+                       Cursor="Hand"
+                       ToolTip="Apply permission changes">
+                    <Button.Style>
+                        <Style TargetType="Button">
+                            <Setter Property="Background" Value="#4CAF50"/>
+                            <Setter Property="Foreground" Value="White"/>
+                            <Setter Property="BorderThickness" Value="0"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border Background="{TemplateBinding Background}"
+                                               CornerRadius="4"
+                                               Padding="{TemplateBinding Padding}">
+                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                            <Style.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Background" Value="#388E3C"/>
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter Property="Opacity" Value="0.5"/>
+                                    <Setter Property="Cursor" Value="Arrow"/>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
             </Grid>
         </Border>
 
