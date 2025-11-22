@@ -297,7 +297,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
                     throw new InvalidOperationException($"Client {clientId} connection is not open");
                 }
 
-                _logger.LogDebug("Serializing message type {MessageType} for client {ClientId}", message.Type, clientId);
+                _logger.LogDebug("Serializing message type {MessageType} for client {ClientId}", message?.Type ?? "unknown", clientId);
 
                 var settings = new JsonSerializerSettings
                 {
@@ -310,11 +310,11 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
 
                 var json = JsonConvert.SerializeObject(message, settings);
 
-                _logger.LogDebug("Serialized message {MessageType}: {Length} bytes", message.Type, json.Length);
+                _logger.LogDebug("Serialized message {MessageType}: {Length} bytes", message?.Type ?? "unknown", json.Length);
 
                 await connection.SendTextAsync(json, cancellationToken);
 
-                _logger.LogDebug("Successfully sent message {MessageType} to client {ClientId}", message.Type, clientId);
+                _logger.LogDebug("Successfully sent message {MessageType} to client {ClientId}", message?.Type ?? "unknown", clientId);
             }
             catch (JsonSerializationException jsonEx)
             {
@@ -923,7 +923,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
                 message.AppVersion,
                 message.Platform);
 
-            if (result.IsSuccess)
+            if (result.IsSuccess && result.Value != null)
             {
                 var registration = result.Value;
 
@@ -1024,6 +1024,11 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
             }
 
             var clients = clientsResult.Value;
+            if (clients == null)
+            {
+                await SendErrorAsync(connection, "Client list is empty", cancellationToken);
+                return;
+            }
 
             // Filter by status if requested
             if (!string.IsNullOrEmpty(message.Filter))

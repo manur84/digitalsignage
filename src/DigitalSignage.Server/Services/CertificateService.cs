@@ -106,7 +106,11 @@ public class CertificateService : ICertificateService
             {
                 defaultPassword = GenerateSecurePassword();
                 _logger.LogWarning("Generated secure random password for self-signed certificate");
-                _logger.LogWarning("IMPORTANT: Save this configuration to persist the certificate password");
+                _logger.LogWarning("IMPORTANT: Add this to appsettings.json to persist the certificate:");
+                _logger.LogWarning("  \"ServerSettings\": {{");
+                _logger.LogWarning("    \"CertificatePassword\": \"{Password}\"", defaultPassword);
+                _logger.LogWarning("  }}");
+                _logger.LogWarning("Without this, a new certificate will be generated on each restart!");
             }
 
             var certPath = GenerateSelfSignedCertificate(
@@ -403,6 +407,7 @@ public class CertificateService : ICertificateService
 
     /// <summary>
     /// Generates a cryptographically secure random password
+    /// Uses rejection sampling to avoid modulo bias
     /// </summary>
     /// <returns>A secure random password with uppercase, lowercase, digits, and special characters</returns>
     private static string GenerateSecurePassword()
@@ -415,30 +420,88 @@ public class CertificateService : ICertificateService
         const string allChars = upperCase + lowerCase + digits + specialChars;
 
         using var rng = RandomNumberGenerator.Create();
-        var passwordBytes = new byte[passwordLength];
-        rng.GetBytes(passwordBytes);
-
         var password = new char[passwordLength];
         
-        // Ensure at least one character from each category
-        password[0] = upperCase[passwordBytes[0] % upperCase.Length];
-        password[1] = lowerCase[passwordBytes[1] % lowerCase.Length];
-        password[2] = digits[passwordBytes[2] % digits.Length];
-        password[3] = specialChars[passwordBytes[3] % specialChars.Length];
+        // Ensure at least one character from each category using rejection sampling
+        password[0] = GetRandomChar(rng, upperCase);
+        password[1] = GetRandomChar(rng, lowerCase);
+        password[2] = GetRandomChar(rng, digits);
+        password[3] = GetRandomChar(rng, specialChars);
 
         // Fill the rest randomly
         for (int i = 4; i < passwordLength; i++)
         {
-            password[i] = allChars[passwordBytes[i] % allChars.Length];
+            password[i] = GetRandomChar(rng, allChars);
         }
 
         // Shuffle the password to avoid predictable pattern
         for (int i = passwordLength - 1; i > 0; i--)
         {
-            var randomIndex = passwordBytes[i] % (i + 1);
+            var randomIndex = GetRandomInt(rng, i + 1);
             (password[i], password[randomIndex]) = (password[randomIndex], password[i]);
         }
 
         return new string(password);
+    }
+
+    /// <summary>
+    /// Get a random character from a string using rejection sampling to avoid modulo bias
+    /// </summary>
+    private static char GetRandomChar(RandomNumberGenerator rng, string chars)
+    {
+        // Calculate the maximum value that can be uniformly mapped to the char set
+        var charsLength = chars.Length;
+        var maxValidValue = (256 / charsLength) * charsLength - 1;
+        
+        byte[] randomByte = new byte[1];
+        byte value;
+        
+        // Rejection sampling: regenerate until we get a value in valid range
+        do
+        {
+            rng.GetBytes(randomByte);
+            value = randomByte[0];
+        } while (value > maxValidValue);
+        
+        return chars[value % charsLength];
+    }
+
+    /// <summary>
+    /// Get a random integer in range [0, max) using rejection sampling
+    /// </summary>
+    private static int GetRandomInt(RandomNumberGenerator rng, int max)
+    {
+        if (max <= 0)
+            throw new ArgumentOutOfRangeException(nameof(max), "Max must be positive");
+
+        // For small ranges, use byte; for larger, use int
+        if (max <= 256)
+        {
+            var maxValidValue = (256 / max) * max - 1;
+            byte[] randomByte = new byte[1];
+            byte value;
+            
+            do
+            {
+                rng.GetBytes(randomByte);
+                value = randomByte[0];
+            } while (value > maxValidValue);
+            
+            return value % max;
+        }
+        else
+        {
+            var maxValidValue = (int.MaxValue / max) * max - 1;
+            byte[] randomBytes = new byte[4];
+            int value;
+            
+            do
+            {
+                rng.GetBytes(randomBytes);
+                value = BitConverter.ToInt32(randomBytes, 0) & int.MaxValue; // Ensure positive
+            } while (value > maxValidValue);
+            
+            return value % max;
+        }
     }
 }

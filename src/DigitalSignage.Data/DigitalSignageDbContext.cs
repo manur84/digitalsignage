@@ -182,12 +182,15 @@ public class DigitalSignageDbContext : DbContext
                 .Metadata.SetValueComparer(stringListComparer);
 
             // Store LinkedDataSourceIds as JSON
+            // Note: This property is deprecated but kept for backwards compatibility with existing data
+#pragma warning disable CS0618 // Type or member is obsolete
             entity.Property(e => e.LinkedDataSourceIds)
                 .HasConversion(
                     v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
                     v => System.Text.Json.JsonSerializer.Deserialize<List<Guid>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new List<Guid>()
                 )
                 .Metadata.SetValueComparer(guidListComparer);
+#pragma warning restore CS0618 // Type or member is obsolete
 
             entity.Property(e => e.Category).HasMaxLength(100);
 
