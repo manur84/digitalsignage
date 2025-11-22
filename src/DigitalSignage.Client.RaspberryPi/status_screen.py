@@ -14,108 +14,17 @@ import logging
 from typing import Optional, Dict, Any
 from io import BytesIO
 from datetime import datetime
-from enum import Enum
 import threading
 
 from PyQt5.QtWidgets import QWidget, QLabel, QVBoxLayout, QHBoxLayout
-from PyQt5.QtCore import Qt, QTimer, QVariantAnimation, QEasingCurve
-from PyQt5.QtGui import QPixmap, QFont, QPainter, QColor, QPen
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QPixmap, QFont
 import qrcode
 
+# Import custom widgets
+from widgets import ScreenState, AnimatedDotsLabel, SpinnerWidget
+
 logger = logging.getLogger(__name__)
-
-
-class ScreenState(Enum):
-    """Enum for the 4 allowed screen states"""
-    AUTO_DISCOVERY = "auto_discovery"
-    CONNECTING = "connecting"
-    NO_LAYOUT_ASSIGNED = "no_layout_assigned"
-    SERVER_OFFLINE = "server_offline"
-    NONE = "none"  # No status screen shown
-
-
-class AnimatedDotsLabel(QLabel):
-    """Label that animates dots (e.g., "Connecting..." becomes "Connecting." -> "Connecting.." -> "Connecting...")"""
-
-    def __init__(self, base_text: str, parent=None):
-        super().__init__(parent)
-        self.base_text = base_text
-        self.dot_count = 0
-        self.max_dots = 3
-
-        self.timer = QTimer(self)
-        self.timer.timeout.connect(self.update_dots)
-        self.timer.start(600)  # Update every 600ms
-
-        self.update_dots()
-
-    def update_dots(self):
-        """Update the dots animation"""
-        dots = "." * self.dot_count
-        self.setText(f"{self.base_text}{dots}")
-        self.dot_count = (self.dot_count + 1) % (self.max_dots + 1)
-
-    def cleanup(self):
-        """Stop the timer"""
-        if self.timer:
-            self.timer.stop()
-
-
-class SpinnerWidget(QWidget):
-    """Custom spinner widget with rotating circle"""
-
-    def __init__(self, size: int = 80, color: str = "#4A90E2", parent=None):
-        super().__init__(parent)
-        self.setFixedSize(size, size)
-        self._angle = 0
-        self.color = QColor(color)
-
-        self.animation = QVariantAnimation(self)
-        self.animation.setStartValue(0)
-        self.animation.setEndValue(360)
-        self.animation.setDuration(1500)
-        self.animation.setLoopCount(-1)
-        self.animation.setEasingCurve(QEasingCurve.Linear)
-        self.animation.valueChanged.connect(self._on_angle_changed)
-        self.animation.start()
-
-    def _on_angle_changed(self, value):
-        """Handle angle change from animation"""
-        self._angle = value
-        self.update()
-
-    def paintEvent(self, event):
-        """Draw the spinner"""
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.Antialiasing, True)
-        painter.setRenderHint(QPainter.SmoothPixmapTransform, True)
-
-        rect = self.rect()
-        center_x = rect.width() / 2
-        center_y = rect.height() / 2
-        radius = min(center_x, center_y) - 5
-
-        pen = QPen(self.color)
-        pen.setWidth(6)
-        pen.setCapStyle(Qt.RoundCap)
-        painter.setPen(pen)
-
-        start_angle = self._angle * 16
-        span_angle = 270 * 16
-
-        painter.drawArc(
-            int(center_x - radius),
-            int(center_y - radius),
-            int(radius * 2),
-            int(radius * 2),
-            start_angle,
-            span_angle
-        )
-
-    def cleanup(self):
-        """Stop the animation"""
-        if self.animation:
-            self.animation.stop()
 
 
 class StatusScreen(QWidget):
