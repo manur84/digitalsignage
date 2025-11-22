@@ -348,33 +348,27 @@ internal class ClientRegistrationHandler
             return;
         }
 
-        _logger.LogInformation("Client {ClientId} has assigned layout {LayoutId}, sending DISPLAY_UPDATE",
+        _logger.LogInformation("Client {ClientId} has assigned layout {LayoutId}, delegating to ClientLayoutDistributor",
             client.Id, client.AssignedLayoutId);
 
         try
         {
-            var layoutResult = await _layoutService.GetLayoutByIdAsync(client.AssignedLayoutId, cancellationToken);
-            if (layoutResult.IsSuccess && layoutResult.Value != null)
+            // CRITICAL FIX: Use ClientLayoutDistributor instead of sending raw layout
+            // This ensures media is embedded, data sources are fetched, and templates are processed
+            using var scope = _serviceProvider.CreateScope();
+            var layoutDistributor = scope.ServiceProvider.GetRequiredService<ClientLayoutDistributor>();
+
+            var result = await layoutDistributor.SendLayoutToClientAsync(client.Id, client.AssignedLayoutId, cancellationToken);
+
+            if (result.IsSuccess)
             {
-                // Fetch data for data-driven elements
-                // TODO: Implement data source fetching when data-driven elements are supported
-                Dictionary<string, object>? layoutData = null;
-
-                // Send DISPLAY_UPDATE message
-                var displayUpdate = new DisplayUpdateMessage
-                {
-                    Layout = layoutResult.Value,
-                    Data = layoutData
-                };
-
-                await _communicationService.SendMessageAsync(client.Id, displayUpdate, cancellationToken);
                 _logger.LogInformation("Successfully sent assigned layout {LayoutId} to reconnected client {ClientId}",
-                    layoutResult.Value.Id, client.Id);
+                    client.AssignedLayoutId, client.Id);
             }
             else
             {
-                _logger.LogWarning("Client {ClientId} has assigned layout {LayoutId} but layout not found in database",
-                    client.Id, client.AssignedLayoutId);
+                _logger.LogWarning("Failed to send layout {LayoutId} to client {ClientId}: {Error}",
+                    client.AssignedLayoutId, client.Id, result.ErrorMessage);
             }
         }
         catch (Exception ex)
