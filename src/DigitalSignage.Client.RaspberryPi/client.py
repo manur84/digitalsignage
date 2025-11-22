@@ -162,7 +162,9 @@ class DigitalSignageClient:
         self.ws_thread = None
         self.reconnect_requested = False
         self.pending_messages = []
-        self.message_lock = threading.Lock()
+        self.message_lock = threading.Lock()  # Protects pending_messages list
+        self.send_lock = threading.Lock()  # CRITICAL: Protects WebSocket send() from race conditions
+        self.connection_event = threading.Event()  # Signals when connection is established
 
         # Reconnection state
         self.reconnection_in_progress = False
@@ -206,15 +208,28 @@ class DigitalSignageClient:
             logger.error(f"Failed to setup remote logging: {e}")
 
     def send_message(self, message: Dict[str, Any]):
-        """Send a message to the server (used by remote log handler)"""
+        """Send a message to the server (used by remote log handler)
+
+        CRITICAL: Thread-safe implementation!
+        - Uses send_lock to prevent race conditions when multiple threads send simultaneously
+        - websocket-client library is NOT thread-safe for concurrent sends
+        """
         try:
-            if self.connected and self.ws_app:
-                message_json = json.dumps(message)
-                self.ws_app.send(message_json)
-            else:
-                # Queue message for later if not connected
-                with self.message_lock:
-                    self.pending_messages.append(message)
+            # Check connection WITHOUT blocking on lock first (fast path)
+            if self.connection_event.is_set() and self.ws_app:
+                # CRITICAL: Acquire send lock to prevent race conditions
+                # Multiple threads (heartbeat, remote logging, commands) can call this simultaneously
+                with self.send_lock:
+                    # Double-check connection state after acquiring lock
+                    if self.connected and self.ws_app:
+                        message_json = json.dumps(message)
+                        self.ws_app.send(message_json)
+                        return  # Success
+
+            # Not connected - queue message for later
+            with self.message_lock:
+                self.pending_messages.append(message)
+                logger.debug(f"Message queued (not connected): {len(self.pending_messages)} pending")
         except Exception as e:
             # Log to file to avoid recursion issues with send_message
             try:
@@ -228,22 +243,38 @@ class DigitalSignageClient:
                 print(f"CRITICAL: send_message failed: {e} (log error: {log_error})", file=sys.stderr)
 
     def _flush_pending_messages(self):
-        """Send any messages that were queued while disconnected"""
+        """Send any messages that were queued while disconnected
+
+        CRITICAL: Thread-safe implementation with proper locking!
+        """
+        # Copy pending messages under lock
         with self.message_lock:
-            if self.pending_messages and self.connected and self.ws_app:
-                for message in self.pending_messages:
-                    try:
-                        message_json = json.dumps(message)
-                        self.ws_app.send(message_json)
-                    except Exception as e:
-                        logger.error(f"Failed to send pending message: {e}")
-                self.pending_messages.clear()
+            if not self.pending_messages:
+                return  # Nothing to send
+            messages_to_send = self.pending_messages.copy()
+            self.pending_messages.clear()
+
+        # Send messages with send_lock (NOT message_lock to avoid deadlock)
+        if self.connection_event.is_set() and self.ws_app:
+            logger.info(f"Flushing {len(messages_to_send)} pending messages")
+            for message in messages_to_send:
+                try:
+                    with self.send_lock:
+                        if self.connected and self.ws_app:
+                            message_json = json.dumps(message)
+                            self.ws_app.send(message_json)
+                except Exception as e:
+                    logger.error(f"Failed to send pending message: {e}")
+                    # Re-queue failed message
+                    with self.message_lock:
+                        self.pending_messages.append(message)
 
     def on_open(self, ws):
         """WebSocket connection opened"""
         logger.info("WebSocket connection opened")
         self.connected = True
         self.offline_mode = False
+        self.connection_event.set()  # CRITICAL: Signal connection is ready for sending
         self.watchdog.notify_status("Connected to server")
 
         # Register client
@@ -356,6 +387,7 @@ class DigitalSignageClient:
         """WebSocket connection closed"""
         logger.warning(f"WebSocket connection closed (code: {close_status_code}, msg: {close_msg})")
         self.connected = False
+        self.connection_event.clear()  # CRITICAL: Clear connection state
 
         if not self.reconnect_requested:
             # Unexpected disconnect - enter offline mode and start reconnection
