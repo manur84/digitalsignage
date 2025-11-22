@@ -14,9 +14,9 @@
 - ✅ Kritische Infrastruktur-Komponenten
 
 **STATUS UPDATE (2025-11-22):**
-- ✅ **13 von 24 Problemen BEHOBEN** (54% Complete)
+- ✅ **16 von 24 Problemen BEHOBEN** (67% Complete)
 - ⚡ **1 Problem TEILWEISE BEHOBEN** (Fire-and-forget Handler - Task-Tracking ✅, Channel-Pattern ⏳)
-- ⏳ **10 Probleme noch OFFEN** (Backlog)
+- ⏳ **7 Probleme noch OFFEN** (Backlog)
 
 **Behobene Probleme:**
 - ✅ TOP 5 kritische Bugs: **ALLE BEHOBEN**
@@ -38,6 +38,8 @@
 - `bfedaff` - CLAUDE.md: Handler Pattern Dokumentation
 - `995b619` - Message Versioning Integration (vollständig)
 - `5b8462d` - CODE_REVIEW Update (aktueller Stand)
+- `64f64ab` - Message Type Case-Sensitivity + Race Condition behoben
+- `7a02d9b` - Nullable Reference Types + XML Documentation für Layout-Zuweisung
 
 **Positiv aufgefallen:**
 - ✅ Python Client: Thread-Safe Send/Receive (send_lock, connection_event)
@@ -292,23 +294,49 @@ ConcurrentDictionary schützt nur Dictionary-Ops, nicht Business-Logik.
 
 ---
 
-### **[FEHLER/NIEDRIG]** Fehlende Null-Checks bei Layout-Zuweisung
-**Datei:** `LayoutService.cs:AssignLayoutToClientAsync`
+### ✅ **[FEHLER/NIEDRIG]** Fehlende Null-Checks bei Layout-Zuweisung - **BEHOBEN**
+**Dateien:** `ClientLayoutDistributor.cs`, `LayoutService.cs`, `DeviceManagementViewModel.cs`
 
 **Problem:**
+Der alte Code hatte möglicherweise fehlende Null-Checks bei Layout-Zuweisung. Nach Refactoring in ClientLayoutDistributor wurde dies adressiert.
+
+**Lösung (Commit 7a02d9b):**
 ```csharp
-public async Task AssignLayoutToClientAsync(Guid layoutId, Guid clientId)
+// ClientLayoutDistributor.cs
+public async Task<Result> AssignLayoutAsync(
+    string clientId,
+    string layoutId,
+    ConcurrentDictionary<string, RaspberryPiClient> clientsCache,
+    CancellationToken cancellationToken = default)
 {
-    var layout = await GetByIdAsync(layoutId);  // Kann null sein
-    var client = await _clientService.GetClientByIdAsync(clientId);  // Kann null sein
-    // Keine Null-Checks!
-    client.AssignedLayoutId = layoutId;
+    // Guard clause: Validate clientId
+    if (string.IsNullOrWhiteSpace(clientId))
+        return Result.Failure("Client ID cannot be empty");
+
+    // Guard clause: Validate layoutId
+    if (string.IsNullOrWhiteSpace(layoutId))
+        return Result.Failure("Layout ID cannot be empty");
+
+    // Check client exists
+    if (!clientsCache.TryGetValue(clientId, out var client))
+        return Result.Failure($"Client '{clientId}' not found");
+
+    // Load layout with null-safety check
+    var layoutResult = await _layoutService.GetLayoutByIdAsync(layoutId, cancellationToken);
+    if (layoutResult.IsFailure || layoutResult.Value == null)
+        return Result.Failure($"Layout '{layoutId}' not found");
+
+    // ... safe to proceed
 }
 ```
 
-**To-do:**
-- [ ] Guard clauses: `if (layout == null) throw new InvalidOperationException(...)`
-- [ ] Nullable reference types aktivieren: `#nullable enable`
+**Implementiert:**
+- [x] Guard clauses für clientId, layoutId
+- [x] Null-Check für GetLayoutByIdAsync Result
+- [x] Nullable reference types aktiviert: `#nullable enable` in allen 3 Dateien
+- [x] Umfangreiche XML-Dokumentation hinzugefügt
+- [x] Explizite Fehlermeldungen für bessere User Experience
+- [x] Commit: `7a02d9b`
 
 ---
 
