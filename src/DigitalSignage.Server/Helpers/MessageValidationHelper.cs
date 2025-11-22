@@ -104,10 +104,10 @@ public class MessageValidationHelper
             return ValidationResult.Failure("ClientId is required");
         }
 
-        if (string.IsNullOrWhiteSpace(message.Token))
+        if (string.IsNullOrWhiteSpace(message.RegistrationToken))
         {
-            _logger.LogWarning("RegisterMessage missing Token from {ConnectionId}", connectionId);
-            return ValidationResult.Failure("Token is required");
+            _logger.LogWarning("RegisterMessage missing RegistrationToken from {ConnectionId}", connectionId);
+            return ValidationResult.Failure("RegistrationToken is required");
         }
 
         return ValidationResult.Success();

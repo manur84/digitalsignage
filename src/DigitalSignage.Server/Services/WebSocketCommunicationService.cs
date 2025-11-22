@@ -367,21 +367,9 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
         {
             // Network error or connection lost
             // Log but don't throw - sending is best-effort
+            // Note: Connection cleanup is already handled in HandleWebSocketConnectionAsync finally block
             _logger.LogError(ex, "Failed to send message type {MessageType} to client {ClientId} due to network error",
                 message?.Type, clientId);
-
-            // Trigger disconnect to clean up the connection
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    await DisconnectClientAsync(clientId);
-                }
-                catch (Exception disconnectEx)
-                {
-                    _logger.LogWarning(disconnectEx, "Error during auto-disconnect for client {ClientId}", clientId);
-                }
-            });
         }
     }
 
@@ -948,13 +936,21 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
             {
                 // No handler found
                 _logger.LogWarning("No handler registered for mobile app message type: {MessageType}", message.Type);
-                await SendErrorAsync(connection, $"Unknown message type: {message.Type}");
+                if (mobileAppManager != null)
+                {
+                    await mobileAppManager.SendErrorAsync(connectionId, $"Unknown message type: {message.Type}", cancellationToken);
+                }
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error handling mobile app message {MessageType}", message.Type);
-            await SendErrorAsync(connection, "Internal server error");
+            // Get mobileAppManager again in case the try block didn't execute that far
+            var mobileAppManager2 = _serviceProvider.GetService<MobileAppConnectionManager>();
+            if (mobileAppManager2 != null)
+            {
+                await mobileAppManager2.SendErrorAsync(connectionId, "Internal server error", cancellationToken);
+            }
         }
     }
 

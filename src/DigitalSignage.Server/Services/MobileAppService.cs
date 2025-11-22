@@ -223,24 +223,23 @@ public class MobileAppService : IMobileAppService
             // This prevents the app from being stuck in "Waiting for approval" state
             try
             {
-                // CRITICAL: Must get concrete WebSocketCommunicationService class (NOT ICommunicationService)
-                // because SendRejectionNotificationAsync() is specific to WebSocket implementation
-                var webSocketService = _serviceProvider.GetService<WebSocketCommunicationService>();
+                // Get MobileAppConnectionManager to send rejection notification
+                var connectionManager = _serviceProvider.GetService<MobileAppConnectionManager>();
 
-                if (webSocketService != null)
+                if (connectionManager != null)
                 {
                     _logger.Information("Sending rejection notification to mobile app {AppId} via WebSocket", appId);
 
                     // Send rejection notification to iOS App
-                    // The WebSocketCommunicationService will find the connection by MobileAppId
-                    await webSocketService.SendRejectionNotificationAsync(appId, reason);
+                    // The MobileAppConnectionManager will find the connection by MobileAppId
+                    await connectionManager.SendRejectionNotificationAsync(appId, reason);
 
                     _logger.Information("✓ Rejection notification sent successfully to mobile app {AppId} via WebSocket", appId);
                 }
                 else
                 {
-                    _logger.Error("CRITICAL ERROR: WebSocketCommunicationService not available in DI container - mobile app cannot receive rejection notification!");
-                    _logger.Error("Check ServiceCollectionExtensions.AddBusinessServices() - WebSocketCommunicationService must be registered as concrete class");
+                    _logger.Error("CRITICAL ERROR: MobileAppConnectionManager not available in DI container - mobile app cannot receive rejection notification!");
+                    _logger.Error("Check ServiceCollectionExtensions.AddBusinessServices() - MobileAppConnectionManager must be registered");
                 }
             }
             catch (Exception wsEx)

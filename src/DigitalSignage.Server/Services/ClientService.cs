@@ -42,6 +42,7 @@ public class ClientService : IClientService, IDisposable
         ILayoutService layoutService,
         ISqlDataService dataService,
         IScribanService scribanService,
+        AsyncLockService lockService,
         IServiceProvider serviceProvider,
         ILogger<ClientService> logger)
     {
@@ -60,7 +61,8 @@ public class ClientService : IClientService, IDisposable
             serviceProvider,
             registrationLogger,
             communicationService,
-            layoutService);
+            layoutService,
+            lockService);
 
         _layoutDistributor = new ClientLayoutDistributor(
             serviceProvider,
