@@ -804,7 +804,11 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
     {
         try
         {
-            return messageType switch
+            // Normalize message type to UPPERCASE for case-insensitive comparison
+            // This allows clients to send "Register", "register", "REGISTER", etc.
+            var normalizedType = messageType?.ToUpperInvariant() ?? string.Empty;
+
+            return normalizedType switch
             {
                 // ============================================
                 // MOBILE APP ↔ SERVER MESSAGES
