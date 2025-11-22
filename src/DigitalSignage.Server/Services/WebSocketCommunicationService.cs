@@ -25,8 +25,6 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
     private readonly WebSocketMessageSerializer _messageSerializer;
     private readonly ServerSettings _settings;
     private readonly IServiceProvider _serviceProvider; // For scoped service access
-    private readonly ICertificateService _certificateService;
-    private readonly ISslBindingService _sslBindingService;
     private HttpListener? _httpListener;
     private CancellationTokenSource? _cancellationTokenSource;
     private Task? _acceptClientsTask;
@@ -36,15 +34,11 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
         ILogger<WebSocketCommunicationService> logger,
         ILogger<WebSocketMessageSerializer> serializerLogger,
         ServerSettings settings,
-        IServiceProvider serviceProvider,
-        ICertificateService certificateService,
-        ISslBindingService sslBindingService)
+        IServiceProvider serviceProvider)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
-        _certificateService = certificateService ?? throw new ArgumentNullException(nameof(certificateService));
-        _sslBindingService = sslBindingService ?? throw new ArgumentNullException(nameof(sslBindingService));
         _messageSerializer = new WebSocketMessageSerializer(serializerLogger, enableCompression: true);
     }
 
@@ -61,110 +55,27 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
         {
             _cancellationTokenSource = new CancellationTokenSource();
 
-            // Load SSL certificate if enabled
+            // SSL is disabled - using HTTP/WS for simplicity
+            // For production SSL, use a reverse proxy (nginx/caddy/IIS)
             if (_settings.EnableSsl)
             {
-                try
-                {
-                    _logger.LogInformation("SSL/TLS is enabled - loading certificate...");
-                    var certificate = _certificateService.GetOrCreateServerCertificate();
+                _logger.LogWarning("===================================================================");
+                _logger.LogWarning("SSL CONFIGURATION SIMPLIFIED");
+                _logger.LogWarning("===================================================================");
+                _logger.LogWarning("");
+                _logger.LogWarning("SSL/TLS is configured but will be ignored.");
+                _logger.LogWarning("The server now runs in HTTP/WS mode for development simplicity.");
+                _logger.LogWarning("");
+                _logger.LogWarning("FOR PRODUCTION SSL:");
+                _logger.LogWarning("  Use a reverse proxy (nginx, caddy, or IIS) for SSL termination");
+                _logger.LogWarning("  This is the industry-standard approach and much simpler than");
+                _logger.LogWarning("  Windows netsh SSL bindings or HttpListener SSL configuration.");
+                _logger.LogWarning("");
+                _logger.LogWarning("See README for nginx configuration example.");
+                _logger.LogWarning("===================================================================");
 
-                    if (certificate == null)
-                    {
-                        _logger.LogWarning("===================================================================");
-                        _logger.LogWarning("SSL CERTIFICATE LOADING FAILED");
-                        _logger.LogWarning("===================================================================");
-                        _logger.LogWarning("");
-                        _logger.LogWarning("SSL is enabled but no certificate could be loaded or generated.");
-                        _logger.LogWarning("Falling back to HTTP/WS (unencrypted) mode.");
-                        _logger.LogWarning("");
-                        _logger.LogWarning("To fix SSL:");
-                        _logger.LogWarning("  1. Check CertificatePath in appsettings.json");
-                        _logger.LogWarning("  2. Ensure certificate file exists and is accessible");
-                        _logger.LogWarning("  3. Verify CertificatePassword is correct");
-                        _logger.LogWarning("  4. Or set EnableSsl=false to disable SSL");
-                        _logger.LogWarning("");
-                        _logger.LogWarning("===================================================================");
-
-                        // Disable SSL and continue with HTTP
-                        _settings.EnableSsl = false;
-                    }
-                    else
-                    {
-                        _logger.LogInformation("✅ SSL certificate loaded successfully");
-                        _logger.LogInformation("Certificate Subject: {Subject}", certificate.Subject);
-                        _logger.LogInformation("Certificate Thumbprint: {Thumbprint}", certificate.Thumbprint);
-                        _logger.LogInformation("Certificate Valid Until: {NotAfter}", certificate.NotAfter);
-
-                        // Automatically configure SSL binding if enabled and running on Windows
-                        if (_settings.AutoConfigureSslBinding && OperatingSystem.IsWindows())
-                        {
-                            _logger.LogInformation("Attempting automatic SSL binding configuration...");
-
-                            var currentPort = _settings.Port;
-                            var pfxPath = _settings.CertificatePath ?? string.Empty;
-                            var password = _settings.CertificatePassword ?? string.Empty;
-
-                            var bindingSuccess = await _sslBindingService.EnsureSslBindingAsync(
-                                certificate,
-                                currentPort,
-                                pfxPath,
-                                password);
-
-                            if (bindingSuccess)
-                            {
-                                _logger.LogInformation("✅ SSL binding configured successfully");
-                                _logger.LogInformation("Clients can now connect via WSS (secure WebSocket)");
-                            }
-                            else
-                            {
-                                if (!_sslBindingService.IsRunningAsAdministrator())
-                                {
-                                    _logger.LogWarning("===================================================================");
-                                    _logger.LogWarning("SSL BINDING NOT CONFIGURED - Administrator Rights Required");
-                                    _logger.LogWarning("===================================================================");
-                                    _logger.LogWarning("");
-                                    _logger.LogWarning("The server is NOT running with Administrator privileges.");
-                                    _logger.LogWarning("SSL/TLS cannot be configured automatically without admin rights.");
-                                    _logger.LogWarning("");
-                                    _logger.LogWarning("OPTIONS:");
-                                    _logger.LogWarning("  1. Restart the application as Administrator (recommended)");
-                                    _logger.LogWarning("  2. Manually configure SSL binding:");
-                                    _logger.LogWarning($"     netsh http add sslcert ipport=0.0.0.0:{currentPort} certhash={certificate.Thumbprint} appid={{{_settings.SslAppId}}}");
-                                    _logger.LogWarning("  3. Set EnableSsl=false in appsettings.json to use HTTP/WS");
-                                    _logger.LogWarning("  4. Use a reverse proxy (nginx/IIS) for SSL termination");
-                                    _logger.LogWarning("");
-                                    _logger.LogWarning("Falling back to HTTP/WS (unencrypted) mode...");
-                                    _logger.LogWarning("===================================================================");
-
-                                    // Disable SSL and continue with HTTP
-                                    _settings.EnableSsl = false;
-                                }
-                                else
-                                {
-                                    _logger.LogError("Failed to configure SSL binding despite having admin rights");
-                                    _logger.LogWarning("Falling back to HTTP/WS mode");
-                                    _settings.EnableSsl = false;
-                                }
-                            }
-                        }
-                        else if (!OperatingSystem.IsWindows())
-                        {
-                            _logger.LogWarning("⚠️  Automatic SSL binding is only supported on Windows");
-                            _logger.LogWarning("On Linux/macOS, use a reverse proxy (nginx/caddy) for SSL termination");
-                            _logger.LogWarning("Continuing without SSL binding configuration...");
-                        }
-
-                        // Dispose certificate as HttpListener doesn't use it directly
-                        // (HttpListener reads from Windows certificate store via netsh binding)
-                        certificate.Dispose();
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Failed to load SSL certificate - falling back to HTTP");
-                    _settings.EnableSsl = false;
-                }
+                // Force disable SSL
+                _settings.EnableSsl = false;
             }
 
             _httpListener = new HttpListener();
@@ -281,21 +192,8 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
                 _logger.LogWarning("===================================================================");
             }
 
-            // Log SSL configuration warning if SSL is enabled
-            if (_settings.EnableSsl)
-            {
-                _logger.LogWarning("SSL/TLS is enabled. Ensure SSL certificate is properly configured.");
-                _logger.LogWarning("For Windows: Use 'netsh http add sslcert' to bind certificate to port {Port}", _settings.Port);
-                _logger.LogWarning("For production: Consider using a reverse proxy (nginx/IIS) for SSL termination");
-
-                if (string.IsNullOrWhiteSpace(_settings.CertificateThumbprint) &&
-                    string.IsNullOrWhiteSpace(_settings.CertificatePath))
-                {
-                    _logger.LogError("SSL enabled but no certificate configured. Server may fail to accept connections.");
-                }
-            }
-
-            var protocol = _settings.EnableSsl ? "HTTPS/WSS" : "HTTP/WS";
+            // SSL is always disabled now - using HTTP/WS
+            var protocol = "HTTP/WS";
             _logger.LogInformation("WebSocket server started on port {Port} using {Protocol} ({BindMode})",
                 _settings.Port, protocol, bindMode);
             _logger.LogInformation("WebSocket endpoint: {Endpoint}", successfulPrefix);

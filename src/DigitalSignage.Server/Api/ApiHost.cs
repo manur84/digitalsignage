@@ -30,7 +30,7 @@ public class ApiHost : IHostedService, IDisposable
     }
 
     /// <summary>
-    /// Gets the URL where the API is accessible (HTTPS)
+    /// Gets the URL where the API is accessible (HTTP)
     /// </summary>
     public string? ApiUrl { get; private set; }
 
@@ -47,9 +47,10 @@ public class ApiHost : IHostedService, IDisposable
                 _webHost = BuildWebHost(port);
                 await _webHost.StartAsync(cancellationToken);
 
-                ApiUrl = $"https://localhost:{port}";
-                _logger.LogInformation("REST API server started successfully on HTTPS port {Port}", port);
+                ApiUrl = $"http://localhost:{port}";
+                _logger.LogInformation("REST API server started successfully on HTTP port {Port}", port);
                 _logger.LogInformation("Swagger UI available at: {SwaggerUrl}", $"{ApiUrl}/swagger");
+                _logger.LogInformation("For production SSL: Use nginx reverse proxy (see README for config)");
                 return;
             }
             catch (Exception ex)
@@ -93,14 +94,13 @@ public class ApiHost : IHostedService, IDisposable
         return new WebHostBuilder()
             .UseKestrel(options =>
             {
-                // Listen on all network interfaces for HTTPS only
-                // iOS requires HTTPS due to App Transport Security (ATS)
+                // Listen on all network interfaces for HTTP
+                // SSL/TLS termination should be handled by reverse proxy (nginx/caddy/IIS)
                 options.ListenAnyIP(port, listenOptions =>
                 {
                     listenOptions.Protocols = HttpProtocols.Http1AndHttp2;
-                    // Use development certificate for HTTPS
-                    // In production, configure proper SSL certificate
-                    listenOptions.UseHttps();
+                    // HTTP only - no SSL configuration
+                    // For production: Use nginx reverse proxy for HTTPS
                 });
 
                 // Increase request limits for screenshot uploads

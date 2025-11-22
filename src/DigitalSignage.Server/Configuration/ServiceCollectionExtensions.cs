@@ -141,8 +141,9 @@ public static class ServiceCollectionExtensions
         // Infrastructure Services
         services.AddScoped<IAuthenticationService, AuthenticationService>();
         services.AddSingleton<IMobileAppService, MobileAppService>();
-        services.AddSingleton<ICertificateService, CertificateService>();
-        services.AddSingleton<ISslBindingService, SslBindingService>();
+        // SSL services removed - using HTTP for development, nginx for production SSL
+        // services.AddSingleton<ICertificateService, CertificateService>();
+        // services.AddSingleton<ISslBindingService, SslBindingService>();
         services.AddSingleton<LogStorageService>();
         services.AddSingleton<QueryCacheService>();
         services.AddSingleton<AlertService>();
