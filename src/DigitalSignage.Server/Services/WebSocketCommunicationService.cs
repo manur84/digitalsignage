@@ -839,6 +839,67 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
         }
     }
 
+
+    private sealed class MobileAppRequestContext : IDisposable
+    {
+        public IServiceScope Scope { get; }
+        public IMobileAppService MobileAppService { get; }
+        public MobileAppRegistration Registration { get; }
+        public string Token { get; }
+
+        public MobileAppRequestContext(IServiceScope scope, IMobileAppService mobileAppService, MobileAppRegistration registration, string token)
+        {
+            Scope = scope;
+            MobileAppService = mobileAppService;
+            Registration = registration;
+            Token = token;
+        }
+
+        public void Dispose() => Scope.Dispose();
+    }
+
+    private async Task<MobileAppRequestContext?> ValidateMobileAppRequestAsync(
+        string connectionId,
+        SslWebSocketConnection connection,
+        AppPermission requiredPermission,
+        string permissionErrorMessage = "Unauthorized")
+    {
+        if (!_mobileAppTokens.TryGetValue(connectionId, out var token))
+        {
+            await SendErrorAsync(connection, "Not authenticated");
+            return null;
+        }
+
+        var scope = _serviceProvider.CreateScope();
+        try
+        {
+            var mobileAppService = scope.ServiceProvider.GetRequiredService<IMobileAppService>();
+            var registration = await mobileAppService.ValidateTokenAsync(token);
+            if (registration == null)
+            {
+                await SendErrorAsync(connection, "Unauthorized");
+                scope.Dispose();
+                return null;
+            }
+
+            if (!await mobileAppService.HasPermissionAsync(token, requiredPermission))
+            {
+                await SendErrorAsync(connection, permissionErrorMessage);
+                scope.Dispose();
+                return null;
+            }
+
+            return new MobileAppRequestContext(scope, mobileAppService, registration, token);
+        }
+        catch (Exception ex)
+        {
+            scope.Dispose();
+            _logger.LogError(ex, "Error validating mobile app request");
+            await SendErrorAsync(connection, "Authorization failed");
+            return null;
+        }
+    }
+
     /// <summary>
     /// Handle mobile app registration
     /// </summary>
@@ -931,6 +992,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
         }
     }
 
+
     /// <summary>
     /// Handle request for client list
     /// </summary>
@@ -942,32 +1004,15 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
             return;
         }
 
-        // Validate token
-        if (!_mobileAppTokens.TryGetValue(connectionId, out var token))
+        using var validation = await ValidateMobileAppRequestAsync(connectionId, connection, AppPermission.View, "Insufficient permissions");
+        if (validation == null)
         {
-            await SendErrorAsync(connection, "Not authenticated");
             return;
         }
 
         try
         {
-            using var scope = _serviceProvider.CreateScope();
-            var mobileAppService = scope.ServiceProvider.GetRequiredService<IMobileAppService>();
-            var clientService = scope.ServiceProvider.GetRequiredService<IClientService>();
-
-            // Validate token and check permissions
-            var registration = await mobileAppService.ValidateTokenAsync(token);
-            if (registration == null)
-            {
-                await SendErrorAsync(connection, "Unauthorized");
-                return;
-            }
-
-            if (!await mobileAppService.HasPermissionAsync(token, AppPermission.View))
-            {
-                await SendErrorAsync(connection, "Insufficient permissions");
-                return;
-            }
+            var clientService = validation.Scope.ServiceProvider.GetRequiredService<IClientService>();
 
             // Get all clients
             var clientsResult = await clientService.GetAllClientsAsync();
@@ -1027,6 +1072,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
         }
     }
 
+
     /// <summary>
     /// Handle send command to device
     /// </summary>
@@ -1038,26 +1084,14 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
             return;
         }
 
-        // Validate token
-        if (!_mobileAppTokens.TryGetValue(connectionId, out var token))
+        using var validation = await ValidateMobileAppRequestAsync(connectionId, connection, AppPermission.Control);
+        if (validation == null)
         {
-            await SendErrorAsync(connection, "Not authenticated");
             return;
         }
 
         try
         {
-            using var scope = _serviceProvider.CreateScope();
-            var mobileAppService = scope.ServiceProvider.GetRequiredService<IMobileAppService>();
-
-            // Validate token and check Control permission
-            var registration = await mobileAppService.ValidateTokenAsync(token);
-            if (registration == null || !await mobileAppService.HasPermissionAsync(token, AppPermission.Control))
-            {
-                await SendErrorAsync(connection, "Unauthorized");
-                return;
-            }
-
             // Find target device WebSocket
             var targetClientId = ResolveClientId(message.TargetDeviceId);
             if (!_clients.TryGetValue(targetClientId, out var targetSocket))
@@ -1095,6 +1129,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
         }
     }
 
+
     /// <summary>
     /// Handle assign layout to device
     /// </summary>
@@ -1106,26 +1141,15 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
             return;
         }
 
-        // Validate token
-        if (!_mobileAppTokens.TryGetValue(connectionId, out var token))
+        using var validation = await ValidateMobileAppRequestAsync(connectionId, connection, AppPermission.Manage);
+        if (validation == null)
         {
-            await SendErrorAsync(connection, "Not authenticated");
             return;
         }
 
         try
         {
-            using var scope = _serviceProvider.CreateScope();
-            var mobileAppService = scope.ServiceProvider.GetRequiredService<IMobileAppService>();
-            var clientService = scope.ServiceProvider.GetRequiredService<IClientService>();
-
-            // Validate token and check Manage permission
-            var registration = await mobileAppService.ValidateTokenAsync(token);
-            if (registration == null || !await mobileAppService.HasPermissionAsync(token, AppPermission.Manage))
-            {
-                await SendErrorAsync(connection, "Unauthorized");
-                return;
-            }
+            var clientService = validation.Scope.ServiceProvider.GetRequiredService<IClientService>();
 
             // Assign layout to device
             var targetClientId = ResolveClientId(message.DeviceId);
@@ -1154,6 +1178,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
         }
     }
 
+
     /// <summary>
     /// Handle request screenshot from device
     /// </summary>
@@ -1165,26 +1190,14 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
             return;
         }
 
-        // Validate token
-        if (!_mobileAppTokens.TryGetValue(connectionId, out var token))
+        using var validation = await ValidateMobileAppRequestAsync(connectionId, connection, AppPermission.View);
+        if (validation == null)
         {
-            await SendErrorAsync(connection, "Not authenticated");
             return;
         }
 
         try
         {
-            using var scope = _serviceProvider.CreateScope();
-            var mobileAppService = scope.ServiceProvider.GetRequiredService<IMobileAppService>();
-
-            // Validate token and check View permission
-            var registration = await mobileAppService.ValidateTokenAsync(token);
-            if (registration == null || !await mobileAppService.HasPermissionAsync(token, AppPermission.View))
-            {
-                await SendErrorAsync(connection, "Unauthorized");
-                return;
-            }
-
             // Find target device WebSocket
             var targetClientId = ResolveClientId(message.DeviceId);
             if (!_clients.TryGetValue(targetClientId, out var targetSocket))
@@ -1217,6 +1230,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
         }
     }
 
+
     /// <summary>
     /// Handle request for layout list
     /// </summary>
@@ -1228,26 +1242,15 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
             return;
         }
 
-        // Validate token
-        if (!_mobileAppTokens.TryGetValue(connectionId, out var token))
+        using var validation = await ValidateMobileAppRequestAsync(connectionId, connection, AppPermission.View);
+        if (validation == null)
         {
-            await SendErrorAsync(connection, "Not authenticated");
             return;
         }
 
         try
         {
-            using var scope = _serviceProvider.CreateScope();
-            var mobileAppService = scope.ServiceProvider.GetRequiredService<IMobileAppService>();
-            var layoutService = scope.ServiceProvider.GetRequiredService<ILayoutService>();
-
-            // Validate token and check View permission
-            var registration = await mobileAppService.ValidateTokenAsync(token);
-            if (registration == null || !await mobileAppService.HasPermissionAsync(token, AppPermission.View))
-            {
-                await SendErrorAsync(connection, "Unauthorized");
-                return;
-            }
+            var layoutService = validation.Scope.ServiceProvider.GetRequiredService<ILayoutService>();
 
             // Get all layouts
             var layoutsResult = await layoutService.GetAllLayoutsAsync();
