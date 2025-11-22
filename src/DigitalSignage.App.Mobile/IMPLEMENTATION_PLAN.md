@@ -1,19 +1,22 @@
 # Implementierungsplan: iOS Mobile App für Digital Signage System
 
-**Version:** 1.4
+**Version:** 1.5
 **Datum:** 2025-11-20
-**Letzte Änderung:** 2025-11-21 (Phase 2.4 & 2.5 Server Support - COMPLETE ✅)
+**Letzte Änderung:** 2025-11-21 (Phase 3.8 Device Detail Page - COMPLETE ✅)
 **Technologie-Empfehlung:** .NET MAUI (plattformübergreifend iOS/Android)
 **Projektordner:** `src/DigitalSignage.App.Mobile/`
 
 ## Implementation Status
 
+**Server Extensions (Phase 2):**
 - ✅ **Phase 2.1**: Database Schema (MobileAppRegistration) - **COMPLETE** (2025-11-21)
 - ✅ **Phase 2.2**: WebSocket Protocol Extension - **COMPLETE** (2025-11-21)
 - ✅ **Phase 2.3**: MobileAppService - **COMPLETE** (2025-11-21)
 - ✅ **Phase 2.4**: WebSocketCommunicationService Extended - **COMPLETE** (2025-11-21)
 - ✅ **Phase 2.5**: Admin UI for Mobile App Management - **COMPLETE** (2025-11-21)
 - ✅ **Phase 2.6**: Auto-Discovery Service (Server-Side) - **COMPLETE** (2025-11-21)
+
+**Mobile App (Phase 1 & 3):**
 - ✅ **Phase 1.2**: MAUI Project Setup - **COMPLETE** (2025-11-21)
 - ✅ **Phase 1.3**: Project Structure - **COMPLETE** (2025-11-21)
 - ✅ **Phase 3.1**: MAUI Configuration - **COMPLETE** (2025-11-21)
@@ -23,9 +26,10 @@
 - ✅ **Phase 3.5**: Views (LoginPage, DeviceListPage) - **COMPLETE** (2025-11-21)
 - ✅ **Phase 3.6**: MauiProgram DI Configuration - **COMPLETE** (2025-11-21)
 - ✅ **Phase 3.7**: AppShell Navigation - **COMPLETE** (2025-11-21)
-- 🔨 **Phase 3.8**: Device Detail Page with Remote Controls - **IN PROGRESS**
+- ✅ **Phase 3.8**: Device Detail Page with Remote Controls - **COMPLETE** (2025-11-21)
 - ⏳ **Phase 3.9**: Layout Assignment UI - **PENDING**
 - ⏳ **Phase 3.10**: Biometric Authentication - **PENDING**
+- ⏳ **Phase 3.11**: Push Notifications - **PENDING**
 
 ---
 
