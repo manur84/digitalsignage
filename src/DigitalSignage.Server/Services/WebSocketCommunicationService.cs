@@ -904,11 +904,11 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
     /// <summary>
     /// Handle mobile app registration
     /// </summary>
-    private async Task HandleAppRegisterAsync(string connectionId, SslWebSocketConnection connection, AppRegisterMessage? message)
+    private async Task HandleAppRegisterAsync(string connectionId, SslWebSocketConnection connection, AppRegisterMessage? message, CancellationToken cancellationToken)
     {
         if (message == null)
         {
-            await SendErrorAsync(connection, "Invalid registration message");
+            await SendErrorAsync(connection, "Invalid registration message", cancellationToken);
             return;
         }
 
@@ -944,7 +944,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
                         Token = registration.Token,
                         Permissions = registration.Permissions.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList(),
                         ExpiresAt = DateTime.UtcNow.AddYears(1) // Token valid for 1 year
-                    });
+                    }, cancellationToken);
 
                     _logger.LogInformation("Mobile app {DeviceName} reconnected with existing authorization", message.DeviceName);
                 }
@@ -956,27 +956,27 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
                         AppId = registration.Id,
                         Status = "pending",
                         Message = "Registration pending. Waiting for admin approval."
-                    });
+                    }, cancellationToken);
 
                     _logger.LogInformation("New mobile app registration: {DeviceName} ({Platform})", message.DeviceName, message.Platform);
                 }
             }
             else
             {
-                await SendErrorAsync(connection, result.ErrorMessage ?? "Registration failed");
+                await SendErrorAsync(connection, result.ErrorMessage ?? "Registration failed", cancellationToken);
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error during mobile app registration");
-            await SendErrorAsync(connection, "Registration failed");
+            await SendErrorAsync(connection, "Registration failed", cancellationToken);
         }
     }
 
     /// <summary>
     /// Handle mobile app heartbeat
     /// </summary>
-    private async Task HandleAppHeartbeatAsync(string connectionId, SslWebSocketConnection connection, AppHeartbeatMessage? message)
+    private async Task HandleAppHeartbeatAsync(string connectionId, SslWebSocketConnection connection, AppHeartbeatMessage? message, CancellationToken cancellationToken)
     {
         if (message == null) return;
 
@@ -1069,7 +1069,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error handling client list request");
-            await SendErrorAsync(connection, "Failed to retrieve client list");
+            await SendErrorAsync(connection, "Failed to retrieve client list", cancellationToken);
         }
     }
 
@@ -1077,15 +1077,15 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
     /// <summary>
     /// Handle send command to device
     /// </summary>
-    private async Task HandleSendCommandAsync(string connectionId, SslWebSocketConnection connection, SendCommandMessage? message)
+    private async Task HandleSendCommandAsync(string connectionId, SslWebSocketConnection connection, SendCommandMessage? message, CancellationToken cancellationToken)
     {
         if (message == null)
         {
-            await SendErrorAsync(connection, "Invalid command message");
+            await SendErrorAsync(connection, "Invalid command message", cancellationToken);
             return;
         }
 
-        using var validation = await ValidateMobileAppRequestAsync(connectionId, connection, AppPermission.Control);
+        using var validation = await ValidateMobileAppRequestAsync(connectionId, connection, AppPermission.Control, "Unauthorized", cancellationToken);
         if (validation == null)
         {
             return;
@@ -1097,7 +1097,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
             var targetClientId = ResolveClientId(message.TargetDeviceId);
             if (!_clients.TryGetValue(targetClientId, out var targetSocket))
             {
-                await SendErrorAsync(connection, "Device not connected");
+                await SendErrorAsync(connection, "Device not connected", cancellationToken);
                 return;
             }
 
@@ -1118,7 +1118,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
                 DeviceId = message.TargetDeviceId,
                 Command = message.Command,
                 Success = true
-            });
+            }, cancellationToken);
 
             _logger.LogInformation("Mobile app sent command {Command} to device {DeviceId}",
                 message.Command, message.TargetDeviceId);
@@ -1126,7 +1126,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error handling send command");
-            await SendErrorAsync(connection, "Failed to send command");
+            await SendErrorAsync(connection, "Failed to send command", cancellationToken);
         }
     }
 
@@ -1134,15 +1134,15 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
     /// <summary>
     /// Handle assign layout to device
     /// </summary>
-    private async Task HandleAssignLayoutAsync(string connectionId, SslWebSocketConnection connection, AssignLayoutMessage? message)
+    private async Task HandleAssignLayoutAsync(string connectionId, SslWebSocketConnection connection, AssignLayoutMessage? message, CancellationToken cancellationToken)
     {
         if (message == null)
         {
-            await SendErrorAsync(connection, "Invalid assign layout message");
+            await SendErrorAsync(connection, "Invalid assign layout message", cancellationToken);
             return;
         }
 
-        using var validation = await ValidateMobileAppRequestAsync(connectionId, connection, AppPermission.Manage);
+        using var validation = await ValidateMobileAppRequestAsync(connectionId, connection, AppPermission.Manage, "Unauthorized", cancellationToken);
         if (validation == null)
         {
             return;
@@ -1162,20 +1162,20 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
                     DeviceId = message.DeviceId,
                     Command = "AssignLayout",
                     Success = true
-                });
+                }, cancellationToken);
 
                 _logger.LogInformation("Mobile app assigned layout {LayoutId} to device {DeviceId}",
                     message.LayoutId, message.DeviceId);
             }
             else
             {
-                await SendErrorAsync(connection, result.ErrorMessage ?? "Failed to assign layout");
+                await SendErrorAsync(connection, result.ErrorMessage ?? "Failed to assign layout", cancellationToken);
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error handling assign layout");
-            await SendErrorAsync(connection, "Failed to assign layout");
+            await SendErrorAsync(connection, "Failed to assign layout", cancellationToken);
         }
     }
 
@@ -1183,15 +1183,15 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
     /// <summary>
     /// Handle request screenshot from device
     /// </summary>
-    private async Task HandleRequestScreenshotAsync(string connectionId, SslWebSocketConnection connection, RequestScreenshotMessage? message)
+    private async Task HandleRequestScreenshotAsync(string connectionId, SslWebSocketConnection connection, RequestScreenshotMessage? message, CancellationToken cancellationToken)
     {
         if (message == null)
         {
-            await SendErrorAsync(connection, "Invalid screenshot request");
+            await SendErrorAsync(connection, "Invalid screenshot request", cancellationToken);
             return;
         }
 
-        using var validation = await ValidateMobileAppRequestAsync(connectionId, connection, AppPermission.View);
+        using var validation = await ValidateMobileAppRequestAsync(connectionId, connection, AppPermission.View, "Unauthorized", cancellationToken);
         if (validation == null)
         {
             return;
@@ -1203,7 +1203,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
             var targetClientId = ResolveClientId(message.DeviceId);
             if (!_clients.TryGetValue(targetClientId, out var targetSocket))
             {
-                await SendErrorAsync(connection, "Device not connected");
+                await SendErrorAsync(connection, "Device not connected", cancellationToken);
                 return;
             }
 
@@ -1227,7 +1227,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error handling screenshot request");
-            await SendErrorAsync(connection, "Failed to request screenshot");
+            await SendErrorAsync(connection, "Failed to request screenshot", cancellationToken);
         }
     }
 
@@ -1235,15 +1235,15 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
     /// <summary>
     /// Handle request for layout list
     /// </summary>
-    private async Task HandleRequestLayoutListAsync(string connectionId, SslWebSocketConnection connection, RequestLayoutListMessage? message)
+    private async Task HandleRequestLayoutListAsync(string connectionId, SslWebSocketConnection connection, RequestLayoutListMessage? message, CancellationToken cancellationToken)
     {
         if (message == null)
         {
-            await SendErrorAsync(connection, "Invalid layout list request");
+            await SendErrorAsync(connection, "Invalid layout list request", cancellationToken);
             return;
         }
 
-        using var validation = await ValidateMobileAppRequestAsync(connectionId, connection, AppPermission.View);
+        using var validation = await ValidateMobileAppRequestAsync(connectionId, connection, AppPermission.View, "Unauthorized", cancellationToken);
         if (validation == null)
         {
             return;
@@ -1257,7 +1257,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
             var layoutsResult = await layoutService.GetAllLayoutsAsync();
             if (layoutsResult == null || !layoutsResult.IsSuccess || layoutsResult.Value == null || !layoutsResult.Value.Any())
             {
-                await SendErrorAsync(connection, "No layouts found");
+                await SendErrorAsync(connection, "No layouts found", cancellationToken);
                 return;
             }
 
@@ -1277,14 +1277,14 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
             await SendMessageAsync(connection, new LayoutListResponseMessage
             {
                 Layouts = layoutInfos
-            });
+            }, cancellationToken);
 
             _logger.LogDebug("Sent layout list to mobile app ({Count} layouts)", layoutInfos.Count);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error handling layout list request");
-            await SendErrorAsync(connection, "Failed to retrieve layout list");
+            await SendErrorAsync(connection, "Failed to retrieve layout list", cancellationToken);
         }
     }
 
@@ -1341,7 +1341,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
     /// <summary>
     /// Notify all connected mobile apps of client status change
     /// </summary>
-    public async Task NotifyMobileAppsClientStatusChangedAsync(Guid deviceId, DeviceStatus status)
+    public async Task NotifyMobileAppsClientStatusChangedAsync(Guid deviceId, DeviceStatus status, CancellationToken cancellationToken = default)
     {
         var statusMessage = new ClientStatusChangedMessage
         {
@@ -1351,7 +1351,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
         };
 
         var tasks = _mobileAppConnections.Values.Select(socket =>
-            SendMessageAsync(socket, statusMessage));
+            SendMessageAsync(socket, statusMessage, cancellationToken));
 
         try
         {
@@ -1368,7 +1368,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
     /// Send approval notification to a specific mobile app
     /// CRITICAL FIX: Notifies iOS App immediately when approved (prevents "Waiting for approval" stuck state)
     /// </summary>
-    public async Task SendApprovalNotificationAsync(Guid mobileAppId, string token, AppPermission permissions)
+    public async Task SendApprovalNotificationAsync(Guid mobileAppId, string token, AppPermission permissions, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -1403,7 +1403,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
                 ExpiresAt = DateTime.UtcNow.AddYears(1) // Token valid for 1 year
             };
 
-            await SendMessageAsync(connection, approvalMessage);
+            await SendMessageAsync(connection, approvalMessage, cancellationToken);
 
             _logger.LogInformation("✓ Approval notification sent successfully to mobile app {AppId} via WebSocket", mobileAppId);
         }
