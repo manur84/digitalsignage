@@ -124,10 +124,64 @@ public partial class LoginViewModel : BaseViewModel
 	{
 		await ExecuteAsync(async () =>
 		{
-			StatusMessage = "Registering with server...";
+			Guid mobileAppId;
+			string? authToken;
 
-			// Step 1: Register via REST API and poll for approval
-			var mobileAppId = await _authService.RegisterAppAsync(
+			// Step 1: Try WebSocket connection first (for already registered apps)
+			var existingToken = await _secureStorage.GetAsync("AuthToken");
+			var existingAppIdStr = await _secureStorage.GetAsync("MobileAppId");
+			var existingAppId = Guid.TryParse(existingAppIdStr, out var parsedAppId) ? parsedAppId : (Guid?)null;
+
+			if (!string.IsNullOrEmpty(existingToken) && existingAppId.HasValue)
+			{
+				// Try to connect with existing credentials
+				try
+				{
+					StatusMessage = "Connecting to server via WebSocket...";
+					await _webSocketService.ConnectAsync(webSocketUrl);
+
+					// Authenticate the WebSocket connection with heartbeat message
+					StatusMessage = "Authenticating WebSocket connection...";
+
+					var heartbeatMessage = new
+					{
+						type = "APP_HEARTBEAT",
+						appId = existingAppId.Value,
+						token = existingToken
+					};
+					await _webSocketService.SendJsonAsync(heartbeatMessage);
+
+					StatusMessage = "Connected successfully!";
+
+					mobileAppId = existingAppId.Value;
+					authToken = existingToken;
+
+					// Save settings
+					var settings = new AppSettings
+					{
+						ServerUrl = serverUrl,
+						MobileAppId = mobileAppId,
+						AutoConnect = true,
+						LastConnected = DateTime.Now
+					};
+					await _secureStorage.SaveSettingsAsync(settings);
+
+					// Navigate to main page
+					await Shell.Current.GoToAsync("//devices");
+					return;
+				}
+				catch (Exception ex)
+				{
+					// WebSocket connection failed, fall back to HTTPS registration
+					Console.WriteLine($"WebSocket connection failed: {ex.Message}. Falling back to HTTPS registration...");
+					StatusMessage = "WebSocket failed, trying HTTPS registration...";
+				}
+			}
+
+			// Step 2: Fallback - Register via HTTPS REST API and poll for approval
+			StatusMessage = "Registering with server via HTTPS...";
+
+			mobileAppId = await _authService.RegisterAppAsync(
 				serverUrl,
 				RegistrationToken,
 				progressCallback: (status) =>
@@ -141,39 +195,38 @@ public partial class LoginViewModel : BaseViewModel
 
 			StatusMessage = "Registration approved! Connecting to server...";
 
-			// Step 2: Get auth token and mobile app ID from secure storage (saved by AuthenticationService)
-			var authToken = await _secureStorage.GetAsync("AuthToken");
+			// Step 3: Get auth token from secure storage (saved by AuthenticationService)
+			authToken = await _secureStorage.GetAsync("AuthToken");
 			if (string.IsNullOrEmpty(authToken))
 			{
 				throw new InvalidOperationException("Authentication token not found after registration");
 			}
 
-			// Step 3: Connect WebSocket
+			// Step 4: Connect WebSocket
 			await _webSocketService.ConnectAsync(webSocketUrl);
 
-			// Step 4: Authenticate the WebSocket connection with heartbeat message
+			// Step 5: Authenticate the WebSocket connection with heartbeat message
 			StatusMessage = "Authenticating WebSocket connection...";
 
-			// Send heartbeat with token to authenticate
-			var heartbeatMessage = new
+			var heartbeat = new
 			{
 				type = "APP_HEARTBEAT",
 				appId = mobileAppId,
 				token = authToken
 			};
-			await _webSocketService.SendJsonAsync(heartbeatMessage);
+			await _webSocketService.SendJsonAsync(heartbeat);
 
 			StatusMessage = "Connected successfully!";
 
 			// Save settings
-			var settings = new AppSettings
+			var appSettings = new AppSettings
 			{
 				ServerUrl = serverUrl,
 				MobileAppId = mobileAppId,
 				AutoConnect = true,
 				LastConnected = DateTime.Now
 			};
-			await _secureStorage.SaveSettingsAsync(settings);
+			await _secureStorage.SaveSettingsAsync(appSettings);
 
 			// Navigate to main page
 			await Shell.Current.GoToAsync("//devices");
