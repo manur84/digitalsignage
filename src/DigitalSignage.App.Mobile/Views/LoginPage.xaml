@@ -78,7 +78,7 @@
             </VerticalStackLayout>
 
             <!-- Discovered Servers List -->
-            <VerticalStackLayout Spacing="8" IsVisible="{Binding DiscoveredServers.Count}">
+            <VerticalStackLayout Spacing="8">
                 <Label Text="Available Servers"
                        FontSize="18"
                        FontAttributes="Bold"
@@ -86,16 +86,17 @@
                        Margin="0,8,0,0" />
 
                 <CollectionView ItemsSource="{Binding DiscoveredServers}"
-                               SelectionMode="None">
+                               SelectionMode="None"
+                               HeightRequest="300">
                     <CollectionView.ItemTemplate>
                         <DataTemplate x:DataType="models:DiscoveredServer">
                             <Frame BackgroundColor="{DynamicResource Surface}"
-                                   BorderColor="{DynamicResource Gray200}"
-                                   Padding="16"
-                                   Margin="0,4"
+                                   BorderColor="{DynamicResource Primary}"
+                                   Padding="20"
+                                   Margin="0,8,0,8"
                                    CornerRadius="12"
-                                   HasShadow="False">
-                                <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="8">
+                                   HasShadow="True">
+                                <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="10">
                                     <Label Text="{Binding DisplayName}"
                                            FontSize="17"
                                            FontAttributes="Bold"
@@ -112,12 +113,12 @@
                                             CommandParameter="{Binding .}"
                                             BackgroundColor="{DynamicResource Primary}"
                                             TextColor="White"
-                                            FontSize="15"
+                                            FontSize="16"
                                             FontAttributes="Bold"
-                                            HeightRequest="44"
-                                            CornerRadius="10"
+                                            HeightRequest="52"
+                                            CornerRadius="12"
                                             Grid.Row="2"
-                                            Margin="0,4,0,0" />
+                                            Margin="0,8,0,0" />
                                 </Grid>
                             </Frame>
                         </DataTemplate>
