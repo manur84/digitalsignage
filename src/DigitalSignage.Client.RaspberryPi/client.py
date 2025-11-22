@@ -388,12 +388,17 @@ class DigitalSignageClient:
             logger.info("=" * 70)
             logger.info(f"Input server_url: {server_url}")
 
-            # Parse URL to extract components
-            # server_url format: http://host:port/path or https://host:port/path
-            # We need: ws://host:port/path or wss://host:port/path
-            ws_url = server_url.replace('http://', 'ws://').replace('https://', 'wss://')
+            # Normalize to WebSocket URL (accepts ws:// or wss:// directly)
+            ws_url = server_url
+            if server_url.startswith('http://'):
+                ws_url = server_url.replace('http://', 'ws://', 1)
+            elif server_url.startswith('https://'):
+                ws_url = server_url.replace('https://', 'wss://', 1)
 
-            logger.info(f"Converted to WebSocket URL: {ws_url}")
+            if ws_url != server_url:
+                logger.info(f"Converted to WebSocket URL: {ws_url}")
+            else:
+                logger.info(f"Using WebSocket URL: {ws_url}")
 
             # Extract components for detailed logging
             import re
