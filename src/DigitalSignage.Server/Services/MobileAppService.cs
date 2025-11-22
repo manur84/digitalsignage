@@ -159,7 +159,11 @@ public class MobileAppService : IMobileAppService
             // This prevents the app from being stuck in "Waiting for approval" state
             try
             {
-                // Get WebSocketCommunicationService from service provider
+                // CRITICAL: Must get concrete WebSocketCommunicationService class (NOT ICommunicationService)
+                // because SendApprovalNotificationAsync() is specific to WebSocket implementation
+                // ServiceCollectionExtensions.cs registers both:
+                //   - WebSocketCommunicationService (concrete class) ← We need this!
+                //   - ICommunicationService (interface)
                 var webSocketService = _serviceProvider.GetService<WebSocketCommunicationService>();
 
                 if (webSocketService != null)
@@ -170,11 +174,12 @@ public class MobileAppService : IMobileAppService
                     // The WebSocketCommunicationService will find the connection by MobileAppId
                     await webSocketService.SendApprovalNotificationAsync(appId, token, permissions);
 
-                    _logger.Information("Approval notification sent successfully to mobile app {AppId}", appId);
+                    _logger.Information("✓ Approval notification sent successfully to mobile app {AppId} via WebSocket", appId);
                 }
                 else
                 {
-                    _logger.Warning("WebSocketCommunicationService not available - mobile app will poll for approval status");
+                    _logger.Error("CRITICAL ERROR: WebSocketCommunicationService not available in DI container - mobile app cannot receive approval notification!");
+                    _logger.Error("Check ServiceCollectionExtensions.AddBusinessServices() - WebSocketCommunicationService must be registered as concrete class");
                 }
             }
             catch (Exception wsEx)
@@ -221,7 +226,8 @@ public class MobileAppService : IMobileAppService
             // This prevents the app from being stuck in "Waiting for approval" state
             try
             {
-                // Get WebSocketCommunicationService from service provider
+                // CRITICAL: Must get concrete WebSocketCommunicationService class (NOT ICommunicationService)
+                // because SendRejectionNotificationAsync() is specific to WebSocket implementation
                 var webSocketService = _serviceProvider.GetService<WebSocketCommunicationService>();
 
                 if (webSocketService != null)
@@ -232,11 +238,12 @@ public class MobileAppService : IMobileAppService
                     // The WebSocketCommunicationService will find the connection by MobileAppId
                     await webSocketService.SendRejectionNotificationAsync(appId, reason);
 
-                    _logger.Information("Rejection notification sent successfully to mobile app {AppId}", appId);
+                    _logger.Information("✓ Rejection notification sent successfully to mobile app {AppId} via WebSocket", appId);
                 }
                 else
                 {
-                    _logger.Warning("WebSocketCommunicationService not available - mobile app will poll for rejection status");
+                    _logger.Error("CRITICAL ERROR: WebSocketCommunicationService not available in DI container - mobile app cannot receive rejection notification!");
+                    _logger.Error("Check ServiceCollectionExtensions.AddBusinessServices() - WebSocketCommunicationService must be registered as concrete class");
                 }
             }
             catch (Exception wsEx)
