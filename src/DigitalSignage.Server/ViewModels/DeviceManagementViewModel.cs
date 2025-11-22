@@ -1,3 +1,5 @@
+#nullable enable
+
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DigitalSignage.Core.Interfaces;
@@ -392,10 +394,27 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>
+    /// Assigns the selected layout to the selected client
+    /// Validates that both client and layout are selected before proceeding
+    /// </summary>
     [RelayCommand(CanExecute = nameof(CanAssignLayout))]
     private async Task AssignLayout()
     {
-        if (SelectedClient == null || string.IsNullOrEmpty(SelectedLayoutId)) return;
+        // Guard clauses: Validate client and layout are selected
+        if (SelectedClient == null)
+        {
+            _logger.LogWarning("AssignLayout called with null SelectedClient");
+            StatusMessage = "Please select a client first";
+            return;
+        }
+
+        if (string.IsNullOrEmpty(SelectedLayoutId))
+        {
+            _logger.LogWarning("AssignLayout called with null or empty SelectedLayoutId");
+            StatusMessage = "Please select a layout first";
+            return;
+        }
 
         try
         {
@@ -408,8 +427,10 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
                 return;
             }
 
+            // Update client's assigned layout in memory
             SelectedClient.AssignedLayoutId = SelectedLayoutId;
 
+            // Find layout name for user feedback (safe with null-conditional)
             var layout = AvailableLayouts.FirstOrDefault(l => l.Id == SelectedLayoutId);
             StatusMessage = $"Assigned layout '{layout?.Name ?? SelectedLayoutId}' to {SelectedClient.Name}";
             _logger.LogInformation("Assigned layout {LayoutId} to client {ClientId}", SelectedLayoutId, SelectedClient.Id);

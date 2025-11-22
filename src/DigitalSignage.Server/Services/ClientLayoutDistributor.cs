@@ -1,3 +1,5 @@
+#nullable enable
+
 using DigitalSignage.Core.Interfaces;
 using DigitalSignage.Core.Models;
 using DigitalSignage.Data;
@@ -39,6 +41,18 @@ internal class ClientLayoutDistributor
     /// <summary>
     /// Assigns a layout to a client and sends it immediately
     /// </summary>
+    /// <param name="clientId">The ID of the client to assign the layout to. Must not be null or empty.</param>
+    /// <param name="layoutId">The ID of the layout to assign. Must not be null or empty.</param>
+    /// <param name="clientsCache">The in-memory cache of connected clients</param>
+    /// <param name="cancellationToken">Cancellation token for the operation</param>
+    /// <returns>A result indicating success or failure with an error message</returns>
+    /// <remarks>
+    /// This method performs the following steps:
+    /// 1. Validates clientId and layoutId are not null/empty
+    /// 2. Checks if client exists in cache
+    /// 3. Updates the client's assigned layout in memory and database
+    /// 4. Sends the layout to the client immediately
+    /// </remarks>
     public async Task<Result> AssignLayoutAsync(
         string clientId,
         string layoutId,
@@ -49,12 +63,14 @@ internal class ClientLayoutDistributor
 
         try
         {
+            // Guard clause: Validate clientId
             if (string.IsNullOrWhiteSpace(clientId))
             {
                 _logger.LogWarning("AssignLayoutAsync called with null or empty clientId");
                 return Result.Failure("Client ID cannot be empty");
             }
 
+            // Guard clause: Validate layoutId
             if (string.IsNullOrWhiteSpace(layoutId))
             {
                 _logger.LogWarning("AssignLayoutAsync called with null or empty layoutId");
@@ -122,6 +138,18 @@ internal class ClientLayoutDistributor
     /// <summary>
     /// Sends a layout to a client with all data and embedded media
     /// </summary>
+    /// <param name="clientId">The ID of the client to send the layout to</param>
+    /// <param name="layoutId">The ID of the layout to send</param>
+    /// <param name="cancellationToken">Cancellation token for the operation</param>
+    /// <returns>A result indicating success or failure</returns>
+    /// <remarks>
+    /// This method performs the following steps:
+    /// 1. Loads the layout from LayoutService (with null check)
+    /// 2. Fetches data from all configured data sources
+    /// 3. Processes Scriban templates in layout elements
+    /// 4. Embeds media files (images) as Base64
+    /// 5. Sends the complete layout via WebSocket
+    /// </remarks>
     public async Task<Result> SendLayoutToClientAsync(
         string clientId,
         string layoutId,
@@ -129,7 +157,7 @@ internal class ClientLayoutDistributor
     {
         try
         {
-            // Load layout
+            // Load layout with null-safety check
             var layoutResult = await _layoutService.GetLayoutByIdAsync(layoutId, cancellationToken);
             if (layoutResult.IsFailure || layoutResult.Value == null)
             {
