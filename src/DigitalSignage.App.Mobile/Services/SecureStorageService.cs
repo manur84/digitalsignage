@@ -84,7 +84,9 @@ public class SecureStorageService : ISecureStorageService
 		}
 		catch (Exception ex)
 		{
-			throw new InvalidOperationException($"Failed to save value for key '{key}'", ex);
+			// Fallback to Preferences for simulators where SecureStorage may fail
+			Console.WriteLine($"SecureStorage failed for key '{key}', falling back to Preferences: {ex.Message}");
+			Preferences.Default.Set(key, value);
 		}
 	}
 
@@ -100,8 +102,9 @@ public class SecureStorageService : ISecureStorageService
 		}
 		catch (Exception ex)
 		{
-			Console.WriteLine($"Failed to retrieve value for key '{key}': {ex.Message}");
-			return null;
+			// Fallback to Preferences for simulators where SecureStorage may fail
+			Console.WriteLine($"SecureStorage failed for key '{key}', falling back to Preferences: {ex.Message}");
+			return Preferences.Default.Get(key, (string?)null);
 		}
 	}
 
