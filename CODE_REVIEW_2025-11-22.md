@@ -15,7 +15,7 @@
 
 **STATUS UPDATE (2025-11-22):**
 - ✅ **13 von 24 Problemen BEHOBEN** (54% Complete)
-- ⚡ **1 Problem TEILWEISE BEHOBEN** (in Progress)
+- ⚡ **1 Problem TEILWEISE BEHOBEN** (Fire-and-forget Handler - Task-Tracking ✅, Channel-Pattern ⏳)
 - ⏳ **10 Probleme noch OFFEN** (Backlog)
 
 **Behobene Probleme:**
@@ -26,6 +26,18 @@
 - ✅ Health-Check + Metrics/Telemetry implementiert
 - ✅ Message Validation Infrastructure
 - ✅ Message Versioning komplett integriert
+
+**Wichtige Commits (chronologisch):**
+- `5834c4c` - Fire-and-forget Tasks behoben + Task-Tracking
+- `c25825b` - Message-Size Validation + Media-Upload Security
+- `644277b` - Health-Check + Metrics + Message Validation Infrastructure
+- `e117628` - Handler Pattern für Pi Client Messages (6 handlers)
+- `051f690` - Handler Pattern für Mobile App Messages (7 handlers) + MobileAppConnectionManager
+- `72999b1` - Cleanup: 602 lines alter Code entfernt
+- `fdc51dd` - Merge mit main (Konfliktauflösung)
+- `bfedaff` - CLAUDE.md: Handler Pattern Dokumentation
+- `995b619` - Message Versioning Integration (vollständig)
+- `5b8462d` - CODE_REVIEW Update (aktueller Stand)
 
 **Positiv aufgefallen:**
 - ✅ Python Client: Thread-Safe Send/Receive (send_lock, connection_event)
@@ -147,16 +159,21 @@ Trace-Level loggt extrem viel (jede Message). In Production: riesige Log-Dateien
 
 ## 🌐 WEBSOCKET/WSS-PROBLEME (Detailliert)
 
-### **[WSS-PROTOKOLL/HOCH]** Fire-and-forget Connection Handling
+### ⚡ **[WSS-PROTOKOLL/HOCH]** Fire-and-forget Connection Handling - **TEILWEISE BEHOBEN**
 **Datei:** `WebSocketCommunicationService.cs:HandleClient`
 
 **Problem:**
 Connection Handling läuft komplett fire-and-forget. Keine Möglichkeit zu tracken ob alle Messages verarbeitet wurden.
 
 **To-do:**
-- [ ] Refactor zu BackgroundService mit Channel<WebSocketMessage>
-- [ ] Task-Collection für alle laufenden Handler (await Task.WhenAll beim Shutdown)
-- [ ] Metrics: Pending Messages, Processing Time
+- [ ] Refactor zu BackgroundService mit Channel<WebSocketMessage> (Optional Enhancement)
+- [x] Task-Collection für alle laufenden Handler (await Task.WhenAll beim Shutdown) - **BEHOBEN** (Commit 5834c4c)
+  - ✅ _allHandlerTasks ConcurrentBag implementiert
+  - ✅ await Task.WhenAll() mit 10s timeout beim Shutdown
+  - ✅ Proper cleanup für alle Handler-Tasks
+- [x] Metrics: Processing Time - **BEHOBEN** (Commit 644277b)
+  - ✅ MetricsService mit message processing time tracking
+  - ✅ Prometheus /metrics endpoint
 
 ---
 
