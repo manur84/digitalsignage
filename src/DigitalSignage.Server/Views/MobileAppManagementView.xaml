@@ -80,7 +80,7 @@
                     Background="#2196F3"
                     Foreground="White"
                     Padding="15,8"
-                    Margin="auto,0,0,0"
+                    Margin="0,0,0,0"
                     FontSize="13"
                     Cursor="Hand"
                     HorizontalAlignment="Right"
