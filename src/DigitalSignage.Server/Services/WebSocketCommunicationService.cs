@@ -278,7 +278,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
                 if (!connection.IsConnected)
                 {
                     _logger.LogWarning("Cannot send message to client {ClientId}: connection not open", clientId);
-                    return;
+                    throw new InvalidOperationException($"Client {clientId} connection is not open");
                 }
 
                 _logger.LogDebug("Serializing message type {MessageType} for client {ClientId}", message.Type, clientId);
@@ -314,8 +314,9 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
         }
         else
         {
-            _logger.LogWarning("Client {ClientId} not found in connections dictionary (have {Count} clients)",
-                clientId, _clients.Count);
+            _logger.LogWarning("Client {ClientId} not found in connections dictionary (have {Count} clients, first 5: {ClientIds})",
+                clientId, _clients.Count, string.Join(", ", _clients.Keys.Take(5)));
+            throw new InvalidOperationException($"Client {clientId} not found");
         }
     }
 
@@ -629,21 +630,27 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
             }
             else
             {
-                // For REGISTER messages, use the ClientId from the message for the event
+                // For REGISTER messages, update the WebSocket client mapping BEFORE firing the event
+                // This ensures that when ClientRegistrationHandler tries to send messages back,
+                // the connection is already mapped to the correct client ID
                 var eventClientId = connection.ConnectionId;
                 if (message is RegisterMessage registerMsg && !string.IsNullOrWhiteSpace(registerMsg.ClientId))
                 {
                     eventClientId = registerMsg.ClientId;
 
                     // Update the WebSocket client mapping if the client ID is different
+                    // CRITICAL: This MUST happen BEFORE MessageReceived event to ensure
+                    // RegistrationResponse and Layout messages can be sent successfully
                     if (eventClientId != connection.ConnectionId)
                     {
                         _logger.LogInformation("Client registering with ID {RegisteredId} (WebSocket connection ID: {ConnectionId})",
                             eventClientId, connection.ConnectionId);
                         UpdateClientId(connection.ConnectionId, eventClientId);
+                        _logger.LogDebug("Client ID mapping updated: {OldId} → {NewId}", connection.ConnectionId, eventClientId);
                     }
                 }
 
+                // Fire MessageReceived event AFTER UpdateClientId to ensure handlers can send messages
                 MessageReceived?.Invoke(this, new MessageReceivedEventArgs
                 {
                     ClientId = eventClientId,
