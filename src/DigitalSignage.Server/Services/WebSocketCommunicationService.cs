@@ -24,6 +24,9 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
     private readonly ConcurrentDictionary<string, SslWebSocketConnection> _clients = new();
     private readonly ConcurrentDictionary<string, Task> _clientHandlerTasks = new();
 
+    // Track all TCP client handler tasks (created before we have a client ID)
+    private readonly ConcurrentBag<Task> _allHandlerTasks = new();
+
     // Mobile App Connections (separate from Pi clients)
     private readonly ConcurrentDictionary<string, SslWebSocketConnection> _mobileAppConnections = new();
     private readonly ConcurrentDictionary<string, Guid> _mobileAppIds = new(); // Maps connection ID to app ID
@@ -249,11 +252,32 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
             }
         }
 
-        // 7. Clear clients dictionary and handler tasks
+        // 7. Wait for all TCP handler tasks (created before client registration)
+        var allHandlerTasksArray = _allHandlerTasks.ToArray();
+        if (allHandlerTasksArray.Length > 0)
+        {
+            try
+            {
+                _logger.LogDebug("Waiting for {Count} TCP handler tasks to complete", allHandlerTasksArray.Length);
+                await Task.WhenAll(allHandlerTasksArray).WaitAsync(TimeSpan.FromSeconds(10));
+                _logger.LogDebug("All TCP handler tasks stopped gracefully");
+            }
+            catch (TimeoutException)
+            {
+                _logger.LogWarning("{Count} TCP handler tasks did not stop within timeout", allHandlerTasksArray.Length);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error waiting for TCP handler tasks to complete");
+            }
+        }
+
+        // 8. Clear clients dictionary and handler tasks
         _clients.Clear();
         _clientHandlerTasks.Clear();
+        _allHandlerTasks.Clear();
 
-        // 8. Dispose cancellation token source
+        // 9. Dispose cancellation token source
         _cancellationTokenSource?.Dispose();
         _cancellationTokenSource = null;
         _acceptClientsTask = null;
@@ -376,7 +400,10 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
             try
             {
                 var tcpClient = await _tcpListener.AcceptTcpClientAsync(cancellationToken);
-                _ = Task.Run(() => HandleTcpClientAsync(tcpClient, certificate, cancellationToken), cancellationToken);
+
+                // Track handler task instead of fire-and-forget
+                var handlerTask = Task.Run(() => HandleTcpClientAsync(tcpClient, certificate, cancellationToken), cancellationToken);
+                _allHandlerTasks.Add(handlerTask);
             }
             catch (OperationCanceledException)
             {
