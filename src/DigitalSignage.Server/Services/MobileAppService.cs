@@ -244,6 +244,23 @@ public class MobileAppService : IMobileAppService
         }
     }
 
+    public async Task<Result<Guid>> ValidateTokenAsync2(string token)
+    {
+        try
+        {
+            var registration = await ValidateTokenAsync(token);
+            if (registration == null)
+                return Result<Guid>.Failure("Invalid or expired token");
+
+            return Result<Guid>.Success(registration.Id);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Error validating token");
+            return Result<Guid>.Failure("Token validation failed");
+        }
+    }
+
     public async Task<MobileAppRegistration?> GetRegistrationAsync(Guid appId)
     {
         try
@@ -365,6 +382,72 @@ public class MobileAppService : IMobileAppService
         {
             _logger.Error(ex, "Error deleting registration {AppId}", appId);
             return Result.Failure("Failed to delete registration");
+        }
+    }
+
+    public async Task<Result<Guid>> CreatePendingRegistrationAsync(
+        string deviceName,
+        string platform,
+        string appVersion,
+        string? deviceModel = null,
+        string? osVersion = null)
+    {
+        try
+        {
+            // Generate unique device identifier
+            var deviceIdentifier = $"{platform}_{deviceModel ?? "unknown"}_{Guid.NewGuid():N}";
+
+            var result = await RegisterAppAsync(deviceName, deviceIdentifier, appVersion, platform);
+
+            if (!result.IsSuccess)
+                return Result<Guid>.Failure(result.Error!);
+
+            return Result<Guid>.Success(result.Value!.Id);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Error creating pending registration");
+            return Result<Guid>.Failure("Failed to create registration");
+        }
+    }
+
+    public async Task<Result<(string Status, string? Token, Guid? MobileAppId)>> GetRegistrationStatusAsync(Guid requestId)
+    {
+        try
+        {
+            var registration = await GetRegistrationAsync(requestId);
+
+            if (registration == null)
+                return Result<(string, string?, Guid?)>.Failure("Registration not found");
+
+            var status = registration.Status.ToString();
+            var token = registration.Status == AppRegistrationStatus.Approved ? registration.Token : null;
+            var mobileAppId = registration.Status == AppRegistrationStatus.Approved ? (Guid?)registration.Id : null;
+
+            return Result<(string, string?, Guid?)>.Success((status, token, mobileAppId));
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Error getting registration status");
+            return Result<(string, string?, Guid?)>.Failure("Failed to get status");
+        }
+    }
+
+    public async Task<Result<MobileAppRegistration>> GetMobileAppAsync(Guid appId)
+    {
+        try
+        {
+            var registration = await GetRegistrationAsync(appId);
+
+            if (registration == null)
+                return Result<MobileAppRegistration>.Failure("Mobile app not found");
+
+            return Result<MobileAppRegistration>.Success(registration);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Error getting mobile app");
+            return Result<MobileAppRegistration>.Failure("Failed to get mobile app");
         }
     }
 
