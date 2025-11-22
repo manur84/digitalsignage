@@ -40,11 +40,14 @@ public class MessageHandlerFactory
         RegisterHandler<LogMessageHandler>();
         RegisterHandler<UpdateConfigResponseMessageHandler>();
 
-        // Mobile app message handlers - not yet migrated (still in WebSocketCommunicationService)
-        // RegisterHandler<AppRegisterMessageHandler>();
-        // RegisterHandler<AppHeartbeatMessageHandler>();
-        // RegisterHandler<RequestClientListMessageHandler>();
-        // RegisterHandler<SendCommandMessageHandler>();
+        // Register mobile app message handlers
+        RegisterHandler<MobileApp.AppRegisterMessageHandler>();
+        RegisterHandler<MobileApp.AppHeartbeatMessageHandler>();
+        RegisterHandler<MobileApp.RequestClientListMessageHandler>();
+        RegisterHandler<MobileApp.SendCommandMessageHandler>();
+        RegisterHandler<MobileApp.AssignLayoutMessageHandler>();
+        RegisterHandler<MobileApp.RequestScreenshotMessageHandler>();
+        RegisterHandler<MobileApp.RequestLayoutListMessageHandler>();
 
         _logger.LogInformation("Registered {Count} message handlers: {MessageTypes}",
             _handlerTypes.Count,

@@ -168,13 +168,26 @@ public static class ServiceCollectionExtensions
         services.AddMemoryCache();
         services.AddSingleton<StartupCacheService>();
 
+        // Mobile App Connection Manager
+        services.AddSingleton<MobileAppConnectionManager>();
+
         // Message Handlers (Handler Pattern for WebSocket messages)
+        // Pi Client Message Handlers
         services.AddTransient<IMessageHandler, RegisterMessageHandler>();
         services.AddTransient<IMessageHandler, HeartbeatMessageHandler>();
         services.AddTransient<IMessageHandler, StatusReportMessageHandler>();
         services.AddTransient<IMessageHandler, ScreenshotMessageHandler>();
         services.AddTransient<IMessageHandler, LogMessageHandler>();
         services.AddTransient<IMessageHandler, UpdateConfigResponseMessageHandler>();
+
+        // Mobile App Message Handlers
+        services.AddTransient<IMessageHandler, MessageHandlers.MobileApp.AppRegisterMessageHandler>();
+        services.AddTransient<IMessageHandler, MessageHandlers.MobileApp.AppHeartbeatMessageHandler>();
+        services.AddTransient<IMessageHandler, MessageHandlers.MobileApp.RequestClientListMessageHandler>();
+        services.AddTransient<IMessageHandler, MessageHandlers.MobileApp.SendCommandMessageHandler>();
+        services.AddTransient<IMessageHandler, MessageHandlers.MobileApp.AssignLayoutMessageHandler>();
+        services.AddTransient<IMessageHandler, MessageHandlers.MobileApp.RequestScreenshotMessageHandler>();
+        services.AddTransient<IMessageHandler, MessageHandlers.MobileApp.RequestLayoutListMessageHandler>();
 
         // Message Handler Factory
         services.AddSingleton<MessageHandlerFactory>();
