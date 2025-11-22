@@ -19,6 +19,10 @@ public class SslWebSocketConnection : IDisposable
     // Timeout for reading WebSocket frames to prevent DoS attacks
     private const int ReadTimeoutSeconds = 30;
 
+    // Maximum allowed WebSocket frame payload size (50 MB - large layouts with media)
+    // TODO: Should be configurable via ServerSettings.MaxMessageSize
+    private const int MaxPayloadSize = 50 * 1024 * 1024;
+
     private readonly TcpClient _tcpClient;
     private readonly SslStream _sslStream;
     private readonly ILogger _logger;
@@ -139,6 +143,21 @@ public class SslWebSocketConnection : IDisposable
                 await ReadExactAsync(_sslStream, extLength, 0, 8, cancellationToken);
                 // For simplicity, we'll limit to int.MaxValue
                 payloadLength = (int)((long)extLength[4] << 24 | (long)extLength[5] << 16 | (long)extLength[6] << 8 | extLength[7]);
+            }
+
+            // Validate payload size to prevent DoS attacks and out-of-memory errors
+            if (payloadLength > MaxPayloadSize)
+            {
+                _logger.LogError("WebSocket frame payload size {PayloadSize} exceeds maximum allowed size {MaxSize} from {ConnectionId}",
+                    payloadLength, MaxPayloadSize, ConnectionId);
+                throw new InvalidOperationException(
+                    $"WebSocket frame payload size {payloadLength} bytes exceeds maximum allowed size {MaxPayloadSize} bytes");
+            }
+
+            if (payloadLength < 0)
+            {
+                _logger.LogError("Invalid negative payload length {PayloadLength} from {ConnectionId}", payloadLength, ConnectionId);
+                throw new InvalidOperationException($"Invalid negative payload length: {payloadLength}");
             }
 
             // Read masking key if present (clients MUST mask their frames per RFC 6455)

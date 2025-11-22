@@ -50,11 +50,31 @@ public class MediaService : IMediaService
                 return Result<string>.Failure("Filename cannot be empty");
             }
 
+            // ✅ SECURITY: File size validation (max 50 MB for media files)
+            const int maxFileSizeBytes = 50 * 1024 * 1024; // 50 MB
+            if (data.Length > maxFileSizeBytes)
+            {
+                _logger.LogWarning("Attempted to upload file larger than {MaxSize} MB: {FileName} ({ActualSize} bytes)",
+                    maxFileSizeBytes / (1024 * 1024), fileName, data.Length);
+                return Result<string>.Failure($"File size ({data.Length / (1024 * 1024)} MB) exceeds maximum allowed size (50 MB)");
+            }
+
             // ✅ REFACTOR: Use shared PathHelper to eliminate code duplication
             if (!PathHelper.IsValidFileName(fileName))
             {
                 _logger.LogWarning("Attempted path traversal attack with filename: {FileName}", fileName);
                 return Result<string>.Failure("Invalid filename");
+            }
+
+            // ✅ SECURITY: File type validation (only allow specific media types)
+            var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".svg", ".mp4", ".avi", ".mov", ".wmv", ".webm", ".pdf" };
+            var fileExtension = Path.GetExtension(fileName)?.ToLowerInvariant();
+
+            if (string.IsNullOrEmpty(fileExtension) || !allowedExtensions.Contains(fileExtension))
+            {
+                _logger.LogWarning("Attempted to upload file with disallowed extension: {FileName} ({Extension})",
+                    fileName, fileExtension ?? "none");
+                return Result<string>.Failure($"File type '{fileExtension}' is not allowed. Allowed types: {string.Join(", ", allowedExtensions)}");
             }
 
             var filePath = Path.Combine(_mediaDirectory, fileName);

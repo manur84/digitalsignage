@@ -31,7 +31,7 @@
 
 ## ⚠️ TOP 5 KRITISCHSTE BUGS
 
-### 1. **[FEHLER/HOCH]** Fire-and-forget Task.Run in Connection Handling
+### 1. ✅ **[FEHLER/HOCH]** Fire-and-forget Task.Run in Connection Handling - **BEHOBEN**
 **Datei:** `src/DigitalSignage.Server/Services/WebSocketCommunicationService.cs:HandleClient`
 
 **Problem:**
@@ -48,13 +48,13 @@ _ = Task.Run(async () => {
 Nachrichtenverarbeitung läuft fire-and-forget. Exceptions werden nur geloggt, keine Garantie dass Messages verarbeitet werden.
 
 **To-do:**
-- [ ] Task.Run entfernen, direkt ProcessMessageAsync awaiten
-- [ ] ODER: BackgroundService mit Channel<T> für Message-Queue
-- [ ] ODER: Mindestens Task-Tracking für unhandled exceptions
+- [x] Task-Tracking für alle Handler-Tasks implementiert (_allHandlerTasks)
+- [x] Proper shutdown mit await Task.WhenAll() + 10s timeout
+- [x] Commit: 5834c4c
 
 ---
 
-### 2. **[FEHLER/HOCH]** DisconnectAsync().Wait() in Dispose-Methode
+### 2. ✅ **[FEHLER/HOCH]** DisconnectAsync().Wait() in Dispose-Methode - **BEREITS OK**
 **Datei:** `src/DigitalSignage.Server/Services/WebSocketCommunicationService.cs:Dispose`
 
 **Problem:**
@@ -68,14 +68,14 @@ public void Dispose()
 Synchrone Wait() auf async Methode kann zu Deadlocks führen.
 
 **To-do:**
-- [ ] IAsyncDisposable implementieren: `public async ValueTask DisposeAsync()`
-- [ ] Oder: Dispose macht nur Stop(), DisconnectAsync muss vorher aufgerufen werden
-- [ ] Dokumentieren: "Call StopAsync() before disposing"
+- [x] Verifiziert: Kein .Wait() oder .Result im Code vorhanden
+- [x] Dispose bereits korrekt implementiert
+- [x] Commit: 5834c4c (Verifikation)
 
 ---
 
-### 3. **[FEHLER/HOCH]** Fehlende Timeout-Konfiguration bei ReadExactAsync
-**Datei:** `src/DigitalSignage.Server/Services/WebSocketCommunicationService.cs:ReadExactAsync`
+### 3. ✅ **[FEHLER/HOCH]** Fehlende Timeout-Konfiguration bei ReadExactAsync - **BEHOBEN**
+**Datei:** `src/DigitalSignage.Server/Services/SslWebSocketConnection.cs:ReadExactAsync`
 
 **Problem:**
 ```csharp
@@ -91,13 +91,14 @@ private async Task ReadExactAsync(Stream stream, byte[] buffer, int count)
 DoS-Anfälligkeit: Langsame Clients können Server-Threads blockieren.
 
 **To-do:**
-- [ ] CancellationTokenSource mit Timeout hinzufügen (z.B. 30 Sekunden)
-- [ ] Timeout konfigurierbar in appsettings.json
-- [ ] Bei Timeout: Connection schließen + loggen
+- [x] 30-Sekunden Timeout mit linked CancellationToken implementiert
+- [x] Wirft TimeoutException bei Timeout
+- [x] Konstante ReadTimeoutSeconds = 30 (zukünftig konfigurierbar)
+- [x] Commit: 5834c4c
 
 ---
 
-### 4. **[FEHLER/MITTEL]** Null-Check fehlt bei deviceId
+### 4. ✅ **[FEHLER/MITTEL]** Null-Check fehlt bei deviceId - **SERVICE NICHT VORHANDEN**
 **Datei:** `src/DigitalSignage.Server/Services/DeviceControlService.cs:ExecuteCommandAsync`
 
 **Problem:**
@@ -112,13 +113,13 @@ public async Task ExecuteCommandAsync(Guid deviceId, string command)
 Mögliche NullReferenceException wenn Client nicht gefunden.
 
 **To-do:**
-- [ ] Guard clause: `if (deviceId == Guid.Empty) throw new ArgumentException(...)`
-- [ ] Null-check: `if (client == null) throw new InvalidOperationException("Client not found")`
-- [ ] Oder: Return Result<T> statt Exception werfen
+- [x] Service existiert nicht mehr (bereits refactored/removed)
+- [x] Problem nicht mehr vorhanden
+- [x] Commit: 5834c4c (Verifikation)
 
 ---
 
-### 5. **[WSS-PROTOKOLL/MITTEL]** WebSocket Trace-Logging ohne Konfiguration
+### 5. ✅ **[WSS-PROTOKOLL/MITTEL]** WebSocket Trace-Logging ohne Konfiguration - **BEHOBEN**
 **Datei:** `src/DigitalSignage.Server/Services/WebSocketCommunicationService.cs` (mehrere Stellen)
 
 **Problem:**
@@ -129,9 +130,11 @@ _logger.LogTrace("Sending {Size} bytes to client {ClientId}", data.Length, clien
 Trace-Level loggt extrem viel (jede Message). In Production: riesige Log-Dateien, Performance-Impact.
 
 **To-do:**
-- [ ] Logging-Level konfigurierbar in appsettings.json
-- [ ] Separate Category für WebSocket: `Serilog:MinimumLevel:Override:WebSocket: Warning`
-- [ ] Oder: Feature-Flag "EnableWebSocketTracing"
+- [x] Serilog Overrides in appsettings.json hinzugefügt
+- [x] WebSocketCommunicationService: Information (default)
+- [x] SslWebSocketConnection: Information (default)
+- [x] Einfach auf Warning/Error umstellbar für Production
+- [x] Commit: 5834c4c
 
 ---
 
