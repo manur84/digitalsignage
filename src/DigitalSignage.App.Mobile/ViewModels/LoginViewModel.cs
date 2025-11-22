@@ -104,10 +104,14 @@ public partial class LoginViewModel : BaseViewModel
 		if (string.IsNullOrWhiteSpace(ManualServerUrl))
 			return;
 
-		var wsUrl = NormalizeWebSocketUrl(ManualServerUrl);
-		var httpBase = DeriveHttpBaseUrl(wsUrl);
+		var url = ManualServerUrl.Trim();
 
-		await ConnectToServerAsync(httpBase, wsUrl);
+		// Remove any protocol prefix
+		url = url.Replace("http://", "").Replace("https://", "").Replace("ws://", "").Replace("wss://", "");
+
+		// Force WSS-only (server only accepts WSS)
+		var wsUrl = "wss://" + url + "/ws/";
+		await ConnectToServerAsync("https://" + url, wsUrl);
 	}
 
 	[RelayCommand]
@@ -117,69 +121,6 @@ public partial class LoginViewModel : BaseViewModel
 	}
 
 	private bool CanConnectManually() => !string.IsNullOrWhiteSpace(ManualServerUrl) && !IsBusy;
-
-	/// <summary>
-	/// Normalizes user input into a valid WebSocket URL and ensures we always target /ws/ without duplicating it.
-	/// </summary>
-	private static string NormalizeWebSocketUrl(string rawInput)
-	{
-		var input = rawInput.Trim();
-
-		// If no scheme provided, assume secure WebSocket
-		if (!input.StartsWith("ws://", StringComparison.OrdinalIgnoreCase) &&
-		    !input.StartsWith("wss://", StringComparison.OrdinalIgnoreCase) &&
-		    !input.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
-		    !input.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-		{
-			input = "wss://" + input;
-		}
-
-		// Convert any http/https into ws/wss
-		if (input.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
-			input = "ws://" + input["http://".Length..];
-		else if (input.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-			input = "wss://" + input["https://".Length..];
-
-		if (!Uri.TryCreate(input, UriKind.Absolute, out var uri))
-			throw new InvalidOperationException("Ungueltige Server-URL");
-
-		// Ensure path ends with /ws/ (avoid double-appending)
-		var path = uri.AbsolutePath;
-		if (string.IsNullOrWhiteSpace(path) || path == "/")
-			path = "/ws/";
-		else if (!path.EndsWith("/"))
-			path += "/";
-
-		var builder = new UriBuilder(uri)
-		{
-			Scheme = uri.Scheme,
-			Host = uri.Host,
-			Port = uri.IsDefaultPort ? -1 : uri.Port,
-			Path = path,
-			Query = string.Empty
-		};
-
-		return builder.Uri.ToString();
-	}
-
-	/// <summary>
-	/// Derives an HTTP/HTTPS base URL (without the WebSocket path) from a WebSocket URL for storage/API calls.
-	/// </summary>
-	private static string DeriveHttpBaseUrl(string webSocketUrl)
-	{
-		var uri = new Uri(webSocketUrl);
-		var scheme = uri.Scheme.Equals("wss", StringComparison.OrdinalIgnoreCase) ? "https" : "http";
-
-		var builder = new UriBuilder(uri)
-		{
-			Scheme = scheme,
-			Port = uri.IsDefaultPort ? -1 : uri.Port,
-			Path = string.Empty,
-			Query = string.Empty
-		};
-
-		return builder.Uri.ToString().TrimEnd('/');
-	}
 
 	private async Task ConnectToServerAsync(string serverUrl, string webSocketUrl)
 	{

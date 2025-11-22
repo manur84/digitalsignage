@@ -40,8 +40,8 @@ class Config:
     preferred_network_interface: str = ""  # Preferred network interface (e.g., "eth0", "wlan0") - empty for auto-select
 
     def get_server_url(self) -> str:
-        """Get the full WebSocket URL based on SSL configuration including endpoint path"""
-        protocol = "wss" if self.use_ssl else "ws"
+        """Get the full server URL based on SSL configuration including endpoint path"""
+        protocol = "https" if self.use_ssl else "http"
         # Ensure endpoint_path starts with / and has correct formatting
         endpoint = self.endpoint_path.strip('/')
         if endpoint:
