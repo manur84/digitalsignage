@@ -482,6 +482,11 @@ class DigitalSignageClient:
                     logger.warning("SSL certificate verification disabled (self-signed certificates accepted)")
                     logger.info("  SSL config: cert_reqs=NONE, check_hostname=False")
 
+            # CRITICAL DEBUG: Enable WebSocket trace logging to diagnose why messages are not received
+            # This will show EVERY frame received/sent at the lowest level
+            websocket.enableTrace(True)
+            logger.info("WebSocket trace logging ENABLED - all frames will be logged")
+
             # Create WebSocketApp
             self.ws_app = websocket.WebSocketApp(
                 ws_url,

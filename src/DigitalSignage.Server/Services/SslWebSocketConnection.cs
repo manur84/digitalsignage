@@ -235,6 +235,25 @@ public class SslWebSocketConnection : IDisposable
                 ConnectionId, opcode, payload.Length, frame.Length
             );
 
+            // CRITICAL DEBUG: Log frame header bytes (first 10 bytes) for diagnosis
+            var headerHex = BitConverter.ToString(frame, 0, Math.Min(10, frame.Length)).Replace("-", " ");
+            _logger.LogDebug("Frame header (hex): {HeaderHex}", headerHex);
+
+            // CRITICAL DEBUG: Log payload preview (first 200 chars)
+            if (payload.Length > 0 && opcode == WebSocketOpcode.Text)
+            {
+                try
+                {
+                    var payloadText = Encoding.UTF8.GetString(payload);
+                    var preview = payloadText.Length > 200 ? payloadText.Substring(0, 200) + "..." : payloadText;
+                    _logger.LogDebug("Payload preview: {Preview}", preview);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Could not decode payload as UTF-8");
+                }
+            }
+
             await _sslStream.WriteAsync(frame, 0, frame.Length, cancellationToken);
             await _sslStream.FlushAsync(cancellationToken);
 
