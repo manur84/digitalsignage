@@ -17,17 +17,20 @@ internal class ClientRegistrationHandler
     private readonly ILogger<ClientRegistrationHandler> _logger;
     private readonly ICommunicationService _communicationService;
     private readonly ILayoutService _layoutService;
+    private readonly AsyncLockService _lockService;
 
     public ClientRegistrationHandler(
         IServiceProvider serviceProvider,
         ILogger<ClientRegistrationHandler> logger,
         ICommunicationService communicationService,
-        ILayoutService layoutService)
+        ILayoutService layoutService,
+        AsyncLockService lockService)
     {
         _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _communicationService = communicationService ?? throw new ArgumentNullException(nameof(communicationService));
         _layoutService = layoutService ?? throw new ArgumentNullException(nameof(layoutService));
+        _lockService = lockService ?? throw new ArgumentNullException(nameof(lockService));
     }
 
     /// <summary>
@@ -51,78 +54,86 @@ internal class ClientRegistrationHandler
                 return Result<RaspberryPiClient>.Failure("MAC address is required for registration");
             }
 
-            using var scope = _serviceProvider.CreateScope();
-            var dbContext = scope.ServiceProvider.GetRequiredService<DigitalSignageDbContext>();
-            var authService = scope.ServiceProvider.GetRequiredService<IAuthenticationService>();
-
-            // Validate registration token if provided
-            string? assignedGroup = null;
-            string? assignedLocation = null;
-
-            if (!string.IsNullOrWhiteSpace(registerMessage.RegistrationToken))
-            {
-                var tokenResult = await ValidateAndConsumeTokenAsync(
-                    authService,
-                    registerMessage,
-                    cancellationToken);
-
-                if (!tokenResult.IsSuccess)
+            // Use async lock per MAC address to prevent race conditions
+            // when multiple registration requests arrive simultaneously for the same device
+            return await _lockService.ExecuteWithLockAsync(
+                $"registration:{registerMessage.MacAddress}",
+                async () =>
                 {
-                    return Result<RaspberryPiClient>.Failure(tokenResult.ErrorMessage ?? "Token validation failed");
-                }
+                    using var scope = _serviceProvider.CreateScope();
+                    var dbContext = scope.ServiceProvider.GetRequiredService<DigitalSignageDbContext>();
+                    var authService = scope.ServiceProvider.GetRequiredService<IAuthenticationService>();
 
-                assignedGroup = tokenResult.Value.Group;
-                assignedLocation = tokenResult.Value.Location;
-            }
-            else
-            {
-                _logger.LogWarning("Client registration without token from MAC {MacAddress} - checking if already registered",
-                    registerMessage.MacAddress);
-            }
+                    // Validate registration token if provided
+                    string? assignedGroup = null;
+                    string? assignedLocation = null;
 
-            // Check if client already exists by MAC address
-            var existingClient = await dbContext.Clients
-                .AsNoTracking()
-                .FirstOrDefaultAsync(c => c.MacAddress == registerMessage.MacAddress, cancellationToken);
+                    if (!string.IsNullOrWhiteSpace(registerMessage.RegistrationToken))
+                    {
+                        var tokenResult = await ValidateAndConsumeTokenAsync(
+                            authService,
+                            registerMessage,
+                            cancellationToken);
 
-            RaspberryPiClient client;
+                        if (!tokenResult.IsSuccess)
+                        {
+                            return Result<RaspberryPiClient>.Failure(tokenResult.ErrorMessage ?? "Token validation failed");
+                        }
 
-            if (existingClient != null)
-            {
-                client = await UpdateExistingClientAsync(
-                    dbContext,
-                    existingClient,
-                    registerMessage,
-                    clientsCache,
-                    cancellationToken);
-            }
-            else
-            {
-                client = CreateNewClient(
-                    dbContext,
-                    registerMessage,
-                    assignedGroup,
-                    assignedLocation,
-                    cancellationToken);
-            }
+                        assignedGroup = tokenResult.Value.Group;
+                        assignedLocation = tokenResult.Value.Location;
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Client registration without token from MAC {MacAddress} - checking if already registered",
+                            registerMessage.MacAddress);
+                    }
 
-            // Save to database
-            await dbContext.SaveChangesAsync(cancellationToken);
+                    // Check if client already exists by MAC address
+                    var existingClient = await dbContext.Clients
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(c => c.MacAddress == registerMessage.MacAddress, cancellationToken);
 
-            // Update in-memory cache
-            clientsCache[client.Id] = client;
+                    RaspberryPiClient client;
 
-            // Send registration response
-            await SendRegistrationResponseAsync(client, cancellationToken);
+                    if (existingClient != null)
+                    {
+                        client = await UpdateExistingClientAsync(
+                            dbContext,
+                            existingClient,
+                            registerMessage,
+                            clientsCache,
+                            cancellationToken);
+                    }
+                    else
+                    {
+                        client = CreateNewClient(
+                            dbContext,
+                            registerMessage,
+                            assignedGroup,
+                            assignedLocation,
+                            cancellationToken);
+                    }
 
-            // Send assigned layout if exists
-            await SendAssignedLayoutIfExistsAsync(client, cancellationToken);
+                    // Save to database
+                    await dbContext.SaveChangesAsync(cancellationToken);
 
-            // Raise ClientConnected event
-            clientConnectedHandler?.Invoke(this, client.Id);
-            _logger.LogDebug("Raised ClientConnected event for {ClientId}", client.Id);
+                    // Update in-memory cache
+                    clientsCache[client.Id] = client;
 
-            return Result<RaspberryPiClient>.Success(client);
+                    // Send registration response
+                    await SendRegistrationResponseAsync(client, cancellationToken);
+
+                    // Send assigned layout if exists
+                    await SendAssignedLayoutIfExistsAsync(client, cancellationToken);
+
+                    // Raise ClientConnected event
+                    clientConnectedHandler?.Invoke(this, client.Id);
+                    _logger.LogDebug("Raised ClientConnected event for {ClientId}", client.Id);
+
+                    return Result<RaspberryPiClient>.Success(client);
+                },
+                cancellationToken);
         }
         catch (OperationCanceledException)
         {

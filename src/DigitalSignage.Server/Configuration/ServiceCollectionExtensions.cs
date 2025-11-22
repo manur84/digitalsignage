@@ -174,6 +174,9 @@ public static class ServiceCollectionExtensions
         // Message Versioning
         services.AddSingleton<MessageVersionValidator>();
 
+        // Async Locking (prevents race conditions)
+        services.AddSingleton<AsyncLockService>();
+
         // Message Handlers (Handler Pattern for WebSocket messages)
         // Pi Client Message Handlers
         services.AddTransient<IMessageHandler, RegisterMessageHandler>();
