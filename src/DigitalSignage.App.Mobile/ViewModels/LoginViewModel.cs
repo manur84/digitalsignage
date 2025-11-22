@@ -127,21 +127,21 @@ public partial class LoginViewModel : BaseViewModel
 			Guid mobileAppId;
 			string? authToken;
 
-			// Step 1: Try WebSocket connection first (for already registered apps)
+			// Get existing credentials (if any)
 			var existingToken = await _secureStorage.GetAsync("AuthToken");
 			var existingAppIdStr = await _secureStorage.GetAsync("MobileAppId");
 			var existingAppId = Guid.TryParse(existingAppIdStr, out var parsedAppId) ? parsedAppId : (Guid?)null;
 
-			if (!string.IsNullOrEmpty(existingToken) && existingAppId.HasValue)
+			// Step 1: ALWAYS try WebSocket connection FIRST
+			try
 			{
-				// Try to connect with existing credentials
-				try
-				{
-					StatusMessage = "Connecting to server via WebSocket...";
-					await _webSocketService.ConnectAsync(webSocketUrl);
+				StatusMessage = "Connecting to server via WebSocket...";
+				await _webSocketService.ConnectAsync(webSocketUrl);
 
-					// Authenticate the WebSocket connection with heartbeat message
-					StatusMessage = "Authenticating WebSocket connection...";
+				// If we have existing credentials, try to authenticate
+				if (!string.IsNullOrEmpty(existingToken) && existingAppId.HasValue)
+				{
+					StatusMessage = "Authenticating with existing credentials...";
 
 					var heartbeatMessage = new
 					{
@@ -170,12 +170,19 @@ public partial class LoginViewModel : BaseViewModel
 					await Shell.Current.GoToAsync("//devices");
 					return;
 				}
-				catch (Exception ex)
+				else
 				{
-					// WebSocket connection failed, fall back to HTTPS registration
-					Console.WriteLine($"WebSocket connection failed: {ex.Message}. Falling back to HTTPS registration...");
-					StatusMessage = "WebSocket failed, trying HTTPS registration...";
+					// No credentials - close WebSocket and fall through to HTTPS registration
+					Console.WriteLine("No existing credentials found. Switching to HTTPS registration...");
+					StatusMessage = "No credentials, trying HTTPS registration...";
+					// WebSocket will be closed and reconnected after registration
 				}
+			}
+			catch (Exception ex)
+			{
+				// WebSocket connection failed, fall back to HTTPS registration
+				Console.WriteLine($"WebSocket connection failed: {ex.Message}. Falling back to HTTPS registration...");
+				StatusMessage = "WebSocket failed, trying HTTPS registration...";
 			}
 
 			// Step 2: Fallback - Register via HTTPS REST API and poll for approval
