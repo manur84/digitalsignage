@@ -292,6 +292,11 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
         _logger.LogInformation("WSS communication service stopped successfully");
     }
 
+    /// <summary>
+    /// Sends a message to a specific client
+    /// Does not throw exceptions for network/connection errors - only logs them
+    /// </summary>
+    /// <exception cref="JsonSerializationException">Thrown when message cannot be serialized (programming error)</exception>
     public async Task SendMessageAsync(
         string clientId,
         Message message,
@@ -304,61 +309,79 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
         _logger.LogWarning("CRITICAL DEBUG: Looking for client {ClientId} in _clients dictionary: {Exists}",
             clientId, _clients.ContainsKey(clientId));
 
-        if (_clients.TryGetValue(clientId, out var connection))
+        if (!_clients.TryGetValue(clientId, out var connection))
         {
-            _logger.LogWarning("CRITICAL DEBUG: Found connection for {ClientId}, IsConnected={IsConnected}",
-                clientId, connection.IsConnected);
-
-            try
-            {
-                if (!connection.IsConnected)
-                {
-                    _logger.LogError("CRITICAL ERROR: Cannot send message to client {ClientId}: connection not open!", clientId);
-                    throw new InvalidOperationException($"Client {clientId} connection is not open");
-                }
-
-                _logger.LogDebug("Serializing message type {MessageType} for client {ClientId}", message.Type, clientId);
-
-                // Add protocol version to outgoing message
-                if (string.IsNullOrWhiteSpace(message.Version))
-                {
-                    message.Version = _versionValidator.GetServerVersion().ToString();
-                }
-
-                var settings = new JsonSerializerSettings
-                {
-                    TypeNameHandling = TypeNameHandling.Auto,
-                    NullValueHandling = NullValueHandling.Ignore,
-                    DefaultValueHandling = DefaultValueHandling.Include,
-                    ReferenceLoopHandling = ReferenceLoopHandling.Ignore,
-                    MaxDepth = 32
-                };
-
-                var json = JsonConvert.SerializeObject(message, settings);
-
-                _logger.LogDebug("Serialized message {MessageType}: {Length} bytes", message.Type, json.Length);
-
-                await connection.SendTextAsync(json, cancellationToken);
-
-                _logger.LogDebug("Successfully sent message {MessageType} to client {ClientId}", message.Type, clientId);
-            }
-            catch (JsonSerializationException jsonEx)
-            {
-                _logger.LogError(jsonEx, "JSON serialization error for message type {MessageType} to client {ClientId}",
-                    message?.Type, clientId);
-                throw;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to send message to client {ClientId}", clientId);
-                throw;
-            }
+            // Client not found - this is expected when client disconnects
+            _logger.LogWarning("Cannot send message type {MessageType} to client {ClientId}: Client not found in connections (have {Count} clients)",
+                message?.Type, clientId, _clients.Count);
+            return;
         }
-        else
+
+        _logger.LogWarning("CRITICAL DEBUG: Found connection for {ClientId}, IsConnected={IsConnected}",
+            clientId, connection.IsConnected);
+
+        if (!connection.IsConnected)
         {
-            _logger.LogWarning("Client {ClientId} not found in connections dictionary (have {Count} clients, first 5: {ClientIds})",
-                clientId, _clients.Count, string.Join(", ", _clients.Keys.Take(5)));
-            throw new InvalidOperationException($"Client {clientId} not found");
+            // Connection not open - this is expected during disconnect
+            _logger.LogWarning("Cannot send message type {MessageType} to client {ClientId}: Connection not open",
+                message?.Type, clientId);
+            return;
+        }
+
+        try
+        {
+            _logger.LogDebug("Serializing message type {MessageType} for client {ClientId}", message.Type, clientId);
+
+            // Add protocol version to outgoing message
+            if (string.IsNullOrWhiteSpace(message.Version))
+            {
+                message.Version = _versionValidator.GetServerVersion().ToString();
+            }
+
+            var settings = new JsonSerializerSettings
+            {
+                TypeNameHandling = TypeNameHandling.Auto,
+                NullValueHandling = NullValueHandling.Ignore,
+                DefaultValueHandling = DefaultValueHandling.Include,
+                ReferenceLoopHandling = ReferenceLoopHandling.Ignore,
+                MaxDepth = 32
+            };
+
+            var json = JsonConvert.SerializeObject(message, settings);
+
+            _logger.LogDebug("Serialized message {MessageType}: {Length} bytes", message.Type, json.Length);
+
+            await connection.SendTextAsync(json, cancellationToken);
+
+            _logger.LogDebug("Successfully sent message {MessageType} to client {ClientId}", message.Type, clientId);
+        }
+        catch (JsonSerializationException jsonEx)
+        {
+            // This is a programming error - the message structure is invalid
+            // Re-throw so developers can fix it
+            _logger.LogError(jsonEx, "JSON serialization error for message type {MessageType} to client {ClientId}",
+                message?.Type, clientId);
+            throw;
+        }
+        catch (Exception ex)
+        {
+            // Network error or connection lost
+            // Log but don't throw - sending is best-effort
+            _logger.LogError(ex, "Failed to send message type {MessageType} to client {ClientId} due to network error",
+                message?.Type, clientId);
+
+            // Trigger disconnect to clean up the connection
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await DisconnectClientAsync(clientId);
+                }
+                catch (Exception disconnectEx)
+                {
+                    _logger.LogWarning(disconnectEx, "Error during auto-disconnect for client {ClientId}", clientId);
+                }
+            });
         }
     }
 
