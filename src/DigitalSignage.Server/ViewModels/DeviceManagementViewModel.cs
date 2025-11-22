@@ -124,6 +124,9 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
                 ? layoutsResult.Value.ToDictionary(l => l.Id, l => l)
                 : new Dictionary<string, DisplayLayout>();
 
+            // Preserve current selection (by Id) so UI selection isn't lost when we refresh the collection
+            var previousSelectedId = SelectedClient?.Id;
+
             Clients.Clear();
             foreach (var client in clients)
             {
@@ -135,6 +138,17 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
 
                 Clients.Add(client);
             }
+
+            // Try to restore selection if possible
+            if (!string.IsNullOrEmpty(previousSelectedId))
+            {
+                var restored = Clients.FirstOrDefault(c => c.Id == previousSelectedId);
+                if (restored != null)
+                {
+                    SelectedClient = restored;
+                }
+            }
+
             StatusMessage = $"Loaded {Clients.Count} client(s)";
             _logger.LogInformation("Loaded {Count} clients", Clients.Count);
             RaiseClientStatusSummaryChanged();

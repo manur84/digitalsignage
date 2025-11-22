@@ -389,51 +389,61 @@ class DigitalSignageClient:
         self.connected = False
         self.connection_event.clear()  # CRITICAL: Clear connection state
 
-        if not self.reconnect_requested:
-            # Unexpected disconnect - enter offline mode and start reconnection
-            self.offline_mode = True
-            self.watchdog.notify_status("Disconnected - attempting reconnection")
+        # CRITICAL FIX: Prevent reconnection if we initiated the disconnect
+        # This fixes the issue where client disconnects and reconnects immediately
+        if self.reconnect_requested:
+            logger.info("Disconnect was requested by client - NOT starting automatic reconnection")
+            return
 
-            # Check config to determine disconnect behavior
-            if self.config.show_cached_layout_on_disconnect:
-                # Show cached layout continuously (no status screen switching)
-                logger.info("Disconnect behavior: Showing cached layout (no status screen)")
+        # CRITICAL FIX: Prevent multiple reconnection attempts running simultaneously
+        # This fixes race condition where disconnect triggers reconnection while already reconnecting
+        if self.reconnection_in_progress:
+            logger.info("Reconnection already in progress - NOT starting another reconnection attempt")
+            return
 
-                # CRITICAL FIX: Load cached layout FIRST before starting reconnection
-                # This ensures the layout is displayed and visible BEFORE reconnection attempts
-                # which might show status screens that would cover the cached layout
-                future = asyncio.run_coroutine_threadsafe(
-                    self.load_cached_layout(),
-                    self.event_loop
-                )
+        # Unexpected disconnect - enter offline mode and start reconnection
+        self.offline_mode = True
+        self.watchdog.notify_status("Disconnected - attempting reconnection")
 
-                # Add a callback to handle any exceptions in the coroutine
-                def handle_future_exception(fut):
-                    try:
-                        fut.result()
-                        logger.info("Cached layout loaded successfully - now starting reconnection in background")
-                    except Exception as e:
-                        logger.error(f"Error loading cached layout: {e}", exc_info=True)
-                future.add_done_callback(handle_future_exception)
-            else:
-                # Show reconnect status screen (no cached layout)
-                logger.info("Disconnect behavior: Showing reconnect status screen")
-                # Status screen will be shown in start_reconnection()
+        # Check config to determine disconnect behavior
+        if self.config.show_cached_layout_on_disconnect:
+            # Show cached layout continuously (no status screen switching)
+            logger.info("Disconnect behavior: Showing cached layout (no status screen)")
 
-            # Start automatic reconnection if not already in progress
-            if not self.reconnection_in_progress:
-                logger.info("Starting automatic reconnection...")
-                reconnect_future = asyncio.run_coroutine_threadsafe(
-                    self.start_reconnection(),
-                    self.event_loop
-                )
-                # Add error handler for reconnection task
-                def handle_reconnect_exception(fut):
-                    try:
-                        fut.result()
-                    except Exception as e:
-                        logger.error(f"Error in reconnection task: {e}", exc_info=True)
-                reconnect_future.add_done_callback(handle_reconnect_exception)
+            # CRITICAL FIX: Load cached layout FIRST before starting reconnection
+            # This ensures the layout is displayed and visible BEFORE reconnection attempts
+            # which might show status screens that would cover the cached layout
+            future = asyncio.run_coroutine_threadsafe(
+                self.load_cached_layout(),
+                self.event_loop
+            )
+
+            # Add a callback to handle any exceptions in the coroutine
+            def handle_future_exception(fut):
+                try:
+                    fut.result()
+                    logger.info("Cached layout loaded successfully - now starting reconnection in background")
+                except Exception as e:
+                    logger.error(f"Error loading cached layout: {e}", exc_info=True)
+            future.add_done_callback(handle_future_exception)
+        else:
+            # Show reconnect status screen (no cached layout)
+            logger.info("Disconnect behavior: Showing reconnect status screen")
+            # Status screen will be shown in start_reconnection()
+
+        # Start automatic reconnection if not already in progress
+        logger.info("Starting automatic reconnection...")
+        reconnect_future = asyncio.run_coroutine_threadsafe(
+            self.start_reconnection(),
+            self.event_loop
+        )
+        # Add error handler for reconnection task
+        def handle_reconnect_exception(fut):
+            try:
+                fut.result()
+            except Exception as e:
+                logger.error(f"Error in reconnection task: {e}", exc_info=True)
+        reconnect_future.add_done_callback(handle_reconnect_exception)
 
     def connect_websocket(self, server_url: str):
         """Connect to WebSocket server"""
@@ -1100,8 +1110,10 @@ class DigitalSignageClient:
         - Reconnection happens silently in background
         - Cached layout remains visible throughout
         """
+        # CRITICAL FIX: Prevent multiple concurrent reconnection attempts
+        # This fixes race condition where disconnect triggers reconnection while already reconnecting
         if self.reconnection_in_progress:
-            logger.info("Reconnection already in progress, skipping")
+            logger.warning("Reconnection already in progress - skipping duplicate attempt")
             return
 
         self.reconnection_in_progress = True
@@ -1202,6 +1214,13 @@ class DigitalSignageClient:
                         logger.debug(f"Skipping status screen update on attempt {attempt} to prevent flicker")
 
                 try:
+                    # CRITICAL FIX: Check if already connected before attempting new connection
+                    # This prevents race condition where disconnect triggers reconnection while already connected
+                    if self.connected:
+                        logger.info("Already connected - canceling reconnection attempt")
+                        self.reconnection_in_progress = False
+                        return
+
                     self.connect_websocket(server_url)
 
                     if self.connected:
@@ -1228,7 +1247,7 @@ class DigitalSignageClient:
                 except Exception as e:
                     logger.warning(f"Connection attempt failed: {e}")
 
-                # Step 3: Wait before retry with LONGER delays to prevent rapid looping
+                # Step 3: Wait before next batch
                 if not self.connected and not self.stop_reconnection:
                     logger.info(f"Server unreachable - waiting {retry_delay} seconds before next attempt...")
 
@@ -1238,7 +1257,10 @@ class DigitalSignageClient:
                         logger.debug(f"Silent wait {retry_delay}s (cached layout remains visible)")
                         # Simple sleep without status updates
                         for remaining in range(retry_delay, 0, -1):
+                            # CRITICAL FIX: Check if connection was re-established during wait
+                            # This prevents continuing reconnection attempts when already connected
                             if self.stop_reconnection or self.connected:
+                                logger.info("Connection established during wait period - stopping reconnection")
                                 break
                             await asyncio.sleep(1)
                     else:
@@ -1248,7 +1270,9 @@ class DigitalSignageClient:
                         update_interval = 10
 
                         for remaining in range(retry_delay, 0, -1):
+                            # CRITICAL FIX: Check if connection was re-established during wait
                             if self.stop_reconnection or self.connected:
+                                logger.info("Connection established during wait period - stopping reconnection")
                                 break
 
                             # ANTI-FLICKER: Update status screen much less frequently
