@@ -10,6 +10,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Net.Security;
 using System.Security.Authentication;
+using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using Newtonsoft.Json;
@@ -28,6 +29,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
     private readonly ConcurrentDictionary<string, SslWebSocketConnection> _mobileAppConnections = new();
     private readonly ConcurrentDictionary<string, Guid> _mobileAppIds = new(); // Maps connection ID to app ID
     private readonly ConcurrentDictionary<string, string> _mobileAppTokens = new(); // Maps connection ID to token
+    private readonly ConcurrentDictionary<Guid, string> _clientGuidMap = new(); // Maps mobile-app GUIDs to real client IDs
 
     private readonly ILogger<WebSocketCommunicationService> _logger;
     private readonly WebSocketMessageSerializer _messageSerializer;
@@ -507,6 +509,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
         {
             _clients.TryRemove(clientId, out _);
             _clientHandlerTasks.TryRemove(clientId, out _);
+            RemoveClientGuidMapping(clientId);
 
             // Clean up mobile app connection if applicable
             if (_mobileAppConnections.TryRemove(clientId, out _))
@@ -981,7 +984,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
             // Map to ClientInfo DTOs
             var clientInfos = clients.Select(c => new ClientInfo
             {
-                Id = Guid.TryParse(c.Id, out var guid) ? guid : Guid.Empty,
+                Id = GetOrCreateClientGuid(c.Id),
                 Name = c.Name ?? c.IpAddress ?? "Unknown",
                 IpAddress = c.IpAddress,
                 Status = ConvertToDeviceStatus(c.Status),
@@ -1047,7 +1050,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
             }
 
             // Find target device WebSocket
-            var targetClientId = message.TargetDeviceId.ToString();
+            var targetClientId = ResolveClientId(message.TargetDeviceId);
             if (!_clients.TryGetValue(targetClientId, out var targetSocket))
             {
                 await SendErrorAsync(connection, "Device not connected");
@@ -1116,7 +1119,8 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
             }
 
             // Assign layout to device
-            var result = await clientService.AssignLayoutAsync(message.DeviceId.ToString(), message.LayoutId);
+            var targetClientId = ResolveClientId(message.DeviceId);
+            var result = await clientService.AssignLayoutAsync(targetClientId, message.LayoutId);
             if (result.IsSuccess)
             {
                 await SendMessageAsync(connection, new CommandResultMessage
@@ -1173,7 +1177,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
             }
 
             // Find target device WebSocket
-            var targetClientId = message.DeviceId.ToString();
+            var targetClientId = ResolveClientId(message.DeviceId);
             if (!_clients.TryGetValue(targetClientId, out var targetSocket))
             {
                 await SendErrorAsync(connection, "Device not connected");
