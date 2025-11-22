@@ -7,8 +7,8 @@ Raspberry Pi clients can register with the server successfully, but commands are
 
 ### Server-Side Logging (WebSocketCommunicationService.cs)
 Added detailed logging for COMMAND messages:
-- Line 318-321: Logs actual JSON content being sent
-- Line 326-329: Confirms successful WebSocket send
+- Lines 318-320: Logs actual JSON content being sent
+- Lines 329-331: Confirms successful WebSocket send
 - Existing debug logs show client ID lookup and connection status
 
 ### Client-Side Logging (client.py)  
