@@ -551,8 +551,10 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
         {
             _logger.LogDebug("Received message from {ConnectionId}: {Length} bytes", connection.ConnectionId, messageJson.Length);
 
-            // First parse JSON to extract the message type
+            // Parse JSON to check if it has $type field (sent by server with TypeNameHandling.Auto)
+            // or just Type field (sent by clients without TypeNameHandling)
             var jsonObject = JObject.Parse(messageJson);
+            var hasTypeHint = jsonObject["$type"] != null;
             var messageType = jsonObject["type"]?.ToString() ?? jsonObject["Type"]?.ToString();
 
             if (string.IsNullOrWhiteSpace(messageType))
@@ -561,16 +563,36 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
                 return;
             }
 
-            _logger.LogDebug("Processing message type: {MessageType} from {ConnectionId}", messageType, connection.ConnectionId);
+            _logger.LogDebug("Processing message type: {MessageType} from {ConnectionId} (has $type: {HasTypeHint})",
+                messageType, connection.ConnectionId, hasTypeHint);
 
-            // Deserialize to the correct concrete message type based on the type field
-            var settings = new JsonSerializerSettings
+            Message? message;
+
+            // If message has $type field, use TypeNameHandling.Auto to deserialize polymorphically
+            // This handles messages sent by the server itself (e.g., echoed back)
+            if (hasTypeHint)
             {
-                NullValueHandling = NullValueHandling.Ignore,
-                DefaultValueHandling = DefaultValueHandling.Include
-            };
+                var settings = new JsonSerializerSettings
+                {
+                    TypeNameHandling = TypeNameHandling.Auto,
+                    NullValueHandling = NullValueHandling.Ignore,
+                    DefaultValueHandling = DefaultValueHandling.Include
+                };
 
-            Message? message = DeserializeMessageByType(messageType, messageJson, settings);
+                message = JsonConvert.DeserializeObject<Message>(messageJson, settings);
+            }
+            else
+            {
+                // No $type field - deserialize based on Type field value
+                // This handles messages from Raspberry Pi clients and mobile apps
+                var settings = new JsonSerializerSettings
+                {
+                    NullValueHandling = NullValueHandling.Ignore,
+                    DefaultValueHandling = DefaultValueHandling.Include
+                };
+
+                message = DeserializeMessageByType(messageType, messageJson, settings);
+            }
 
             if (message == null)
             {
