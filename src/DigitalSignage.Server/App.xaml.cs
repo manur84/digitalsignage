@@ -200,12 +200,19 @@ For detailed diagnostics, run:
                 new StartupStep("Finalisiere Startup...", weight: 0.5, "Letzte Prüfungen")
             );
 
-            // Step 1: Start application host
+            // Step 1: Start application host (DI container + HostedServices)
             await progressManager.ExecuteStepAsync(async () =>
             {
                 Log.Information("Starting application host...");
                 await _host.StartAsync();
                 Log.Information("Application host started successfully");
+
+                // ✅ FIX: Start WebSocket server AFTER host initialization completes
+                // This prevents blocking during DI container resolution
+                Log.Information("Starting WebSocket server...");
+                var serverManagementVM = _host.Services.GetRequiredService<ServerManagementViewModel>();
+                await serverManagementVM.StartServerAsync();
+                Log.Information("WebSocket server started successfully");
             });
 
             // Step 2: Load data sources (simulated cache warming)

@@ -52,11 +52,15 @@ public partial class ServerManagementViewModel : ObservableObject, IDisposable
         _communicationService.ClientConnected += OnClientConnected;
         _communicationService.ClientDisconnected += OnClientDisconnected;
 
-        // Auto-start server
-        _ = StartServerAsync();
+        // ✅ FIX: DO NOT auto-start server in constructor during DI initialization
+        // Server will be started explicitly after host startup completes
+        // This prevents blocking the host startup process
     }
 
-    private async Task StartServerAsync()
+    /// <summary>
+    /// Public method to start the WebSocket server - MUST be called after DI container is fully initialized
+    /// </summary>
+    public async Task StartServerAsync()
     {
         try
         {
