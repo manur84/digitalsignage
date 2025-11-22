@@ -19,7 +19,7 @@ public class AuthenticationService : IAuthenticationService
 	}
 
 	/// <inheritdoc/>
-	public async Task<Guid> RegisterAppAsync(string serverUrl, string? registrationToken = null)
+	public async Task<Guid> RegisterAppAsync(string serverUrl, string? registrationToken = null, Action<string>? progressCallback = null)
 	{
 		if (string.IsNullOrWhiteSpace(serverUrl))
 			throw new ArgumentException("Server URL cannot be null or empty", nameof(serverUrl));
@@ -33,6 +33,7 @@ public class AuthenticationService : IAuthenticationService
 			var deviceInfo = await GetDeviceInfoAsync();
 
 			Console.WriteLine($"Registering mobile app: {deviceInfo.Name} ({deviceInfo.Platform})");
+			progressCallback?.Invoke("Sending registration request...");
 
 			// Send registration request via REST API
 			var registrationResponse = await _apiService.RegisterAsync(
@@ -51,6 +52,7 @@ public class AuthenticationService : IAuthenticationService
 			var requestId = registrationResponse.RequestId;
 			Console.WriteLine($"Registration request sent. RequestId: {requestId}");
 			Console.WriteLine($"Message: {registrationResponse.Message}");
+			progressCallback?.Invoke("Waiting for admin approval...");
 
 			// Poll for approval status (every 5 seconds for up to 5 minutes)
 			const int maxAttempts = 60; // 5 minutes with 5-second intervals
@@ -59,6 +61,13 @@ public class AuthenticationService : IAuthenticationService
 			for (int attempt = 1; attempt <= maxAttempts; attempt++)
 			{
 				Console.WriteLine($"Checking registration status (attempt {attempt}/{maxAttempts})...");
+
+				// Update progress every 10 attempts (every 50 seconds)
+				if (attempt % 10 == 0)
+				{
+					var elapsed = TimeSpan.FromSeconds(attempt * 5);
+					progressCallback?.Invoke($"Still waiting for approval... ({elapsed.Minutes}m {elapsed.Seconds}s)");
+				}
 
 				var statusResponse = await _apiService.CheckRegistrationStatusAsync(requestId);
 
@@ -72,6 +81,7 @@ public class AuthenticationService : IAuthenticationService
 						throw new InvalidOperationException("Approved but no mobile app ID received");
 
 					Console.WriteLine($"Registration approved! MobileAppId: {statusResponse.MobileAppId.Value}");
+					progressCallback?.Invoke("Registration approved!");
 
 					// Set authentication token for future API calls
 					_apiService.SetAuthenticationToken(statusResponse.Token);

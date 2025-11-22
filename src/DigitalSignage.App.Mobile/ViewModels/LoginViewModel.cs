@@ -124,24 +124,46 @@ public partial class LoginViewModel : BaseViewModel
 	{
 		await ExecuteAsync(async () =>
 		{
-			StatusMessage = $"Connecting to {webSocketUrl}...";
+			StatusMessage = "Registering with server...";
 
-			// Connect WebSocket
+			// Step 1: Register via REST API and poll for approval
+			var mobileAppId = await _authService.RegisterAppAsync(
+				serverUrl,
+				RegistrationToken,
+				progressCallback: (status) =>
+				{
+					// Update UI from main thread
+					MainThread.BeginInvokeOnMainThread(() =>
+					{
+						StatusMessage = status;
+					});
+				});
+
+			StatusMessage = "Registration approved! Connecting to server...";
+
+			// Step 2: Get auth token and mobile app ID from secure storage (saved by AuthenticationService)
+			var authToken = await _secureStorage.GetAsync("AuthToken");
+			if (string.IsNullOrEmpty(authToken))
+			{
+				throw new InvalidOperationException("Authentication token not found after registration");
+			}
+
+			// Step 3: Connect WebSocket
 			await _webSocketService.ConnectAsync(webSocketUrl);
 
-			StatusMessage = "Connected to WebSocket. Registering with server...";
+			// Step 4: Authenticate the WebSocket connection with heartbeat message
+			StatusMessage = "Authenticating WebSocket connection...";
 
-			// Get device info
-			var deviceInfo = await _authService.GetDeviceInfoAsync();
+			// Send heartbeat with token to authenticate
+			var heartbeatMessage = new
+			{
+				type = "APP_HEARTBEAT",
+				appId = mobileAppId,
+				token = authToken
+			};
+			await _webSocketService.SendJsonAsync(heartbeatMessage);
 
-			// Register with server via WebSocket
-			var mobileAppId = await _webSocketService.RegisterAndWaitForAuthorizationAsync(
-				deviceInfo.Name,
-				deviceInfo.Identifier,
-				deviceInfo.Platform,
-				deviceInfo.AppVersion);
-
-			StatusMessage = "Registration successful!";
+			StatusMessage = "Connected successfully!";
 
 			// Save settings
 			var settings = new AppSettings
@@ -152,8 +174,6 @@ public partial class LoginViewModel : BaseViewModel
 				LastConnected = DateTime.Now
 			};
 			await _secureStorage.SaveSettingsAsync(settings);
-
-			StatusMessage = "Connected successfully!";
 
 			// Navigate to main page
 			await Shell.Current.GoToAsync("//devices");

@@ -10,8 +10,9 @@ public interface IAuthenticationService
 	/// </summary>
 	/// <param name="serverUrl">The server URL.</param>
 	/// <param name="registrationToken">The registration token (optional).</param>
+	/// <param name="progressCallback">Optional callback for status updates during registration.</param>
 	/// <returns>The assigned mobile app ID.</returns>
-	Task<Guid> RegisterAppAsync(string serverUrl, string? registrationToken = null);
+	Task<Guid> RegisterAppAsync(string serverUrl, string? registrationToken = null, Action<string>? progressCallback = null);
 
 	/// <summary>
 	/// Gets the current device information.

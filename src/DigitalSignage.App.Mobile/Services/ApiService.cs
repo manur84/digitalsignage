@@ -89,7 +89,7 @@ public class ApiService : IApiService
 			_logger.LogInformation("Registering mobile app: {DeviceName} ({Platform})", deviceName, platform);
 
 			var response = await _httpClient.PostAsJsonAsync(
-				$"{_baseUrl}/api/mobile/register",
+				$"{_baseUrl}/api/auth/register",
 				request,
 				cancellationToken);
 
@@ -138,7 +138,7 @@ public class ApiService : IApiService
 			_logger.LogDebug("Checking registration status for request: {RequestId}", requestId);
 
 			var response = await _httpClient.GetAsync(
-				$"{_baseUrl}/api/mobile/register/{requestId}/status",
+				$"{_baseUrl}/api/auth/status/{requestId}",
 				cancellationToken);
 
 			response.EnsureSuccessStatusCode();
