@@ -32,21 +32,23 @@ public class MessageHandlerFactory
     /// </summary>
     private void RegisterHandlers()
     {
-        // Register device message handlers
+        // Register Pi client message handlers
         RegisterHandler<RegisterMessageHandler>();
         RegisterHandler<HeartbeatMessageHandler>();
-        // Add more handlers as they are created:
-        // RegisterHandler<StatusReportMessageHandler>();
-        // RegisterHandler<ScreenshotMessageHandler>();
-        // RegisterHandler<LogMessageHandler>();
+        RegisterHandler<StatusReportMessageHandler>();
+        RegisterHandler<ScreenshotMessageHandler>();
+        RegisterHandler<LogMessageHandler>();
+        RegisterHandler<UpdateConfigResponseMessageHandler>();
 
-        // Register mobile app message handlers
+        // Mobile app message handlers - not yet migrated (still in WebSocketCommunicationService)
         // RegisterHandler<AppRegisterMessageHandler>();
         // RegisterHandler<AppHeartbeatMessageHandler>();
         // RegisterHandler<RequestClientListMessageHandler>();
         // RegisterHandler<SendCommandMessageHandler>();
 
-        _logger.LogInformation("Registered {Count} message handlers", _handlerTypes.Count);
+        _logger.LogInformation("Registered {Count} message handlers: {MessageTypes}",
+            _handlerTypes.Count,
+            string.Join(", ", _handlerTypes.Keys));
     }
 
     /// <summary>

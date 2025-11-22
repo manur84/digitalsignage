@@ -2,6 +2,7 @@ using DigitalSignage.Core.Interfaces;
 using DigitalSignage.Core.Models;
 using DigitalSignage.Server.Configuration;
 using DigitalSignage.Server.Helpers;
+using DigitalSignage.Server.MessageHandlers;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using System.Collections.Concurrent;
@@ -37,6 +38,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
     private readonly ServerSettings _settings;
     private readonly IServiceProvider _serviceProvider; // For scoped service access
     private readonly ICertificateService _certificateService;
+    private readonly MessageHandlerFactory _messageHandlerFactory;
     private TcpListener? _tcpListener;
     private CancellationTokenSource? _cancellationTokenSource;
     private Task? _acceptClientsTask;
@@ -48,12 +50,14 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
         ILogger<WebSocketMessageSerializer> serializerLogger,
         ServerSettings settings,
         IServiceProvider serviceProvider,
-        ICertificateService certificateService)
+        ICertificateService certificateService,
+        MessageHandlerFactory messageHandlerFactory)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
         _certificateService = certificateService ?? throw new ArgumentNullException(nameof(certificateService));
+        _messageHandlerFactory = messageHandlerFactory ?? throw new ArgumentNullException(nameof(messageHandlerFactory));
         _messageSerializer = new WebSocketMessageSerializer(serializerLogger, enableCompression: true);
     }
 
@@ -662,40 +666,51 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
             }
             else
             {
-                // For REGISTER messages, update the WebSocket client mapping BEFORE firing the event
-                // This ensures that when ClientRegistrationHandler tries to send messages back,
-                // the connection is already mapped to the correct client ID
-                var eventClientId = connection.ConnectionId;
+                // ==================================================================
+                // PI CLIENT MESSAGE HANDLING (New Handler Pattern)
+                // ==================================================================
+
+                // For REGISTER messages, update the WebSocket client mapping BEFORE calling handler
+                // This ensures that handlers can send messages back to the correct client ID
+                var clientId = connection.ConnectionId;
                 if (message is RegisterMessage registerMsg && !string.IsNullOrWhiteSpace(registerMsg.ClientId))
                 {
-                    eventClientId = registerMsg.ClientId;
+                    clientId = registerMsg.ClientId;
 
                     // Update the WebSocket client mapping if the client ID is different
-                    // CRITICAL: This MUST happen BEFORE MessageReceived event to ensure
+                    // CRITICAL: This MUST happen BEFORE handler is called to ensure
                     // RegistrationResponse and Layout messages can be sent successfully
-                    if (eventClientId != connection.ConnectionId)
+                    if (clientId != connection.ConnectionId)
                     {
-                        _logger.LogWarning("CRITICAL DEBUG: Client registering with ID {RegisteredId} (WebSocket connection ID: {ConnectionId})",
-                            eventClientId, connection.ConnectionId);
-                        _logger.LogWarning("CRITICAL DEBUG: Before UpdateClientId - _clients.Count = {Count}", _clients.Count);
-                        UpdateClientId(connection.ConnectionId, eventClientId);
-                        _logger.LogWarning("CRITICAL DEBUG: After UpdateClientId - _clients.Count = {Count}", _clients.Count);
-                        _logger.LogWarning("CRITICAL DEBUG: Verifying client is stored under {ClientId}: {Exists}",
-                            eventClientId, _clients.ContainsKey(eventClientId));
-                    }
-                    else
-                    {
-                        _logger.LogWarning("CRITICAL DEBUG: Client ID equals ConnectionId - NO UpdateClientId needed! ClientId={ClientId}",
-                            eventClientId);
+                        _logger.LogDebug("Client registering with ID {RegisteredId} (WebSocket connection ID: {ConnectionId})",
+                            clientId, connection.ConnectionId);
+                        UpdateClientId(connection.ConnectionId, clientId);
+                        _logger.LogDebug("Updated client ID mapping: {ConnectionId} -> {ClientId}",
+                            connection.ConnectionId, clientId);
                     }
                 }
 
-                // Fire MessageReceived event AFTER UpdateClientId to ensure handlers can send messages
-                MessageReceived?.Invoke(this, new MessageReceivedEventArgs
+                // Get handler for this message type
+                var handler = _messageHandlerFactory.GetHandler(message.Type);
+
+                if (handler != null)
                 {
-                    ClientId = eventClientId,
-                    Message = message
-                });
+                    // Call handler directly (NEW: Handler Pattern - replaces MessageReceived event)
+                    _logger.LogDebug("Calling handler {HandlerType} for message type {MessageType}",
+                        handler.GetType().Name, message.Type);
+                    await handler.HandleAsync(message, clientId, cancellationToken);
+                }
+                else
+                {
+                    // No handler found - fall back to firing MessageReceived event
+                    // This allows gradual migration (some messages still use old event-based system)
+                    _logger.LogDebug("No handler for message type {MessageType}, firing MessageReceived event", message.Type);
+                    MessageReceived?.Invoke(this, new MessageReceivedEventArgs
+                    {
+                        ClientId = clientId,
+                        Message = message
+                    });
+                }
             }
         }
         catch (JsonException ex)

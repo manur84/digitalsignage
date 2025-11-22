@@ -3,6 +3,7 @@ using DigitalSignage.Core.Interfaces;
 using DigitalSignage.Data;
 using DigitalSignage.Data.Services;
 using DigitalSignage.Server.Helpers;
+using DigitalSignage.Server.MessageHandlers;
 using DigitalSignage.Server.Services;
 using DigitalSignage.Server.ViewModels;
 using Microsoft.EntityFrameworkCore;
@@ -161,6 +162,17 @@ public static class ServiceCollectionExtensions
         // Caching
         services.AddMemoryCache();
         services.AddSingleton<StartupCacheService>();
+
+        // Message Handlers (Handler Pattern for WebSocket messages)
+        services.AddTransient<IMessageHandler, RegisterMessageHandler>();
+        services.AddTransient<IMessageHandler, HeartbeatMessageHandler>();
+        services.AddTransient<IMessageHandler, StatusReportMessageHandler>();
+        services.AddTransient<IMessageHandler, ScreenshotMessageHandler>();
+        services.AddTransient<IMessageHandler, LogMessageHandler>();
+        services.AddTransient<IMessageHandler, UpdateConfigResponseMessageHandler>();
+
+        // Message Handler Factory
+        services.AddSingleton<MessageHandlerFactory>();
 
         return services;
     }
