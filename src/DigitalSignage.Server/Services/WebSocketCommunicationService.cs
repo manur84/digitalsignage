@@ -1331,6 +1331,75 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
     }
 
     /// <summary>
+    /// Send approval notification to a specific mobile app
+    /// CRITICAL FIX: Notifies iOS App immediately when approved (prevents "Waiting for approval" stuck state)
+    /// </summary>
+    public async Task SendApprovalNotificationAsync(Guid mobileAppId, string token, AppPermission permissions)
+    {
+        try
+        {
+            _logger.LogInformation("Sending approval notification to mobile app {AppId}", mobileAppId);
+
+            // Find connection by MobileAppId
+            var connectionId = _mobileAppIds
+                .Where(kvp => kvp.Value == mobileAppId)
+                .Select(kvp => kvp.Key)
+                .FirstOrDefault();
+
+            if (connectionId == null)
+            {
+                _logger.LogWarning("Mobile app {AppId} not currently connected - cannot send approval notification", mobileAppId);
+                return;
+            }
+
+            if (!_mobileAppConnections.TryGetValue(connectionId, out var connection))
+            {
+                _logger.LogWarning("Connection for mobile app {AppId} not found in connections dictionary", mobileAppId);
+                return;
+            }
+
+            // Store token in connection mapping for future authorization checks
+            _mobileAppTokens[connectionId] = token;
+
+            // Send AppAuthorized message
+            var approvalMessage = new AppAuthorizedMessage
+            {
+                Token = token,
+                Permissions = ConvertPermissionToList(permissions),
+                ExpiresAt = DateTime.UtcNow.AddYears(1) // Token valid for 1 year
+            };
+
+            await SendMessageAsync(connection, approvalMessage);
+
+            _logger.LogInformation("✓ Approval notification sent successfully to mobile app {AppId} via WebSocket", mobileAppId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error sending approval notification to mobile app {AppId}", mobileAppId);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Convert AppPermission flags to list of permission strings
+    /// </summary>
+    private static List<string> ConvertPermissionToList(AppPermission permissions)
+    {
+        var permissionList = new List<string>();
+
+        if (permissions.HasFlag(AppPermission.View))
+            permissionList.Add("view");
+
+        if (permissions.HasFlag(AppPermission.Control))
+            permissionList.Add("control");
+
+        if (permissions.HasFlag(AppPermission.Manage))
+            permissionList.Add("manage");
+
+        return permissionList;
+    }
+
+    /// <summary>
     /// Converts ClientStatus to DeviceStatus for mobile app compatibility
     /// </summary>
     private static DeviceStatus ConvertToDeviceStatus(ClientStatus clientStatus)

@@ -261,6 +261,17 @@ class DigitalSignageClient:
     def on_message(self, ws, message):
         """WebSocket message received"""
         try:
+            # CRITICAL DEBUG LOGGING: Track ALL incoming messages
+            logger.info("=" * 70)
+            logger.info("RAW MESSAGE RECEIVED FROM SERVER")
+            logger.info("=" * 70)
+
+            # Log message type and size
+            if isinstance(message, bytes):
+                logger.info(f"Message Type: BINARY ({len(message)} bytes)")
+            else:
+                logger.info(f"Message Type: TEXT ({len(message)} chars)")
+
             # Check if message is binary (compressed)
             if isinstance(message, bytes):
                 # Check for gzip header (0x1F 0x8B)
@@ -269,18 +280,28 @@ class DigitalSignageClient:
                     try:
                         decompressed = gzip.decompress(message)
                         message_str = decompressed.decode('utf-8')
-                        logger.debug(f"Decompressed message: {len(message)} → {len(decompressed)} bytes")
+                        logger.info(f"Decompressed: {len(message)} → {len(decompressed)} bytes")
                     except Exception as e:
                         logger.error(f"Failed to decompress message: {e}")
                         return
                 else:
                     # Binary but not compressed, decode as UTF-8
                     message_str = message.decode('utf-8')
+                    logger.info("Binary message (not compressed) - decoded as UTF-8")
             else:
                 # Text message
                 message_str = message
+                logger.info("Text message received")
+
+            # Log first 500 chars of message
+            logger.info(f"Message Content (first 500 chars): {message_str[:500]}")
 
             data = json.loads(message_str)
+            message_type = data.get("Type", "UNKNOWN")
+
+            logger.info(f"Parsed Message Type: {message_type}")
+            logger.info("=" * 70)
+
             # Schedule message handling in asyncio loop
             future = asyncio.run_coroutine_threadsafe(
                 self.handle_message(data),
@@ -290,11 +311,13 @@ class DigitalSignageClient:
             def handle_future_exception(fut):
                 try:
                     fut.result()
+                    logger.info(f"✓ Message {message_type} handled successfully")
                 except Exception as e:
-                    logger.error(f"Error in message handler coroutine: {e}", exc_info=True)
+                    logger.error(f"✗ Error in message handler coroutine for {message_type}: {e}", exc_info=True)
             future.add_done_callback(handle_future_exception)
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse JSON message: {e}")
+            logger.error(f"Raw message: {message_str if 'message_str' in locals() else message}")
         except Exception as e:
             logger.error(f"Error processing message: {e}", exc_info=True)
 

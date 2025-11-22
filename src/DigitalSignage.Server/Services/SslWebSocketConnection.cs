@@ -228,8 +228,17 @@ public class SslWebSocketConnection : IDisposable
             }
 
             var frame = ms.ToArray();
+
+            // CRITICAL DEBUG LOGGING: Log frame structure details
+            _logger.LogDebug(
+                "Sending WebSocket frame to {ConnectionId}: Opcode={Opcode}, PayloadLength={PayloadLength}, FrameSize={FrameSize}, MASK=0 (unmaskiert)",
+                ConnectionId, opcode, payload.Length, frame.Length
+            );
+
             await _sslStream.WriteAsync(frame, 0, frame.Length, cancellationToken);
             await _sslStream.FlushAsync(cancellationToken);
+
+            _logger.LogDebug("Frame sent successfully to {ConnectionId}", ConnectionId);
         }
         catch (Exception ex)
         {

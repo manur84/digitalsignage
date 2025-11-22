@@ -3,6 +3,7 @@ using DigitalSignage.Core.Models;
 using DigitalSignage.Data;
 using Serilog;
 using System.Security.Cryptography;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace DigitalSignage.Server.Services;
 
@@ -13,10 +14,14 @@ public class MobileAppService : IMobileAppService
 {
     private readonly DigitalSignageDbContext _dbContext;
     private readonly ILogger _logger;
+    private readonly IServiceProvider _serviceProvider;
 
-    public MobileAppService(DigitalSignageDbContext dbContext)
+    public MobileAppService(
+        DigitalSignageDbContext dbContext,
+        IServiceProvider serviceProvider)
     {
         _dbContext = dbContext;
+        _serviceProvider = serviceProvider;
         _logger = Log.ForContext<MobileAppService>();
     }
 
@@ -149,6 +154,35 @@ public class MobileAppService : IMobileAppService
                 registration.DeviceName,
                 authorizedBy,
                 registration.Permissions);
+
+            // CRITICAL FIX: Send approval notification to iOS App via WebSocket
+            // This prevents the app from being stuck in "Waiting for approval" state
+            try
+            {
+                // Get WebSocketCommunicationService from service provider
+                var webSocketService = _serviceProvider.GetService<WebSocketCommunicationService>();
+
+                if (webSocketService != null)
+                {
+                    _logger.Information("Sending approval notification to mobile app {AppId} via WebSocket", appId);
+
+                    // Send approval notification to iOS App
+                    // The WebSocketCommunicationService will find the connection by MobileAppId
+                    await webSocketService.SendApprovalNotificationAsync(appId, token, permissions);
+
+                    _logger.Information("Approval notification sent successfully to mobile app {AppId}", appId);
+                }
+                else
+                {
+                    _logger.Warning("WebSocketCommunicationService not available - mobile app will poll for approval status");
+                }
+            }
+            catch (Exception wsEx)
+            {
+                // Don't fail approval if WebSocket notification fails
+                // The app can still poll for status or reconnect to get approved state
+                _logger.Warning(wsEx, "Failed to send WebSocket approval notification to mobile app {AppId} - app will need to poll or reconnect", appId);
+            }
 
             return Result<string>.Success(token);
         }
