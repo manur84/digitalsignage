@@ -311,10 +311,24 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
                 var json = JsonConvert.SerializeObject(message, settings);
 
                 _logger.LogDebug("Serialized message {MessageType}: {Length} bytes", message.Type, json.Length);
+                
+                // DIAGNOSTIC: Log actual JSON content for COMMAND messages to debug delivery issues
+                if (message.Type == MessageTypes.Command)
+                {
+                    _logger.LogWarning("DIAGNOSTIC: Sending COMMAND message to client {ClientId}. JSON content: {Json}", 
+                        clientId, json);
+                }
 
                 await connection.SendTextAsync(json, cancellationToken);
 
                 _logger.LogDebug("Successfully sent message {MessageType} to client {ClientId}", message.Type, clientId);
+                
+                // DIAGNOSTIC: Confirm COMMAND message was sent
+                if (message.Type == MessageTypes.Command)
+                {
+                    _logger.LogWarning("DIAGNOSTIC: COMMAND message sent successfully to client {ClientId} via WebSocket", 
+                        clientId);
+                }
             }
             catch (JsonSerializationException jsonEx)
             {
