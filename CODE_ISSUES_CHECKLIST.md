@@ -25,8 +25,8 @@ Aktualisiert: 2025-11-22 (PHASE 1 & 2 abgeschlossen)
 | # | Datei | Zeile | Methode | Problem | Fix | Status |
 |---|-------|-------|---------|---------|-----|--------|
 | 9 | RemoteClientInstallerService.cs | 194, 212, 233 | ExecuteInstallationAsync() | Task.Run für Stream-Reading ohne Timeout | CancellationToken mit Timeout verwenden | ✅ HAT BEREITS TIMEOUT (sshCommand.CommandTimeout) |
-| 10 | MediaService.cs | 177, 217, 296, 319 | Mehrere | Task.Run für synchrone File Operations | Async File APIs verwenden | ✅ BEHOBEN (2025-11-22) - File.Delete/GetFiles direkt |
-| 11 | EnhancedMediaService.cs | 302, 468 | DeleteMediaAsync(), GenerateThumbnailAsync() | Task.Run für synchrone Operations | Direkte async Implementierung | ✅ TEILWEISE (File.Delete behoben, Thumbnail-Gen braucht Task.Run) |
+| 10 | MediaService.cs | 177, 217, 296, 319 | Mehrere | Task.Run für synchrone File Operations | Async File APIs verwenden | ✅ ENTFERNT (2025-11-22) - Kompletter Service nicht mehr benötigt |
+| 11 | EnhancedMediaService.cs | 302, 468 | DeleteMediaAsync(), GenerateThumbnailAsync() | Task.Run für synchrone Operations | Direkte async Implementierung | ✅ ENTFERNT (2025-11-22) - Kompletter Service nicht mehr benötigt |
 | 12 | RemoteSshConnectionManager.cs | 91 | ConnectAsync() | Task.Run ohne Timeout-Handling | CancellationToken mit Timeout kombinieren | 📝 TODO: Separate Implementierung |
 | 13 | SqlDataService.cs | 398 | GetAvailableColumnsAsync() | SQL String Concatenation | StringBuilder oder Interpolated Strings | ✅ BEHOBEN (2025-11-22) - Conditional Query |
 | 14 | LogStorageService.cs | 161 | ExportLogs() | String Concatenation in LINQ | StringBuilder für Performance | ✅ BEHOBEN (2025-11-22) |
@@ -66,7 +66,10 @@ Aktualisiert: 2025-11-22 (PHASE 1 & 2 abgeschlossen)
 - [x] Issue #8: Unnötige Task.Run → Ersetzt durch async FileStream
 
 **PHASE 2: WARNUNGEN**
-- [x] Issue #10,11: Task.Run für File Operations → Entfernt (außer CPU-intensive Operationen)
+- [x] Issue #10,11: MediaService & EnhancedMediaService → **KOMPLETT ENTFERNT** (nicht mehr benötigt)
+  - ThumbnailService.cs ebenfalls entfernt
+  - 3 Services, 1.353 Zeilen Code gelöscht
+  - ClientLayoutDistributor zu NO-OP konvertiert
 - [x] Issue #13: SQL String Concatenation → Ersetzt durch conditional query
 - [x] Issue #14: String Concatenation → StringBuilder implementiert
 - [x] Issue #9,15,16,19,20,22: Bereits korrekt implementiert oder false positives
