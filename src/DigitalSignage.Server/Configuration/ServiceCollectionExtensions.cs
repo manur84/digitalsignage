@@ -179,20 +179,35 @@ public static class ServiceCollectionExtensions
 
         // Message Handlers (Handler Pattern for WebSocket messages)
         // Pi Client Message Handlers
+        // NOTE: Register both concrete type AND interface so MessageHandlerFactory can resolve them
+        services.AddTransient<RegisterMessageHandler>();
         services.AddTransient<IMessageHandler, RegisterMessageHandler>();
+        services.AddTransient<HeartbeatMessageHandler>();
         services.AddTransient<IMessageHandler, HeartbeatMessageHandler>();
+        services.AddTransient<StatusReportMessageHandler>();
         services.AddTransient<IMessageHandler, StatusReportMessageHandler>();
+        services.AddTransient<ScreenshotMessageHandler>();
         services.AddTransient<IMessageHandler, ScreenshotMessageHandler>();
+        services.AddTransient<LogMessageHandler>();
         services.AddTransient<IMessageHandler, LogMessageHandler>();
+        services.AddTransient<UpdateConfigResponseMessageHandler>();
         services.AddTransient<IMessageHandler, UpdateConfigResponseMessageHandler>();
 
         // Mobile App Message Handlers
+        // NOTE: Register both concrete type AND interface so MessageHandlerFactory can resolve them
+        services.AddTransient<MessageHandlers.MobileApp.AppRegisterMessageHandler>();
         services.AddTransient<IMessageHandler, MessageHandlers.MobileApp.AppRegisterMessageHandler>();
+        services.AddTransient<MessageHandlers.MobileApp.AppHeartbeatMessageHandler>();
         services.AddTransient<IMessageHandler, MessageHandlers.MobileApp.AppHeartbeatMessageHandler>();
+        services.AddTransient<MessageHandlers.MobileApp.RequestClientListMessageHandler>();
         services.AddTransient<IMessageHandler, MessageHandlers.MobileApp.RequestClientListMessageHandler>();
+        services.AddTransient<MessageHandlers.MobileApp.SendCommandMessageHandler>();
         services.AddTransient<IMessageHandler, MessageHandlers.MobileApp.SendCommandMessageHandler>();
+        services.AddTransient<MessageHandlers.MobileApp.AssignLayoutMessageHandler>();
         services.AddTransient<IMessageHandler, MessageHandlers.MobileApp.AssignLayoutMessageHandler>();
+        services.AddTransient<MessageHandlers.MobileApp.RequestScreenshotMessageHandler>();
         services.AddTransient<IMessageHandler, MessageHandlers.MobileApp.RequestScreenshotMessageHandler>();
+        services.AddTransient<MessageHandlers.MobileApp.RequestLayoutListMessageHandler>();
         services.AddTransient<IMessageHandler, MessageHandlers.MobileApp.RequestLayoutListMessageHandler>();
 
         // Message Handler Factory
