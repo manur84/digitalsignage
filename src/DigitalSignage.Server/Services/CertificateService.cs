@@ -98,7 +98,16 @@ public class CertificateService : ICertificateService
         try
         {
             var defaultCertPath = Path.Combine(_certsDirectory, "server.pfx");
-            var defaultPassword = _settings.CertificatePassword ?? "DigitalSignage2024!";
+            
+            // Generate a cryptographically secure random password for self-signed certificates
+            // SECURITY: Never use hardcoded passwords - generate unique password per installation
+            var defaultPassword = _settings.CertificatePassword;
+            if (string.IsNullOrWhiteSpace(defaultPassword))
+            {
+                defaultPassword = GenerateSecurePassword();
+                _logger.LogWarning("Generated secure random password for self-signed certificate");
+                _logger.LogWarning("IMPORTANT: Save this configuration to persist the certificate password");
+            }
 
             var certPath = GenerateSelfSignedCertificate(
                 "DigitalSignage Server",
@@ -390,5 +399,46 @@ public class CertificateService : ICertificateService
             throw new ArgumentNullException(nameof(certificate));
 
         return certificate.Thumbprint;
+    }
+
+    /// <summary>
+    /// Generates a cryptographically secure random password
+    /// </summary>
+    /// <returns>A secure random password with uppercase, lowercase, digits, and special characters</returns>
+    private static string GenerateSecurePassword()
+    {
+        const int passwordLength = 32;
+        const string upperCase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        const string lowerCase = "abcdefghijklmnopqrstuvwxyz";
+        const string digits = "0123456789";
+        const string specialChars = "!@#$%^&*()-_=+[]{}|;:,.<>?";
+        const string allChars = upperCase + lowerCase + digits + specialChars;
+
+        using var rng = RandomNumberGenerator.Create();
+        var passwordBytes = new byte[passwordLength];
+        rng.GetBytes(passwordBytes);
+
+        var password = new char[passwordLength];
+        
+        // Ensure at least one character from each category
+        password[0] = upperCase[passwordBytes[0] % upperCase.Length];
+        password[1] = lowerCase[passwordBytes[1] % lowerCase.Length];
+        password[2] = digits[passwordBytes[2] % digits.Length];
+        password[3] = specialChars[passwordBytes[3] % specialChars.Length];
+
+        // Fill the rest randomly
+        for (int i = 4; i < passwordLength; i++)
+        {
+            password[i] = allChars[passwordBytes[i] % allChars.Length];
+        }
+
+        // Shuffle the password to avoid predictable pattern
+        for (int i = passwordLength - 1; i > 0; i--)
+        {
+            var randomIndex = passwordBytes[i] % (i + 1);
+            (password[i], password[randomIndex]) = (password[randomIndex], password[i]);
+        }
+
+        return new string(password);
     }
 }

@@ -799,43 +799,43 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
             switch (message.Type)
             {
                 case MobileAppMessageTypes.AppRegister:
-                    await HandleAppRegisterAsync(connectionId, connection, message as AppRegisterMessage);
+                    await HandleAppRegisterAsync(connectionId, connection, message as AppRegisterMessage, cancellationToken);
                     break;
 
                 case MobileAppMessageTypes.AppHeartbeat:
-                    await HandleAppHeartbeatAsync(connectionId, connection, message as AppHeartbeatMessage);
+                    await HandleAppHeartbeatAsync(connectionId, connection, message as AppHeartbeatMessage, cancellationToken);
                     break;
 
                 case MobileAppMessageTypes.RequestClientList:
-                    await HandleRequestClientListAsync(connectionId, connection, message as RequestClientListMessage);
+                    await HandleRequestClientListAsync(connectionId, connection, message as RequestClientListMessage, cancellationToken);
                     break;
 
                 case MobileAppMessageTypes.SendCommand:
-                    await HandleSendCommandAsync(connectionId, connection, message as SendCommandMessage);
+                    await HandleSendCommandAsync(connectionId, connection, message as SendCommandMessage, cancellationToken);
                     break;
 
                 case MobileAppMessageTypes.AssignLayout:
-                    await HandleAssignLayoutAsync(connectionId, connection, message as AssignLayoutMessage);
+                    await HandleAssignLayoutAsync(connectionId, connection, message as AssignLayoutMessage, cancellationToken);
                     break;
 
                 case MobileAppMessageTypes.RequestScreenshot:
-                    await HandleRequestScreenshotAsync(connectionId, connection, message as RequestScreenshotMessage);
+                    await HandleRequestScreenshotAsync(connectionId, connection, message as RequestScreenshotMessage, cancellationToken);
                     break;
 
                 case MobileAppMessageTypes.RequestLayoutList:
-                    await HandleRequestLayoutListAsync(connectionId, connection, message as RequestLayoutListMessage);
+                    await HandleRequestLayoutListAsync(connectionId, connection, message as RequestLayoutListMessage, cancellationToken);
                     break;
 
                 default:
                     _logger.LogWarning("Unknown mobile app message type: {MessageType}", message.Type);
-                    await SendErrorAsync(connection, $"Unknown message type: {message.Type}");
+                    await SendErrorAsync(connection, $"Unknown message type: {message.Type}", cancellationToken);
                     break;
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error handling mobile app message {MessageType}", message.Type);
-            await SendErrorAsync(connection, "Internal server error");
+            await SendErrorAsync(connection, "Internal server error", cancellationToken);
         }
     }
 
@@ -862,11 +862,12 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
         string connectionId,
         SslWebSocketConnection connection,
         AppPermission requiredPermission,
-        string permissionErrorMessage = "Unauthorized")
+        string permissionErrorMessage = "Unauthorized",
+        CancellationToken cancellationToken = default)
     {
         if (!_mobileAppTokens.TryGetValue(connectionId, out var token))
         {
-            await SendErrorAsync(connection, "Not authenticated");
+            await SendErrorAsync(connection, "Not authenticated", cancellationToken);
             return null;
         }
 
@@ -877,14 +878,14 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
             var registration = await mobileAppService.ValidateTokenAsync(token);
             if (registration == null)
             {
-                await SendErrorAsync(connection, "Unauthorized");
+                await SendErrorAsync(connection, "Unauthorized", cancellationToken);
                 scope.Dispose();
                 return null;
             }
 
             if (!await mobileAppService.HasPermissionAsync(token, requiredPermission))
             {
-                await SendErrorAsync(connection, permissionErrorMessage);
+                await SendErrorAsync(connection, permissionErrorMessage, cancellationToken);
                 scope.Dispose();
                 return null;
             }
@@ -895,7 +896,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
         {
             scope.Dispose();
             _logger.LogError(ex, "Error validating mobile app request");
-            await SendErrorAsync(connection, "Authorization failed");
+            await SendErrorAsync(connection, "Authorization failed", cancellationToken);
             return null;
         }
     }
@@ -996,15 +997,15 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
     /// <summary>
     /// Handle request for client list
     /// </summary>
-    private async Task HandleRequestClientListAsync(string connectionId, SslWebSocketConnection connection, RequestClientListMessage? message)
+    private async Task HandleRequestClientListAsync(string connectionId, SslWebSocketConnection connection, RequestClientListMessage? message, CancellationToken cancellationToken)
     {
         if (message == null)
         {
-            await SendErrorAsync(connection, "Invalid request");
+            await SendErrorAsync(connection, "Invalid request", cancellationToken);
             return;
         }
 
-        using var validation = await ValidateMobileAppRequestAsync(connectionId, connection, AppPermission.View, "Insufficient permissions");
+        using var validation = await ValidateMobileAppRequestAsync(connectionId, connection, AppPermission.View, "Insufficient permissions", cancellationToken);
         if (validation == null)
         {
             return;
@@ -1018,7 +1019,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
             var clientsResult = await clientService.GetAllClientsAsync();
             if (!clientsResult.IsSuccess)
             {
-                await SendErrorAsync(connection, "Failed to retrieve client list");
+                await SendErrorAsync(connection, "Failed to retrieve client list", cancellationToken);
                 return;
             }
 
@@ -1109,7 +1110,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
 
             // CRITICAL FIX: Use public SendMessageAsync with clientId, NOT private method with socket
             // This ensures proper JSON serialization settings (TypeNameHandling, DefaultValueHandling, etc.)
-            await SendMessageAsync(targetClientId, commandMessage, CancellationToken.None);
+            await SendMessageAsync(targetClientId, commandMessage, cancellationToken);
 
             // Acknowledge to mobile app
             await SendMessageAsync(connection, new CommandResultMessage
@@ -1215,7 +1216,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
 
             // CRITICAL FIX: Use public SendMessageAsync with clientId, NOT private method with socket
             // This ensures proper JSON serialization settings (TypeNameHandling, DefaultValueHandling, etc.)
-            await SendMessageAsync(targetClientId, screenshotMessage, CancellationToken.None);
+            await SendMessageAsync(targetClientId, screenshotMessage, cancellationToken);
 
             _logger.LogInformation("Mobile app requested screenshot from device {DeviceId}", message.DeviceId);
 
@@ -1290,7 +1291,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
     /// <summary>
     /// Send error message to WebSocket connection
     /// </summary>
-    private async Task SendErrorAsync(SslWebSocketConnection connection, string errorMessage)
+    private async Task SendErrorAsync(SslWebSocketConnection connection, string errorMessage, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -1307,7 +1308,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
                 NullValueHandling = NullValueHandling.Ignore
             };
             var json = JsonConvert.SerializeObject(errorMsg, settings);
-            await connection.SendTextAsync(json, CancellationToken.None);
+            await connection.SendTextAsync(json, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -1318,7 +1319,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
     /// <summary>
     /// Send message directly to a WebSocket connection
     /// </summary>
-    private async Task SendMessageAsync(SslWebSocketConnection connection, Message message)
+    private async Task SendMessageAsync(SslWebSocketConnection connection, Message message, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -1328,7 +1329,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
                 NullValueHandling = NullValueHandling.Ignore
             };
             var json = JsonConvert.SerializeObject(message, settings);
-            await connection.SendTextAsync(json, CancellationToken.None);
+            await connection.SendTextAsync(json, cancellationToken);
         }
         catch (Exception ex)
         {
