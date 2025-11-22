@@ -159,22 +159,22 @@ public class MobileAppService : IMobileAppService
             // This prevents the app from being stuck in "Waiting for approval" state
             try
             {
-                // Get WebSocketCommunicationService from service provider
-                var webSocketService = _serviceProvider.GetService<WebSocketCommunicationService>();
+                // Get MobileAppConnectionManager from service provider
+                var connectionManager = _serviceProvider.GetService<MobileAppConnectionManager>();
 
-                if (webSocketService != null)
+                if (connectionManager != null)
                 {
                     _logger.Information("Sending approval notification to mobile app {AppId} via WebSocket", appId);
 
                     // Send approval notification to iOS App
-                    // The WebSocketCommunicationService will find the connection by MobileAppId
-                    await webSocketService.SendApprovalNotificationAsync(appId, token, permissions);
+                    // The MobileAppConnectionManager will find the connection by MobileAppId
+                    await connectionManager.SendApprovalNotificationAsync(appId, token, permissions);
 
                     _logger.Information("Approval notification sent successfully to mobile app {AppId}", appId);
                 }
                 else
                 {
-                    _logger.Warning("WebSocketCommunicationService not available - mobile app will poll for approval status");
+                    _logger.Warning("MobileAppConnectionManager not available - mobile app will poll for approval status");
                 }
             }
             catch (Exception wsEx)
