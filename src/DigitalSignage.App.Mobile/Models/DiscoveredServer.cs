@@ -46,9 +46,9 @@ public class DiscoveredServer
 	public string Url => $"{(UseSSL ? "https" : "http")}://{IPAddress}:{Port}";
 
 	/// <summary>
-	/// Gets the WebSocket URL (e.g., "wss://192.168.1.100:8080/ws").
+	/// Gets the WebSocket URL (e.g., "wss://192.168.1.100:8080/ws/").
 	/// </summary>
-	public string WebSocketUrl => $"{(UseSSL ? "wss" : "ws")}://{IPAddress}:{Port}/ws";
+	public string WebSocketUrl => $"{(UseSSL ? "wss" : "ws")}://{IPAddress}:{Port}/ws/";
 
 	/// <summary>
 	/// Gets a display name for the server.

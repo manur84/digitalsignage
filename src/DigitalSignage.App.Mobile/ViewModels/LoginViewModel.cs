@@ -110,7 +110,7 @@ public partial class LoginViewModel : BaseViewModel
 		url = url.Replace("http://", "").Replace("https://", "").Replace("ws://", "").Replace("wss://", "");
 
 		// Force WSS-only (server only accepts WSS)
-		var wsUrl = "wss://" + url + "/ws";
+		var wsUrl = "wss://" + url + "/ws/";
 		await ConnectToServerAsync("https://" + url, wsUrl);
 	}
 
