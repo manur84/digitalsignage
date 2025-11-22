@@ -19,14 +19,14 @@ namespace DigitalSignage.Server.Services;
 public class HealthCheckService : BackgroundService
 {
     private readonly ILogger<HealthCheckService> _logger;
-    private readonly IDbContextFactory<AppDbContext> _contextFactory;
+    private readonly IDbContextFactory<DigitalSignageDbContext> _contextFactory;
     private readonly ICommunicationService _communicationService;
     private HttpListener? _httpListener;
     private const int HealthCheckPort = 8090;
 
     public HealthCheckService(
         ILogger<HealthCheckService> logger,
-        IDbContextFactory<AppDbContext> contextFactory,
+        IDbContextFactory<DigitalSignageDbContext> contextFactory,
         ICommunicationService communicationService)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -118,7 +118,7 @@ public class HealthCheckService : BackgroundService
         }
     }
 
-    private async Task<HealthStatus> GetHealthStatusAsync()
+    private async Task<HealthCheckResponse> GetHealthStatusAsync()
     {
         var checks = new System.Collections.Generic.Dictionary<string, CheckResult>();
 
@@ -132,7 +132,7 @@ public class HealthCheckService : BackgroundService
         var allHealthy = checks.Values.All(c => c.Healthy);
         var status = allHealthy ? "healthy" : "degraded";
 
-        return new HealthStatus
+        return new HealthCheckResponse
         {
             Status = status,
             Timestamp = DateTime.UtcNow,
@@ -253,9 +253,9 @@ public class HealthCheckService : BackgroundService
 }
 
 /// <summary>
-/// Overall health status
+/// Overall health status response
 /// </summary>
-public class HealthStatus
+public class HealthCheckResponse
 {
     public string Status { get; set; } = "unknown";
     public DateTime Timestamp { get; set; }
