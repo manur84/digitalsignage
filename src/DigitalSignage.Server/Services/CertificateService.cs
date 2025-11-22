@@ -40,7 +40,15 @@ public class CertificateService : ICertificateService
         // Default certificate directory: ./certs/
         _certsDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "certs");
 
-        // Ensure certs directory exists
+        // ✅ FIX: Do NOT create directory in constructor - this blocks DI initialization
+        // Directory will be created lazily on first use
+    }
+
+    /// <summary>
+    /// Ensures certificate directory exists (lazy initialization)
+    /// </summary>
+    private void EnsureCertsDirectoryExists()
+    {
         if (!Directory.Exists(_certsDirectory))
         {
             try
@@ -51,6 +59,7 @@ public class CertificateService : ICertificateService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to create certificate directory: {Directory}", _certsDirectory);
+                throw;
             }
         }
     }
@@ -69,6 +78,9 @@ public class CertificateService : ICertificateService
         }
 
         _logger.LogInformation("WSS (WebSocket Secure) enabled - loading or generating certificate...");
+
+        // ✅ FIX: Ensure certs directory exists (lazy initialization)
+        EnsureCertsDirectoryExists();
 
         // Try to load from configured path first
         if (!string.IsNullOrWhiteSpace(_settings.CertificatePath))

@@ -19,6 +19,10 @@ public class LayoutService : ILayoutService, IDisposable
     private readonly SemaphoreSlim _fileLock = new(1, 1);
     private bool _disposed = false;
 
+    // ✅ FIX: Lazy initialization to prevent constructor blocking
+    private Task? _initializationTask;
+    private readonly SemaphoreSlim _initLock = new(1, 1);
+
     // Safe settings for JSON (no type names)
     private static readonly JsonSerializerSettings SafeJsonSettings = new()
     {
@@ -45,74 +49,105 @@ public class LayoutService : ILayoutService, IDisposable
             "DigitalSignage",
             "Layouts");
 
-        try
-        {
-            Directory.CreateDirectory(_dataDirectory);
-            _logger.LogInformation("Layout directory created at {Directory}", _dataDirectory);
-            LoadLayoutsFromDisk();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to initialize LayoutService");
-            throw;
-        }
+        // ✅ FIX: Do NOT create directory or load layouts in constructor
+        // This blocks DI container initialization!
+        // Initialization happens lazily on first use via EnsureInitializedAsync()
+        _logger.LogDebug("LayoutService created (lazy initialization will happen on first use)");
     }
 
-    public Task<Result<List<DisplayLayout>>> GetAllLayoutsAsync(CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Ensures LayoutService is initialized (lazy initialization pattern)
+    /// Call this before any operation that accesses _layouts
+    /// </summary>
+    private async Task EnsureInitializedAsync()
+    {
+        if (_initializationTask != null)
+        {
+            await _initializationTask;
+            return;
+        }
+
+        await _initLock.WaitAsync();
+        try
+        {
+            if (_initializationTask == null)
+            {
+                _logger.LogInformation("LayoutService initialization starting (lazy)...");
+                _initializationTask = Task.Run(() =>
+                {
+                    // Create directory and load layouts on background thread
+                    Directory.CreateDirectory(_dataDirectory);
+                    _logger.LogInformation("Layout directory created at {Directory}", _dataDirectory);
+                    LoadLayoutsFromDisk();
+                    _logger.LogInformation("LayoutService initialization complete");
+                });
+            }
+        }
+        finally
+        {
+            _initLock.Release();
+        }
+
+        await _initializationTask;
+    }
+
+    public async Task<Result<List<DisplayLayout>>> GetAllLayoutsAsync(CancellationToken cancellationToken = default)
     {
         try
         {
             ThrowIfDisposed();
+            await EnsureInitializedAsync();  // ✅ FIX: Lazy initialization
             var layouts = _layouts.Values.ToList();
-            return Task.FromResult(Result<List<DisplayLayout>>.Success(layouts));
+            return Result<List<DisplayLayout>>.Success(layouts);
         }
         catch (ObjectDisposedException ex)
         {
             _logger.LogError(ex, "LayoutService has been disposed");
-            return Task.FromResult(Result<List<DisplayLayout>>.Failure("Service is no longer available", ex));
+            return Result<List<DisplayLayout>>.Failure("Service is no longer available", ex);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to get all layouts");
-            return Task.FromResult(Result<List<DisplayLayout>>.Failure("Failed to retrieve layouts", ex));
+            return Result<List<DisplayLayout>>.Failure("Failed to retrieve layouts", ex);
         }
     }
 
-    public Task<Result<DisplayLayout>> GetLayoutByIdAsync(string layoutId, CancellationToken cancellationToken = default)
+    public async Task<Result<DisplayLayout>> GetLayoutByIdAsync(string layoutId, CancellationToken cancellationToken = default)
     {
         try
         {
             ThrowIfDisposed();
+            await EnsureInitializedAsync();  // ✅ FIX: Lazy initialization
 
             if (string.IsNullOrWhiteSpace(layoutId))
             {
                 _logger.LogWarning("GetLayoutByIdAsync called with null or empty layoutId");
-                return Task.FromResult(Result<DisplayLayout>.Failure("Layout ID cannot be empty"));
+                return Result<DisplayLayout>.Failure("Layout ID cannot be empty");
             }
 
             if (!IsValidLayoutId(layoutId, out var reason))
             {
                 _logger.LogWarning("Invalid layoutId provided: {LayoutId}. Reason: {Reason}", layoutId, reason);
-                return Task.FromResult(Result<DisplayLayout>.Failure($"Invalid layout ID: {reason}"));
+                return Result<DisplayLayout>.Failure($"Invalid layout ID: {reason}");
             }
 
             if (_layouts.TryGetValue(layoutId, out var layout))
             {
-                return Task.FromResult(Result<DisplayLayout>.Success(layout));
+                return Result<DisplayLayout>.Success(layout);
             }
 
             _logger.LogWarning("Layout {LayoutId} not found", layoutId);
-            return Task.FromResult(Result<DisplayLayout>.Failure($"Layout '{layoutId}' not found"));
+            return Result<DisplayLayout>.Failure($"Layout '{layoutId}' not found");
         }
         catch (ObjectDisposedException ex)
         {
             _logger.LogError(ex, "LayoutService has been disposed");
-            return Task.FromResult(Result<DisplayLayout>.Failure("Service is no longer available", ex));
+            return Result<DisplayLayout>.Failure("Service is no longer available", ex);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to get layout {LayoutId}", layoutId);
-            return Task.FromResult(Result<DisplayLayout>.Failure($"Failed to retrieve layout: {ex.Message}", ex));
+            return Result<DisplayLayout>.Failure($"Failed to retrieve layout: {ex.Message}", ex);
         }
     }
 
@@ -121,6 +156,7 @@ public class LayoutService : ILayoutService, IDisposable
         try
         {
             ThrowIfDisposed();
+            await EnsureInitializedAsync();  // ✅ FIX: Lazy initialization
 
             if (layout == null)
             {
@@ -180,6 +216,7 @@ public class LayoutService : ILayoutService, IDisposable
         try
         {
             ThrowIfDisposed();
+            await EnsureInitializedAsync();  // ✅ FIX: Lazy initialization
 
             if (layout == null)
             {
@@ -242,22 +279,23 @@ public class LayoutService : ILayoutService, IDisposable
         }
     }
 
-    public Task<Result> DeleteLayoutAsync(string layoutId, CancellationToken cancellationToken = default)
+    public async Task<Result> DeleteLayoutAsync(string layoutId, CancellationToken cancellationToken = default)
     {
         try
         {
             ThrowIfDisposed();
+            await EnsureInitializedAsync();  // ✅ FIX: Lazy initialization
 
             if (string.IsNullOrWhiteSpace(layoutId))
             {
                 _logger.LogWarning("DeleteLayoutAsync called with null or empty layoutId");
-                return Task.FromResult(Result.Failure("Layout ID cannot be empty"));
+                return Result.Failure("Layout ID cannot be empty");
             }
 
             if (!IsValidLayoutId(layoutId, out var reason))
             {
                 _logger.LogWarning("Invalid layoutId provided for deletion: {LayoutId}. Reason: {Reason}", layoutId, reason);
-                return Task.FromResult(Result.Failure($"Invalid layout ID: {reason}"));
+                return Result.Failure($"Invalid layout ID: {reason}");
             }
 
             if (_layouts.TryRemove(layoutId, out _))
@@ -269,26 +307,26 @@ public class LayoutService : ILayoutService, IDisposable
                 }
 
                 _logger.LogInformation("Deleted layout {LayoutId}", layoutId);
-                return Task.FromResult(Result.Success());
+                return Result.Success();
             }
 
             _logger.LogWarning("Layout {LayoutId} not found for deletion", layoutId);
-            return Task.FromResult(Result.Failure($"Layout '{layoutId}' not found"));
+            return Result.Failure($"Layout '{layoutId}' not found");
         }
         catch (ObjectDisposedException ex)
         {
             _logger.LogError(ex, "LayoutService has been disposed");
-            return Task.FromResult(Result.Failure("Service is no longer available", ex));
+            return Result.Failure("Service is no longer available", ex);
         }
         catch (IOException ex)
         {
             _logger.LogError(ex, "Failed to delete layout file {LayoutId}", layoutId);
-            return Task.FromResult(Result.Failure($"Failed to delete layout file: {ex.Message}", ex));
+            return Result.Failure($"Failed to delete layout file: {ex.Message}", ex);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to delete layout {LayoutId}", layoutId);
-            return Task.FromResult(Result.Failure($"Failed to delete layout: {ex.Message}", ex));
+            return Result.Failure($"Failed to delete layout: {ex.Message}", ex);
         }
     }
 
@@ -300,6 +338,7 @@ public class LayoutService : ILayoutService, IDisposable
         try
         {
             ThrowIfDisposed();
+            await EnsureInitializedAsync();  // ✅ FIX: Lazy initialization
 
             if (string.IsNullOrWhiteSpace(layoutId))
             {
@@ -367,6 +406,7 @@ public class LayoutService : ILayoutService, IDisposable
         try
         {
             ThrowIfDisposed();
+            await EnsureInitializedAsync();  // ✅ FIX: Lazy initialization
 
             if (string.IsNullOrWhiteSpace(layoutId))
             {
@@ -410,6 +450,7 @@ public class LayoutService : ILayoutService, IDisposable
         try
         {
             ThrowIfDisposed();
+            await EnsureInitializedAsync();  // ✅ FIX: Lazy initialization
 
             if (string.IsNullOrWhiteSpace(jsonData))
             {
@@ -613,6 +654,7 @@ public class LayoutService : ILayoutService, IDisposable
         {
             // Dispose managed resources
             _fileLock?.Dispose();
+            _initLock?.Dispose();  // ✅ FIX: Dispose lazy init lock
             _logger.LogInformation("LayoutService disposed");
         }
 
