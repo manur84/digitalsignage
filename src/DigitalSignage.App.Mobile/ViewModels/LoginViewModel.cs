@@ -173,12 +173,11 @@ public partial class LoginViewModel : BaseViewModel
 
 			var registrationMessage = new
 			{
-				type = "REGISTER_MOBILE_APP",
+				type = "APP_REGISTER",  // CRITICAL: Must match server's MobileAppMessageTypes.AppRegister
 				deviceName = deviceInfo.Name,
 				platform = deviceInfo.Platform,
 				appVersion = deviceInfo.AppVersion,
-				deviceModel = deviceInfo.Identifier,
-				osVersion = deviceInfo.OSVersion,
+				deviceIdentifier = deviceInfo.Identifier,  // CRITICAL: Server expects "deviceIdentifier"
 				token = !string.IsNullOrWhiteSpace(RegistrationToken) ? RegistrationToken : (string?)null
 			};
 
