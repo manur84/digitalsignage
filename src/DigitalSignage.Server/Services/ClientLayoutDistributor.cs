@@ -45,6 +45,8 @@ internal class ClientLayoutDistributor
         ConcurrentDictionary<string, RaspberryPiClient> clientsCache,
         CancellationToken cancellationToken = default)
     {
+        _logger.LogInformation("=== AssignLayoutAsync START === ClientId: {ClientId}, LayoutId: {LayoutId}", clientId, layoutId);
+
         try
         {
             if (string.IsNullOrWhiteSpace(clientId))
@@ -59,14 +61,17 @@ internal class ClientLayoutDistributor
                 return Result.Failure("Layout ID cannot be empty");
             }
 
+            _logger.LogDebug("Checking if client {ClientId} exists in cache (have {Count} clients)", clientId, clientsCache.Count);
+
             if (clientsCache.TryGetValue(clientId, out var client))
             {
                 client.AssignedLayoutId = layoutId;
-                _logger.LogInformation("Assigned layout {LayoutId} to client {ClientId}", layoutId, clientId);
+                _logger.LogInformation("Assigned layout {LayoutId} to client {ClientId} in memory", layoutId, clientId);
 
                 // Update in database
                 try
                 {
+                    _logger.LogDebug("Updating database for client {ClientId}", clientId);
                     using var scope = _serviceProvider.CreateScope();
                     var dbContext = scope.ServiceProvider.GetRequiredService<DigitalSignageDbContext>();
 
@@ -75,6 +80,11 @@ internal class ClientLayoutDistributor
                     {
                         dbClient.AssignedLayoutId = layoutId;
                         await dbContext.SaveChangesAsync(cancellationToken);
+                        _logger.LogDebug("Database updated successfully for client {ClientId}", clientId);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Client {ClientId} not found in database", clientId);
                     }
                 }
                 catch (Exception ex)
@@ -83,20 +93,28 @@ internal class ClientLayoutDistributor
                 }
 
                 // Send layout update to client
-                return await SendLayoutToClientAsync(clientId, layoutId, cancellationToken);
+                _logger.LogInformation("Sending layout {LayoutId} to client {ClientId}", layoutId, clientId);
+                var result = await SendLayoutToClientAsync(clientId, layoutId, cancellationToken);
+                _logger.LogInformation("=== AssignLayoutAsync END === Result: {Success}", result.IsSuccess ? "SUCCESS" : "FAILURE: " + result.ErrorMessage);
+                return result;
             }
 
-            _logger.LogWarning("Client {ClientId} not found for layout assignment", clientId);
+            _logger.LogWarning("Client {ClientId} not found for layout assignment (have {Count} clients in cache)",
+                clientId, clientsCache.Count);
+            _logger.LogInformation("=== AssignLayoutAsync END === Result: FAILURE (client not found)");
             return Result.Failure($"Client '{clientId}' not found");
         }
         catch (OperationCanceledException)
         {
             _logger.LogWarning("Layout assignment cancelled for client {ClientId}", clientId);
+            _logger.LogInformation("=== AssignLayoutAsync END === Result: CANCELLED");
             return Result.Failure("Operation was cancelled");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to assign layout {LayoutId} to client {ClientId}", layoutId, clientId);
+            _logger.LogInformation("=== AssignLayoutAsync END === Result: EXCEPTION");
+
             return Result.Failure($"Failed to assign layout: {ex.Message}", ex);
         }
     }
