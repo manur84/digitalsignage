@@ -25,6 +25,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
     private readonly WebSocketMessageSerializer _messageSerializer;
     private readonly ServerSettings _settings;
     private readonly IServiceProvider _serviceProvider; // For scoped service access
+    private readonly ICertificateService _certificateService;
     private HttpListener? _httpListener;
     private CancellationTokenSource? _cancellationTokenSource;
     private Task? _acceptClientsTask;
@@ -34,11 +35,13 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
         ILogger<WebSocketCommunicationService> logger,
         ILogger<WebSocketMessageSerializer> serializerLogger,
         ServerSettings settings,
-        IServiceProvider serviceProvider)
+        IServiceProvider serviceProvider,
+        ICertificateService certificateService)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+        _certificateService = certificateService ?? throw new ArgumentNullException(nameof(certificateService));
         _messageSerializer = new WebSocketMessageSerializer(serializerLogger, enableCompression: true);
     }
 
@@ -54,6 +57,73 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
         try
         {
             _cancellationTokenSource = new CancellationTokenSource();
+
+            // Load SSL certificate if enabled
+            if (_settings.EnableSsl)
+            {
+                try
+                {
+                    _logger.LogInformation("SSL/TLS is enabled - loading certificate...");
+                    var certificate = _certificateService.GetOrCreateServerCertificate();
+
+                    if (certificate == null)
+                    {
+                        _logger.LogWarning("===================================================================");
+                        _logger.LogWarning("SSL CERTIFICATE LOADING FAILED");
+                        _logger.LogWarning("===================================================================");
+                        _logger.LogWarning("");
+                        _logger.LogWarning("SSL is enabled but no certificate could be loaded or generated.");
+                        _logger.LogWarning("Falling back to HTTP/WS (unencrypted) mode.");
+                        _logger.LogWarning("");
+                        _logger.LogWarning("To fix SSL:");
+                        _logger.LogWarning("  1. Check CertificatePath in appsettings.json");
+                        _logger.LogWarning("  2. Ensure certificate file exists and is accessible");
+                        _logger.LogWarning("  3. Verify CertificatePassword is correct");
+                        _logger.LogWarning("  4. Or set EnableSsl=false to disable SSL");
+                        _logger.LogWarning("");
+                        _logger.LogWarning("===================================================================");
+
+                        // Disable SSL and continue with HTTP
+                        _settings.EnableSsl = false;
+                    }
+                    else
+                    {
+                        _logger.LogInformation("✅ SSL certificate loaded successfully");
+                        _logger.LogInformation("Certificate Subject: {Subject}", certificate.Subject);
+                        _logger.LogInformation("Certificate Thumbprint: {Thumbprint}", certificate.Thumbprint);
+                        _logger.LogInformation("Certificate Valid Until: {NotAfter}", certificate.NotAfter);
+
+                        // NOTE: HttpListener on Windows requires netsh configuration for HTTPS:
+                        // netsh http add sslcert ipport=0.0.0.0:8080 certhash={thumbprint} appid={{guid}}
+                        //
+                        // For development with self-signed certificates, this is complex.
+                        // Alternative: Use a reverse proxy (nginx/IIS) for SSL termination.
+                        //
+                        // IMPORTANT: HttpListener HTTPS binding requires:
+                        // 1. SSL certificate bound to port via netsh
+                        // 2. URL ACL configured for https://+:port/
+                        // 3. Certificate in LocalMachine\My certificate store (for some scenarios)
+                        //
+                        // For simplicity, we log a warning and let HttpListener attempt the binding.
+                        // If it fails, we catch the exception and fall back to HTTP.
+
+                        _logger.LogWarning("⚠️  HTTPS with HttpListener requires netsh SSL certificate binding:");
+                        _logger.LogWarning($"    netsh http add sslcert ipport=0.0.0.0:{_settings.Port} certhash={certificate.Thumbprint} appid={{00000000-0000-0000-0000-000000000000}}");
+                        _logger.LogWarning("");
+                        _logger.LogWarning("Alternative: Use a reverse proxy (nginx/IIS) for SSL termination");
+                        _logger.LogWarning("             and configure server to use HTTP internally");
+
+                        // Dispose certificate as HttpListener doesn't use it directly
+                        // (HttpListener reads from Windows certificate store via netsh binding)
+                        certificate.Dispose();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to load SSL certificate - falling back to HTTP");
+                    _settings.EnableSsl = false;
+                }
+            }
 
             _httpListener = new HttpListener();
 

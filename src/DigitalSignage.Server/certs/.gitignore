@@ -1,0 +1,12 @@
+# Ignore all certificate files
+*.pfx
+*.p12
+*.pem
+*.crt
+*.key
+*.cer
+*.der
+
+# Keep README
+!README.md
+!.gitignore

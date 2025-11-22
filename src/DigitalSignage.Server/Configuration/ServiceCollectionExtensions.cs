@@ -141,6 +141,7 @@ public static class ServiceCollectionExtensions
         // Infrastructure Services
         services.AddScoped<IAuthenticationService, AuthenticationService>();
         services.AddSingleton<IMobileAppService, MobileAppService>();
+        services.AddSingleton<ICertificateService, CertificateService>();
         services.AddSingleton<LogStorageService>();
         services.AddSingleton<QueryCacheService>();
         services.AddSingleton<AlertService>();
