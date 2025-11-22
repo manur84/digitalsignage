@@ -14,17 +14,18 @@
 - ✅ Kritische Infrastruktur-Komponenten
 
 **STATUS UPDATE (2025-11-22):**
-- ✅ **11 von 24 Problemen BEHOBEN** (46% Complete)
-- ⚡ **3 Probleme TEILWEISE BEHOBEN** (in Progress)
+- ✅ **13 von 24 Problemen BEHOBEN** (54% Complete)
+- ⚡ **1 Problem TEILWEISE BEHOBEN** (in Progress)
 - ⏳ **10 Probleme noch OFFEN** (Backlog)
 
 **Behobene Probleme:**
 - ✅ TOP 5 kritische Bugs: **ALLE BEHOBEN**
 - ✅ WSS-Protokoll: Timeouts + Message-Size Validation
 - ✅ Media-Upload: Security Validation
-- ✅ God-Class: Handler Pattern für Pi messages
+- ✅ God-Class: Handler Pattern Migration (Pi + Mobile App messages)
 - ✅ Health-Check + Metrics/Telemetry implementiert
 - ✅ Message Validation Infrastructure
+- ✅ Message Versioning komplett integriert
 
 **Positiv aufgefallen:**
 - ✅ Python Client: Thread-Safe Send/Receive (send_lock, connection_event)
@@ -235,16 +236,20 @@ Inkonsistent: Manche Methoden werfen, andere schlucken Fehler.
 
 ---
 
-### **[WSS-PROTOKOLL/NIEDRIG]** Keine Message-Versionierung
-**Datei:** Alle Message-Handler
+### ✅ **[WSS-PROTOKOLL/NIEDRIG]** Keine Message-Versionierung - **BEHOBEN**
+**Datei:** Alle Message-Handler + `WebSocketCommunicationService.cs`
 
 **Problem:**
 Protokoll hat keine Version-Nummer. Bei Breaking Changes: Alte Clients brechen.
 
 **To-do:**
-- [ ] Message-Format: `{"version": 1, "type": "...", "data": {...}}`
-- [ ] Server prüft Version, lehnt zu alte/neue Clients ab
-- [ ] Backward-Compatibility-Layer für alte Clients
+- [x] Message-Format mit Version-Field: `{"version": "1.0.0", "type": "...", ...}` (Commit 995b619)
+- [x] MessageVersionValidator für Version-Prüfung implementiert
+- [x] Server validiert Client-Version, lehnt inkompatible Clients ab
+- [x] Backward-Compatibility: Legacy clients ohne Version = v1.0.0 angenommen
+- [x] Semantic Versioning: MAJOR.MINOR.PATCH
+- [x] Outgoing messages bekommen automatisch Server-Version
+- [x] Version-Cache cleanup bei disconnect
 
 ---
 
@@ -445,7 +450,7 @@ return sb.ToString();
 
 ## 🏗️ STRUKTUR & CODE-SMELLS
 
-### ⚡ **[STRUKTUR/HOCH]** God-Class: WebSocketCommunicationService (1493 Zeilen!) - **TEILWEISE BEHOBEN**
+### ✅ **[STRUKTUR/HOCH]** God-Class: WebSocketCommunicationService (1493 Zeilen!) - **BEHOBEN**
 **Datei:** `WebSocketCommunicationService.cs`
 
 **Problem:**
@@ -461,14 +466,17 @@ Riesige Klasse macht alles: Connection Management, Message Handling, Protocol Pa
   - UpdateConfigResponseMessageHandler
 - [x] MessageHandlerFactory für Dependency Injection
 - [x] Pi client messages refactored (~400 lines Business-Logik extrahiert)
-- [ ] **Mobile app messages noch pending** (~500 lines in HandleMobileAppMessageAsync):
+- [x] **Mobile app messages komplett migriert (Commit 051f690)**:
   - AppRegisterMessageHandler
+  - AppHeartbeatMessageHandler
   - RequestClientListMessageHandler
   - SendCommandMessageHandler
   - AssignLayoutMessageHandler
   - RequestScreenshotMessageHandler
   - RequestLayoutListMessageHandler
-- [ ] **Future**: WebSocketConnectionManager extraction für Connection Lifecycle
+- [x] MobileAppConnectionManager extrahiert (~260 lines für Connection State Management)
+- [x] Cleanup: 602 lines alter Code entfernt (Commit 72999b1)
+- [x] **Ergebnis:** WebSocketCommunicationService von 1535 → 934 Zeilen reduziert (-39%)
 
 ---
 
@@ -631,14 +639,20 @@ Keine Metriken für Monitoring: Anzahl Clients, Messages/s, Fehlerrate.
 8. ✅ Media-Upload Validierung (File Size, Type, Filename) - **BEHOBEN** (Commit c25825b)
 
 ### 🟢 **MITTELFRISTIG (4 Wochen)**
-9. ⚡ WebSocketCommunicationService refactoren (Handler-Pattern) - **TEILWEISE BEHOBEN** (Commit e117628)
-   - ✅ Pi client messages: 6 handlers implementiert
-   - ⏳ Mobile app messages: Noch pending (~500 lines)
+9. ✅ WebSocketCommunicationService refactoren (Handler-Pattern) - **VOLLSTÄNDIG BEHOBEN**
+   - ✅ Pi client messages: 6 handlers implementiert (Commit e117628)
+   - ✅ Mobile app messages: 7 handlers implementiert (Commit 051f690)
+   - ✅ MobileAppConnectionManager extrahiert (Commit 051f690)
+   - ✅ Cleanup: 602 lines entfernt (Commit 72999b1)
+   - ✅ **Ergebnis:** 1535 → 934 Zeilen (-39%)
 10. ✅ Zentrale Message-Validation-Helper-Klasse - **BEHOBEN** (Commit 644277b - MessageValidationHelper.cs)
-11. ⚡ Message-Versionierung im Protokoll - **INFRASTRUCTURE VORHANDEN** (Commit 644277b)
+11. ✅ Message-Versionierung im Protokoll - **VOLLSTÄNDIG BEHOBEN** (Commits 644277b + 995b619)
     - ✅ MessageVersion.cs mit Semantic Versioning
     - ✅ MessageVersionValidator.cs
-    - ⏳ Integration in WebSocket-Protokoll noch pending
+    - ✅ Integration in WebSocketCommunicationService (Commit 995b619)
+    - ✅ Incoming message validation + version rejection
+    - ✅ Outgoing messages mit Server-Version
+    - ✅ Backward compatibility für legacy clients
 12. ✅ Health-Check-Endpoint + Metrics/Telemetry - **BEHOBEN** (Commit 644277b)
 
 ### 🔵 **LANGFRISTIG (Backlog)**
@@ -658,28 +672,28 @@ Keine Metriken für Monitoring: Anzahl Clients, Messages/s, Fehlerrate.
 - ✅ Thread-Safety vollständig korrekt (ConcurrentDictionary + Task-Tracking)
 - ✅ Async/await konsistent verwendet
 - ✅ Logging-Infrastruktur vorhanden und konfigurierbar
-- ✅ **NEU: Handler Pattern für modulare Message-Verarbeitung**
-- ✅ **NEU: Health-Check + Prometheus Metrics**
-- ✅ **NEU: Security Validation (Message Size, Media Upload)**
+- ✅ **Handler Pattern komplett implementiert (13 handlers, -39% Code)**
+- ✅ **Health-Check + Prometheus Metrics**
+- ✅ **Security Validation (Message Size, Media Upload)**
+- ✅ **Message Versioning mit Semantic Versioning & Backward Compatibility**
 
 **Verbleibende Schwächen:**
-- ⚠️ WebSocketCommunicationService: Mobile app handling noch monolithisch (~500 lines)
-- ⚠️ Message-Versionierung: Infrastruktur vorhanden, Integration pending
 - ⚠️ Circular Dependencies zwischen einigen Services
+- ⚠️ Fehlende XML-Dokumentation für einige Public APIs
+- ⚠️ Magic Numbers/Strings könnten als Konstanten definiert werden
 
 **Empfehlung:**
-**TOP 5 kritische Bugs sind ALLE BEHOBEN** ✅. Das Projekt ist production-ready. Weitere Refactorings (mobile app handlers, message versioning) können schrittweise nach Bedarf erfolgen.
-
-**Geschätzte Aufwände für verbleibende Tasks:**
-- ⏳ Mobile app handler migration: **1-2 Tage**
-- ⏳ Message versioning integration: **1 Tag**
-- ⏳ Circular dependency cleanup: **3-5 Tage**
+**ALLE kritischen und mittelfristigen Aufgaben BEHOBEN** ✅. Das Projekt ist **production-ready** und hat eine saubere, wartbare Architektur. Verbleibende Tasks sind reine Code-Quality-Verbesserungen ohne funktionale Impact.
 
 **FORTSCHRITT:**
 - ✅ **SOFORT-Fixes (4/4):** 100% Complete
 - ✅ **Kurzfristige Fixes (4/4):** 100% Complete
-- ⚡ **Mittelfristige Fixes (3/4):** 75% Complete
+- ✅ **Mittelfristige Fixes (4/4):** 100% Complete ⬆️
 - ⏳ **Langfristige Fixes (0/4):** Backlog
+
+**GESAMTFORTSCHRITT: 54% aller identifizierten Probleme behoben (13/24)**
+- Alle kritischen & mittelfristigen Fixes: ✅ **100% Complete**
+- Verbleibende 10 Probleme: Nice-to-have Code-Quality-Verbesserungen
 
 ---
 
