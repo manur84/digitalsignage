@@ -14,7 +14,7 @@
             <!-- Logo and Header Section -->
             <VerticalStackLayout Spacing="16" Margin="0,32,0,0">
                 <Image Source="digisign_logo.png"
-                       HeightRequest="300"
+                       HeightRequest="180"
                        HorizontalOptions="Center" />
 
                 <Label Text="Digital Signage"
