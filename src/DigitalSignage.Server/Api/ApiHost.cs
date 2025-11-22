@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using DigitalSignage.Core.Interfaces;
+using DigitalSignage.Server.Services;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.DependencyInjection;
@@ -130,7 +131,7 @@ public class ApiHost : IHostedService, IDisposable
                 RegisterSharedService<ILayoutService>(services);
                 RegisterSharedService<IDeviceControlService>(services);
                 RegisterSharedService<IScreenshotService>(services);
-                RegisterSharedService<IWebSocketCommunicationService>(services);
+                RegisterSharedService<ICommunicationService>(services);
 
                 // Add logging
                 services.AddLogging();

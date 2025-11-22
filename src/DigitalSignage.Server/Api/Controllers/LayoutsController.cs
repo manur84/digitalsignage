@@ -182,13 +182,13 @@ public class LayoutsController : ControllerBase
                     "Failed to assign layout {LayoutId} to device {DeviceId}: {Error}",
                     request.LayoutId,
                     deviceId,
-                    result.Error
+                    result.ErrorMessage
                 );
 
                 return BadRequest(new
                 {
                     Success = false,
-                    Message = result.Error ?? "Failed to assign layout"
+                    Message = result.ErrorMessage ?? "Failed to assign layout"
                 });
             }
 
@@ -201,7 +201,7 @@ public class LayoutsController : ControllerBase
             return Ok(new
             {
                 Success = true,
-                Message = $"Layout '{layout.Name}' assigned to device '{client.Name ?? client.Hostname}'",
+                Message = $"Layout '{layout.Name}' assigned to device '{client.Name ?? client.DeviceInfo?.Hostname ?? "Unknown"}'",
                 LayoutId = request.LayoutId,
                 DeviceId = deviceId
             });
@@ -248,13 +248,13 @@ public class LayoutsController : ControllerBase
                 _logger.LogWarning(
                     "Failed to remove layout from device {DeviceId}: {Error}",
                     deviceId,
-                    result.Error
+                    result.ErrorMessage
                 );
 
                 return BadRequest(new
                 {
                     Success = false,
-                    Message = result.Error ?? "Failed to remove layout"
+                    Message = result.ErrorMessage ?? "Failed to remove layout"
                 });
             }
 
@@ -263,7 +263,7 @@ public class LayoutsController : ControllerBase
             return Ok(new
             {
                 Success = true,
-                Message = $"Layout removed from device '{client.Name ?? client.Hostname}'",
+                Message = $"Layout removed from device '{client.Name ?? client.DeviceInfo?.Hostname ?? "Unknown"}'",
                 DeviceId = deviceId
             });
         }

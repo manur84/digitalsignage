@@ -44,8 +44,8 @@ public class DevicesController : ControllerBase
 
             if (!result.IsSuccess)
             {
-                _logger.LogWarning("Failed to get clients: {Error}", result.Error);
-                return StatusCode(500, result.Error ?? "Failed to get devices");
+                _logger.LogWarning("Failed to get clients: {Error}", result.ErrorMessage);
+                return StatusCode(500, result.ErrorMessage ?? "Failed to get devices");
             }
 
             var clients = result.Value;
@@ -61,21 +61,21 @@ public class DevicesController : ControllerBase
             var devices = clients.Select(c => new DeviceDto
             {
                 Id = Guid.Parse(c.Id),
-                Hostname = c.Hostname ?? string.Empty,
-                Name = c.Name ?? c.Hostname ?? "Unknown",
+                Hostname = c.DeviceInfo?.Hostname ?? c.Name ?? string.Empty,
+                Name = c.Name ?? c.DeviceInfo?.Hostname ?? "Unknown",
                 Location = c.Location,
                 Status = c.Status.ToString(),
                 LastSeen = c.LastSeen,
-                Resolution = c.Resolution,
-                CurrentLayoutId = null, // TODO: Get from layout assignment
-                CurrentLayoutName = c.CurrentLayoutName,
-                IpAddress = c.DeviceInfo?.IpAddress,
-                OperatingSystem = c.DeviceInfo?.OperatingSystem,
+                Resolution = c.DeviceInfo != null ? $"{c.DeviceInfo.ScreenWidth}x{c.DeviceInfo.ScreenHeight}" : null,
+                CurrentLayoutId = !string.IsNullOrEmpty(c.AssignedLayoutId) ? Guid.Parse(c.AssignedLayoutId) : null,
+                CurrentLayoutName = c.AssignedLayout?.Name,
+                IpAddress = c.IpAddress,
+                OperatingSystem = c.DeviceInfo?.OsVersion,
                 CpuUsage = c.DeviceInfo?.CpuUsage,
-                MemoryUsage = c.DeviceInfo?.MemoryUsage,
-                DiskUsage = c.DeviceInfo?.DiskUsage,
+                MemoryUsage = c.DeviceInfo?.MemoryTotal > 0 ? (double)c.DeviceInfo.MemoryUsed / c.DeviceInfo.MemoryTotal * 100 : null,
+                DiskUsage = c.DeviceInfo?.DiskTotal > 0 ? (double)c.DeviceInfo.DiskUsed / c.DeviceInfo.DiskTotal * 100 : null,
                 Uptime = c.DeviceInfo?.Uptime,
-                Temperature = c.DeviceInfo?.Temperature
+                Temperature = c.DeviceInfo?.CpuTemperature
             }).ToList();
 
             _logger.LogDebug("Returning {Count} devices", devices.Count);
@@ -105,7 +105,7 @@ public class DevicesController : ControllerBase
 
             if (!result.IsSuccess)
             {
-                _logger.LogWarning("Device {DeviceId} not found: {Error}", id, result.Error);
+                _logger.LogWarning("Device {DeviceId} not found: {Error}", id, result.ErrorMessage);
                 return NotFound($"Device {id} not found");
             }
 
@@ -114,21 +114,21 @@ public class DevicesController : ControllerBase
             var device = new DeviceDto
             {
                 Id = Guid.Parse(client.Id),
-                Hostname = client.Hostname ?? string.Empty,
-                Name = client.Name ?? client.Hostname ?? "Unknown",
+                Hostname = client.DeviceInfo?.Hostname ?? client.Name ?? string.Empty,
+                Name = client.Name ?? client.DeviceInfo?.Hostname ?? "Unknown",
                 Location = client.Location,
                 Status = client.Status.ToString(),
                 LastSeen = client.LastSeen,
-                Resolution = client.Resolution,
-                CurrentLayoutId = null, // TODO: Get from layout assignment
-                CurrentLayoutName = client.CurrentLayoutName,
-                IpAddress = client.DeviceInfo?.IpAddress,
-                OperatingSystem = client.DeviceInfo?.OperatingSystem,
+                Resolution = client.DeviceInfo != null ? $"{client.DeviceInfo.ScreenWidth}x{client.DeviceInfo.ScreenHeight}" : null,
+                CurrentLayoutId = !string.IsNullOrEmpty(client.AssignedLayoutId) ? Guid.Parse(client.AssignedLayoutId) : null,
+                CurrentLayoutName = client.AssignedLayout?.Name,
+                IpAddress = client.IpAddress,
+                OperatingSystem = client.DeviceInfo?.OsVersion,
                 CpuUsage = client.DeviceInfo?.CpuUsage,
-                MemoryUsage = client.DeviceInfo?.MemoryUsage,
-                DiskUsage = client.DeviceInfo?.DiskUsage,
+                MemoryUsage = client.DeviceInfo?.MemoryTotal > 0 ? (double)client.DeviceInfo.MemoryUsed / client.DeviceInfo.MemoryTotal * 100 : null,
+                DiskUsage = client.DeviceInfo?.DiskTotal > 0 ? (double)client.DeviceInfo.DiskUsed / client.DeviceInfo.DiskTotal * 100 : null,
                 Uptime = client.DeviceInfo?.Uptime,
-                Temperature = client.DeviceInfo?.Temperature
+                Temperature = client.DeviceInfo?.CpuTemperature
             };
 
             return Ok(device);
@@ -182,13 +182,13 @@ public class DevicesController : ControllerBase
                     "Command {Command} failed for device {DeviceId}: {Error}",
                     request.Command,
                     id,
-                    result.Error
+                    result.ErrorMessage
                 );
 
                 return BadRequest(new DeviceCommandResponse
                 {
                     Success = false,
-                    Message = result.Error ?? "Command failed",
+                    Message = result.ErrorMessage ?? "Command failed",
                     Timestamp = DateTime.UtcNow
                 });
             }
@@ -241,14 +241,14 @@ public class DevicesController : ControllerBase
                 LastSeen = client.LastSeen,
                 CurrentLayout = new
                 {
-                    Name = client.CurrentLayoutName
+                    Name = client.AssignedLayout?.Name
                 },
                 Performance = new
                 {
                     CpuUsage = client.DeviceInfo?.CpuUsage,
-                    MemoryUsage = client.DeviceInfo?.MemoryUsage,
-                    DiskUsage = client.DeviceInfo?.DiskUsage,
-                    Temperature = client.DeviceInfo?.Temperature,
+                    MemoryUsage = client.DeviceInfo?.MemoryTotal > 0 ? (double)client.DeviceInfo.MemoryUsed / client.DeviceInfo.MemoryTotal * 100 : (double?)null,
+                    DiskUsage = client.DeviceInfo?.DiskTotal > 0 ? (double)client.DeviceInfo.DiskUsed / client.DeviceInfo.DiskTotal * 100 : (double?)null,
+                    Temperature = client.DeviceInfo?.CpuTemperature,
                     Uptime = client.DeviceInfo?.Uptime
                 }
             };
