@@ -1,3 +1,5 @@
+#nullable enable
+
 using DigitalSignage.Core.Interfaces;
 using DigitalSignage.Core.Models;
 using DigitalSignage.Core.Exceptions;
