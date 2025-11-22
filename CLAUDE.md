@@ -161,12 +161,74 @@ DigitalSignage.Server/
 ├── Configuration/               # App configuration
 ├── Controls/                    # Custom WPF controls (DesignerCanvas, etc.)
 ├── Converters/                  # 18 Value Converters
-├── Services/                    # 21 Business services
+├── MessageHandlers/             # WebSocket message handlers (Handler Pattern)
+│   ├── RegisterMessageHandler.cs              # Pi: Device registration
+│   ├── HeartbeatMessageHandler.cs             # Pi: Heartbeat
+│   ├── StatusReportMessageHandler.cs          # Pi: Status reports
+│   ├── ScreenshotMessageHandler.cs            # Pi: Screenshots
+│   ├── LogMessageHandler.cs                   # Pi: Log messages
+│   ├── UpdateConfigResponseMessageHandler.cs  # Pi: Config updates
+│   └── MobileApp/                             # Mobile app handlers
+│       ├── AppRegisterMessageHandler.cs
+│       ├── AppHeartbeatMessageHandler.cs
+│       ├── RequestClientListMessageHandler.cs
+│       ├── SendCommandMessageHandler.cs
+│       ├── AssignLayoutMessageHandler.cs
+│       ├── RequestScreenshotMessageHandler.cs
+│       └── RequestLayoutListMessageHandler.cs
+├── Services/                    # 22 Business services (including MobileAppConnectionManager)
 ├── ViewModels/                  # 15 ViewModels
 ├── Views/                       # XAML views & dialogs
 ├── App.xaml.cs                  # DI configuration & startup
 └── appsettings.json            # Server configuration
 ```
+
+### Message Handler Pattern (NEW)
+
+The server uses the **Handler Pattern** (Strategy Pattern) for processing WebSocket messages:
+
+**Architecture:**
+- Each message type has a dedicated handler class implementing `IMessageHandler`
+- `MessageHandlerFactory` routes incoming messages to the appropriate handler
+- Handlers are registered in DI and resolved at runtime
+
+**Benefits:**
+- ✓ **Single Responsibility**: Each handler focuses on one message type
+- ✓ **Testability**: Handlers can be unit tested independently
+- ✓ **Maintainability**: Easy to add new message types (just add a new handler)
+- ✓ **Clean Code**: WebSocketCommunicationService reduced from 1535 → 934 lines (-39%)
+
+**Example Handler:**
+```csharp
+public class HeartbeatMessageHandler : MessageHandlerBase
+{
+    public override string MessageType => MessageTypes.Heartbeat;
+
+    public override async Task HandleAsync(Message message, string connectionId, CancellationToken ct)
+    {
+        var heartbeat = message as HeartbeatMessage;
+        await _clientService.UpdateClientStatusAsync(heartbeat.ClientId, heartbeat.Status);
+    }
+}
+```
+
+**Handler Registration (Automatic):**
+```csharp
+// ServiceCollectionExtensions.cs
+services.AddTransient<IMessageHandler, HeartbeatMessageHandler>();
+services.AddSingleton<MessageHandlerFactory>();  // Auto-discovers all handlers
+```
+
+**Message Routing:**
+```csharp
+// WebSocketCommunicationService.cs
+var handler = _messageHandlerFactory.GetHandler(message.Type);
+if (handler != null)
+    await handler.HandleAsync(message, connectionId, cancellationToken);
+```
+
+**Migrated Services:**
+- `MobileAppConnectionManager` - Manages mobile app WebSocket connections, tokens, app IDs
 
 ### Python Client Structure
 
@@ -185,31 +247,51 @@ DigitalSignage.Client.RaspberryPi/
 
 ---
 
-## Server Services (21 Services)
+## Server Services (22 Services)
 
 ### Core Services
 
-1. **WebSocketCommunicationService** - WebSocket server, SSL/TLS support, connection management
-2. **ClientService** - Client registry, token-based registration, status tracking
-3. **LayoutService** - Layout CRUD, JSON serialization, scheduling integration
-4. **MediaService** - Media library, SHA256 deduplication, thumbnail generation
-5. **DeviceControlService** - Remote commands (Restart, Screenshot, Volume, etc.)
-6. **ScheduleService** - Time-based layout scheduling, recurring schedules
-7. **DataSourceService** - SQL/API data sources, Scriban integration
-8. **TemplateService** - 11 built-in templates, Scriban rendering
-9. **CommandHistoryService** - Undo/Redo for designer
-10. **BackgroundUpdateService** - Automatic data refresh (5min interval)
-11. **HeartbeatMonitoringService** - Client health monitoring (30s timeout)
-12. **DatabaseInitializationService** - Auto migrations, seed data
-13. **ScreenshotService** - Remote screenshot capture
-14. **CertificateService** - SSL certificate generation
-15. **AlertService** - System alerts (UI pending)
-16. **StatisticsService** - Usage analytics
-17. **LoggingService** - Centralized logging
-18. **SettingsService** - Application settings
-19. **NetworkDiscoveryService** - mDNS/UDP auto-discovery
-20. **BackupService** - Database backup
-21. **UpdateService** - Auto-update mechanism
+1. **WebSocketCommunicationService** - WebSocket server, SSL/TLS support, connection management (uses Handler Pattern for message processing)
+2. **MobileAppConnectionManager** - Mobile app connection state management (connections, tokens, app IDs)
+3. **ClientService** - Client registry, token-based registration, status tracking
+4. **LayoutService** - Layout CRUD, JSON serialization, scheduling integration
+5. **MediaService** - Media library, SHA256 deduplication, thumbnail generation
+6. **DeviceControlService** - Remote commands (Restart, Screenshot, Volume, etc.)
+7. **ScheduleService** - Time-based layout scheduling, recurring schedules
+8. **DataSourceService** - SQL/API data sources, Scriban integration
+9. **TemplateService** - 11 built-in templates, Scriban rendering
+10. **CommandHistoryService** - Undo/Redo for designer
+11. **BackgroundUpdateService** - Automatic data refresh (5min interval)
+12. **HeartbeatMonitoringService** - Client health monitoring (30s timeout)
+13. **DatabaseInitializationService** - Auto migrations, seed data
+14. **ScreenshotService** - Remote screenshot capture
+15. **CertificateService** - SSL certificate generation
+16. **AlertService** - System alerts (UI pending)
+17. **StatisticsService** - Usage analytics
+18. **LoggingService** - Centralized logging
+19. **SettingsService** - Application settings
+20. **NetworkDiscoveryService** - mDNS/UDP auto-discovery
+21. **BackupService** - Database backup
+22. **UpdateService** - Auto-update mechanism
+
+### Message Handlers (13 Handlers)
+
+**Pi Client Handlers (6):**
+1. **RegisterMessageHandler** - Device registration
+2. **HeartbeatMessageHandler** - Heartbeat processing
+3. **StatusReportMessageHandler** - Status updates
+4. **ScreenshotMessageHandler** - Screenshot handling
+5. **LogMessageHandler** - Log messages
+6. **UpdateConfigResponseMessageHandler** - Config update responses
+
+**Mobile App Handlers (7):**
+1. **AppRegisterMessageHandler** - App registration & authorization
+2. **AppHeartbeatMessageHandler** - App heartbeat
+3. **RequestClientListMessageHandler** - Device list requests
+4. **SendCommandMessageHandler** - Command forwarding to devices
+5. **AssignLayoutMessageHandler** - Layout assignment
+6. **RequestScreenshotMessageHandler** - Screenshot requests
+7. **RequestLayoutListMessageHandler** - Layout list requests
 
 ### ViewModels (15 ViewModels)
 

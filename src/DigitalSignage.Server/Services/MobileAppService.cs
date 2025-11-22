@@ -159,27 +159,24 @@ public class MobileAppService : IMobileAppService
             // This prevents the app from being stuck in "Waiting for approval" state
             try
             {
-                // CRITICAL: Must get concrete WebSocketCommunicationService class (NOT ICommunicationService)
-                // because SendApprovalNotificationAsync() is specific to WebSocket implementation
-                // ServiceCollectionExtensions.cs registers both:
-                //   - WebSocketCommunicationService (concrete class) ← We need this!
-                //   - ICommunicationService (interface)
-                var webSocketService = _serviceProvider.GetService<WebSocketCommunicationService>();
+                // Get MobileAppConnectionManager from service provider
+                // NOTE: MobileAppConnectionManager was extracted from WebSocketCommunicationService
+                // for better separation of concerns (see Handler Pattern refactoring)
+                var connectionManager = _serviceProvider.GetService<MobileAppConnectionManager>();
 
-                if (webSocketService != null)
+                if (connectionManager != null)
                 {
                     _logger.Information("Sending approval notification to mobile app {AppId} via WebSocket", appId);
 
                     // Send approval notification to iOS App
-                    // The WebSocketCommunicationService will find the connection by MobileAppId
-                    await webSocketService.SendApprovalNotificationAsync(appId, token, permissions);
+                    // The MobileAppConnectionManager will find the connection by MobileAppId
+                    await connectionManager.SendApprovalNotificationAsync(appId, token, permissions);
 
                     _logger.Information("✓ Approval notification sent successfully to mobile app {AppId} via WebSocket", appId);
                 }
                 else
                 {
-                    _logger.Error("CRITICAL ERROR: WebSocketCommunicationService not available in DI container - mobile app cannot receive approval notification!");
-                    _logger.Error("Check ServiceCollectionExtensions.AddBusinessServices() - WebSocketCommunicationService must be registered as concrete class");
+                    _logger.Warning("MobileAppConnectionManager not available - mobile app will poll for approval status");
                 }
             }
             catch (Exception wsEx)
