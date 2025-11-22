@@ -633,7 +633,11 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
         {
             return messageType switch
             {
-                // Mobile App → Server messages
+                // ============================================
+                // MOBILE APP ↔ SERVER MESSAGES
+                // ============================================
+
+                // Mobile App → Server
                 MobileAppMessageTypes.AppRegister => JsonConvert.DeserializeObject<AppRegisterMessage>(messageJson, settings),
                 MobileAppMessageTypes.AppHeartbeat => JsonConvert.DeserializeObject<AppHeartbeatMessage>(messageJson, settings),
                 MobileAppMessageTypes.RequestClientList => JsonConvert.DeserializeObject<RequestClientListMessage>(messageJson, settings),
@@ -642,13 +646,35 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
                 MobileAppMessageTypes.RequestScreenshot => JsonConvert.DeserializeObject<RequestScreenshotMessage>(messageJson, settings),
                 MobileAppMessageTypes.RequestLayoutList => JsonConvert.DeserializeObject<RequestLayoutListMessage>(messageJson, settings),
 
-                // Device → Server messages (Raspberry Pi clients)
+                // Server → Mobile App
+                MobileAppMessageTypes.AppAuthorizationRequired => JsonConvert.DeserializeObject<AppAuthorizationRequiredMessage>(messageJson, settings),
+                MobileAppMessageTypes.AppAuthorized => JsonConvert.DeserializeObject<AppAuthorizedMessage>(messageJson, settings),
+                MobileAppMessageTypes.AppRejected => JsonConvert.DeserializeObject<AppRejectedMessage>(messageJson, settings),
+                MobileAppMessageTypes.ClientListUpdate => JsonConvert.DeserializeObject<ClientListUpdateMessage>(messageJson, settings),
+                MobileAppMessageTypes.ClientStatusChanged => JsonConvert.DeserializeObject<ClientStatusChangedMessage>(messageJson, settings),
+                MobileAppMessageTypes.ScreenshotResponse => JsonConvert.DeserializeObject<ScreenshotResponseMessage>(messageJson, settings),
+                MobileAppMessageTypes.LayoutListResponse => JsonConvert.DeserializeObject<LayoutListResponseMessage>(messageJson, settings),
+                MobileAppMessageTypes.CommandResult => JsonConvert.DeserializeObject<CommandResultMessage>(messageJson, settings),
+
+                // ============================================
+                // DEVICE (RASPBERRY PI) ↔ SERVER MESSAGES
+                // ============================================
+
+                // Device → Server
                 MessageTypes.Register => JsonConvert.DeserializeObject<RegisterMessage>(messageJson, settings),
                 MessageTypes.Heartbeat => JsonConvert.DeserializeObject<HeartbeatMessage>(messageJson, settings),
                 MessageTypes.StatusReport => JsonConvert.DeserializeObject<StatusReportMessage>(messageJson, settings),
                 MessageTypes.Screenshot => JsonConvert.DeserializeObject<ScreenshotMessage>(messageJson, settings),
                 MessageTypes.Log => JsonConvert.DeserializeObject<LogMessage>(messageJson, settings),
                 MessageTypes.UpdateConfigResponse => JsonConvert.DeserializeObject<UpdateConfigResponseMessage>(messageJson, settings),
+
+                // Server → Device
+                MessageTypes.RegistrationResponse => JsonConvert.DeserializeObject<RegistrationResponseMessage>(messageJson, settings),
+                MessageTypes.DisplayUpdate => JsonConvert.DeserializeObject<DisplayUpdateMessage>(messageJson, settings),
+                MessageTypes.Command => JsonConvert.DeserializeObject<CommandMessage>(messageJson, settings),
+                MessageTypes.UpdateConfig => JsonConvert.DeserializeObject<UpdateConfigMessage>(messageJson, settings),
+                MessageTypes.LayoutAssigned => JsonConvert.DeserializeObject<LayoutAssignmentMessage>(messageJson, settings),
+                MessageTypes.DataUpdate => JsonConvert.DeserializeObject<DataUpdateMessage>(messageJson, settings),
 
                 _ => null
             };
