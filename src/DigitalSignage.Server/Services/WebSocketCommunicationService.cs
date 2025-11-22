@@ -268,6 +268,9 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
     {
         ThrowIfDisposed();
 
+        _logger.LogDebug("SendMessageAsync called: clientId={ClientId}, messageType={MessageType}",
+            clientId, message?.Type ?? "null");
+
         if (_clients.TryGetValue(clientId, out var connection))
         {
             try
@@ -278,14 +281,30 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
                     return;
                 }
 
+                _logger.LogDebug("Serializing message type {MessageType} for client {ClientId}", message.Type, clientId);
+
                 var settings = new JsonSerializerSettings
                 {
                     TypeNameHandling = TypeNameHandling.Auto,
                     NullValueHandling = NullValueHandling.Ignore,
-                    DefaultValueHandling = DefaultValueHandling.Include
+                    DefaultValueHandling = DefaultValueHandling.Include,
+                    ReferenceLoopHandling = ReferenceLoopHandling.Ignore,
+                    MaxDepth = 32
                 };
+
                 var json = JsonConvert.SerializeObject(message, settings);
+
+                _logger.LogDebug("Serialized message {MessageType}: {Length} bytes", message.Type, json.Length);
+
                 await connection.SendTextAsync(json, cancellationToken);
+
+                _logger.LogDebug("Successfully sent message {MessageType} to client {ClientId}", message.Type, clientId);
+            }
+            catch (JsonSerializationException jsonEx)
+            {
+                _logger.LogError(jsonEx, "JSON serialization error for message type {MessageType} to client {ClientId}",
+                    message?.Type, clientId);
+                throw;
             }
             catch (Exception ex)
             {
@@ -295,7 +314,8 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
         }
         else
         {
-            _logger.LogWarning("Client {ClientId} not found", clientId);
+            _logger.LogWarning("Client {ClientId} not found in connections dictionary (have {Count} clients)",
+                clientId, _clients.Count);
         }
     }
 
