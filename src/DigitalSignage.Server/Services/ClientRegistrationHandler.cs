@@ -341,14 +341,9 @@ internal class ClientRegistrationHandler
             AssignedLocation = client.Location
         };
 
-        try
-        {
-            await _communicationService.SendMessageAsync(client.Id, responseMessage, cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to send registration response to client {ClientId}", client.Id);
-        }
+        // SendMessageAsync now handles errors internally (logs but doesn't throw network errors)
+        // No try-catch needed here
+        await _communicationService.SendMessageAsync(client.Id, responseMessage, cancellationToken);
     }
 
     private async Task SendAssignedLayoutIfExistsAsync(RaspberryPiClient client, CancellationToken cancellationToken)
@@ -364,33 +359,34 @@ internal class ClientRegistrationHandler
 
         try
         {
+            // Load layout (may throw exceptions)
             var layoutResult = await _layoutService.GetLayoutByIdAsync(client.AssignedLayoutId, cancellationToken);
-            if (layoutResult.IsSuccess && layoutResult.Value != null)
-            {
-                // Fetch data for data-driven elements
-                // TODO: Implement data source fetching when data-driven elements are supported
-                Dictionary<string, object>? layoutData = null;
-
-                // Send DISPLAY_UPDATE message
-                var displayUpdate = new DisplayUpdateMessage
-                {
-                    Layout = layoutResult.Value,
-                    Data = layoutData
-                };
-
-                await _communicationService.SendMessageAsync(client.Id, displayUpdate, cancellationToken);
-                _logger.LogInformation("Successfully sent assigned layout {LayoutId} to reconnected client {ClientId}",
-                    layoutResult.Value.Id, client.Id);
-            }
-            else
+            if (!layoutResult.IsSuccess || layoutResult.Value == null)
             {
                 _logger.LogWarning("Client {ClientId} has assigned layout {LayoutId} but layout not found in database",
                     client.Id, client.AssignedLayoutId);
+                return;
             }
+
+            // Fetch data for data-driven elements
+            // TODO: Implement data source fetching when data-driven elements are supported
+            Dictionary<string, object>? layoutData = null;
+
+            // Send DISPLAY_UPDATE message
+            // SendMessageAsync handles errors internally, no try-catch needed
+            var displayUpdate = new DisplayUpdateMessage
+            {
+                Layout = layoutResult.Value,
+                Data = layoutData
+            };
+
+            await _communicationService.SendMessageAsync(client.Id, displayUpdate, cancellationToken);
+            _logger.LogInformation("Successfully sent assigned layout {LayoutId} to reconnected client {ClientId}",
+                layoutResult.Value.Id, client.Id);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to send assigned layout to client {ClientId} after registration", client.Id);
+            _logger.LogError(ex, "Failed to load or send assigned layout to client {ClientId} after registration", client.Id);
         }
     }
 }
