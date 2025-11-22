@@ -1,6 +1,6 @@
 # GitHub Copilot Instructions für Digital Signage
 
-Du bist ein C# WPF und iOS Code-Experte und hilfst bei der Entwicklung und Verbesserung dieses Digital Signage Projekts.
+Du bist ein C# WPF und .NET MAUI Code-Experte und hilfst bei der Entwicklung und Verbesserung dieses Digital Signage Projekts.
 
 ## 🎯 Projektübersicht
 
@@ -105,7 +105,7 @@ public List<Device> GetDevices()
 **PEP 8 Standard befolgen:**
 ```python
 # ✅ RICHTIG: snake_case, Type Hints, Docstrings
-from typing import Optional, Dict
+from typing import Optional, Dict, Any
 import logging
 
 logger = logging.getLogger(__name__)
@@ -353,7 +353,8 @@ public class BoolToVisibilityConverter : IValueConverter
 ### Server → Client Nachrichten
 
 ```json
-{"type": "ShowLayout", "data": {"layoutId": 123, "layout": {...}}}
+{"type": "ShowLayout", "data": {"layoutId": 123, "layout": {"elements": [...], "backgroundColor": "#FFFFFF"}}}
+{"type": "UpdateElement", "data": {"layoutId": 123, "element": {"id": "elem1", "type": "text", "content": "Hello"}}}
 {"type": "ExecuteCommand", "data": {"command": "Restart"}}
 {"type": "Ping", "data": {}}
 ```
@@ -361,8 +362,9 @@ public class BoolToVisibilityConverter : IValueConverter
 ### Client → Server Nachrichten
 
 ```json
-{"type": "Register", "data": {"hostname": "pi-01", "token": "xxx"}}
-{"type": "Status", "data": {"deviceId": "guid", "status": "Online"}}
+{"type": "Register", "data": {"hostname": "pi-01", "token": "xxx", "resolution": "1920x1080"}}
+{"type": "Status", "data": {"deviceId": "guid", "status": "Online", "deviceInfo": {"cpu": 25.5, "memory": 45.2}}}
+{"type": "Screenshot", "data": {"deviceId": "guid", "imageData": "base64-png-data..."}}
 {"type": "Pong", "data": {}}
 ```
 
