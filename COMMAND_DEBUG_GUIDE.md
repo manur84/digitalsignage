@@ -13,9 +13,9 @@ Added detailed logging for COMMAND messages:
 
 ### Client-Side Logging (client.py)  
 Added detailed logging for COMMAND messages:
-- Line 652: Logs when COMMAND message is received with full data
-- Line 767: Logs command name and parameters when handle_command() is called
-- Lines 774-805: Logs before and after execution of each command type
+- Line 653: Logs when COMMAND message is received with full data
+- Line 770: Logs command name and parameters when handle_command() is called
+- Lines 774-815: Logs before and after execution of each command type
 
 ## Testing Procedure
 

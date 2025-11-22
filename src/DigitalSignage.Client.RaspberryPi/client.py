@@ -772,43 +772,43 @@ class DigitalSignageClient:
 
         try:
             if command == "RESTART":
-                logger.info(f"Executing RESTART command...")
+                logger.info(f"Executing {command} command...")
                 await self.device_manager.restart_system()
-                logger.info(f"RESTART command completed successfully")
+                logger.info(f"{command} command completed successfully")
             elif command == "RESTART_APP":
-                logger.info(f"Executing RESTART_APP command...")
+                logger.info(f"Executing {command} command...")
                 await self.restart_app()
-                logger.info(f"RESTART_APP command completed successfully")
+                logger.info(f"{command} command completed successfully")
             elif command == "SCREENSHOT":
-                logger.info(f"Executing SCREENSHOT command...")
+                logger.info(f"Executing {command} command...")
                 screenshot = await self.take_screenshot()
                 await self.send_screenshot(screenshot)
-                logger.info(f"SCREENSHOT command completed successfully")
+                logger.info(f"{command} command completed successfully")
             elif command == "SCREEN_ON":
-                logger.info(f"Executing SCREEN_ON command...")
+                logger.info(f"Executing {command} command...")
                 await self.device_manager.screen_on()
-                logger.info(f"SCREEN_ON command completed successfully")
+                logger.info(f"{command} command completed successfully")
             elif command == "SCREEN_OFF":
-                logger.info(f"Executing SCREEN_OFF command...")
+                logger.info(f"Executing {command} command...")
                 await self.device_manager.screen_off()
-                logger.info(f"SCREEN_OFF command completed successfully")
+                logger.info(f"{command} command completed successfully")
             elif command == "SET_VOLUME":
                 volume = parameters.get("volume", 50)
-                logger.info(f"Executing SET_VOLUME command with volume={volume}...")
+                logger.info(f"Executing {command} command with volume={volume}...")
                 await self.device_manager.set_volume(volume)
-                logger.info(f"SET_VOLUME command completed successfully")
+                logger.info(f"{command} command completed successfully")
             elif command == "CLEAR_CACHE":
-                logger.info(f"Executing CLEAR_CACHE command...")
+                logger.info(f"Executing {command} command...")
                 await self.clear_cache()
-                logger.info(f"CLEAR_CACHE command completed successfully")
+                logger.info(f"{command} command completed successfully")
             elif command == "GET_LOGS":
-                logger.info(f"Executing GET_LOGS command...")
+                logger.info(f"Executing {command} command...")
                 await self.send_logs()
-                logger.info(f"GET_LOGS command completed successfully")
+                logger.info(f"{command} command completed successfully")
             elif command == "UPDATE":
-                logger.info(f"Executing UPDATE command...")
+                logger.info(f"Executing {command} command...")
                 await self.update_client()
-                logger.info(f"UPDATE command completed successfully")
+                logger.info(f"{command} command completed successfully")
             else:
                 logger.warning(f"Unknown command: {command}")
         except Exception as e:
