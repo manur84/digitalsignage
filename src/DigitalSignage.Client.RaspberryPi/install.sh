@@ -221,45 +221,57 @@ echo ""
 # ========================================
 # Set unique hostname based on MAC address
 # ========================================
-echo "Setting unique hostname..."
+echo "Setting unique hostname based on MAC address..."
 
 # Get MAC address from eth0, or wlan0 if eth0 doesn't exist
 MAC_ADDR=""
 if [ -e /sys/class/net/eth0/address ]; then
     MAC_ADDR=$(cat /sys/class/net/eth0/address)
+    INTERFACE="eth0"
 elif [ -e /sys/class/net/wlan0/address ]; then
     MAC_ADDR=$(cat /sys/class/net/wlan0/address)
+    INTERFACE="wlan0"
 else
     # Fallback: try to get any interface MAC
     MAC_ADDR=$(ip link show | grep -m1 "link/ether" | awk '{print $2}')
+    INTERFACE="auto-detected"
 fi
 
 if [ -n "$MAC_ADDR" ]; then
-    # Extract first 4 hex characters (remove colons)
+    # Extract first 4 hex characters (remove colons, uppercase)
+    # Example: ac:b2:cb:2e:bb:ef -> ACB2
     MAC_SHORT=$(echo "$MAC_ADDR" | tr -d ':' | tr '[:lower:]' '[:upper:]' | cut -c1-4)
     NEW_HOSTNAME="DigiSign-${MAC_SHORT}"
 
     CURRENT_HOSTNAME=$(hostname)
 
+    echo "Interface: $INTERFACE"
+    echo "MAC Address: $MAC_ADDR"
+    echo "Hostname Suffix: $MAC_SHORT"
+    echo "Generated Hostname: $NEW_HOSTNAME"
+    echo ""
+
     if [ "$CURRENT_HOSTNAME" != "$NEW_HOSTNAME" ]; then
         echo "Changing hostname from '$CURRENT_HOSTNAME' to '$NEW_HOSTNAME'..."
 
-        # Set hostname immediately
+        # Set hostname immediately (persistent across reboots)
         hostnamectl set-hostname "$NEW_HOSTNAME" 2>/dev/null || {
             # Fallback for systems without hostnamectl
             echo "$NEW_HOSTNAME" > /etc/hostname
             hostname "$NEW_HOSTNAME"
         }
 
-        # Update /etc/hosts
-        sed -i "s/127.0.1.1.*/127.0.1.1\t$NEW_HOSTNAME/g" /etc/hosts
+        # Update /etc/hosts with new hostname
+        # Replace any existing 127.0.1.1 entry
+        sed -i "/^127\.0\.1\.1/d" /etc/hosts
+        echo "127.0.1.1	$NEW_HOSTNAME" >> /etc/hosts
 
-        # Add entry if it doesn't exist
-        if ! grep -q "127.0.1.1" /etc/hosts; then
-            echo "127.0.1.1	$NEW_HOSTNAME" >> /etc/hosts
+        # Also add localhost entries to be safe
+        if ! grep -q "^127\.0\.0\.1.*localhost" /etc/hosts; then
+            sed -i "1i127.0.0.1	localhost" /etc/hosts
         fi
 
-        show_success "Hostname set to: $NEW_HOSTNAME (MAC: $MAC_ADDR)"
+        show_success "Hostname set to: $NEW_HOSTNAME (MAC: $MAC_ADDR, Interface: $INTERFACE)"
     else
         show_info "Hostname already set to: $NEW_HOSTNAME"
     fi
