@@ -487,30 +487,19 @@ class DigitalSignageClient:
             websocket.enableTrace(True)
             logger.info("WebSocket trace logging ENABLED - all frames will be logged")
 
-            # CRITICAL FIX: Add on_data callback to capture BOTH text and binary frames
-            # on_message may not be called for all frame types - on_data is more reliable
-            def on_data_callback(ws, data, data_type, continue_flag):
-                """Low-level data callback - called for ALL WebSocket frames"""
-                logger.info("=" * 70)
-                logger.info("ON_DATA CALLBACK TRIGGERED")
-                logger.info("=" * 70)
-                logger.info(f"Data Type: {data_type} (1=TEXT, 2=BINARY)")
-                logger.info(f"Data Length: {len(data)} bytes")
-                logger.info(f"Continue Flag: {continue_flag}")
-                logger.info("=" * 70)
+            # CRITICAL FIX: Remove on_data callback - it causes message processing issues
+            # The websocket-client library can handle messages correctly WITHOUT on_data
+            # on_data can cause duplicate processing or skipped messages
+            # Just use on_message which is called for TEXT frames automatically
 
-                # Forward to on_message for processing
-                # This ensures on_message is ALWAYS called
-                self.on_message(ws, data)
-
-            # Create WebSocketApp with on_data callback
+            # Create WebSocketApp WITHOUT on_data callback
             self.ws_app = websocket.WebSocketApp(
                 ws_url,
                 on_open=self.on_open,
                 on_message=self.on_message,
                 on_error=self.on_error,
-                on_close=self.on_close,
-                on_data=on_data_callback  # CRITICAL: Low-level data callback
+                on_close=self.on_close
+                # NO on_data - let websocket-client handle frame processing
             )
 
             # Run WebSocket in a thread

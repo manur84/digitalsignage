@@ -268,16 +268,21 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
     {
         ThrowIfDisposed();
 
-        _logger.LogDebug("SendMessageAsync called: clientId={ClientId}, messageType={MessageType}",
-            clientId, message?.Type ?? "null");
+        _logger.LogWarning("CRITICAL DEBUG: SendMessageAsync called: clientId={ClientId}, messageType={MessageType}, _clients.Count={Count}",
+            clientId, message?.Type ?? "null", _clients.Count);
+        _logger.LogWarning("CRITICAL DEBUG: Looking for client {ClientId} in _clients dictionary: {Exists}",
+            clientId, _clients.ContainsKey(clientId));
 
         if (_clients.TryGetValue(clientId, out var connection))
         {
+            _logger.LogWarning("CRITICAL DEBUG: Found connection for {ClientId}, IsConnected={IsConnected}",
+                clientId, connection.IsConnected);
+
             try
             {
                 if (!connection.IsConnected)
                 {
-                    _logger.LogWarning("Cannot send message to client {ClientId}: connection not open", clientId);
+                    _logger.LogError("CRITICAL ERROR: Cannot send message to client {ClientId}: connection not open!", clientId);
                     throw new InvalidOperationException($"Client {clientId} connection is not open");
                 }
 
@@ -643,10 +648,18 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
                     // RegistrationResponse and Layout messages can be sent successfully
                     if (eventClientId != connection.ConnectionId)
                     {
-                        _logger.LogInformation("Client registering with ID {RegisteredId} (WebSocket connection ID: {ConnectionId})",
+                        _logger.LogWarning("CRITICAL DEBUG: Client registering with ID {RegisteredId} (WebSocket connection ID: {ConnectionId})",
                             eventClientId, connection.ConnectionId);
+                        _logger.LogWarning("CRITICAL DEBUG: Before UpdateClientId - _clients.Count = {Count}", _clients.Count);
                         UpdateClientId(connection.ConnectionId, eventClientId);
-                        _logger.LogDebug("Client ID mapping updated: {OldId} → {NewId}", connection.ConnectionId, eventClientId);
+                        _logger.LogWarning("CRITICAL DEBUG: After UpdateClientId - _clients.Count = {Count}", _clients.Count);
+                        _logger.LogWarning("CRITICAL DEBUG: Verifying client is stored under {ClientId}: {Exists}",
+                            eventClientId, _clients.ContainsKey(eventClientId));
+                    }
+                    else
+                    {
+                        _logger.LogWarning("CRITICAL DEBUG: Client ID equals ConnectionId - NO UpdateClientId needed! ClientId={ClientId}",
+                            eventClientId);
                     }
                 }
 
