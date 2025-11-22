@@ -395,6 +395,14 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
         }
     }
 
+    /// <summary>
+    /// Check if a Pi client is currently connected
+    /// </summary>
+    public bool IsClientConnected(string clientId)
+    {
+        return _clients.ContainsKey(clientId);
+    }
+
     private async Task AcceptClientsAsync(CancellationToken cancellationToken, X509Certificate2 certificate)
     {
         _logger.LogInformation("WSS accept loop started - waiting for client connections...");
@@ -826,40 +834,33 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
             _logger.LogDebug("Handling mobile app message {MessageType} from connection {ConnectionId}",
                 message.Type, connectionId);
 
-            switch (message.Type)
+            // ==================================================================
+            // MOBILE APP MESSAGE HANDLING (New Handler Pattern)
+            // ==================================================================
+
+            // Ensure connection is tracked in MobileAppConnectionManager
+            // This must happen BEFORE handlers are called so they can access the connection
+            var mobileAppManager = _serviceProvider.GetService<MobileAppConnectionManager>();
+            if (mobileAppManager != null && mobileAppManager.GetConnection(connectionId) == null)
             {
-                case MobileAppMessageTypes.AppRegister:
-                    await HandleAppRegisterAsync(connectionId, connection, message as AppRegisterMessage);
-                    break;
+                mobileAppManager.TrackConnection(connectionId, connection);
+            }
 
-                case MobileAppMessageTypes.AppHeartbeat:
-                    await HandleAppHeartbeatAsync(connectionId, connection, message as AppHeartbeatMessage);
-                    break;
+            // Get handler for this message type
+            var handler = _messageHandlerFactory.GetHandler(message.Type);
 
-                case MobileAppMessageTypes.RequestClientList:
-                    await HandleRequestClientListAsync(connectionId, connection, message as RequestClientListMessage);
-                    break;
-
-                case MobileAppMessageTypes.SendCommand:
-                    await HandleSendCommandAsync(connectionId, connection, message as SendCommandMessage);
-                    break;
-
-                case MobileAppMessageTypes.AssignLayout:
-                    await HandleAssignLayoutAsync(connectionId, connection, message as AssignLayoutMessage);
-                    break;
-
-                case MobileAppMessageTypes.RequestScreenshot:
-                    await HandleRequestScreenshotAsync(connectionId, connection, message as RequestScreenshotMessage);
-                    break;
-
-                case MobileAppMessageTypes.RequestLayoutList:
-                    await HandleRequestLayoutListAsync(connectionId, connection, message as RequestLayoutListMessage);
-                    break;
-
-                default:
-                    _logger.LogWarning("Unknown mobile app message type: {MessageType}", message.Type);
-                    await SendErrorAsync(connection, $"Unknown message type: {message.Type}");
-                    break;
+            if (handler != null)
+            {
+                // Call handler directly (NEW: Handler Pattern)
+                _logger.LogDebug("Calling handler {HandlerType} for mobile app message type {MessageType}",
+                    handler.GetType().Name, message.Type);
+                await handler.HandleAsync(message, connectionId, cancellationToken);
+            }
+            else
+            {
+                // No handler found
+                _logger.LogWarning("No handler registered for mobile app message type: {MessageType}", message.Type);
+                await SendErrorAsync(connection, $"Unknown message type: {message.Type}");
             }
         }
         catch (Exception ex)
