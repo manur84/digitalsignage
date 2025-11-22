@@ -415,8 +415,15 @@ class DigitalSignageClient:
             if ws_url.startswith('wss://'):
                 if not self.config.verify_ssl:
                     import ssl
-                    sslopt = {"cert_reqs": ssl.CERT_NONE}
+                    # CRITICAL FIX: Accept self-signed certificates
+                    # cert_reqs=CERT_NONE disables certificate validation
+                    # check_hostname=False disables hostname verification
+                    sslopt = {
+                        "cert_reqs": ssl.CERT_NONE,
+                        "check_hostname": False
+                    }
                     logger.warning("SSL certificate verification disabled (self-signed certificates accepted)")
+                    logger.info("  SSL config: cert_reqs=NONE, check_hostname=False")
 
             # Create WebSocketApp
             self.ws_app = websocket.WebSocketApp(

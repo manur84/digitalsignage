@@ -411,7 +411,37 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
         }
         catch (AuthenticationException ex)
         {
-            _logger.LogError(ex, "SSL authentication failed for {RemoteEndPoint}", tcpClient.Client.RemoteEndPoint);
+            var remoteEndPoint = tcpClient.Client.RemoteEndPoint?.ToString() ?? "Unknown";
+
+            // Check for specific SSL error: UnknownCA means client rejected our self-signed certificate
+            if (ex.Message.Contains("UnknownCA", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogError("===================================================================");
+                _logger.LogError("SSL AUTHENTICATION FAILED: Client rejected self-signed certificate");
+                _logger.LogError("===================================================================");
+                _logger.LogError("Client: {RemoteEndPoint}", remoteEndPoint);
+                _logger.LogError("Error: {Message}", ex.Message);
+                _logger.LogError("");
+                _logger.LogError("SOLUTION:");
+                _logger.LogError("The client must be configured to accept self-signed certificates.");
+                _logger.LogError("");
+                _logger.LogError("For Python Client (Raspberry Pi):");
+                _logger.LogError("  - In client.py, ensure SSL context is configured:");
+                _logger.LogError("    sslopt = {{");
+                _logger.LogError("        \"cert_reqs\": ssl.CERT_NONE,");
+                _logger.LogError("        \"check_hostname\": False");
+                _logger.LogError("    }}");
+                _logger.LogError("");
+                _logger.LogError("For iOS App:");
+                _logger.LogError("  - In WebSocketService.cs, ensure callback is set:");
+                _logger.LogError("    _webSocket.Options.RemoteCertificateValidationCallback =");
+                _logger.LogError("        (sender, cert, chain, errors) => true;");
+                _logger.LogError("===================================================================");
+            }
+            else
+            {
+                _logger.LogError(ex, "SSL authentication failed for {RemoteEndPoint}", remoteEndPoint);
+            }
         }
         catch (Exception ex)
         {
