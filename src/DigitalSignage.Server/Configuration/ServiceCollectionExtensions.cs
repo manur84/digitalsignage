@@ -139,10 +139,8 @@ public static class ServiceCollectionExtensions
         // UI Synchronization
         services.AddSingleton<ISynchronizationContext, WpfSynchronizationContextService>();
 
-        // Media Services
-        services.AddSingleton<ThumbnailService>();
-        services.AddSingleton<EnhancedMediaService>();
-        services.AddSingleton<IMediaService>(sp => sp.GetRequiredService<EnhancedMediaService>());
+        // Media Services - REMOVED (no longer needed, media is embedded as Base64)
+        // Previously: ThumbnailService, EnhancedMediaService, IMediaService
 
         // Infrastructure Services
         services.AddScoped<IAuthenticationService, AuthenticationService>();

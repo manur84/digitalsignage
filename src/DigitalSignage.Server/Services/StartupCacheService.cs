@@ -37,8 +37,7 @@ public class StartupCacheService
             // Run warmup tasks in parallel for faster startup
             await Task.WhenAll(
                 WarmupLayoutCacheAsync(cancellationToken),
-                WarmupClientCacheAsync(cancellationToken),
-                WarmupMediaCacheAsync(cancellationToken)
+                WarmupClientCacheAsync(cancellationToken)
             );
 
             var duration = DateTime.UtcNow - startTime;
@@ -108,33 +107,7 @@ public class StartupCacheService
         }
     }
 
-    /// <summary>
-    /// Warm up media cache by initializing media service
-    /// </summary>
-    private async Task WarmupMediaCacheAsync(CancellationToken cancellationToken)
-    {
-        try
-        {
-            var mediaService = _serviceProvider.GetService<EnhancedMediaService>();
-            if (mediaService != null)
-            {
-                _logger.Debug("Warming up media cache...");
-                // Media service initializes its internal cache on first access
-                // Just trigger initialization by getting media list
-                _ = await Task.Run(() =>
-                {
-                    // EnhancedMediaService loads media on demand, no explicit warmup needed
-                    return Task.FromResult(true);
-                }, cancellationToken);
-
-                _logger.Debug("Media cache warmed up");
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.Warning(ex, "Failed to warm up media cache");
-        }
-    }
+    // Media cache warmup removed - MediaService no longer exists
 
     /// <summary>
     /// Clear all startup caches
