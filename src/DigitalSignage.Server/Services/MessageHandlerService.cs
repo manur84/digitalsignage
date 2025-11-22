@@ -49,6 +49,7 @@ public class MessageHandlerService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        _logger.LogInformation("→ MessageHandlerService.ExecuteAsync BEGIN");
         _logger.LogInformation("Message Handler Service starting...");
 
         // Subscribe to message events
@@ -56,6 +57,8 @@ public class MessageHandlerService : BackgroundService
 
         // Subscribe to disconnect events to immediately mark clients offline
         _communicationService.ClientDisconnected += OnClientDisconnected;
+
+        _logger.LogInformation("← MessageHandlerService.ExecuteAsync SUCCESS, entering wait loop");
 
         // Keep the service running
         try

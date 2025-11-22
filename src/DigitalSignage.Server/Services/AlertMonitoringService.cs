@@ -22,12 +22,13 @@ public class AlertMonitoringService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        _logger.LogInformation("→ AlertMonitoringService.ExecuteAsync BEGIN");
         _logger.LogInformation("Alert Monitoring Service started");
 
         // Wait for database initialization to complete
         _logger.LogInformation("Waiting 15 seconds for database initialization...");
         await Task.Delay(TimeSpan.FromSeconds(15), stoppingToken);
-        _logger.LogInformation("Starting alert monitoring");
+        _logger.LogInformation("← AlertMonitoringService.ExecuteAsync initialization complete, starting monitoring");
 
         while (!stoppingToken.IsCancellationRequested)
         {

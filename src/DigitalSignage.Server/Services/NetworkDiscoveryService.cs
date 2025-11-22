@@ -36,20 +36,38 @@ public class NetworkDiscoveryService : BackgroundService, INetworkDiscoveryServi
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await StartAsync(stoppingToken);
+        _logger.Information("→ NetworkDiscoveryService.ExecuteAsync BEGIN");
 
-        // Keep running until stopped
         try
         {
-            await Task.Delay(Timeout.Infinite, stoppingToken);
+            // Initialize service (non-blocking)
+            await InitializeServiceAsync(stoppingToken);
+
+            _logger.Information("← NetworkDiscoveryService.ExecuteAsync initialization complete, entering wait loop");
+
+            // Keep running until stopped
+            try
+            {
+                await Task.Delay(Timeout.Infinite, stoppingToken);
+            }
+            catch (OperationCanceledException)
+            {
+                // Normal shutdown
+                _logger.Information("NetworkDiscoveryService received cancellation signal");
+            }
         }
-        catch (OperationCanceledException)
+        catch (Exception ex)
         {
-            // Normal shutdown
+            _logger.Error(ex, "✗ NetworkDiscoveryService.ExecuteAsync FAILED");
+            throw;
+        }
+        finally
+        {
+            _logger.Information("NetworkDiscoveryService.ExecuteAsync exiting");
         }
     }
 
-    public new async Task StartAsync(CancellationToken cancellationToken)
+    private async Task InitializeServiceAsync(CancellationToken cancellationToken)
     {
         try
         {
@@ -76,8 +94,12 @@ public class NetworkDiscoveryService : BackgroundService, INetworkDiscoveryServi
                 }
             });
 
-            // Advertise service
-            _serviceDiscovery.Advertise(_serviceProfile);
+            // ✅ FIX: Run blocking Advertise() call on background thread to prevent deadlock
+            await Task.Run(() =>
+            {
+                _serviceDiscovery.Advertise(_serviceProfile);
+                _logger.Information("mDNS service advertised successfully");
+            }, cancellationToken);
 
             _logger.Information(
                 "mDNS service started: {ServiceName} on port {Port}",
@@ -89,9 +111,15 @@ public class NetworkDiscoveryService : BackgroundService, INetworkDiscoveryServi
         catch (Exception ex)
         {
             _logger.Error(ex, "Failed to start mDNS service");
+            // Don't throw - mDNS is non-critical, app should continue
         }
+    }
 
-        await Task.CompletedTask;
+    public new async Task StartAsync(CancellationToken cancellationToken)
+    {
+        _logger.Information("→ NetworkDiscoveryService.StartAsync BEGIN");
+        await base.StartAsync(cancellationToken);
+        _logger.Information("← NetworkDiscoveryService.StartAsync SUCCESS");
     }
 
     public new async Task StopAsync(CancellationToken cancellationToken)

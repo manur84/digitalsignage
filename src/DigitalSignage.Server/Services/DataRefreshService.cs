@@ -32,12 +32,13 @@ public class DataRefreshService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        _logger.LogInformation("→ DataRefreshService.ExecuteAsync BEGIN");
         _logger.LogInformation("DataRefreshService started");
 
         // Wait for database initialization to complete
         _logger.LogInformation("Waiting 15 seconds for database initialization...");
         await Task.Delay(TimeSpan.FromSeconds(15), stoppingToken);
-        _logger.LogInformation("Starting data refresh monitoring");
+        _logger.LogInformation("← DataRefreshService.ExecuteAsync initialization complete, starting monitoring");
 
         // Main loop to check for clients that need data refresh
         while (!stoppingToken.IsCancellationRequested)

@@ -28,6 +28,8 @@ public class DatabaseInitializationService : IHostedService
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
+        _logger.Information("→ DatabaseInitializationService.StartAsync BEGIN");
+
         // NOTE: Database migrations are now applied SYNCHRONOUSLY in App.xaml.cs constructor
         // This service only handles SEED DATA after the application has started
 
@@ -57,10 +59,12 @@ public class DatabaseInitializationService : IHostedService
             _logger.Information("==========================================================");
             _logger.Information("SEED DATA COMPLETED SUCCESSFULLY");
             _logger.Information("==========================================================");
+
+            _logger.Information("← DatabaseInitializationService.StartAsync SUCCESS");
         }
         catch (Exception ex)
         {
-            _logger.Error(ex, "Failed to seed default data");
+            _logger.Error(ex, "✗ DatabaseInitializationService.StartAsync FAILED (non-critical)");
             _logger.Warning("Application will continue, but default data may be missing");
             // Don't throw - seed data failure should not crash the app
         }

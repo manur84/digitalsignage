@@ -25,13 +25,14 @@ public class HeartbeatMonitoringService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        _logger.LogInformation("→ HeartbeatMonitoringService.ExecuteAsync BEGIN");
         _logger.LogInformation("Heartbeat Monitoring Service starting with {Interval}s check interval and {Timeout}s timeout",
             _checkInterval.TotalSeconds, _heartbeatTimeout.TotalSeconds);
 
         // Wait for database initialization to complete
         _logger.LogInformation("Waiting 15 seconds for database initialization...");
         await Task.Delay(TimeSpan.FromSeconds(15), stoppingToken);
-        _logger.LogInformation("Starting heartbeat monitoring");
+        _logger.LogInformation("← HeartbeatMonitoringService.ExecuteAsync initialization complete, starting monitoring");
 
         while (!stoppingToken.IsCancellationRequested)
         {

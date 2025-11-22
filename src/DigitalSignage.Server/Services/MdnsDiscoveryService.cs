@@ -38,6 +38,7 @@ public class MdnsDiscoveryService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        _logger.LogInformation("→ MdnsDiscoveryService.ExecuteAsync BEGIN");
         _logger.LogInformation("=" + new string('=', 69));
         _logger.LogInformation("MDNS DISCOVERY SERVICE STARTING");
         _logger.LogInformation("=" + new string('=', 69));
@@ -120,6 +121,7 @@ public class MdnsDiscoveryService : BackgroundService
                 string.Join(", ", localIPs.Select(ip => ip.ToString())));
             _logger.LogInformation("Clients can now discover this server via mDNS/Zeroconf");
             _logger.LogInformation("=" + new string('=', 69));
+            _logger.LogInformation("← MdnsDiscoveryService.ExecuteAsync SUCCESS");
 
             // Keep the service running until cancellation
             await Task.Delay(Timeout.Infinite, stoppingToken);

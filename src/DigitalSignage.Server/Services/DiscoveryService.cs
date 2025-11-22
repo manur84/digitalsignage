@@ -37,6 +37,7 @@ public class DiscoveryService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        _logger.LogInformation("→ DiscoveryService.ExecuteAsync BEGIN");
         _logger.LogInformation("=" + new string('=', 69));
         _logger.LogInformation("UDP DISCOVERY SERVICE STARTING");
         _logger.LogInformation("=" + new string('=', 69));
@@ -53,7 +54,7 @@ public class DiscoveryService : BackgroundService
 
             _udpListener.EnableBroadcast = true;
             _logger.LogInformation("Broadcast enabled: True");
-            _logger.LogInformation("Waiting for discovery requests from clients...");
+            _logger.LogInformation("← DiscoveryService.ExecuteAsync SUCCESS, waiting for discovery requests...");
 
             while (!stoppingToken.IsCancellationRequested)
             {
