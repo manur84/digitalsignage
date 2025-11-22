@@ -78,6 +78,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<DeviceManagementViewModel>();
         services.AddSingleton<DiscoveredDevicesViewModel>();
 
+        // Mobile App Management
+        services.AddSingleton<MobileAppManagementViewModel>();
+
         // Layout & Content
         services.AddSingleton<LayoutManagerViewModel>();
         services.AddTransient<PreviewViewModel>();

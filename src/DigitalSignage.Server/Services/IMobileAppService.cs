@@ -25,10 +25,10 @@ public interface IMobileAppService
     /// Approve a pending registration
     /// </summary>
     /// <param name="appId">Registration ID</param>
-    /// <param name="permissions">Granted permissions</param>
     /// <param name="authorizedBy">Admin username</param>
+    /// <param name="permissions">Granted permissions</param>
     /// <returns>Authorization token</returns>
-    Task<Result<string>> ApproveAppAsync(Guid appId, AppPermission permissions, string authorizedBy);
+    Task<Result<string>> ApproveAppAsync(Guid appId, string authorizedBy, AppPermission permissions);
 
     /// <summary>
     /// Reject a pending registration

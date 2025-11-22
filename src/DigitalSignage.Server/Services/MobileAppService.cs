@@ -117,8 +117,8 @@ public class MobileAppService : IMobileAppService
 
     public async Task<Result<string>> ApproveAppAsync(
         Guid appId,
-        AppPermission permissions,
-        string authorizedBy)
+        string authorizedBy,
+        AppPermission permissions)
     {
         try
         {

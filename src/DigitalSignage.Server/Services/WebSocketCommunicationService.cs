@@ -3,6 +3,7 @@ using DigitalSignage.Core.Models;
 using DigitalSignage.Server.Configuration;
 using DigitalSignage.Server.Helpers;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
 using System.Collections.Concurrent;
 using System.Linq;
 using System.Net;
@@ -14,9 +15,16 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
 {
     private readonly ConcurrentDictionary<string, WebSocket> _clients = new();
     private readonly ConcurrentDictionary<string, Task> _clientHandlerTasks = new();
+
+    // Mobile App Connections (separate from Pi clients)
+    private readonly ConcurrentDictionary<string, WebSocket> _mobileAppConnections = new();
+    private readonly ConcurrentDictionary<string, Guid> _mobileAppIds = new(); // Maps connection ID to app ID
+    private readonly ConcurrentDictionary<string, string> _mobileAppTokens = new(); // Maps connection ID to token
+
     private readonly ILogger<WebSocketCommunicationService> _logger;
     private readonly WebSocketMessageSerializer _messageSerializer;
     private readonly ServerSettings _settings;
+    private readonly IServiceProvider _serviceProvider; // For scoped service access
     private HttpListener? _httpListener;
     private CancellationTokenSource? _cancellationTokenSource;
     private Task? _acceptClientsTask;
@@ -25,16 +33,19 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
     public WebSocketCommunicationService(
         ILogger<WebSocketCommunicationService> logger,
         ILogger<WebSocketMessageSerializer> serializerLogger,
-        ServerSettings settings)
+        ServerSettings settings,
+        IServiceProvider serviceProvider)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+        _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
         _messageSerializer = new WebSocketMessageSerializer(serializerLogger, enableCompression: true);
     }
 
     public event EventHandler<MessageReceivedEventArgs>? MessageReceived;
     public event EventHandler<ClientConnectedEventArgs>? ClientConnected;
     public event EventHandler<ClientDisconnectedEventArgs>? ClientDisconnected;
+    public event EventHandler<MobileAppRegistration>? OnNewAppRegistration;
 
     public async Task StartAsync(CancellationToken cancellationToken = default)
     {
@@ -430,27 +441,35 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
 
                     if (message != null)
                     {
-                        // For REGISTER messages, use the ClientId from the message for the event
-                        var eventClientId = clientId;
-                        if (message is RegisterMessage registerMsg && !string.IsNullOrWhiteSpace(registerMsg.ClientId))
+                        // Check if this is a mobile app message (has mobile app message type)
+                        if (IsMobileAppMessage(message))
                         {
-                            eventClientId = registerMsg.ClientId;
-
-                            // Update the WebSocket client mapping if the client ID is different
-                            if (eventClientId != clientId)
-                            {
-                                _logger.LogInformation("Client registering with ID {RegisteredId} (WebSocket connection ID: {ConnectionId})",
-                                    eventClientId, clientId);
-                                UpdateClientId(clientId, eventClientId);
-                                clientId = eventClientId; // Use the registered ID for the rest of the connection
-                            }
+                            await HandleMobileAppMessageAsync(clientId, socket, message, cancellationToken);
                         }
-
-                        MessageReceived?.Invoke(this, new MessageReceivedEventArgs
+                        else
                         {
-                            ClientId = eventClientId,
-                            Message = message
-                        });
+                            // For REGISTER messages, use the ClientId from the message for the event
+                            var eventClientId = clientId;
+                            if (message is RegisterMessage registerMsg && !string.IsNullOrWhiteSpace(registerMsg.ClientId))
+                            {
+                                eventClientId = registerMsg.ClientId;
+
+                                // Update the WebSocket client mapping if the client ID is different
+                                if (eventClientId != clientId)
+                                {
+                                    _logger.LogInformation("Client registering with ID {RegisteredId} (WebSocket connection ID: {ConnectionId})",
+                                        eventClientId, clientId);
+                                    UpdateClientId(clientId, eventClientId);
+                                    clientId = eventClientId; // Use the registered ID for the rest of the connection
+                                }
+                            }
+
+                            MessageReceived?.Invoke(this, new MessageReceivedEventArgs
+                            {
+                                ClientId = eventClientId,
+                                Message = message
+                            });
+                        }
                     }
                 }
                 catch (WebSocketException ex) when (ex.WebSocketErrorCode == WebSocketError.ConnectionClosedPrematurely)
@@ -487,7 +506,18 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
         {
             _clients.TryRemove(clientId, out _);
             _clientHandlerTasks.TryRemove(clientId, out _);
-            _logger.LogInformation("Client {ClientId} disconnected", clientId);
+
+            // Clean up mobile app connection if applicable
+            if (_mobileAppConnections.TryRemove(clientId, out _))
+            {
+                _mobileAppIds.TryRemove(clientId, out _);
+                _mobileAppTokens.TryRemove(clientId, out _);
+                _logger.LogInformation("Mobile app {ClientId} disconnected", clientId);
+            }
+            else
+            {
+                _logger.LogInformation("Client {ClientId} disconnected", clientId);
+            }
 
             ClientDisconnected?.Invoke(this, new ClientDisconnectedEventArgs
             {
@@ -503,6 +533,589 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
                     CancellationToken.None);
             }
             socket.Dispose();
+        }
+    }
+
+    // ============================================
+    // MOBILE APP MESSAGE HANDLING
+    // ============================================
+
+    /// <summary>
+    /// Check if a message is from a mobile app (based on message type)
+    /// </summary>
+    private static bool IsMobileAppMessage(Message message)
+    {
+        return message.Type switch
+        {
+            MobileAppMessageTypes.AppRegister => true,
+            MobileAppMessageTypes.AppHeartbeat => true,
+            MobileAppMessageTypes.RequestClientList => true,
+            MobileAppMessageTypes.SendCommand => true,
+            MobileAppMessageTypes.AssignLayout => true,
+            MobileAppMessageTypes.RequestScreenshot => true,
+            MobileAppMessageTypes.RequestLayoutList => true,
+            _ => false
+        };
+    }
+
+    /// <summary>
+    /// Route mobile app messages to appropriate handler
+    /// </summary>
+    private async Task HandleMobileAppMessageAsync(
+        string connectionId,
+        WebSocket socket,
+        Message message,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            _logger.LogDebug("Handling mobile app message {MessageType} from connection {ConnectionId}",
+                message.Type, connectionId);
+
+            switch (message.Type)
+            {
+                case MobileAppMessageTypes.AppRegister:
+                    await HandleAppRegisterAsync(connectionId, socket, message as AppRegisterMessage);
+                    break;
+
+                case MobileAppMessageTypes.AppHeartbeat:
+                    await HandleAppHeartbeatAsync(connectionId, socket, message as AppHeartbeatMessage);
+                    break;
+
+                case MobileAppMessageTypes.RequestClientList:
+                    await HandleRequestClientListAsync(connectionId, socket, message as RequestClientListMessage);
+                    break;
+
+                case MobileAppMessageTypes.SendCommand:
+                    await HandleSendCommandAsync(connectionId, socket, message as SendCommandMessage);
+                    break;
+
+                case MobileAppMessageTypes.AssignLayout:
+                    await HandleAssignLayoutAsync(connectionId, socket, message as AssignLayoutMessage);
+                    break;
+
+                case MobileAppMessageTypes.RequestScreenshot:
+                    await HandleRequestScreenshotAsync(connectionId, socket, message as RequestScreenshotMessage);
+                    break;
+
+                case MobileAppMessageTypes.RequestLayoutList:
+                    await HandleRequestLayoutListAsync(connectionId, socket, message as RequestLayoutListMessage);
+                    break;
+
+                default:
+                    _logger.LogWarning("Unknown mobile app message type: {MessageType}", message.Type);
+                    await SendErrorAsync(socket, $"Unknown message type: {message.Type}");
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error handling mobile app message {MessageType}", message.Type);
+            await SendErrorAsync(socket, "Internal server error");
+        }
+    }
+
+    /// <summary>
+    /// Handle mobile app registration
+    /// </summary>
+    private async Task HandleAppRegisterAsync(string connectionId, WebSocket socket, AppRegisterMessage? message)
+    {
+        if (message == null)
+        {
+            await SendErrorAsync(socket, "Invalid registration message");
+            return;
+        }
+
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var mobileAppService = scope.ServiceProvider.GetRequiredService<IMobileAppService>();
+
+            var result = await mobileAppService.RegisterAppAsync(
+                message.DeviceName,
+                message.DeviceIdentifier,
+                message.AppVersion,
+                message.Platform);
+
+            if (result.IsSuccess)
+            {
+                var registration = result.Value;
+
+                // Track mobile app connection
+                _mobileAppConnections[connectionId] = socket;
+                _mobileAppIds[connectionId] = registration.Id;
+
+                // Fire event for new registration
+                OnNewAppRegistration?.Invoke(this, registration);
+
+                // If already approved, send token immediately
+                if (registration.Status == AppRegistrationStatus.Approved && !string.IsNullOrEmpty(registration.Token))
+                {
+                    _mobileAppTokens[connectionId] = registration.Token;
+
+                    await SendMessageAsync(socket, new AppAuthorizedMessage
+                    {
+                        Token = registration.Token,
+                        Permissions = registration.Permissions.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList(),
+                        ExpiresAt = DateTime.UtcNow.AddYears(1) // Token valid for 1 year
+                    });
+
+                    _logger.LogInformation("Mobile app {DeviceName} reconnected with existing authorization", message.DeviceName);
+                }
+                else
+                {
+                    // Send authorization required message
+                    await SendMessageAsync(socket, new AppAuthorizationRequiredMessage
+                    {
+                        AppId = registration.Id,
+                        Status = "pending",
+                        Message = "Registration pending. Waiting for admin approval."
+                    });
+
+                    _logger.LogInformation("New mobile app registration: {DeviceName} ({Platform})", message.DeviceName, message.Platform);
+                }
+            }
+            else
+            {
+                await SendErrorAsync(socket, result.ErrorMessage ?? "Registration failed");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during mobile app registration");
+            await SendErrorAsync(socket, "Registration failed");
+        }
+    }
+
+    /// <summary>
+    /// Handle mobile app heartbeat
+    /// </summary>
+    private async Task HandleAppHeartbeatAsync(string connectionId, WebSocket socket, AppHeartbeatMessage? message)
+    {
+        if (message == null) return;
+
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var mobileAppService = scope.ServiceProvider.GetRequiredService<IMobileAppService>();
+
+            await mobileAppService.UpdateLastSeenAsync(message.Token);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error handling app heartbeat");
+        }
+    }
+
+    /// <summary>
+    /// Handle request for client list
+    /// </summary>
+    private async Task HandleRequestClientListAsync(string connectionId, WebSocket socket, RequestClientListMessage? message)
+    {
+        if (message == null)
+        {
+            await SendErrorAsync(socket, "Invalid request");
+            return;
+        }
+
+        // Validate token
+        if (!_mobileAppTokens.TryGetValue(connectionId, out var token))
+        {
+            await SendErrorAsync(socket, "Not authenticated");
+            return;
+        }
+
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var mobileAppService = scope.ServiceProvider.GetRequiredService<IMobileAppService>();
+            var clientService = scope.ServiceProvider.GetRequiredService<IClientService>();
+
+            // Validate token and check permissions
+            var registration = await mobileAppService.ValidateTokenAsync(token);
+            if (registration == null)
+            {
+                await SendErrorAsync(socket, "Unauthorized");
+                return;
+            }
+
+            if (!await mobileAppService.HasPermissionAsync(token, AppPermission.View))
+            {
+                await SendErrorAsync(socket, "Insufficient permissions");
+                return;
+            }
+
+            // Get all clients
+            var clientsResult = await clientService.GetAllClientsAsync();
+            if (!clientsResult.IsSuccess)
+            {
+                await SendErrorAsync(socket, "Failed to retrieve client list");
+                return;
+            }
+
+            var clients = clientsResult.Value;
+
+            // Filter by status if requested
+            if (!string.IsNullOrEmpty(message.Filter))
+            {
+                clients = message.Filter.ToLowerInvariant() switch
+                {
+                    "online" => clients.Where(c => c.Status == ClientStatus.Online).ToList(),
+                    "offline" => clients.Where(c => c.Status == ClientStatus.Offline).ToList(),
+                    _ => clients
+                };
+            }
+
+            // Map to ClientInfo DTOs
+            var clientInfos = clients.Select(c => new ClientInfo
+            {
+                Id = Guid.TryParse(c.Id, out var guid) ? guid : Guid.Empty,
+                Name = c.Name ?? c.IpAddress ?? "Unknown",
+                IpAddress = c.IpAddress,
+                Status = c.Status.ToString(),
+                Resolution = c.DeviceInfo != null ? $"{c.DeviceInfo.ScreenWidth}x{c.DeviceInfo.ScreenHeight}" : null,
+                DeviceInfo = c.DeviceInfo != null ? new DeviceInfoData
+                {
+                    CpuUsage = c.DeviceInfo.CpuUsage,
+                    MemoryUsage = c.DeviceInfo.MemoryUsed,
+                    Temperature = c.DeviceInfo.CpuTemperature,
+                    DiskUsage = c.DeviceInfo.DiskUsed,
+                    OsVersion = c.DeviceInfo.OsVersion,
+                    AppVersion = c.DeviceInfo.ClientVersion
+                } : null,
+                LastSeen = c.LastSeen,
+                AssignedLayoutId = c.AssignedLayoutId,
+                Location = c.Location,
+                Group = c.Group
+            }).ToList();
+
+            await SendMessageAsync(socket, new ClientListUpdateMessage
+            {
+                Clients = clientInfos
+            });
+
+            _logger.LogDebug("Sent client list to mobile app ({Count} clients)", clientInfos.Count);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error handling client list request");
+            await SendErrorAsync(socket, "Failed to retrieve client list");
+        }
+    }
+
+    /// <summary>
+    /// Handle send command to device
+    /// </summary>
+    private async Task HandleSendCommandAsync(string connectionId, WebSocket socket, SendCommandMessage? message)
+    {
+        if (message == null)
+        {
+            await SendErrorAsync(socket, "Invalid command message");
+            return;
+        }
+
+        // Validate token
+        if (!_mobileAppTokens.TryGetValue(connectionId, out var token))
+        {
+            await SendErrorAsync(socket, "Not authenticated");
+            return;
+        }
+
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var mobileAppService = scope.ServiceProvider.GetRequiredService<IMobileAppService>();
+
+            // Validate token and check Control permission
+            var registration = await mobileAppService.ValidateTokenAsync(token);
+            if (registration == null || !await mobileAppService.HasPermissionAsync(token, AppPermission.Control))
+            {
+                await SendErrorAsync(socket, "Unauthorized");
+                return;
+            }
+
+            // Find target device WebSocket
+            var targetClientId = message.TargetDeviceId.ToString();
+            if (!_clients.TryGetValue(targetClientId, out var targetSocket))
+            {
+                await SendErrorAsync(socket, "Device not connected");
+                return;
+            }
+
+            // Forward command to Pi client
+            var commandMessage = new CommandMessage
+            {
+                Command = message.Command,
+                Parameters = message.Parameters
+            };
+
+            await SendMessageAsync(targetSocket, commandMessage);
+
+            // Acknowledge to mobile app
+            await SendMessageAsync(socket, new CommandResultMessage
+            {
+                DeviceId = message.TargetDeviceId,
+                Command = message.Command,
+                Success = true
+            });
+
+            _logger.LogInformation("Mobile app sent command {Command} to device {DeviceId}",
+                message.Command, message.TargetDeviceId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error handling send command");
+            await SendErrorAsync(socket, "Failed to send command");
+        }
+    }
+
+    /// <summary>
+    /// Handle assign layout to device
+    /// </summary>
+    private async Task HandleAssignLayoutAsync(string connectionId, WebSocket socket, AssignLayoutMessage? message)
+    {
+        if (message == null)
+        {
+            await SendErrorAsync(socket, "Invalid assign layout message");
+            return;
+        }
+
+        // Validate token
+        if (!_mobileAppTokens.TryGetValue(connectionId, out var token))
+        {
+            await SendErrorAsync(socket, "Not authenticated");
+            return;
+        }
+
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var mobileAppService = scope.ServiceProvider.GetRequiredService<IMobileAppService>();
+            var clientService = scope.ServiceProvider.GetRequiredService<IClientService>();
+
+            // Validate token and check Manage permission
+            var registration = await mobileAppService.ValidateTokenAsync(token);
+            if (registration == null || !await mobileAppService.HasPermissionAsync(token, AppPermission.Manage))
+            {
+                await SendErrorAsync(socket, "Unauthorized");
+                return;
+            }
+
+            // Assign layout to device
+            var result = await clientService.AssignLayoutAsync(message.DeviceId.ToString(), message.LayoutId);
+            if (result.IsSuccess)
+            {
+                await SendMessageAsync(socket, new CommandResultMessage
+                {
+                    DeviceId = message.DeviceId,
+                    Command = "AssignLayout",
+                    Success = true
+                });
+
+                _logger.LogInformation("Mobile app assigned layout {LayoutId} to device {DeviceId}",
+                    message.LayoutId, message.DeviceId);
+            }
+            else
+            {
+                await SendErrorAsync(socket, result.ErrorMessage ?? "Failed to assign layout");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error handling assign layout");
+            await SendErrorAsync(socket, "Failed to assign layout");
+        }
+    }
+
+    /// <summary>
+    /// Handle request screenshot from device
+    /// </summary>
+    private async Task HandleRequestScreenshotAsync(string connectionId, WebSocket socket, RequestScreenshotMessage? message)
+    {
+        if (message == null)
+        {
+            await SendErrorAsync(socket, "Invalid screenshot request");
+            return;
+        }
+
+        // Validate token
+        if (!_mobileAppTokens.TryGetValue(connectionId, out var token))
+        {
+            await SendErrorAsync(socket, "Not authenticated");
+            return;
+        }
+
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var mobileAppService = scope.ServiceProvider.GetRequiredService<IMobileAppService>();
+
+            // Validate token and check View permission
+            var registration = await mobileAppService.ValidateTokenAsync(token);
+            if (registration == null || !await mobileAppService.HasPermissionAsync(token, AppPermission.View))
+            {
+                await SendErrorAsync(socket, "Unauthorized");
+                return;
+            }
+
+            // Find target device WebSocket
+            var targetClientId = message.DeviceId.ToString();
+            if (!_clients.TryGetValue(targetClientId, out var targetSocket))
+            {
+                await SendErrorAsync(socket, "Device not connected");
+                return;
+            }
+
+            // Request screenshot from Pi client
+            // Create a simple command message to request screenshot
+            var screenshotMessage = new CommandMessage
+            {
+                Command = "Screenshot"
+            };
+
+            await SendMessageAsync(targetSocket, screenshotMessage);
+
+            _logger.LogInformation("Mobile app requested screenshot from device {DeviceId}", message.DeviceId);
+
+            // Note: The screenshot response will be received separately and needs to be
+            // forwarded to the mobile app - this would require maintaining a mapping
+            // of screenshot requests to mobile app connections
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error handling screenshot request");
+            await SendErrorAsync(socket, "Failed to request screenshot");
+        }
+    }
+
+    /// <summary>
+    /// Handle request for layout list
+    /// </summary>
+    private async Task HandleRequestLayoutListAsync(string connectionId, WebSocket socket, RequestLayoutListMessage? message)
+    {
+        if (message == null)
+        {
+            await SendErrorAsync(socket, "Invalid layout list request");
+            return;
+        }
+
+        // Validate token
+        if (!_mobileAppTokens.TryGetValue(connectionId, out var token))
+        {
+            await SendErrorAsync(socket, "Not authenticated");
+            return;
+        }
+
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var mobileAppService = scope.ServiceProvider.GetRequiredService<IMobileAppService>();
+            var layoutService = scope.ServiceProvider.GetRequiredService<ILayoutService>();
+
+            // Validate token and check View permission
+            var registration = await mobileAppService.ValidateTokenAsync(token);
+            if (registration == null || !await mobileAppService.HasPermissionAsync(token, AppPermission.View))
+            {
+                await SendErrorAsync(socket, "Unauthorized");
+                return;
+            }
+
+            // Get all layouts
+            var layoutsResult = await layoutService.GetAllLayoutsAsync();
+            if (layoutsResult == null || !layoutsResult.IsSuccess || layoutsResult.Value == null || !layoutsResult.Value.Any())
+            {
+                await SendErrorAsync(socket, "No layouts found");
+                return;
+            }
+
+            // Map to LayoutInfo DTOs
+            var layoutInfos = layoutsResult.Value.Select(l => new LayoutInfo
+            {
+                Id = l.Id ?? string.Empty,
+                Name = l.Name ?? "Unnamed Layout",
+                Description = l.Description,
+                Category = l.Category,
+                Created = l.Created,
+                Modified = l.Modified,
+                Width = l.Resolution?.Width ?? 1920,
+                Height = l.Resolution?.Height ?? 1080
+            }).ToList();
+
+            await SendMessageAsync(socket, new LayoutListResponseMessage
+            {
+                Layouts = layoutInfos
+            });
+
+            _logger.LogDebug("Sent layout list to mobile app ({Count} layouts)", layoutInfos.Count);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error handling layout list request");
+            await SendErrorAsync(socket, "Failed to retrieve layout list");
+        }
+    }
+
+    /// <summary>
+    /// Send error message to WebSocket
+    /// </summary>
+    private async Task SendErrorAsync(WebSocket socket, string errorMessage)
+    {
+        try
+        {
+            // Create a CommandResultMessage to send error
+            var errorMsg = new CommandResultMessage
+            {
+                Success = false,
+                ErrorMessage = errorMessage
+            };
+
+            await _messageSerializer.SendMessageAsync(socket, "error", errorMsg, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to send error message to WebSocket");
+        }
+    }
+
+    /// <summary>
+    /// Send message directly to a WebSocket
+    /// </summary>
+    private async Task SendMessageAsync(WebSocket socket, Message message)
+    {
+        try
+        {
+            await _messageSerializer.SendMessageAsync(socket, "mobile-app", message, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send message to WebSocket");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Notify all connected mobile apps of client status change
+    /// </summary>
+    public async Task NotifyMobileAppsClientStatusChangedAsync(Guid deviceId, string status)
+    {
+        var statusMessage = new ClientStatusChangedMessage
+        {
+            DeviceId = deviceId,
+            Status = status,
+            Timestamp = DateTime.UtcNow
+        };
+
+        var tasks = _mobileAppConnections.Values.Select(socket =>
+            SendMessageAsync(socket, statusMessage));
+
+        try
+        {
+            await Task.WhenAll(tasks);
+            _logger.LogDebug("Notified {Count} mobile apps of client status change", _mobileAppConnections.Count);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error notifying mobile apps of client status change");
         }
     }
 

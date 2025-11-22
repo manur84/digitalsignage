@@ -30,6 +30,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     // Existing Sub-ViewModels
     public DeviceManagementViewModel DeviceManagement { get; }
+    public MobileAppManagementViewModel MobileAppManagement { get; }
     public PreviewViewModel PreviewViewModel { get; }
     public SchedulingViewModel SchedulingViewModel { get; }
     public LogViewerViewModel LogViewerViewModel { get; }
@@ -45,6 +46,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         ServerManagementViewModel serverManagementViewModel,
         DiagnosticsViewModel diagnosticsViewModel,
         DeviceManagementViewModel deviceManagementViewModel,
+        MobileAppManagementViewModel mobileAppManagementViewModel,
         LayoutManagerViewModel layoutManagerViewModel,
         PreviewViewModel previewViewModel,
         SchedulingViewModel schedulingViewModel,
@@ -65,6 +67,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
         // Existing Sub-ViewModels
         DeviceManagement = deviceManagementViewModel ?? throw new ArgumentNullException(nameof(deviceManagementViewModel));
+        MobileAppManagement = mobileAppManagementViewModel ?? throw new ArgumentNullException(nameof(mobileAppManagementViewModel));
         LayoutManager = layoutManagerViewModel ?? throw new ArgumentNullException(nameof(layoutManagerViewModel));
         PreviewViewModel = previewViewModel ?? throw new ArgumentNullException(nameof(previewViewModel));
         SchedulingViewModel = schedulingViewModel ?? throw new ArgumentNullException(nameof(schedulingViewModel));

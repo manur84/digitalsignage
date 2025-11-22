@@ -4,6 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:DigitalSignage.Server.Converters"
+        xmlns:views="clr-namespace:DigitalSignage.Server.Views"
         xmlns:devicemgmt="clr-namespace:DigitalSignage.Server.Views.DeviceManagement"
         xmlns:scheduling="clr-namespace:DigitalSignage.Server.Views.Scheduling"
         xmlns:preview="clr-namespace:DigitalSignage.Server.Views.Preview"
@@ -108,6 +109,11 @@
             <!-- Scheduling Tab -->
             <TabItem Header="Scheduling">
                 <scheduling:SchedulingTabControl DataContext="{Binding}"/>
+            </TabItem>
+
+            <!-- Mobile Apps Tab -->
+            <TabItem Header="Mobile Apps">
+                <views:MobileAppManagementView DataContext="{Binding MobileAppManagement}"/>
             </TabItem>
 
             <!-- Preview Tab -->
