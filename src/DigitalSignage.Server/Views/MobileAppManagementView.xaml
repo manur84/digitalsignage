@@ -262,28 +262,36 @@
 
                 <!-- Actions -->
                 <StackPanel Grid.Row="3" Orientation="Horizontal">
-                    <Button Content="✓ Approve"
+                    <Button Content="✓ APPROVE"
                             Command="{Binding ApproveCommand}"
-                            Background="#4CAF50"
+                            Background="#0078D4"
                             Foreground="White"
+                            FontWeight="Bold"
+                            FontSize="14"
                             Style="{StaticResource ActionButton}"/>
 
-                    <Button Content="✗ Reject"
+                    <Button Content="✗ REJECT"
                             Command="{Binding RejectCommand}"
-                            Background="#F44336"
+                            Background="#D13438"
                             Foreground="White"
+                            FontWeight="Bold"
+                            FontSize="14"
                             Style="{StaticResource ActionButton}"/>
 
-                    <Button Content="⊘ Revoke"
+                    <Button Content="⊘ REVOKE"
                             Command="{Binding RevokeCommand}"
-                            Background="#FF9800"
+                            Background="#CA5010"
                             Foreground="White"
+                            FontWeight="Bold"
+                            FontSize="14"
                             Style="{StaticResource ActionButton}"/>
 
-                    <Button Content="🗑 Delete"
+                    <Button Content="🗑 DELETE"
                             Command="{Binding DeleteCommand}"
-                            Background="#9E9E9E"
+                            Background="#424242"
                             Foreground="White"
+                            FontWeight="Bold"
+                            FontSize="14"
                             Style="{StaticResource ActionButton}"/>
                 </StackPanel>
             </Grid>
