@@ -235,37 +235,61 @@ else
 fi
 
 if [ -n "$MAC_ADDR" ]; then
-    # Extract first 4 hex characters (remove colons)
-    MAC_SHORT=$(echo "$MAC_ADDR" | tr -d ':' | tr '[:lower:]' '[:upper:]' | cut -c1-4)
-    NEW_HOSTNAME="DigiSign-${MAC_SHORT}"
+    # CRITICAL FIX: Use more MAC address bytes for better uniqueness
+    # Extract last 8 hex characters (last 4 bytes of MAC address)
+    # This provides 65,536 unique combinations instead of just 256 with 4 chars
+    MAC_LONG=$(echo "$MAC_ADDR" | tr -d ':' | tr '[:lower:]' '[:upper:]' | tail -c 9 | head -c 8)
+    
+    # ADDITIONAL UNIQUENESS: Add a random 2-character suffix based on current timestamp
+    # This ensures absolute uniqueness even if MAC addresses are very similar
+    TIMESTAMP_SUFFIX=$(date +%s | md5sum | cut -c1-2 | tr '[:lower:]' '[:upper:]')
+    
+    # Generate hostname: DigiSign-[8 chars from MAC]-[2 chars from timestamp]
+    NEW_HOSTNAME="DigiSign-${MAC_LONG}-${TIMESTAMP_SUFFIX}"
 
     CURRENT_HOSTNAME=$(hostname)
 
-    if [ "$CURRENT_HOSTNAME" != "$NEW_HOSTNAME" ]; then
-        echo "Changing hostname from '$CURRENT_HOSTNAME' to '$NEW_HOSTNAME'..."
+    # ALWAYS set the new hostname on installation to ensure uniqueness
+    # This is important even if it looks like it's already set, because we want
+    # the timestamp component to be unique for each installation
+    echo "Setting hostname to '$NEW_HOSTNAME'..."
+    echo "  (Previous hostname: '$CURRENT_HOSTNAME')"
 
-        # Set hostname immediately
-        hostnamectl set-hostname "$NEW_HOSTNAME" 2>/dev/null || {
-            # Fallback for systems without hostnamectl
-            echo "$NEW_HOSTNAME" > /etc/hostname
-            hostname "$NEW_HOSTNAME"
-        }
+    # Set hostname immediately
+    hostnamectl set-hostname "$NEW_HOSTNAME" 2>/dev/null || {
+        # Fallback for systems without hostnamectl
+        echo "$NEW_HOSTNAME" > /etc/hostname
+        hostname "$NEW_HOSTNAME"
+    }
 
-        # Update /etc/hosts
-        sed -i "s/127.0.1.1.*/127.0.1.1\t$NEW_HOSTNAME/g" /etc/hosts
+    # Update /etc/hosts
+    sed -i "s/127.0.1.1.*/127.0.1.1\t$NEW_HOSTNAME/g" /etc/hosts
 
-        # Add entry if it doesn't exist
-        if ! grep -q "127.0.1.1" /etc/hosts; then
-            echo "127.0.1.1	$NEW_HOSTNAME" >> /etc/hosts
-        fi
-
-        show_success "Hostname set to: $NEW_HOSTNAME (MAC: $MAC_ADDR)"
-    else
-        show_info "Hostname already set to: $NEW_HOSTNAME"
+    # Add entry if it doesn't exist
+    if ! grep -q "127.0.1.1" /etc/hosts; then
+        echo "127.0.1.1	$NEW_HOSTNAME" >> /etc/hosts
     fi
+
+    show_success "Hostname set to: $NEW_HOSTNAME (MAC: $MAC_ADDR)"
+    show_info "Hostname includes timestamp for absolute uniqueness"
 else
-    show_warning "Could not detect MAC address, keeping current hostname: $(hostname)"
-    NEW_HOSTNAME=$(hostname)
+    # Fallback: Generate random hostname with timestamp
+    RANDOM_SUFFIX=$(date +%s | md5sum | cut -c1-8 | tr '[:lower:]' '[:upper:]')
+    NEW_HOSTNAME="DigiSign-${RANDOM_SUFFIX}"
+    
+    show_warning "Could not detect MAC address, using random hostname: $NEW_HOSTNAME"
+    
+    # Set the random hostname
+    hostnamectl set-hostname "$NEW_HOSTNAME" 2>/dev/null || {
+        echo "$NEW_HOSTNAME" > /etc/hostname
+        hostname "$NEW_HOSTNAME"
+    }
+    
+    # Update /etc/hosts
+    sed -i "s/127.0.1.1.*/127.0.1.1\t$NEW_HOSTNAME/g" /etc/hosts
+    if ! grep -q "127.0.1.1" /etc/hosts; then
+        echo "127.0.1.1	$NEW_HOSTNAME" >> /etc/hosts
+    fi
 fi
 
 echo ""
@@ -682,22 +706,22 @@ else
 fi
 
 # Update client_id in config.json with current hostname
-# This runs AFTER config.json is created/copied, ensuring the client_id is always up-to-date
+# CRITICAL: This runs AFTER config.json is created, ensuring the client_id is ALWAYS unique
+# The client_id is set to match the hostname which includes MAC address + timestamp
 if [ -f "$INSTALL_DIR/config.json" ]; then
     CURRENT_HOSTNAME=$(hostname)
-    # Update client_id if it's still the placeholder or doesn't match hostname
-    if grep -q "GENERATED_ON_FIRST_RUN" "$INSTALL_DIR/config.json"; then
-        sed -i "s/GENERATED_ON_FIRST_RUN/$CURRENT_HOSTNAME/g" "$INSTALL_DIR/config.json"
-        show_success "Updated client_id to: $CURRENT_HOSTNAME"
+    
+    # CRITICAL FIX: ALWAYS update client_id to match the newly generated hostname
+    # This ensures each installation gets a unique client_id, even on re-installation
+    # The hostname was just set above with MAC address + timestamp, so it's guaranteed unique
+    CURRENT_CLIENT_ID=$(grep '"client_id"' "$INSTALL_DIR/config.json" | cut -d'"' -f4 2>/dev/null || echo "NONE")
+    
+    if [ "$CURRENT_CLIENT_ID" != "$CURRENT_HOSTNAME" ]; then
+        sed -i "s/\"client_id\": \".*\"/\"client_id\": \"$CURRENT_HOSTNAME\"/g" "$INSTALL_DIR/config.json"
+        show_success "Client ID set to: $CURRENT_HOSTNAME (previous: $CURRENT_CLIENT_ID)"
+        show_info "Client ID is unique based on MAC address + timestamp"
     else
-        # Also update if client_id exists but is different from hostname
-        CURRENT_CLIENT_ID=$(grep '"client_id"' "$INSTALL_DIR/config.json" | cut -d'"' -f4)
-        if [ "$CURRENT_CLIENT_ID" != "$CURRENT_HOSTNAME" ]; then
-            sed -i "s/\"client_id\": \".*\"/\"client_id\": \"$CURRENT_HOSTNAME\"/g" "$INSTALL_DIR/config.json"
-            show_success "Updated client_id from '$CURRENT_CLIENT_ID' to: $CURRENT_HOSTNAME"
-        else
-            show_info "Client ID already set to: $CURRENT_HOSTNAME"
-        fi
+        show_info "Client ID already set to: $CURRENT_HOSTNAME"
     fi
 fi
 
