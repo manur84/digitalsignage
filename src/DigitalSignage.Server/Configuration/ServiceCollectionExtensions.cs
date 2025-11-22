@@ -179,6 +179,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<INetworkDiscoveryService, NetworkDiscoveryService>();
         services.AddHostedService(sp => (NetworkDiscoveryService)sp.GetRequiredService<INetworkDiscoveryService>());
 
+        // Register REST API Host service
+        services.AddHostedService<Api.ApiHost>();
+
         return services;
     }
 

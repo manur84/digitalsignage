@@ -5,38 +5,42 @@
              xmlns:models="clr-namespace:DigitalSignage.Core.Models;assembly=DigitalSignage.Core"
              x:Class="DigitalSignage.App.Mobile.Views.DeviceListPage"
              x:DataType="viewmodels:DeviceListViewModel"
-             Title="{Binding Title}">
+             Title="{Binding Title}"
+             BackgroundColor="{DynamicResource Background}">
 
     <Grid RowDefinitions="Auto,*">
 
         <!-- Header Stats -->
         <Frame Grid.Row="0"
-               BorderColor="{DynamicResource Gray300}"
+               BorderColor="Transparent"
                BackgroundColor="{DynamicResource Primary}"
-               Padding="15"
-               Margin="10"
-               CornerRadius="8">
+               Padding="24"
+               Margin="16,16,16,12"
+               CornerRadius="12"
+               HasShadow="False">
             <Grid ColumnDefinitions="*,*">
-                <VerticalStackLayout Grid.Column="0" HorizontalOptions="Center">
+                <VerticalStackLayout Grid.Column="0" HorizontalOptions="Center" Spacing="4">
                     <Label Text="{Binding OnlineDeviceCount}"
-                           FontSize="32"
+                           FontSize="36"
                            FontAttributes="Bold"
                            TextColor="White"
                            HorizontalOptions="Center" />
                     <Label Text="Online"
-                           FontSize="14"
+                           FontSize="15"
                            TextColor="White"
+                           Opacity="0.9"
                            HorizontalOptions="Center" />
                 </VerticalStackLayout>
-                <VerticalStackLayout Grid.Column="1" HorizontalOptions="Center">
+                <VerticalStackLayout Grid.Column="1" HorizontalOptions="Center" Spacing="4">
                     <Label Text="{Binding TotalDeviceCount}"
-                           FontSize="32"
+                           FontSize="36"
                            FontAttributes="Bold"
                            TextColor="White"
                            HorizontalOptions="Center" />
                     <Label Text="Total"
-                           FontSize="14"
+                           FontSize="15"
                            TextColor="White"
+                           Opacity="0.9"
                            HorizontalOptions="Center" />
                 </VerticalStackLayout>
             </Grid>
@@ -53,27 +57,29 @@
                            SelectionChangedCommandParameter="{Binding SelectedDevice}">
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="models:ClientInfo">
-                        <Frame BorderColor="{DynamicResource Gray300}"
-                               BackgroundColor="White"
-                               Padding="15"
-                               Margin="10,5"
-                               CornerRadius="8">
-                            <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto,Auto">
+                        <Frame BorderColor="{DynamicResource Gray200}"
+                               BackgroundColor="{DynamicResource Surface}"
+                               Padding="16"
+                               Margin="16,6"
+                               CornerRadius="12"
+                               HasShadow="False">
+                            <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto,Auto" RowSpacing="6">
 
                                 <!-- Status Indicator -->
                                 <BoxView Grid.Column="0"
                                         Grid.RowSpan="3"
-                                        WidthRequest="8"
-                                        CornerRadius="4"
-                                        Margin="0,0,15,0"
+                                        WidthRequest="4"
+                                        CornerRadius="2"
+                                        Margin="0,0,16,0"
                                         BackgroundColor="{Binding Status, Converter={StaticResource DeviceStatusToColorConverter}}" />
 
                                 <!-- Device Info -->
                                 <Label Grid.Column="1"
                                        Grid.Row="0"
                                        Text="{Binding Name}"
-                                       FontSize="18"
-                                       FontAttributes="Bold" />
+                                       FontSize="17"
+                                       FontAttributes="Bold"
+                                       TextColor="{DynamicResource Gray900}" />
 
                                 <Label Grid.Column="1"
                                        Grid.Row="1"
@@ -84,22 +90,22 @@
                                 <Label Grid.Column="1"
                                        Grid.Row="2"
                                        Text="{Binding Resolution}"
-                                       FontSize="12"
-                                       TextColor="{DynamicResource Gray600}" />
+                                       FontSize="13"
+                                       TextColor="{DynamicResource Gray500}" />
 
                                 <!-- Status Badge -->
                                 <Border Grid.Column="2"
                                        Grid.RowSpan="3"
                                        BackgroundColor="{Binding Status, Converter={StaticResource DeviceStatusToColorConverter}}"
-                                       Padding="10,5"
+                                       Padding="12,6"
                                        StrokeThickness="0"
                                        VerticalOptions="Center">
                                     <Border.StrokeShape>
-                                        <RoundRectangle CornerRadius="12" />
+                                        <RoundRectangle CornerRadius="10" />
                                     </Border.StrokeShape>
                                     <Label Text="{Binding Status}"
                                            TextColor="White"
-                                           FontSize="12"
+                                           FontSize="13"
                                            FontAttributes="Bold" />
                                 </Border>
 
@@ -110,22 +116,28 @@
                 <CollectionView.EmptyView>
                     <VerticalStackLayout VerticalOptions="Center"
                                         HorizontalOptions="Center"
-                                        Padding="20">
+                                        Padding="32"
+                                        Spacing="12">
                         <Label Text="No Devices Found"
                                FontSize="20"
                                FontAttributes="Bold"
                                HorizontalOptions="Center"
-                               TextColor="{DynamicResource Gray600}" />
+                               TextColor="{DynamicResource Gray500}" />
                         <Label Text="Devices will appear here once they connect to the server"
                                FontSize="14"
                                HorizontalOptions="Center"
-                               TextColor="{DynamicResource Gray600}"
-                               Margin="0,10,0,0" />
+                               HorizontalTextAlignment="Center"
+                               TextColor="{DynamicResource Gray400}"
+                               LineBreakMode="WordWrap" />
                         <Button Text="Refresh"
                                 Command="{Binding RefreshCommand}"
                                 BackgroundColor="{DynamicResource Primary}"
                                 TextColor="White"
-                                Margin="0,20,0,0"
+                                FontSize="15"
+                                FontAttributes="Bold"
+                                HeightRequest="48"
+                                CornerRadius="12"
+                                Margin="0,8,0,0"
                                 WidthRequest="200" />
                     </VerticalStackLayout>
                 </CollectionView.EmptyView>
