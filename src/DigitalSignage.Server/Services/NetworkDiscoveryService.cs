@@ -17,7 +17,7 @@ public class NetworkDiscoveryService : BackgroundService, INetworkDiscoveryServi
     private readonly ILogger _logger;
     private readonly ServerSettings _settings;
     private readonly IClientService? _clientService;
-    private readonly ServiceDiscovery _serviceDiscovery;
+    private ServiceDiscovery? _serviceDiscovery;  // ✅ FIX: Lazy initialization to prevent constructor blocking
     private ServiceProfile? _serviceProfile;
 
     // Service type for mDNS (follows DNS-SD naming convention)
@@ -31,7 +31,8 @@ public class NetworkDiscoveryService : BackgroundService, INetworkDiscoveryServi
         _logger = Log.ForContext<NetworkDiscoveryService>();
         _settings = settings;
         _clientService = clientService;
-        _serviceDiscovery = new ServiceDiscovery();
+        // ✅ FIX: Do NOT create ServiceDiscovery in constructor - it may block DI initialization
+        // It will be created lazily in InitializeServiceAsync() instead
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -71,6 +72,11 @@ public class NetworkDiscoveryService : BackgroundService, INetworkDiscoveryServi
     {
         try
         {
+            // ✅ FIX: Create ServiceDiscovery lazily (not in constructor) to prevent DI blocking
+            _logger.Information("Creating ServiceDiscovery instance...");
+            _serviceDiscovery = await Task.Run(() => new ServiceDiscovery(), cancellationToken);
+            _logger.Information("ServiceDiscovery instance created successfully");
+
             var serverInfo = await GetServerInfoAsync();
 
             // Create service profile
@@ -97,7 +103,7 @@ public class NetworkDiscoveryService : BackgroundService, INetworkDiscoveryServi
             // ✅ FIX: Run blocking Advertise() call on background thread to prevent deadlock
             await Task.Run(() =>
             {
-                _serviceDiscovery.Advertise(_serviceProfile);
+                _serviceDiscovery?.Advertise(_serviceProfile);
                 _logger.Information("mDNS service advertised successfully");
             }, cancellationToken);
 
@@ -126,13 +132,13 @@ public class NetworkDiscoveryService : BackgroundService, INetworkDiscoveryServi
     {
         try
         {
-            if (_serviceProfile != null)
+            if (_serviceProfile != null && _serviceDiscovery != null)
             {
                 _serviceDiscovery.Unadvertise(_serviceProfile);
                 _logger.Information("mDNS service stopped");
             }
 
-            _serviceDiscovery.Dispose();
+            _serviceDiscovery?.Dispose();
         }
         catch (Exception ex)
         {
@@ -146,7 +152,7 @@ public class NetworkDiscoveryService : BackgroundService, INetworkDiscoveryServi
     {
         try
         {
-            if (_serviceProfile != null)
+            if (_serviceProfile != null && _serviceDiscovery != null)
             {
                 var serverInfo = await GetServerInfoAsync();
 
