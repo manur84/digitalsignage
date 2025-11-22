@@ -1419,6 +1419,51 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
 
         return permissionList;
     }
+    /// <summary>
+    /// Returns a GUID for the given client ID and stores a reverse lookup for commands.
+    /// Generates a deterministic GUID for non-GUID client IDs so mobile apps can address them.
+    /// </summary>
+    private Guid GetOrCreateClientGuid(string clientId)
+    {
+        if (Guid.TryParse(clientId, out var guid))
+        {
+            _clientGuidMap[guid] = clientId;
+            return guid;
+        }
+
+        using var md5 = MD5.Create();
+        var hash = md5.ComputeHash(Encoding.UTF8.GetBytes(clientId));
+        var guidBytes = new byte[16];
+        Array.Copy(hash, guidBytes, 16);
+        var deterministic = new Guid(guidBytes);
+        _clientGuidMap[deterministic] = clientId;
+        _logger.LogDebug("Mapped non-GUID client ID {ClientId} to deterministic GUID {Guid}", clientId, deterministic);
+        return deterministic;
+    }
+
+    /// <summary>
+    /// Resolves a mobile-app GUID back to the real client ID used by the WebSocket dictionary.
+    /// </summary>
+    private string ResolveClientId(Guid deviceId)
+    {
+        if (_clientGuidMap.TryGetValue(deviceId, out var clientId))
+        {
+            return clientId;
+        }
+
+        return deviceId.ToString();
+    }
+
+    /// <summary>
+    /// Removes reverse GUID mapping when a client disconnects to avoid stale entries.
+    /// </summary>
+    private void RemoveClientGuidMapping(string clientId)
+    {
+        foreach (var kvp in _clientGuidMap.Where(kvp => kvp.Value == clientId).ToList())
+        {
+            _clientGuidMap.TryRemove(kvp.Key, out _);
+        }
+    }
 
     /// <summary>
     /// Converts ClientStatus to DeviceStatus for mobile app compatibility
