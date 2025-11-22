@@ -174,7 +174,8 @@ public class MediaService : IMediaService
             var filePath = Path.Combine(_mediaDirectory, fileName);
             if (File.Exists(filePath))
             {
-                await Task.Run(() => File.Delete(filePath), cancellationToken);
+                // File.Delete is synchronous and fast for local filesystem
+                File.Delete(filePath);
                 _logger.LogInformation("Deleted media file: {FileName}", fileName);
                 return Result.Success();
             }
@@ -214,14 +215,12 @@ public class MediaService : IMediaService
                 return Result<List<string>>.Success(new List<string>());
             }
 
-            var files = await Task.Run(() =>
-            {
-                return Directory.GetFiles(_mediaDirectory)
-                    .Select(Path.GetFileName)
-                    .Where(f => f != null)
-                    .Cast<string>()
-                    .ToList();
-            }, cancellationToken);
+            // Directory.GetFiles is synchronous but fast for local filesystem
+            var files = Directory.GetFiles(_mediaDirectory)
+                .Select(Path.GetFileName)
+                .Where(f => f != null)
+                .Cast<string>()
+                .ToList();
 
             _logger.LogDebug("Found {Count} media files", files.Count);
             return Result<List<string>>.Success(files);

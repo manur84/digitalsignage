@@ -393,10 +393,16 @@ public class SqlDataService : ISqlDataService
                 return new List<string>();
             }
 
-            string sql = @"SELECT COLUMN_NAME
-                           FROM INFORMATION_SCHEMA.COLUMNS
-                           WHERE TABLE_NAME = @TableName" + (schema != null ? " AND TABLE_SCHEMA = @Schema" : "") + @"
-                           ORDER BY ORDINAL_POSITION";
+            // Build SQL with optional schema filter
+            var sql = schema != null
+                ? @"SELECT COLUMN_NAME
+                    FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_NAME = @TableName AND TABLE_SCHEMA = @Schema
+                    ORDER BY ORDINAL_POSITION"
+                : @"SELECT COLUMN_NAME
+                    FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_NAME = @TableName
+                    ORDER BY ORDINAL_POSITION";
 
             var columns = await connection.QueryAsync<string>(sql, new { TableName = tn, Schema = schema });
             return columns.ToList();

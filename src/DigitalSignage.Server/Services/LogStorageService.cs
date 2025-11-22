@@ -156,12 +156,21 @@ public class LogStorageService
     /// </summary>
     public string ExportLogs(IEnumerable<LogEntry> logs)
     {
-        var lines = logs
-            .OrderBy(log => log.Timestamp)
-            .Select(log => $"{log.Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{log.Level,-8}] [{log.ClientName,-20}] {log.Message}" +
-                          (string.IsNullOrEmpty(log.Exception) ? "" : $"\n    Exception: {log.Exception}"));
+        var sb = new System.Text.StringBuilder();
 
-        return string.Join(Environment.NewLine, lines);
+        foreach (var log in logs.OrderBy(log => log.Timestamp))
+        {
+            sb.Append($"{log.Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{log.Level,-8}] [{log.ClientName,-20}] {log.Message}");
+
+            if (!string.IsNullOrEmpty(log.Exception))
+            {
+                sb.Append($"\n    Exception: {log.Exception}");
+            }
+
+            sb.AppendLine();
+        }
+
+        return sb.ToString();
     }
 
     /// <summary>

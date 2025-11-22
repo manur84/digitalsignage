@@ -299,7 +299,8 @@ public class EnhancedMediaService : IMediaService
             // Delete file from disk
             if (File.Exists(filePath))
             {
-                await Task.Run(() => File.Delete(filePath), cancellationToken);
+                // File.Delete is synchronous and fast for local filesystem
+                File.Delete(filePath);
                 _logger.LogInformation("Media file deleted from disk: {FileName}", fileName);
                 return Result.Success();
             }
