@@ -40,8 +40,13 @@ class Config:
     preferred_network_interface: str = ""  # Preferred network interface (e.g., "eth0", "wlan0") - empty for auto-select
 
     def get_server_url(self) -> str:
-        """Get the full WebSocket URL based on SSL configuration including endpoint path"""
-        protocol = "wss" if self.use_ssl else "ws"
+        """Get the full server URL - ALWAYS uses HTTPS (for WSS WebSocket connections)
+
+        CRITICAL: Raspberry Pi client ONLY supports WSS, which requires HTTPS base URL.
+        This URL will be converted to WSS in connect_websocket().
+        HTTP is NOT supported - server requires secure connections only.
+        """
+        protocol = "https"  # FORCE HTTPS-only - no insecure HTTP allowed
         # Ensure endpoint_path starts with / and has correct formatting
         endpoint = self.endpoint_path.strip('/')
         if endpoint:
@@ -50,8 +55,12 @@ class Config:
             return f"{protocol}://{self.server_host}:{self.server_port}"
 
     def get_websocket_protocol(self) -> str:
-        """Get the WebSocket protocol based on SSL configuration"""
-        return "wss" if self.use_ssl else "ws"
+        """Get the WebSocket protocol - ALWAYS returns WSS (WebSocket Secure)
+
+        CRITICAL: Raspberry Pi client ONLY supports WSS (WebSocket Secure).
+        The server requires WSS for all connections. WS (unsecure) is NOT supported.
+        """
+        return "wss"  # FORCE WSS-only - no insecure WS connections allowed
 
     @classmethod
     def load(cls, config_path: str = "/opt/digitalsignage-client/config.json") -> 'Config':
@@ -173,8 +182,15 @@ class Config:
             if 'ServerPort' in server_config and server_config['ServerPort']:
                 self.server_port = int(server_config['ServerPort'])
 
+            # CRITICAL: IGNORE UseSSL from server - Pi client ONLY supports WSS
+            # Server cannot disable SSL on Pi client (security requirement)
             if 'UseSSL' in server_config:
-                self.use_ssl = bool(server_config['UseSSL'])
+                # Log but IGNORE - use_ssl is always True for Pi
+                if not bool(server_config['UseSSL']):
+                    logger = logging.getLogger(__name__)
+                    logger.warning("Server attempted to disable SSL - IGNORED (Pi client requires WSS)")
+                # Force use_ssl to remain True
+                self.use_ssl = True
 
             if 'VerifySSL' in server_config:
                 self.verify_ssl = bool(server_config['VerifySSL'])
