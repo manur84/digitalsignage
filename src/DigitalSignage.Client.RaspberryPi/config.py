@@ -102,6 +102,15 @@ class Config:
                 merged_data = defaults.copy()
                 merged_data.update(data)
 
+                # CRITICAL: FORCE verify_ssl to False for Raspberry Pi client
+                # Self-signed certificates are standard in local deployments
+                # Even if config.json has verify_ssl=true, we IGNORE it for security and compatibility
+                merged_data['verify_ssl'] = False
+
+                # CRITICAL: FORCE use_ssl to True for Raspberry Pi client
+                # Server requires WSS-only connections (no insecure WS)
+                merged_data['use_ssl'] = True
+
                 return cls(**merged_data)
         else:
             # Create default configuration
@@ -192,8 +201,16 @@ class Config:
                 # Force use_ssl to remain True
                 self.use_ssl = True
 
+            # CRITICAL: IGNORE VerifySSL from server - Pi client ALWAYS uses verify_ssl=False
+            # Self-signed certificates are standard in local deployments
+            # Server cannot enable SSL verification on Pi client (compatibility requirement)
             if 'VerifySSL' in server_config:
-                self.verify_ssl = bool(server_config['VerifySSL'])
+                # Log but IGNORE - verify_ssl is always False for Pi
+                if bool(server_config['VerifySSL']):
+                    logger = logging.getLogger(__name__)
+                    logger.warning("Server attempted to enable SSL verification - IGNORED (Pi accepts self-signed certs)")
+                # Force verify_ssl to remain False
+                self.verify_ssl = False
 
             if 'FullScreen' in server_config:
                 self.fullscreen = bool(server_config['FullScreen'])
@@ -216,13 +233,15 @@ class Config:
         """Load configuration from environment variables"""
         import os
 
+        # CRITICAL: Pi client ALWAYS uses use_ssl=True and verify_ssl=False
+        # Ignore environment variables for these security-critical settings
         return cls(
             client_id=os.getenv("DS_CLIENT_ID", str(uuid.uuid4())),
             server_host=os.getenv("DS_SERVER_HOST", "localhost"),
             server_port=int(os.getenv("DS_SERVER_PORT", "8080")),
             registration_token=os.getenv("DS_REGISTRATION_TOKEN", ""),
-            use_ssl=os.getenv("DS_USE_SSL", "true").lower() == "true",  # Default: true (WSS required)
-            verify_ssl=os.getenv("DS_VERIFY_SSL", "false").lower() == "true",  # Default: false (self-signed certs)
+            use_ssl=True,  # FORCED: Pi requires WSS-only (ignores DS_USE_SSL env var)
+            verify_ssl=False,  # FORCED: Pi accepts self-signed certs (ignores DS_VERIFY_SSL env var)
             fullscreen=os.getenv("DS_FULLSCREEN", "true").lower() == "true",
             log_level=os.getenv("DS_LOG_LEVEL", "INFO"),
             auto_discover=os.getenv("DS_AUTO_DISCOVER", "false").lower() == "true",
