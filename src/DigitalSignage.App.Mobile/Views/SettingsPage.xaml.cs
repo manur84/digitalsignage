@@ -20,4 +20,24 @@ public partial class SettingsPage : ContentPage
         base.OnAppearing();
         await _viewModel.LoadSettingsAsync();
     }
+
+    private async void OnDarkModeToggled(object sender, ToggledEventArgs e)
+    {
+        await _viewModel.ToggleDarkModeCommand.ExecuteAsync(null);
+    }
+
+    private async void OnBiometricAuthToggled(object sender, ToggledEventArgs e)
+    {
+        await _viewModel.ToggleBiometricAuthCommand.ExecuteAsync(null);
+    }
+
+    private async void OnPushNotificationsToggled(object sender, ToggledEventArgs e)
+    {
+        await _viewModel.TogglePushNotificationsCommand.ExecuteAsync(null);
+    }
+
+    private async void OnAutoConnectToggled(object sender, ToggledEventArgs e)
+    {
+        await _viewModel.ToggleAutoConnectCommand.ExecuteAsync(null);
+    }
 }

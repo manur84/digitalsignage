@@ -1,5 +1,9 @@
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
+#if IOS
+using LocalAuthentication;
+#endif
 
 namespace DigitalSignage.App.Mobile.Services;
 
@@ -11,11 +15,16 @@ public class AuthenticationService : IAuthenticationService
 {
 	private readonly IApiService _apiService;
 	private readonly ISecureStorageService _secureStorage;
+	private readonly ILogger<AuthenticationService> _logger;
 
-	public AuthenticationService(IApiService apiService, ISecureStorageService secureStorage)
+	public AuthenticationService(
+		IApiService apiService,
+		ISecureStorageService secureStorage,
+		ILogger<AuthenticationService> logger)
 	{
 		_apiService = apiService ?? throw new ArgumentNullException(nameof(apiService));
 		_secureStorage = secureStorage ?? throw new ArgumentNullException(nameof(secureStorage));
+		_logger = logger ?? throw new ArgumentNullException(nameof(logger));
 	}
 
 	/// <inheritdoc/>
@@ -32,7 +41,7 @@ public class AuthenticationService : IAuthenticationService
 			// Get device information
 			var deviceInfo = await GetDeviceInfoAsync();
 
-			Console.WriteLine($"Registering mobile app: {deviceInfo.Name} ({deviceInfo.Platform})");
+			_logger.LogInformation($"Registering mobile app: {deviceInfo.Name} ({deviceInfo.Platform})");
 			progressCallback?.Invoke("Sending registration request...");
 
 			// Send registration request via REST API
@@ -50,8 +59,8 @@ public class AuthenticationService : IAuthenticationService
 			}
 
 			var requestId = registrationResponse.RequestId;
-			Console.WriteLine($"Registration request sent. RequestId: {requestId}");
-			Console.WriteLine($"Message: {registrationResponse.Message}");
+			_logger.LogInformation($"Registration request sent. RequestId: {requestId}");
+			_logger.LogInformation($"Message: {registrationResponse.Message}");
 			progressCallback?.Invoke("Waiting for admin approval...");
 
 			// Poll for approval status (every 5 seconds for up to 5 minutes)
@@ -60,7 +69,7 @@ public class AuthenticationService : IAuthenticationService
 
 			for (int attempt = 1; attempt <= maxAttempts; attempt++)
 			{
-				Console.WriteLine($"Checking registration status (attempt {attempt}/{maxAttempts})...");
+				_logger.LogInformation($"Checking registration status (attempt {attempt}/{maxAttempts})...");
 
 				// Update progress every 10 attempts (every 50 seconds)
 				if (attempt % 10 == 0)
@@ -80,7 +89,7 @@ public class AuthenticationService : IAuthenticationService
 					if (!statusResponse.MobileAppId.HasValue || statusResponse.MobileAppId.Value == Guid.Empty)
 						throw new InvalidOperationException("Approved but no mobile app ID received");
 
-					Console.WriteLine($"Registration approved! MobileAppId: {statusResponse.MobileAppId.Value}");
+					_logger.LogInformation($"Registration approved! MobileAppId: {statusResponse.MobileAppId.Value}");
 					progressCallback?.Invoke("Registration approved!");
 
 					// Set authentication token for future API calls
@@ -100,14 +109,14 @@ public class AuthenticationService : IAuthenticationService
 				else if (statusResponse.Status.Equals("Pending", StringComparison.OrdinalIgnoreCase))
 				{
 					// Still pending - wait and try again
-					Console.WriteLine($"Status: Pending - {statusResponse.Message}");
+					_logger.LogInformation($"Status: Pending - {statusResponse.Message}");
 
 					if (attempt < maxAttempts)
 						await Task.Delay(pollingIntervalMs);
 				}
 				else
 				{
-					Console.WriteLine($"Unknown status: {statusResponse.Status}");
+					_logger.LogInformation($"Unknown status: {statusResponse.Status}");
 				}
 			}
 
@@ -120,7 +129,7 @@ public class AuthenticationService : IAuthenticationService
 		}
 		catch (Exception ex)
 		{
-			Console.WriteLine($"Error during registration: {ex.Message}");
+			_logger.LogInformation($"Error during registration: {ex.Message}");
 			throw new InvalidOperationException("Failed to register with server", ex);
 		}
 	}
@@ -143,7 +152,7 @@ public class AuthenticationService : IAuthenticationService
 		}
 		catch (Exception ex)
 		{
-			Console.WriteLine($"Error getting device info: {ex.Message}");
+			_logger.LogInformation($"Error getting device info: {ex.Message}");
 			throw;
 		}
 	}
@@ -181,7 +190,7 @@ public class AuthenticationService : IAuthenticationService
 				LocalAuthentication.LAPolicy.DeviceOwnerAuthenticationWithBiometrics,
 				out var authError))
 			{
-				Console.WriteLine($"Biometric authentication not available: {authError?.LocalizedDescription}");
+				_logger.LogInformation($"Biometric authentication not available: {authError?.LocalizedDescription}");
 				return false;
 			}
 
@@ -192,14 +201,14 @@ public class AuthenticationService : IAuthenticationService
 
 			if (error != null)
 			{
-				Console.WriteLine($"Biometric authentication error: {error.LocalizedDescription}");
+				_logger.LogInformation($"Biometric authentication error: {error.LocalizedDescription}");
 			}
 
 			return success;
 		}
 		catch (Exception ex)
 		{
-			Console.WriteLine($"Exception during biometric authentication: {ex.Message}");
+			_logger.LogInformation($"Exception during biometric authentication: {ex.Message}");
 			return false;
 		}
 #else
@@ -220,7 +229,7 @@ public class AuthenticationService : IAuthenticationService
 			// Generate a new GUID as device identifier
 			deviceId = Guid.NewGuid().ToString();
 			await _secureStorage.SaveAsync(DeviceIdKey, deviceId);
-			Console.WriteLine($"Generated new device identifier: {deviceId}");
+			_logger.LogInformation($"Generated new device identifier: {deviceId}");
 		}
 
 		return deviceId;
