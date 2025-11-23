@@ -954,6 +954,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
 
                     await SendMessageAsync(connection, new AppAuthorizedMessage
                     {
+                        MobileAppId = registration.Id, // CRITICAL FIX: Include MobileAppId for reconnecting apps
                         Token = registration.Token,
                         Permissions = registration.Permissions.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList(),
                         ExpiresAt = DateTime.UtcNow.AddYears(1) // Token valid for 1 year
@@ -1411,6 +1412,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
             // Send AppAuthorized message
             var approvalMessage = new AppAuthorizedMessage
             {
+                MobileAppId = mobileAppId, // CRITICAL FIX: Include MobileAppId so mobile app knows its ID
                 Token = token,
                 Permissions = ConvertPermissionToList(permissions),
                 ExpiresAt = DateTime.UtcNow.AddYears(1) // Token valid for 1 year
