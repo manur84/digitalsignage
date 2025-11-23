@@ -377,7 +377,8 @@ if [ "$MODE" = "UPDATE" ]; then
     # Copy widgets directory (required for display_renderer and status_screen)
     if [ -d "$SCRIPT_DIR/widgets" ]; then
         mkdir -p "$INSTALL_DIR/widgets"
-        cp -r "$SCRIPT_DIR/widgets/"* "$INSTALL_DIR/widgets/" 2>/dev/null && \
+        # Copy Python files only, exclude __pycache__
+        find "$SCRIPT_DIR/widgets" -maxdepth 1 -name "*.py" -exec cp {} "$INSTALL_DIR/widgets/" \; 2>/dev/null && \
             show_success "Widgets module copied" || \
             show_warning "Failed to copy widgets directory"
     else
@@ -387,7 +388,8 @@ if [ "$MODE" = "UPDATE" ]; then
     # Copy renderers directory (for future element renderers)
     if [ -d "$SCRIPT_DIR/renderers" ]; then
         mkdir -p "$INSTALL_DIR/renderers"
-        cp -r "$SCRIPT_DIR/renderers/"* "$INSTALL_DIR/renderers/" 2>/dev/null && \
+        # Copy Python files only, exclude __pycache__
+        find "$SCRIPT_DIR/renderers" -maxdepth 1 -name "*.py" -exec cp {} "$INSTALL_DIR/renderers/" \; 2>/dev/null && \
             show_success "Renderers module copied" || \
             show_warning "Failed to copy renderers directory"
     else
