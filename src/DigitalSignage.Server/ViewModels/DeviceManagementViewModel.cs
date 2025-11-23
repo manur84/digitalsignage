@@ -534,7 +534,7 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand(CanExecute = nameof(CanExecuteClientCommand))]
-    private async void ShowDeviceDetails()
+    private async Task ShowDeviceDetails()
     {
         if (SelectedClient == null) return;
 
