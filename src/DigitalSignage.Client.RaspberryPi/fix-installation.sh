@@ -374,6 +374,26 @@ if [ "$MODE" = "UPDATE" ]; then
         show_warning "templates directory not found (web interface may not work)"
     fi
 
+    # Copy widgets directory (required for display_renderer and status_screen)
+    if [ -d "$SCRIPT_DIR/widgets" ]; then
+        mkdir -p "$INSTALL_DIR/widgets"
+        cp -r "$SCRIPT_DIR/widgets/"* "$INSTALL_DIR/widgets/" 2>/dev/null && \
+            show_success "Widgets module copied" || \
+            show_warning "Failed to copy widgets directory"
+    else
+        show_warning "widgets directory not found (display may not work correctly)"
+    fi
+
+    # Copy renderers directory (for future element renderers)
+    if [ -d "$SCRIPT_DIR/renderers" ]; then
+        mkdir -p "$INSTALL_DIR/renderers"
+        cp -r "$SCRIPT_DIR/renderers/"* "$INSTALL_DIR/renderers/" 2>/dev/null && \
+            show_success "Renderers module copied" || \
+            show_warning "Failed to copy renderers directory"
+    else
+        show_warning "renderers directory not found (optional)"
+    fi
+
     # Re-enable exit on error
     set -e
 
