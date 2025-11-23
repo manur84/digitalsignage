@@ -151,19 +151,62 @@ public class AuthenticationService : IAuthenticationService
 	/// <inheritdoc/>
 	public async Task<bool> IsBiometricAuthAvailableAsync()
 	{
-		// Platform-specific implementation would go here
-		// For now, return false (not implemented)
+#if IOS
+		// Use iOS-specific LocalAuthentication
+		return await Task.Run(() =>
+		{
+			var context = new LocalAuthentication.LAContext();
+			return context.CanEvaluatePolicy(
+				LocalAuthentication.LAPolicy.DeviceOwnerAuthenticationWithBiometrics,
+				out _);
+		});
+#else
+		// For other platforms, return false for now
 		await Task.CompletedTask;
 		return false;
+#endif
 	}
 
 	/// <inheritdoc/>
 	public async Task<bool> AuthenticateWithBiometricsAsync()
 	{
-		// Platform-specific implementation would go here
-		// For now, return false (not implemented)
+#if IOS
+		try
+		{
+			var context = new LocalAuthentication.LAContext();
+			var reason = "Authenticate to access Digital Signage";
+
+			// Check if biometric is available
+			if (!context.CanEvaluatePolicy(
+				LocalAuthentication.LAPolicy.DeviceOwnerAuthenticationWithBiometrics,
+				out var authError))
+			{
+				Console.WriteLine($"Biometric authentication not available: {authError?.LocalizedDescription}");
+				return false;
+			}
+
+			// Perform biometric authentication
+			var (success, error) = await context.EvaluatePolicyAsync(
+				LocalAuthentication.LAPolicy.DeviceOwnerAuthenticationWithBiometrics,
+				reason);
+
+			if (error != null)
+			{
+				Console.WriteLine($"Biometric authentication error: {error.LocalizedDescription}");
+			}
+
+			return success;
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"Exception during biometric authentication: {ex.Message}");
+			return false;
+		}
+#else
+		// For other platforms, return false for now
 		await Task.CompletedTask;
 		return false;
+#endif
 	}
 
 	private async Task<string> GetDeviceIdentifierAsync()

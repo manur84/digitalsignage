@@ -54,11 +54,13 @@ public static class MauiProgram
 		builder.Services.AddTransient<LoginViewModel>();
 		builder.Services.AddTransient<DeviceListViewModel>();
 		builder.Services.AddTransient<DeviceDetailViewModel>();
+		builder.Services.AddTransient<SettingsViewModel>();
 
 		// Register Views (Transient - new instance each time)
 		builder.Services.AddTransient<LoginPage>();
 		builder.Services.AddTransient<DeviceListPage>();
 		builder.Services.AddTransient<DeviceDetailPage>();
+		builder.Services.AddTransient<SettingsPage>();
 
 #if DEBUG
 		builder.Logging.AddDebug();

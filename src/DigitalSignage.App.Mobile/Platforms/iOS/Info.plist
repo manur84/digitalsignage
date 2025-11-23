@@ -43,13 +43,32 @@
 	<key>NSFaceIDUsageDescription</key>
 	<string>Use Face ID to securely access the Digital Signage app</string>
 
-	<!-- Allow HTTP connections to local servers (Development) -->
+	<!-- App Transport Security - Restrict to local network only for security -->
 	<key>NSAppTransportSecurity</key>
 	<dict>
-		<key>NSAllowsArbitraryLoads</key>
-		<true/>
+		<!-- Allow local networking only - more secure than arbitrary loads -->
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
+		<!-- Exception for development/testing with specific domains -->
+		<key>NSExceptionDomains</key>
+		<dict>
+			<key>localhost</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+			</dict>
+		</dict>
 	</dict>
+	
+	<!-- Support for Dark Mode -->
+	<key>UIUserInterfaceStyle</key>
+	<string>Automatic</string>
+	
+	<!-- App Capabilities -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>remote-notification</string>
+	</array>
 </dict>
 </plist>

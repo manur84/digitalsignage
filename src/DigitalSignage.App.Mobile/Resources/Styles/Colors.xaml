@@ -31,6 +31,38 @@
     <Color x:Key="Surface">#FFFFFF</Color>
     <Color x:Key="SurfaceVariant">#F9FAFB</Color>
     <Color x:Key="Background">#F3F4F6</Color>
+    
+    <!-- Status Colors -->
+    <Color x:Key="StatusOnline">#10B981</Color>      <!-- Green -->
+    <Color x:Key="StatusOffline">#6B7280</Color>     <!-- Gray -->
+    <Color x:Key="StatusWarning">#F59E0B</Color>     <!-- Orange -->
+    
+    <!-- DARK MODE COLORS -->
+    <Color x:Key="DarkPrimary">#3B82F6</Color>
+    <Color x:Key="DarkPrimaryDark">#2563EB</Color>
+    <Color x:Key="DarkPrimaryLight">#60A5FA</Color>
+    <Color x:Key="DarkSecondary">#34D399</Color>
+    <Color x:Key="DarkTertiary">#FBBF24</Color>
+    <Color x:Key="DarkDanger">#F87171</Color>
+    
+    <!-- Dark Mode Surfaces -->
+    <Color x:Key="DarkSurface">#1F2937</Color>
+    <Color x:Key="DarkSurfaceVariant">#374151</Color>
+    <Color x:Key="DarkBackground">#111827</Color>
+    
+    <!-- Dark Mode Text -->
+    <Color x:Key="DarkGray50">#F9FAFB</Color>
+    <Color x:Key="DarkGray100">#F3F4F6</Color>
+    <Color x:Key="DarkGray200">#E5E7EB</Color>
+    <Color x:Key="DarkGray300">#D1D5DB</Color>
+    <Color x:Key="DarkGray400">#9CA3AF</Color>
+    <Color x:Key="DarkGray500">#6B7280</Color>
+    <Color x:Key="DarkGray600">#4B5563</Color>
+    <Color x:Key="DarkGray700">#374151</Color>
+    <Color x:Key="DarkGray800">#1F2937</Color>
+    <Color x:Key="DarkGray900">#E5E7EB</Color>
+    
+    <!-- Brushes -->
     <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource Primary}"/>
     <SolidColorBrush x:Key="SecondaryBrush" Color="{StaticResource Secondary}"/>
     <SolidColorBrush x:Key="TertiaryBrush" Color="{StaticResource Tertiary}"/>

@@ -5,18 +5,51 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:local="clr-namespace:DigitalSignage.App.Mobile.Views"
     Title="Digital Signage"
-    FlyoutBehavior="Disabled">
+    Shell.FlyoutBehavior="Flyout">
 
-    <TabBar>
-        <ShellContent
-            Title="Login"
-            ContentTemplate="{DataTemplate local:LoginPage}"
-            Route="login" />
+    <!-- Flyout Header -->
+    <Shell.FlyoutHeader>
+        <Grid BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource DarkPrimary}}"
+              HeightRequest="150"
+              Padding="20">
+            <VerticalStackLayout VerticalOptions="Center" Spacing="8">
+                <Image Source="digisign_logo.png"
+                       HeightRequest="60"
+                       HorizontalOptions="Start"/>
+                <Label Text="Digital Signage"
+                       FontSize="20"
+                       FontAttributes="Bold"
+                       TextColor="White"/>
+                <Label Text="Remote Management"
+                       FontSize="14"
+                       TextColor="White"
+                       Opacity="0.9"/>
+            </VerticalStackLayout>
+        </Grid>
+    </Shell.FlyoutHeader>
 
-        <ShellContent
-            Title="Devices"
-            ContentTemplate="{DataTemplate local:DeviceListPage}"
-            Route="devices" />
-    </TabBar>
+    <!-- Flyout Items -->
+    <FlyoutItem Title="Devices"
+                Icon="devices.png"
+                Route="devices">
+        <ShellContent ContentTemplate="{DataTemplate local:DeviceListPage}"/>
+    </FlyoutItem>
+
+    <FlyoutItem Title="Settings"
+                Icon="settings.png"
+                Route="settings">
+        <ShellContent ContentTemplate="{DataTemplate local:SettingsPage}"/>
+    </FlyoutItem>
+
+    <!-- Flyout Footer -->
+    <Shell.FlyoutFooter>
+        <Grid BackgroundColor="{AppThemeBinding Light={StaticResource Gray100}, Dark={StaticResource DarkGray800}}"
+              Padding="20,12">
+            <Label Text="© 2024 Digital Signage"
+                   FontSize="12"
+                   TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource DarkGray400}}"
+                   HorizontalOptions="Center"/>
+        </Grid>
+    </Shell.FlyoutFooter>
 
 </Shell>

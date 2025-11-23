@@ -19,6 +19,9 @@ public partial class DeviceListViewModel : BaseViewModel
 	private ObservableCollection<ClientInfo> _devices = new();
 
 	[ObservableProperty]
+	private ObservableCollection<ClientInfo> _filteredDevices = new();
+
+	[ObservableProperty]
 	private ClientInfo? _selectedDevice;
 
 	[ObservableProperty]
@@ -29,6 +32,14 @@ public partial class DeviceListViewModel : BaseViewModel
 
 	[ObservableProperty]
 	private int _totalDeviceCount;
+
+	[ObservableProperty]
+	private string _searchText = string.Empty;
+
+	[ObservableProperty]
+	private string _selectedFilter = "All";
+
+	public List<string> FilterOptions { get; } = new() { "All", "Online", "Offline", "Warning", "Error" };
 
 	public DeviceListViewModel(IApiService apiService, IWebSocketService? webSocketService = null)
 	{
@@ -72,6 +83,12 @@ public partial class DeviceListViewModel : BaseViewModel
 		};
 
 		await Shell.Current.GoToAsync("devicedetail", navigationParameter);
+	}
+
+	[RelayCommand]
+	private void SelectedFilter(string filter)
+	{
+		SelectedFilter = filter;
 	}
 
 	/// <summary>
@@ -149,5 +166,57 @@ public partial class DeviceListViewModel : BaseViewModel
 	partial void OnDevicesChanged(ObservableCollection<ClientInfo> value)
 	{
 		UpdateCounts();
+		ApplyFilters();
+	}
+
+	partial void OnSearchTextChanged(string value)
+	{
+		ApplyFilters();
+	}
+
+	partial void OnSelectedFilterChanged(string value)
+	{
+		ApplyFilters();
+	}
+
+	/// <summary>
+	/// Applies search and filter to the device list
+	/// </summary>
+	private void ApplyFilters()
+	{
+		var filtered = Devices.AsEnumerable();
+
+		// Apply status filter
+		if (SelectedFilter != "All")
+		{
+			filtered = SelectedFilter switch
+			{
+				"Online" => filtered.Where(d => d.Status == DeviceStatus.Online),
+				"Offline" => filtered.Where(d => d.Status == DeviceStatus.Offline),
+				"Warning" => filtered.Where(d => d.Status == DeviceStatus.Warning),
+				"Error" => filtered.Where(d => d.Status == DeviceStatus.Error),
+				_ => filtered
+			};
+		}
+
+		// Apply search text filter
+		if (!string.IsNullOrWhiteSpace(SearchText))
+		{
+			var searchLower = SearchText.ToLowerInvariant();
+			filtered = filtered.Where(d =>
+				(d.Name?.Contains(searchLower, StringComparison.OrdinalIgnoreCase) ?? false) ||
+				(d.IpAddress?.Contains(searchLower, StringComparison.OrdinalIgnoreCase) ?? false) ||
+				(d.Location?.Contains(searchLower, StringComparison.OrdinalIgnoreCase) ?? false));
+		}
+
+		// Update filtered collection on UI thread
+		MainThread.BeginInvokeOnMainThread(() =>
+		{
+			FilteredDevices.Clear();
+			foreach (var device in filtered)
+			{
+				FilteredDevices.Add(device);
+			}
+		});
 	}
 }

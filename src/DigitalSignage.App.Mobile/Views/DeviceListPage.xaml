@@ -8,14 +8,14 @@
              Title="{Binding Title}"
              BackgroundColor="{DynamicResource Background}">
 
-    <Grid RowDefinitions="Auto,*">
+    <Grid RowDefinitions="Auto,Auto,*">
 
         <!-- Header Stats -->
         <Frame Grid.Row="0"
                BorderColor="Transparent"
-               BackgroundColor="{DynamicResource Primary}"
+               BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource DarkPrimary}}"
                Padding="24"
-               Margin="16,16,16,12"
+               Margin="16,16,16,8"
                CornerRadius="12"
                HasShadow="False">
             <Grid ColumnDefinitions="*,*">
@@ -46,11 +46,79 @@
             </Grid>
         </Frame>
 
+        <!-- Search and Filter Section -->
+        <VerticalStackLayout Grid.Row="1" Spacing="12" Margin="16,0,16,8">
+            <!-- Search Bar -->
+            <Frame BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource DarkSurface}}"
+                   BorderColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource DarkGray700}}"
+                   Padding="4"
+                   CornerRadius="12"
+                   HasShadow="False">
+                <SearchBar Placeholder="Search devices..."
+                          PlaceholderColor="{AppThemeBinding Light={StaticResource Gray400}, Dark={StaticResource DarkGray500}}"
+                          Text="{Binding SearchText}"
+                          TextColor="{AppThemeBinding Light={StaticResource Gray900}, Dark={StaticResource DarkGray900}}"
+                          CancelButtonColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource DarkPrimary}}"
+                          BackgroundColor="Transparent"/>
+            </Frame>
+
+            <!-- Filter Buttons -->
+            <ScrollView Orientation="Horizontal" HorizontalScrollBarVisibility="Never">
+                <HorizontalStackLayout Spacing="8">
+                    <Button Text="All"
+                            Command="{Binding SelectedFilterCommand}"
+                            CommandParameter="All"
+                            BackgroundColor="{Binding SelectedFilter, Converter={StaticResource FilterButtonColorConverter}, ConverterParameter=All}"
+                            TextColor="White"
+                            FontSize="14"
+                            HeightRequest="36"
+                            CornerRadius="18"
+                            Padding="16,0"/>
+                    <Button Text="Online"
+                            Command="{Binding SelectedFilterCommand}"
+                            CommandParameter="Online"
+                            BackgroundColor="{Binding SelectedFilter, Converter={StaticResource FilterButtonColorConverter}, ConverterParameter=Online}"
+                            TextColor="White"
+                            FontSize="14"
+                            HeightRequest="36"
+                            CornerRadius="18"
+                            Padding="16,0"/>
+                    <Button Text="Offline"
+                            Command="{Binding SelectedFilterCommand}"
+                            CommandParameter="Offline"
+                            BackgroundColor="{Binding SelectedFilter, Converter={StaticResource FilterButtonColorConverter}, ConverterParameter=Offline}"
+                            TextColor="White"
+                            FontSize="14"
+                            HeightRequest="36"
+                            CornerRadius="18"
+                            Padding="16,0"/>
+                    <Button Text="Warning"
+                            Command="{Binding SelectedFilterCommand}"
+                            CommandParameter="Warning"
+                            BackgroundColor="{Binding SelectedFilter, Converter={StaticResource FilterButtonColorConverter}, ConverterParameter=Warning}"
+                            TextColor="White"
+                            FontSize="14"
+                            HeightRequest="36"
+                            CornerRadius="18"
+                            Padding="16,0"/>
+                    <Button Text="Error"
+                            Command="{Binding SelectedFilterCommand}"
+                            CommandParameter="Error"
+                            BackgroundColor="{Binding SelectedFilter, Converter={StaticResource FilterButtonColorConverter}, ConverterParameter=Error}"
+                            TextColor="White"
+                            FontSize="14"
+                            HeightRequest="36"
+                            CornerRadius="18"
+                            Padding="16,0"/>
+                </HorizontalStackLayout>
+            </ScrollView>
+        </VerticalStackLayout>
+
         <!-- Device List -->
-        <RefreshView Grid.Row="1"
+        <RefreshView Grid.Row="2"
                      IsRefreshing="{Binding IsRefreshing}"
                      Command="{Binding RefreshCommand}">
-            <CollectionView ItemsSource="{Binding Devices}"
+            <CollectionView ItemsSource="{Binding FilteredDevices}"
                            SelectionMode="Single"
                            SelectedItem="{Binding SelectedDevice}"
                            SelectionChangedCommand="{Binding DeviceSelectedCommand}"

@@ -2,6 +2,20 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- Add entitlements here if needed -->
+	<!-- Keychain Access Groups for secure credential storage -->
+	<key>keychain-access-groups</key>
+	<array>
+		<string>$(AppIdentifierPrefix)com.digitalsignage.mobileapp2024</string>
+	</array>
+	
+	<!-- Push Notifications -->
+	<key>aps-environment</key>
+	<string>development</string>
+	
+	<!-- Associated Domains (for Universal Links if needed) -->
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<!-- Add domains here when needed -->
+	</array>
 </dict>
 </plist>
