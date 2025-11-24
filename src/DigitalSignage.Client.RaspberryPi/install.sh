@@ -238,63 +238,31 @@ else
 fi
 
 if [ -n "$MAC_ADDR" ]; then
-<<<<<<< HEAD
-    # Extract first 4 hex characters (remove colons, uppercase)
-    # Example: ac:b2:cb:2e:bb:ef -> ACB2
-    MAC_SHORT=$(echo "$MAC_ADDR" | tr -d ':' | tr '[:lower:]' '[:upper:]' | cut -c1-4)
-    NEW_HOSTNAME="DigiSign-${MAC_SHORT}"
-
-    CURRENT_HOSTNAME=$(hostname)
-
-    echo "Interface: $INTERFACE"
-    echo "MAC Address: $MAC_ADDR"
-    echo "Hostname Suffix: $MAC_SHORT"
-    echo "Generated Hostname: $NEW_HOSTNAME"
-    echo ""
-
-    if [ "$CURRENT_HOSTNAME" != "$NEW_HOSTNAME" ]; then
-        echo "Changing hostname from '$CURRENT_HOSTNAME' to '$NEW_HOSTNAME'..."
-
-        # Set hostname immediately (persistent across reboots)
-        hostnamectl set-hostname "$NEW_HOSTNAME" 2>/dev/null || {
-            # Fallback for systems without hostnamectl
-            echo "$NEW_HOSTNAME" > /etc/hostname
-            hostname "$NEW_HOSTNAME"
-        }
-
-        # Update /etc/hosts with new hostname
-        # Replace any existing 127.0.1.1 entry
-        sed -i "/^127\.0\.1\.1/d" /etc/hosts
-        echo "127.0.1.1	$NEW_HOSTNAME" >> /etc/hosts
-
-        # Also add localhost entries to be safe
-        if ! grep -q "^127\.0\.0\.1.*localhost" /etc/hosts; then
-            sed -i "1i127.0.0.1	localhost" /etc/hosts
-        fi
-
-        show_success "Hostname set to: $NEW_HOSTNAME (MAC: $MAC_ADDR, Interface: $INTERFACE)"
-    else
-        show_info "Hostname already set to: $NEW_HOSTNAME"
-=======
     # CRITICAL FIX: Use more MAC address bytes for better uniqueness
     # Extract last 8 hex characters (last 4 bytes of MAC address)
     # This provides 65,536 unique combinations instead of just 256 with 4 chars
     MAC_LONG=$(echo "$MAC_ADDR" | tr -d ':' | tr '[:lower:]' '[:upper:]' | tail -c 9 | head -c 8)
-    
+
     # ADDITIONAL UNIQUENESS: Add a random 2-character suffix based on current timestamp
     # This ensures absolute uniqueness even if MAC addresses are very similar
     TIMESTAMP_SUFFIX=$(date +%s | md5sum | cut -c1-2 | tr '[:lower:]' '[:upper:]')
-    
+
     # Generate hostname: DigiSign-[8 chars from MAC]-[2 chars from timestamp]
     NEW_HOSTNAME="DigiSign-${MAC_LONG}-${TIMESTAMP_SUFFIX}"
 
     CURRENT_HOSTNAME=$(hostname)
 
+    echo "Interface: $INTERFACE"
+    echo "MAC Address: $MAC_ADDR"
+    echo "Hostname Suffix: ${MAC_LONG}-${TIMESTAMP_SUFFIX}"
+    echo "Generated Hostname: $NEW_HOSTNAME"
+    echo "  (Previous hostname: '$CURRENT_HOSTNAME')"
+    echo ""
+
     # ALWAYS set the new hostname on installation to ensure uniqueness
     # This is important even if it looks like it's already set, because we want
     # the timestamp component to be unique for each installation
     echo "Setting hostname to '$NEW_HOSTNAME'..."
-    echo "  (Previous hostname: '$CURRENT_HOSTNAME')"
 
     # Set hostname immediately
     hostnamectl set-hostname "$NEW_HOSTNAME" 2>/dev/null || {
@@ -303,16 +271,21 @@ if [ -n "$MAC_ADDR" ]; then
         hostname "$NEW_HOSTNAME"
     }
 
-    # Update /etc/hosts
+    # Update /etc/hosts with new hostname
+    # Replace any existing 127.0.1.1 entry
     sed -i "s/127.0.1.1.*/127.0.1.1\t$NEW_HOSTNAME/g" /etc/hosts
 
     # Add entry if it doesn't exist
     if ! grep -q "127.0.1.1" /etc/hosts; then
         echo "127.0.1.1	$NEW_HOSTNAME" >> /etc/hosts
->>>>>>> f429e7570494b179c15ad29f8d641c5a29383e2b
     fi
 
-    show_success "Hostname set to: $NEW_HOSTNAME (MAC: $MAC_ADDR)"
+    # Also add localhost entries to be safe
+    if ! grep -q "^127\.0\.0\.1.*localhost" /etc/hosts; then
+        sed -i "1i127.0.0.1\tlocalhost" /etc/hosts
+    fi
+
+    show_success "Hostname set to: $NEW_HOSTNAME (MAC: $MAC_ADDR, Interface: $INTERFACE)"
     show_info "Hostname includes timestamp for absolute uniqueness"
 else
     # Fallback: Generate random hostname with timestamp
