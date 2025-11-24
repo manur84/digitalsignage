@@ -90,9 +90,9 @@ public partial class AlertsViewModel : ObservableObject, IDisposable
             await LoadDataAsync();
             StartPolling();
         }
-        catch (Exception ex)
+        catch (DbUpdateException ex)
         {
-            _logger.LogError(ex, "Failed to initialize AlertsViewModel");
+            _logger.LogError(ex, "Database error initializing AlertsViewModel");
 
             try
             {
@@ -121,9 +121,14 @@ public partial class AlertsViewModel : ObservableObject, IDisposable
             {
                 await _initializationTask;
             }
+            catch (OperationCanceledException)
+            {
+                _logger.LogDebug("Initialization task was cancelled");
+                // Continue - ViewModel is still usable
+            }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Initialization task failed");
+                _logger.LogWarning(ex, "Unexpected error during initialization");
                 // Continue - ViewModel is still usable
             }
         }
@@ -296,9 +301,19 @@ public partial class AlertsViewModel : ObservableObject, IDisposable
             _logger.LogDebug("Loaded {Count} alerts (Unread: {Unread}, Critical: {Critical})",
                 alerts.Count, UnreadAlertCount, CriticalAlertCount);
         }
+        catch (DbUpdateException ex)
+        {
+            _logger.LogError(ex, "Database error loading alerts");
+            throw;
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogDebug("Load alerts operation was cancelled");
+            throw;
+        }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error loading alerts");
+            _logger.LogError(ex, "Unexpected error loading alerts");
             throw;
         }
     }
