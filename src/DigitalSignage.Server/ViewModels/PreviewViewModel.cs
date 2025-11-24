@@ -2,7 +2,6 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DigitalSignage.Core.Interfaces;
 using DigitalSignage.Core.Models;
-using DigitalSignage.Server.Services;
 using Microsoft.Extensions.Logging;
 using System.Collections.ObjectModel;
 
@@ -14,14 +13,10 @@ namespace DigitalSignage.Server.ViewModels;
 public partial class PreviewViewModel : ObservableObject
 {
     private readonly IScribanService _scribanService;
-    private readonly DataSourceRepository _dataSourceRepository;
     private readonly ILogger<PreviewViewModel> _logger;
 
     [ObservableProperty]
     private DisplayLayout? _currentLayout;
-
-    [ObservableProperty]
-    private DataSource? _selectedTestDataSource;
 
     [ObservableProperty]
     private string _previewStatus = "No layout loaded";
@@ -33,19 +28,13 @@ public partial class PreviewViewModel : ObservableObject
     private string _testData = "{}";
 
     public ObservableCollection<DisplayElement> PreviewElements { get; } = new();
-    public ObservableCollection<DataSource> AvailableDataSources { get; } = new();
 
     public PreviewViewModel(
         IScribanService scribanService,
-        DataSourceRepository dataSourceRepository,
         ILogger<PreviewViewModel> logger)
     {
         _scribanService = scribanService;
-        _dataSourceRepository = dataSourceRepository;
         _logger = logger;
-
-        // Load available data sources
-        _ = LoadDataSourcesAsync();
     }
 
     /// <summary>
@@ -71,29 +60,6 @@ public partial class PreviewViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Load available data sources
-    /// </summary>
-    private async Task LoadDataSourcesAsync()
-    {
-        try
-        {
-            var dataSources = await _dataSourceRepository.GetAllAsync();
-
-            AvailableDataSources.Clear();
-            foreach (var ds in dataSources.Where(d => d.Type == DataSourceType.StaticData))
-            {
-                AvailableDataSources.Add(ds);
-            }
-
-            _logger.LogInformation("Loaded {Count} static data sources for preview", AvailableDataSources.Count);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to load data sources");
-        }
-    }
-
-    /// <summary>
     /// Refresh the preview with test data
     /// </summary>
     [RelayCommand]
@@ -112,28 +78,16 @@ public partial class PreviewViewModel : ObservableObject
         {
             _logger.LogInformation("Refreshing preview for layout: {LayoutName}", CurrentLayout.Name);
 
-            // Get test data
-            Dictionary<string, object> data;
-            if (SelectedTestDataSource != null && !string.IsNullOrWhiteSpace(SelectedTestDataSource.StaticData))
+            // Use default test data
+            var data = new Dictionary<string, object>
             {
-                // Use selected test data source
-                data = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
-                    SelectedTestDataSource.StaticData) ?? new Dictionary<string, object>();
-                TestData = SelectedTestDataSource.StaticData;
-            }
-            else
-            {
-                // Use default test data
-                data = new Dictionary<string, object>
-                {
-                    { "room_name", "Conference Room A" },
-                    { "status", "Available" },
-                    { "temperature", "22°C" },
-                    { "date", DateTime.Now.ToString("dd.MM.yyyy") },
-                    { "time", DateTime.Now.ToString("HH:mm") }
-                };
-                TestData = System.Text.Json.JsonSerializer.Serialize(data, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
-            }
+                { "room_name", "Conference Room A" },
+                { "status", "Available" },
+                { "temperature", "22°C" },
+                { "date", DateTime.Now.ToString("dd.MM.yyyy") },
+                { "time", DateTime.Now.ToString("HH:mm") }
+            };
+            TestData = System.Text.Json.JsonSerializer.Serialize(data, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
 
             // Process elements with template engine
             PreviewElements.Clear();
@@ -196,18 +150,6 @@ public partial class PreviewViewModel : ObservableObject
         }
 
         return processedElement;
-    }
-
-    /// <summary>
-    /// Select a different test data source
-    /// </summary>
-    partial void OnSelectedTestDataSourceChanged(DataSource? value)
-    {
-        if (value != null && CurrentLayout != null)
-        {
-            _logger.LogInformation("Test data source changed to: {DataSourceName}", value.Name);
-            _ = RefreshPreview();
-        }
     }
 
     /// <summary>

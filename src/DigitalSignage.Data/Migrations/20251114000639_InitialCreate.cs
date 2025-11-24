@@ -59,27 +59,6 @@ namespace DigitalSignage.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "DataSources",
-                columns: table => new
-                {
-                    Id = table.Column<string>(type: "TEXT", nullable: false),
-                    Name = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
-                    Type = table.Column<string>(type: "TEXT", nullable: false),
-                    ConnectionString = table.Column<string>(type: "TEXT", nullable: false),
-                    Query = table.Column<string>(type: "TEXT", nullable: false),
-                    Parameters = table.Column<string>(type: "TEXT", nullable: false),
-                    RefreshInterval = table.Column<int>(type: "INTEGER", nullable: false),
-                    LastRefresh = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    Enabled = table.Column<bool>(type: "INTEGER", nullable: false),
-                    Metadata = table.Column<string>(type: "TEXT", nullable: false),
-                    StaticData = table.Column<string>(type: "TEXT", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_DataSources", x => x.Id);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "DisplayLayouts",
                 columns: table => new
                 {
@@ -92,7 +71,6 @@ namespace DigitalSignage.Data.Migrations
                     BackgroundImage = table.Column<string>(type: "TEXT", maxLength: 500, nullable: true),
                     BackgroundColor = table.Column<string>(type: "TEXT", maxLength: 20, nullable: true),
                     Elements = table.Column<string>(type: "TEXT", nullable: false),
-                    DataSources = table.Column<string>(type: "TEXT", nullable: false),
                     Metadata = table.Column<string>(type: "TEXT", nullable: false),
                     Resolution = table.Column<string>(type: "TEXT", nullable: false)
                 },
@@ -461,16 +439,6 @@ namespace DigitalSignage.Data.Migrations
                 column: "Status");
 
             migrationBuilder.CreateIndex(
-                name: "IX_DataSources_Enabled",
-                table: "DataSources",
-                column: "Enabled");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_DataSources_Name",
-                table: "DataSources",
-                column: "Name");
-
-            migrationBuilder.CreateIndex(
                 name: "IX_DisplayLayouts_Created",
                 table: "DisplayLayouts",
                 column: "Created");
@@ -611,9 +579,6 @@ namespace DigitalSignage.Data.Migrations
 
             migrationBuilder.DropTable(
                 name: "Clients");
-
-            migrationBuilder.DropTable(
-                name: "DataSources");
 
             migrationBuilder.DropTable(
                 name: "DisplayLayouts");

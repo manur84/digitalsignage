@@ -139,8 +139,8 @@ internal class ClientLayoutDistributor
 
             var layout = layoutResult.Value;
 
-            // Fetch data from all data sources
-            var layoutData = await FetchDataSourcesAsync(layout, cancellationToken);
+            // Fetch data from all data sources (DataSource feature removed - returns empty)
+            var layoutData = new Dictionary<string, object>();
 
             // Process templates in layout elements
             await ProcessTemplatesAsync(layout, layoutData, cancellationToken);
@@ -166,35 +166,6 @@ internal class ClientLayoutDistributor
             _logger.LogError(ex, "Failed to send layout update to client {ClientId}", clientId);
             return Result.Failure($"Failed to send layout to client: {ex.Message}", ex);
         }
-    }
-
-    private async Task<Dictionary<string, object>> FetchDataSourcesAsync(
-        DisplayLayout layout,
-        CancellationToken cancellationToken)
-    {
-        var layoutData = new Dictionary<string, object>();
-
-        if (layout.DataSources == null || layout.DataSources.Count == 0)
-        {
-            return layoutData;
-        }
-
-        foreach (var dataSource in layout.DataSources)
-        {
-            try
-            {
-                var data = await _dataService.GetDataAsync(dataSource, cancellationToken);
-                layoutData[dataSource.Id] = data;
-                _logger.LogDebug("Loaded data for source {DataSourceId}", dataSource.Id);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to load data for source {DataSourceId}, using empty data", dataSource.Id);
-                layoutData[dataSource.Id] = new Dictionary<string, object>();
-            }
-        }
-
-        return layoutData;
     }
 
     private async Task ProcessTemplatesAsync(

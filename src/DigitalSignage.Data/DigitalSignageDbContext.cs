@@ -20,7 +20,6 @@ public class DigitalSignageDbContext : DbContext
     // Core entities
     public DbSet<RaspberryPiClient> Clients => Set<RaspberryPiClient>();
     public DbSet<DisplayLayout> DisplayLayouts => Set<DisplayLayout>();
-    public DbSet<DataSource> DataSources => Set<DataSource>();
 
     // Authentication entities
     public DbSet<User> Users => Set<User>();
@@ -64,11 +63,6 @@ public class DigitalSignageDbContext : DbContext
             c => c.ToList());
 
         var displayElementListComparer = new ValueComparer<List<DisplayElement>>(
-            (c1, c2) => (c1 == null && c2 == null) || (c1 != null && c2 != null && c1.SequenceEqual(c2)),
-            c => c.Aggregate(0, (a, v) => HashCode.Combine(a, v.GetHashCode())),
-            c => c.ToList());
-
-        var dataSourceListComparer = new ValueComparer<List<DataSource>>(
             (c1, c2) => (c1 == null && c2 == null) || (c1 != null && c2 != null && c1.SequenceEqual(c2)),
             c => c.Aggregate(0, (a, v) => HashCode.Combine(a, v.GetHashCode())),
             c => c.ToList());
@@ -157,14 +151,6 @@ public class DigitalSignageDbContext : DbContext
                 )
                 .Metadata.SetValueComparer(displayElementListComparer);
 
-            // Store DataSources as JSON
-            entity.Property(e => e.DataSources)
-                .HasConversion(
-                    v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
-                    v => System.Text.Json.JsonSerializer.Deserialize<List<DataSource>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new List<DataSource>()
-                )
-                .Metadata.SetValueComparer(dataSourceListComparer);
-
             // Store Metadata as JSON
             entity.Property(e => e.Metadata)
                 .HasConversion(
@@ -197,36 +183,6 @@ public class DigitalSignageDbContext : DbContext
             entity.HasIndex(e => e.Name);
             entity.HasIndex(e => e.Created);
             entity.HasIndex(e => e.Category);
-        });
-
-        // Configure DataSource (standalone)
-        modelBuilder.Entity<DataSource>(entity =>
-        {
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
-            entity.Property(e => e.Type).HasConversion<string>();
-            entity.Property(e => e.ConnectionString).IsRequired();
-            entity.Property(e => e.Query).IsRequired();
-
-            // Store Parameters as JSON
-            entity.Property(e => e.Parameters)
-                .HasConversion(
-                    v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
-                    v => System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new Dictionary<string, object>()
-                )
-                .Metadata.SetValueComparer(stringObjectDictComparer);
-
-            // Store Metadata as JSON
-            entity.Property(e => e.Metadata)
-                .HasConversion(
-                    v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
-                    v => System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new Dictionary<string, object>()
-                )
-                .Metadata.SetValueComparer(stringObjectDictComparer);
-
-            // Indexes
-            entity.HasIndex(e => e.Name);
-            entity.HasIndex(e => e.Enabled);
         });
 
         // Configure User

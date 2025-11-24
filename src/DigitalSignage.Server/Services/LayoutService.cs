@@ -539,7 +539,6 @@ public class LayoutService : ILayoutService, IDisposable
 
         layout.LayoutType = string.IsNullOrWhiteSpace(layout.LayoutType) ? "standard" : layout.LayoutType;
         layout.Elements ??= new List<DisplayElement>();
-        layout.DataSources ??= new List<DataSource>();
         layout.Metadata ??= new Dictionary<string, object>();
         layout.Tags ??= new List<string>();
     }
