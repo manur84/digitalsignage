@@ -11,6 +11,7 @@
         <!-- Converters -->
         <converters:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
         <BooleanToVisibilityConverter x:Key="BoolToVisibilityStandard"/>
+        <converters:StringToVisibilityConverter x:Key="StringToVisibility"/>
 
         <!-- App Registration Status Color Converter -->
         <converters:AppRegistrationStatusToColorConverter x:Key="AppStatusToColor"/>
@@ -533,7 +534,7 @@
                 CornerRadius="8"
                 Padding="16,12"
                 Margin="0,16,0,0"
-                Visibility="{Binding StatusMessage, Converter={StaticResource BoolToVisibilityStandard}}">
+                Visibility="{Binding StatusMessage, Converter={StaticResource StringToVisibility}}">
             <Border.Style>
                 <Style TargetType="Border">
                     <Style.Triggers>

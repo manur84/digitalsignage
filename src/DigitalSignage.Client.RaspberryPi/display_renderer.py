@@ -20,7 +20,7 @@ import logging
 import os
 import tempfile
 import uuid
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List, Tuple
 from io import BytesIO
 import locale
 
@@ -63,7 +63,7 @@ class DisplayRenderer(QWidget):
         # Data source cache for datagrid elements
         self.data_source_cache: Dict[str, list] = {}
         # Map data source IDs to elements that use them for refresh capability
-        self.data_source_elements: Dict[str, list[tuple[QWidget, Dict[str, Any]]]] = {}
+        self.data_source_elements: Dict[str, List[Tuple[QWidget, Dict[str, Any]]]] = {}
         self._png_label: Optional[QLabel] = None
         self._png_pixmap: Optional[QPixmap] = None
         self._rendering_png_only = False
