@@ -152,9 +152,9 @@ public class AuthenticationService : IAuthenticationService
 
         // Check if previous failures are within the time window
         var windowStart = DateTime.UtcNow.AddMinutes(-_lockoutPolicy.FailedAttemptsWindowMinutes);
-        if (user.LastFailedLoginAt < windowStart)
+        if (!user.LastFailedLoginAt.HasValue || user.LastFailedLoginAt < windowStart)
         {
-            // Reset counter if outside time window
+            // Reset counter if outside time window or first failure
             user.FailedLoginAttempts = 1;
         }
         else

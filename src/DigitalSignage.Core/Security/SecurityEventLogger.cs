@@ -41,7 +41,11 @@ public class SecurityEventLogger
     /// </summary>
     public void LogEvent(EventType eventType, string message, params object[] args)
     {
-        _logger.LogInformation("[SECURITY] {EventType}: " + message, new object[] { eventType }.Concat(args).ToArray());
+        // Use structured logging - framework handles optimization
+        var allArgs = new object[args.Length + 1];
+        allArgs[0] = eventType;
+        Array.Copy(args, 0, allArgs, 1, args.Length);
+        _logger.LogInformation("[SECURITY] {EventType}: " + message, allArgs);
     }
 
     /// <summary>
@@ -49,7 +53,11 @@ public class SecurityEventLogger
     /// </summary>
     public void LogWarning(EventType eventType, string message, params object[] args)
     {
-        _logger.LogWarning("[SECURITY] {EventType}: " + message, new object[] { eventType }.Concat(args).ToArray());
+        // Use structured logging - framework handles optimization
+        var allArgs = new object[args.Length + 1];
+        allArgs[0] = eventType;
+        Array.Copy(args, 0, allArgs, 1, args.Length);
+        _logger.LogWarning("[SECURITY] {EventType}: " + message, allArgs);
     }
 
     /// <summary>
@@ -57,7 +65,11 @@ public class SecurityEventLogger
     /// </summary>
     public void LogError(EventType eventType, Exception? ex, string message, params object[] args)
     {
-        _logger.LogError(ex, "[SECURITY] {EventType}: " + message, new object[] { eventType }.Concat(args).ToArray());
+        // Use structured logging - framework handles optimization
+        var allArgs = new object[args.Length + 1];
+        allArgs[0] = eventType;
+        Array.Copy(args, 0, allArgs, 1, args.Length);
+        _logger.LogError(ex, "[SECURITY] {EventType}: " + message, allArgs);
     }
 
     /// <summary>
