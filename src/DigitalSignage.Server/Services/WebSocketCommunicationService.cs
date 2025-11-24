@@ -268,10 +268,11 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
         Message message,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(message);
         ThrowIfDisposed();
 
         _logger.LogWarning("CRITICAL DEBUG: SendMessageAsync called: clientId={ClientId}, messageType={MessageType}, _clients.Count={Count}",
-            clientId, message?.Type ?? "null", _clients.Count);
+            clientId, message.Type ?? "null", _clients.Count);
         _logger.LogWarning("CRITICAL DEBUG: Looking for client {ClientId} in _clients dictionary: {Exists}",
             clientId, _clients.ContainsKey(clientId));
 
@@ -297,7 +298,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
                     throw new InvalidOperationException($"Client {clientId} connection is not open");
                 }
 
-                _logger.LogDebug("Serializing message type {MessageType} for client {ClientId}", message.Type, clientId);
+                _logger.LogDebug("Serializing message type {MessageType} for client {ClientId}", message.Type ?? "Unknown", clientId);
 
                 var settings = new JsonSerializerSettings
                 {
@@ -938,7 +939,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
 
             if (result.IsSuccess)
             {
-                var registration = result.Value;
+                var registration = result.Value!; // Value is guaranteed non-null when IsSuccess is true
 
                 // Track mobile app connection
                 _mobileAppConnections[connectionId] = connection;
@@ -1037,7 +1038,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
                 return;
             }
 
-            var clients = clientsResult.Value;
+            var clients = clientsResult.Value!; // Value is guaranteed non-null when IsSuccess is true
 
             // Filter by status if requested
             if (!string.IsNullOrEmpty(message.Filter))

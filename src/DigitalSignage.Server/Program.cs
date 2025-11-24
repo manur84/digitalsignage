@@ -138,7 +138,7 @@ public class Program
     {
         // Redirect console to a string writer so we can capture all output
         var originalOut = Console.Out;
-        var stringWriter = new StringWriter();
+        using var stringWriter = new StringWriter();
         Console.SetOut(stringWriter);
 
         try

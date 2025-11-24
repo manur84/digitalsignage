@@ -55,12 +55,12 @@ DISCOVERY_RETRY_DELAY = 2    # 2 seconds delay between discovery scans
 logger.info("=" * 70)
 logger.info("Digital Signage Client Starting...")
 logger.info("=" * 70)
-logger.info(f"Python Version: {sys.version}")
-logger.info(f"Python Executable: {sys.executable}")
-logger.info(f"Working Directory: {os.getcwd()}")
-logger.info(f"DISPLAY: {os.environ.get('DISPLAY', 'NOT SET')}")
-logger.info(f"XAUTHORITY: {os.environ.get('XAUTHORITY', 'NOT SET')}")
-logger.info(f"User: {os.environ.get('USER', 'NOT SET')}")
+logger.info("Python Version: %s", sys.version)
+logger.info("Python Executable: %s", sys.executable)
+logger.info("Working Directory: %s", os.getcwd())
+logger.info("DISPLAY: %s", os.environ.get('DISPLAY', 'NOT SET'))
+logger.info("XAUTHORITY: %s", os.environ.get('XAUTHORITY', 'NOT SET'))
+logger.info("User: %s", os.environ.get('USER', 'NOT SET'))
 logger.info("=" * 70)
 
 # Test critical imports one by one
@@ -71,12 +71,11 @@ try:
     import gzip
     from datetime import datetime
     from typing import Optional, Dict, Any
-    from pathlib import Path
     import threading
     import time
     logger.info("  Standard library imports OK")
 except ImportError as e:
-    logger.error(f"  FAILED - Standard library import error: {e}")
+    logger.error("  FAILED - Standard library import error: %s", e)
     logger.error(traceback.format_exc())
     sys.exit(1)
 
@@ -93,9 +92,9 @@ try:
             # Catch all normal exceptions (not SystemExit/KeyboardInterrupt)
             websocket_version = "unknown"
 
-    logger.info(f"  websocket-client version: {websocket_version}")
+    logger.info("  websocket-client version: %s", websocket_version)
 except ImportError as e:
-    logger.error(f"  FAILED - websocket-client import error: {e}")
+    logger.error("  FAILED - websocket-client import error: %s", e)
     logger.error("  Install with: pip install websocket-client>=1.6.0")
     logger.error(traceback.format_exc())
     sys.exit(1)
@@ -104,10 +103,10 @@ try:
     logger.info("Testing PyQt5 imports...")
     from PyQt5.QtWidgets import QApplication
     from PyQt5.QtCore import QTimer, PYQT_VERSION_STR
-    logger.info(f"  PyQt5 version: {PYQT_VERSION_STR}")
+    logger.info("  PyQt5 version: %s", PYQT_VERSION_STR)
     logger.info("  PyQt5 imports OK")
 except ImportError as e:
-    logger.error(f"  FAILED - PyQt5 import error: {e}")
+    logger.error("  FAILED - PyQt5 import error: %s", e)
     logger.error("")
     logger.error("PyQt5 is required but not accessible. Possible causes:")
     logger.error("  1. PyQt5 not installed: sudo apt-get install python3-pyqt5")
@@ -131,8 +130,8 @@ try:
     from web_interface import WebInterface
     logger.info("  Local module imports OK")
 except ImportError as e:
-    logger.error(f"  FAILED - Local module import error: {e}")
-    logger.error(f"  Make sure all client files are in: {os.getcwd()}")
+    logger.error("  FAILED - Local module import error: %s", e)
+    logger.error("  Make sure all client files are in: %s", os.getcwd())
     logger.error(traceback.format_exc())
     sys.exit(1)
 
@@ -205,7 +204,7 @@ class DigitalSignageClient:
             )
             logger.info("Remote logging enabled - sending logs to server")
         except Exception as e:
-            logger.error(f"Failed to setup remote logging: {e}")
+            logger.error("Failed to setup remote logging: %s", e)
 
     def send_message(self, message: Dict[str, Any]):
         """Send a message to the server (used by remote log handler)
@@ -229,17 +228,15 @@ class DigitalSignageClient:
             # Not connected - queue message for later
             with self.message_lock:
                 self.pending_messages.append(message)
-                logger.debug(f"Message queued (not connected): {len(self.pending_messages)} pending")
-        except Exception as e:
+                logger.debug("Message queued (not connected): %d pending", len(self.pending_messages))
+        except Exception as e:  # pylint: disable=broad-exception-caught
             # Log to file to avoid recursion issues with send_message
             try:
                 error_log_path = '/var/log/digitalsignage-errors.log'
-                with open(error_log_path, 'a') as f:
-                    from datetime import datetime
+                with open(error_log_path, 'a', encoding='utf-8') as f:
                     f.write(f"{datetime.now().isoformat()}: send_message failed: {str(e)}\n")
             except Exception as log_error:
                 # Absolute fallback - write to stderr
-                import sys
                 print(f"CRITICAL: send_message failed: {e} (log error: {log_error})", file=sys.stderr)
 
     def _flush_pending_messages(self):
@@ -256,15 +253,15 @@ class DigitalSignageClient:
 
         # Send messages with send_lock (NOT message_lock to avoid deadlock)
         if self.connection_event.is_set() and self.ws_app:
-            logger.info(f"Flushing {len(messages_to_send)} pending messages")
+            logger.info("Flushing %d pending messages", len(messages_to_send))
             for message in messages_to_send:
                 try:
                     with self.send_lock:
                         if self.connected and self.ws_app:
                             message_json = json.dumps(message)
                             self.ws_app.send(message_json)
-                except Exception as e:
-                    logger.error(f"Failed to send pending message: {e}")
+                except Exception as e:  # pylint: disable=broad-exception-caught
+                    logger.error("Failed to send pending message: %s", e)
                     # Re-queue failed message
                     with self.message_lock:
                         self.pending_messages.append(message)
@@ -299,9 +296,9 @@ class DigitalSignageClient:
 
             # Log message type and size
             if isinstance(message, bytes):
-                logger.info(f"Message Type: BINARY ({len(message)} bytes)")
+                logger.info("Message Type: BINARY (%d bytes)", len(message))
             else:
-                logger.info(f"Message Type: TEXT ({len(message)} chars)")
+                logger.info("Message Type: TEXT (%d chars)", len(message))
 
             # Check if message is binary (compressed)
             if isinstance(message, bytes):
@@ -311,9 +308,9 @@ class DigitalSignageClient:
                     try:
                         decompressed = gzip.decompress(message)
                         message_str = decompressed.decode('utf-8')
-                        logger.info(f"Decompressed: {len(message)} → {len(decompressed)} bytes")
-                    except Exception as e:
-                        logger.error(f"Failed to decompress message: {e}")
+                        logger.info("Decompressed: %d → %d bytes", len(message), len(decompressed))
+                    except Exception as e:  # pylint: disable=broad-exception-caught
+                        logger.error("Failed to decompress message: %s", e)
                         return
                 else:
                     # Binary but not compressed, decode as UTF-8
@@ -325,12 +322,12 @@ class DigitalSignageClient:
                 logger.info("Text message received")
 
             # Log first 500 chars of message
-            logger.info(f"Message Content (first 500 chars): {message_str[:500]}")
+            logger.info("Message Content (first 500 chars): %s", message_str[:500])
 
             data = json.loads(message_str)
             message_type = data.get("Type", "UNKNOWN")
 
-            logger.info(f"Parsed Message Type: {message_type}")
+            logger.info("Parsed Message Type: %s", message_type)
             logger.info("=" * 70)
 
             # Schedule message handling in asyncio loop
@@ -342,23 +339,23 @@ class DigitalSignageClient:
             def handle_future_exception(fut):
                 try:
                     fut.result()
-                    logger.info(f"✓ Message {message_type} handled successfully")
-                except Exception as e:
-                    logger.error(f"✗ Error in message handler coroutine for {message_type}: {e}", exc_info=True)
+                    logger.info("✓ Message %s handled successfully", message_type)
+                except Exception as e:  # pylint: disable=broad-exception-caught
+                    logger.error("✗ Error in message handler coroutine for %s: %s", message_type, e, exc_info=True)
             future.add_done_callback(handle_future_exception)
         except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse JSON message: {e}")
-            logger.error(f"Raw message: {message_str if 'message_str' in locals() else message}")
-        except Exception as e:
-            logger.error(f"Error processing message: {e}", exc_info=True)
+            logger.error("Failed to parse JSON message: %s", e)
+            logger.error("Raw message: %s", message_str if 'message_str' in locals() else message)
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.error("Error processing message: %s", e, exc_info=True)
 
     def on_error(self, ws, error):
         """WebSocket error occurred"""
         logger.error("=" * 70)
         logger.error("WEBSOCKET ERROR OCCURRED")
         logger.error("=" * 70)
-        logger.error(f"Error type: {type(error).__name__}")
-        logger.error(f"Error message: {error}")
+        logger.error("Error type: %s", type(error).__name__)
+        logger.error("Error message: %s", error)
 
         # Provide specific error details
         import errno
@@ -370,7 +367,7 @@ class DigitalSignageClient:
             logger.error("  Check firewall settings")
         elif isinstance(error, ssl.SSLError):
             logger.error("SSL/TLS error - certificate or encryption issue")
-            logger.error(f"  SSL Details: {error}")
+            logger.error("  SSL Details: %s", error)
             logger.error("  Try disabling SSL verification in config.json")
         elif isinstance(error, OSError):
             if hasattr(error, 'errno'):
@@ -385,7 +382,7 @@ class DigitalSignageClient:
 
     def on_close(self, ws, close_status_code, close_msg):
         """WebSocket connection closed"""
-        logger.warning(f"WebSocket connection closed (code: {close_status_code}, msg: {close_msg})")
+        logger.warning("WebSocket connection closed (code: %s, msg: %s)", close_status_code, close_msg)
         self.connected = False
         self.connection_event.clear()  # CRITICAL: Clear connection state
 
