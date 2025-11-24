@@ -128,7 +128,7 @@ public static class DatabaseInitializer
 
     private static void EnsureCriticalTablesExist(DigitalSignageDbContext dbContext)
     {
-        Log.Information("Verifying critical database tables exist...");
+        Log.Information("Verifying critical database tables and columns exist...");
 
         try
         {
@@ -155,10 +155,11 @@ public static class DatabaseInitializer
                 CreateMobileAppRegistrationsTable(dbContext);
                 Log.Information("MobileAppRegistrations table created successfully");
             }
-            else
-            {
-                Log.Information("All critical tables verified and present");
-            }
+
+            // Check and add missing columns to Users table (account lockout fields)
+            EnsureUsersTableAccountLockoutColumns(dbContext);
+
+            Log.Information("All critical tables and columns verified and present");
         }
         catch (Exception ex)
         {
@@ -167,13 +168,83 @@ public static class DatabaseInitializer
             try
             {
                 CreateMobileAppRegistrationsTable(dbContext);
-                Log.Information("MobileAppRegistrations table created as fallback");
+                EnsureUsersTableAccountLockoutColumns(dbContext);
+                Log.Information("Critical tables and columns created as fallback");
             }
             catch (Exception createEx)
             {
-                Log.Error(createEx, "Failed to create MobileAppRegistrations table");
+                Log.Error(createEx, "Failed to create critical tables/columns");
                 // Don't throw - let app continue, the error will be caught when accessing the table
             }
+        }
+    }
+
+    private static void EnsureUsersTableAccountLockoutColumns(DigitalSignageDbContext dbContext)
+    {
+        try
+        {
+            Log.Information("Checking Users table for account lockout columns...");
+
+            // Check if FailedLoginAttempts column exists
+            var checkColumnSql = @"SELECT COUNT(*) FROM pragma_table_info('Users') WHERE name = 'FailedLoginAttempts'";
+
+            using var command = dbContext.Database.GetDbConnection().CreateCommand();
+            command.CommandText = checkColumnSql;
+
+            if (command.Connection?.State != System.Data.ConnectionState.Open)
+            {
+                command.Connection?.Open();
+            }
+
+            var columnExists = Convert.ToInt32(command.ExecuteScalar() ?? 0) > 0;
+
+            if (!columnExists)
+            {
+                Log.Warning("Account lockout columns not found in Users table - adding them now");
+
+                // Add the missing columns
+                var addColumnsSql = @"
+                    ALTER TABLE Users ADD COLUMN FailedLoginAttempts INTEGER NOT NULL DEFAULT 0;
+                    ALTER TABLE Users ADD COLUMN LastFailedLoginAt TEXT NULL;
+                    ALTER TABLE Users ADD COLUMN LockedUntil TEXT NULL;
+                ";
+
+                dbContext.Database.ExecuteSqlRaw(addColumnsSql);
+
+                Log.Information("Account lockout columns added to Users table successfully");
+
+                // Update migration history if needed
+                try
+                {
+                    var checkMigrationSql = @"SELECT COUNT(*) FROM __EFMigrationsHistory
+                                           WHERE MigrationId = '20251124000000_AddAccountLockoutFields'";
+
+                    command.CommandText = checkMigrationSql;
+                    var migrationExists = Convert.ToInt32(command.ExecuteScalar() ?? 0) > 0;
+
+                    if (!migrationExists)
+                    {
+                        dbContext.Database.ExecuteSqlRaw(
+                            @"INSERT INTO ""__EFMigrationsHistory"" (""MigrationId"", ""ProductVersion"")
+                              VALUES ('20251124000000_AddAccountLockoutFields', '8.0.0')"
+                        );
+                        Log.Information("Added migration history entry for AddAccountLockoutFields");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning(ex, "Could not check/add migration history entry - may already exist");
+                }
+            }
+            else
+            {
+                Log.Information("Users table account lockout columns already exist");
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to ensure Users table has account lockout columns");
+            throw; // Re-throw to prevent app startup with incomplete schema
         }
     }
 
