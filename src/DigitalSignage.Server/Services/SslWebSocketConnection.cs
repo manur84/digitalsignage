@@ -24,7 +24,19 @@ public class SslWebSocketConnection : IDisposable
 
     public string ConnectionId { get; }
     public string? ClientIpAddress { get; }
-    public bool IsConnected => !_disposed && _tcpClient.Connected && _isHandshakeComplete;
+    public bool IsConnected
+    {
+        get
+        {
+            var result = !_disposed && _tcpClient.Connected && _isHandshakeComplete;
+            if (!result)
+            {
+                _logger.LogWarning("IsConnected=FALSE: disposed={Disposed}, tcpConnected={TcpConnected}, handshake={Handshake}",
+                    _disposed, _tcpClient.Connected, _isHandshakeComplete);
+            }
+            return result;
+        }
+    }
 
     public SslWebSocketConnection(TcpClient tcpClient, SslStream sslStream, ILogger logger)
     {
