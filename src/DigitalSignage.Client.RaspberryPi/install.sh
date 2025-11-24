@@ -766,12 +766,42 @@ fi
 show_step "Configuring Plymouth splash screen..."
 
 # Auto-detect boot directory (Raspberry Pi OS changed location in newer versions)
-BOOT_DIR="/boot/firmware"
-if [ ! -d "$BOOT_DIR" ] || [ ! -w "$BOOT_DIR" ]; then
-    BOOT_DIR="/boot"
+# Bookworm (newer): /boot/firmware
+# Bullseye (older): /boot
+BOOT_DIR=""
+
+# Method 1: Check for /boot/firmware (Bookworm default)
+if [ -d "/boot/firmware" ] && [ -w "/boot/firmware" ]; then
+    # Verify it contains the expected files
+    if [ -f "/boot/firmware/cmdline.txt" ] && [ -f "/boot/firmware/config.txt" ]; then
+        BOOT_DIR="/boot/firmware"
+        show_info "Detected Bookworm boot directory: /boot/firmware"
+    fi
 fi
 
-show_info "Using boot directory: $BOOT_DIR"
+# Method 2: Fallback to /boot (Bullseye and earlier)
+if [ -z "$BOOT_DIR" ] && [ -d "/boot" ] && [ -w "/boot" ]; then
+    if [ -f "/boot/cmdline.txt" ] && [ -f "/boot/config.txt" ]; then
+        BOOT_DIR="/boot"
+        show_info "Detected Bullseye boot directory: /boot"
+    fi
+fi
+
+# Method 3: Error if neither location works
+if [ -z "$BOOT_DIR" ]; then
+    echo -e "${RED}ERROR: Could not find boot directory!${NC}"
+    echo "Tried:"
+    echo "  - /boot/firmware (Bookworm)"
+    echo "  - /boot (Bullseye)"
+    echo ""
+    echo "Please check:"
+    echo "  1. Are you running this on a Raspberry Pi?"
+    echo "  2. Are you running as root (sudo)?"
+    echo "  3. Is the boot partition mounted?"
+    exit 1
+fi
+
+show_success "Using boot directory: $BOOT_DIR"
 
 # Ensure Plymouth is installed
 if ! command -v plymouth &>/dev/null; then

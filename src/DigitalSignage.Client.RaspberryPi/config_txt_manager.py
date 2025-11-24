@@ -230,10 +230,12 @@ def find_config_path(custom_path: Optional[str]) -> Path:
     if custom_path:
         return Path(custom_path)
 
-    for candidate in (Path("/boot/config.txt"), Path("/boot/firmware/config.txt")):
+    # CRITICAL: Check /boot/firmware FIRST (Bookworm), then fall back to /boot (Bullseye)
+    for candidate in (Path("/boot/firmware/config.txt"), Path("/boot/config.txt")):
         if candidate.exists():
             return candidate
-    return Path("/boot/config.txt")
+    # Default fallback to Bookworm location
+    return Path("/boot/firmware/config.txt")
 
 
 def update_config_file(path: Path, block: str) -> Path:
@@ -315,7 +317,8 @@ def _setup_boot_logo_fallback(logo_path: str = None) -> bool:
     try:
         import shutil
 
-        boot_dirs = ["/boot", "/boot/firmware"]
+        # CRITICAL: Check /boot/firmware FIRST (Bookworm), then /boot (Bullseye)
+        boot_dirs = ["/boot/firmware", "/boot"]
         boot_dir = None
 
         # Find the correct boot directory
