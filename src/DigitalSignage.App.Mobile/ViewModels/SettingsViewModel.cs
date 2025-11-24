@@ -194,7 +194,25 @@ public partial class SettingsViewModel : BaseViewModel
             if (!confirm)
                 return;
 
-            // TODO(#6): Implement cache service to clear offline data
+            // Clear MAUI file cache
+            var cacheDir = FileSystem.CacheDirectory;
+            if (Directory.Exists(cacheDir))
+            {
+                var files = Directory.GetFiles(cacheDir, "*", SearchOption.AllDirectories);
+                foreach (var file in files)
+                {
+                    try
+                    {
+                        File.Delete(file);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to delete cache file: {File}", file);
+                    }
+                }
+                _logger.LogInformation("Cache cleared: {FileCount} files deleted", files.Length);
+            }
+            
             await Application.Current.MainPage.DisplayAlert("Success", "Cache cleared successfully", "OK");
             _logger.LogInformation("Cache cleared");
         }
