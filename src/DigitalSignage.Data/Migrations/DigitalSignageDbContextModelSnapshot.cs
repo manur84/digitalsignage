@@ -779,7 +779,9 @@ namespace DigitalSignage.Data.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<int>("FailedLoginAttempts")
-                        .HasColumnType("INTEGER");
+                        .ValueGeneratedNever()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0);
 
                     b.Property<string>("FullName")
                         .IsRequired()
