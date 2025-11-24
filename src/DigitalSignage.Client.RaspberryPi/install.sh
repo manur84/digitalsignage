@@ -1453,9 +1453,17 @@ if [ -z "$DISPLAY" ] && [ "$(tty)" = "/dev/tty1" ]; then
     # Log startup for debugging
     echo "Digital Signage: Starting X11..." | tee -a /tmp/digitalsignage-boot.log
 
+    # CRITICAL FIX: Use ~/.Xauthority for X11 authorization
+    # This ensures the service can find and use the correct auth file
+    # startx normally creates /tmp/serverauth.*, but we want ~/.Xauthority
+    export XAUTHORITY="$HOME/.Xauthority"
+    touch "$XAUTHORITY"
+    chmod 600 "$XAUTHORITY"
+
     # Start X11 with our .xinitrc configuration
+    # -auth specifies to use ~/.Xauthority instead of /tmp/serverauth.*
     # exec replaces the shell with startx, preventing terminal from showing
-    exec startx -- -nocursor
+    exec startx -- -nocursor -auth "$XAUTHORITY"
 fi
 EOF
     chown "$ACTUAL_USER:$ACTUAL_USER" "$USER_HOME/.bash_profile"
