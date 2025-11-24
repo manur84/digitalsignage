@@ -47,10 +47,10 @@ public partial class DeviceManagementViewModel : ObservableObject, IDisposable
     private int _configServerPort = 8080;
 
     [ObservableProperty]
-    private bool _configUseSSL = false;
+    private bool _configUseSSL = true; // WSS-ONLY: Pi clients REQUIRE SSL
 
     [ObservableProperty]
-    private bool _configVerifySSL = true;
+    private bool _configVerifySSL = false; // Pi clients accept self-signed certs
 
     [ObservableProperty]
     private bool _configFullScreen = true;
