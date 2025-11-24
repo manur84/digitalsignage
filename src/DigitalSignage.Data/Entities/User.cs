@@ -15,6 +15,11 @@ public class User
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? LastLoginAt { get; set; }
     public DateTime? LastPasswordChangedAt { get; set; }
+    
+    // Account lockout fields
+    public int FailedLoginAttempts { get; set; } = 0;
+    public DateTime? LastFailedLoginAt { get; set; }
+    public DateTime? LockedUntil { get; set; }
 }
 
 public enum UserRole

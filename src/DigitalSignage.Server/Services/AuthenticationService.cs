@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using DigitalSignage.Core.Interfaces;
+using DigitalSignage.Core.Security;
 using DigitalSignage.Data;
 using DigitalSignage.Data.Entities;
 using Serilog;
@@ -16,12 +17,24 @@ public class AuthenticationService : IAuthenticationService
     private readonly DigitalSignageDbContext _dbContext;
     private readonly ILogger _logger;
     private readonly RateLimitingService? _rateLimitingService;
+    private readonly PasswordPolicy _passwordPolicy;
+    private readonly AccountLockoutPolicy _lockoutPolicy;
+    private readonly SecurityEventLogger _securityLogger;
 
-    public AuthenticationService(DigitalSignageDbContext dbContext, RateLimitingService? rateLimitingService = null)
+    public AuthenticationService(
+        DigitalSignageDbContext dbContext, 
+        RateLimitingService? rateLimitingService = null,
+        PasswordPolicy? passwordPolicy = null,
+        AccountLockoutPolicy? lockoutPolicy = null,
+        SecurityEventLogger? securityLogger = null)
     {
         _dbContext = dbContext;
         _logger = Log.ForContext<AuthenticationService>();
         _rateLimitingService = rateLimitingService;
+        _passwordPolicy = passwordPolicy ?? PasswordPolicy.Default;
+        _lockoutPolicy = lockoutPolicy ?? AccountLockoutPolicy.Default;
+        _securityLogger = securityLogger ?? new SecurityEventLogger(
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<SecurityEventLogger>.Instance);
     }
 
     public async Task<AuthenticationResult> AuthenticateAsync(
@@ -34,6 +47,7 @@ public class AuthenticationService : IAuthenticationService
             // Check rate limiting for username
             if (_rateLimitingService != null && !_rateLimitingService.IsRequestAllowed($"auth_user:{username}"))
             {
+                _securityLogger.LogRateLimitExceeded("authentication", username);
                 _logger.Warning("Authentication rate limit exceeded for user {Username}", username);
                 return new AuthenticationResult
                 {
@@ -47,7 +61,10 @@ public class AuthenticationService : IAuthenticationService
 
             if (user == null)
             {
+                _securityLogger.LogAuthenticationFailure(username, "User not found or inactive");
                 _logger.Warning("Authentication failed: User {Username} not found or inactive", username);
+                // Use constant-time delay to prevent user enumeration
+                await Task.Delay(TimeSpan.FromMilliseconds(100), cancellationToken);
                 return new AuthenticationResult
                 {
                     Success = false,
@@ -55,9 +72,38 @@ public class AuthenticationService : IAuthenticationService
                 };
             }
 
+            // Check if account is locked
+            if (_lockoutPolicy.Enabled && user.LockedUntil.HasValue && DateTime.UtcNow < user.LockedUntil.Value)
+            {
+                var remainingLockoutTime = user.LockedUntil.Value - DateTime.UtcNow;
+                _securityLogger.LogAuthenticationFailure(username, "Account locked");
+                _logger.Warning("Authentication failed: Account locked for user {Username} (locked until {LockedUntil})", 
+                    username, user.LockedUntil.Value);
+                return new AuthenticationResult
+                {
+                    Success = false,
+                    ErrorMessage = $"Account is locked. Please try again in {remainingLockoutTime.Minutes + 1} minutes."
+                };
+            }
+
+            // Clear lockout if lock period has expired
+            if (user.LockedUntil.HasValue && DateTime.UtcNow >= user.LockedUntil.Value)
+            {
+                user.LockedUntil = null;
+                user.FailedLoginAttempts = 0;
+                _logger.Information("Account lockout expired for user {Username}", username);
+            }
+
+            // Verify password
             if (!VerifyPassword(password, user.PasswordHash))
             {
-                _logger.Warning("Authentication failed: Invalid password for user {Username}", username);
+                await HandleFailedLoginAsync(user, cancellationToken);
+                _securityLogger.LogAuthenticationFailure(username, $"Invalid password (attempt {user.FailedLoginAttempts}/{_lockoutPolicy.MaxFailedAttempts})");
+                _logger.Warning("Authentication failed: Invalid password for user {Username} (attempt {Attempts}/{MaxAttempts})", 
+                    username, user.FailedLoginAttempts, _lockoutPolicy.MaxFailedAttempts);
+                
+                // Use constant-time delay to prevent timing attacks
+                await Task.Delay(TimeSpan.FromMilliseconds(100), cancellationToken);
                 return new AuthenticationResult
                 {
                     Success = false,
@@ -65,10 +111,14 @@ public class AuthenticationService : IAuthenticationService
                 };
             }
 
-            // Update last login
+            // Successful authentication - reset failed attempts
+            user.FailedLoginAttempts = 0;
+            user.LastFailedLoginAt = null;
+            user.LockedUntil = null;
             user.LastLoginAt = DateTime.UtcNow;
             await _dbContext.SaveChangesAsync(cancellationToken);
 
+            _securityLogger.LogAuthenticationSuccess(username);
             _logger.Information("User {Username} authenticated successfully", username);
 
             return new AuthenticationResult
@@ -88,6 +138,40 @@ public class AuthenticationService : IAuthenticationService
                 ErrorMessage = "Authentication error occurred"
             };
         }
+    }
+
+    /// <summary>
+    /// Handle failed login attempt - increment counter and lock account if needed
+    /// </summary>
+    private async Task HandleFailedLoginAsync(User user, CancellationToken cancellationToken)
+    {
+        if (!_lockoutPolicy.Enabled)
+            return;
+
+        user.LastFailedLoginAt = DateTime.UtcNow;
+
+        // Check if previous failures are within the time window
+        var windowStart = DateTime.UtcNow.AddMinutes(-_lockoutPolicy.FailedAttemptsWindowMinutes);
+        if (!user.LastFailedLoginAt.HasValue || user.LastFailedLoginAt < windowStart)
+        {
+            // Reset counter if outside time window or first failure
+            user.FailedLoginAttempts = 1;
+        }
+        else
+        {
+            user.FailedLoginAttempts++;
+        }
+
+        // Lock account if max attempts exceeded
+        if (user.FailedLoginAttempts >= _lockoutPolicy.MaxFailedAttempts)
+        {
+            user.LockedUntil = DateTime.UtcNow.AddMinutes(_lockoutPolicy.LockoutDurationMinutes);
+            _securityLogger.LogAccountLocked(user.Username, user.FailedLoginAttempts, user.LockedUntil.Value);
+            _logger.Warning("Account locked for user {Username} due to {Attempts} failed login attempts. Locked until {LockedUntil}",
+                user.Username, user.FailedLoginAttempts, user.LockedUntil.Value);
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
     public async Task<ApiKeyValidationResult> ValidateApiKeyAsync(
@@ -200,6 +284,7 @@ public class AuthenticationService : IAuthenticationService
             _dbContext.ClientRegistrationTokens.Add(registrationToken);
             await _dbContext.SaveChangesAsync(cancellationToken);
 
+            _securityLogger.LogRegistrationTokenCreated(createdByUserId, description);
             _logger.Information("Registration token created (ID: {TokenId}, CreatedBy: {UserId})",
                 registrationToken.Id, createdByUserId);
 
@@ -342,6 +427,7 @@ public class AuthenticationService : IAuthenticationService
             _dbContext.ApiKeys.Add(apiKeyEntity);
             await _dbContext.SaveChangesAsync(cancellationToken);
 
+            _securityLogger.LogApiKeyCreated(userId, name);
             _logger.Information("API key created (ID: {KeyId}, Name: {Name}, UserId: {UserId})",
                 apiKeyEntity.Id, name, userId);
 
@@ -366,6 +452,7 @@ public class AuthenticationService : IAuthenticationService
             apiKey.IsActive = false;
             await _dbContext.SaveChangesAsync(cancellationToken);
 
+            _securityLogger.LogApiKeyRevoked(apiKeyId);
             _logger.Information("API key revoked (ID: {KeyId})", apiKeyId);
             return true;
         }
@@ -384,6 +471,14 @@ public class AuthenticationService : IAuthenticationService
     {
         try
         {
+            // Validate new password against policy
+            if (!_passwordPolicy.ValidatePassword(newPassword, out var passwordError))
+            {
+                _logger.Warning("Password change failed: Password policy violation for user {UserId}: {Error}", 
+                    userId, passwordError);
+                throw new InvalidOperationException(passwordError);
+            }
+
             var user = await _dbContext.Users.FindAsync(new object[] { userId }, cancellationToken);
             if (user == null)
                 return false;
@@ -396,8 +491,15 @@ public class AuthenticationService : IAuthenticationService
 
             user.PasswordHash = HashPassword(newPassword);
             user.LastPasswordChangedAt = DateTime.UtcNow;
+            
+            // Reset failed login attempts on successful password change
+            user.FailedLoginAttempts = 0;
+            user.LockedUntil = null;
+            user.LastFailedLoginAt = null;
+            
             await _dbContext.SaveChangesAsync(cancellationToken);
 
+            _securityLogger.LogPasswordChanged(user.Username, userId);
             _logger.Information("Password changed successfully (UserId: {UserId})", userId);
             return true;
         }
@@ -424,6 +526,11 @@ public class AuthenticationService : IAuthenticationService
         {
             return false;
         }
+    }
+
+    public bool ValidatePasswordPolicy(string password, out string? errorMessage)
+    {
+        return _passwordPolicy.ValidatePassword(password, out errorMessage);
     }
 
     private static string HashApiKey(string apiKey)

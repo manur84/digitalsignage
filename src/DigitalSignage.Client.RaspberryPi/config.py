@@ -348,7 +348,12 @@ class Config:
                 self.log_level = server_config['LogLevel']
 
             if 'RegistrationToken' in server_config and server_config['RegistrationToken']:
-                self.registration_token = server_config['RegistrationToken']
+                token = server_config['RegistrationToken']
+                # Security: Validate registration token format
+                if not self._is_valid_registration_token(token):
+                    logger.warning("Invalid registration token format in server config - token rejected")
+                else:
+                    self.registration_token = token
 
             # Save updated configuration
             self.save()
@@ -356,6 +361,36 @@ class Config:
         except Exception as e:
             print(f"Failed to update configuration from server: {e}")
             return False
+
+    @staticmethod
+    def _is_valid_registration_token(token: str) -> bool:
+        """Validate registration token format for security
+        
+        Security checks:
+        - Token must be alphanumeric (prevents injection attacks)
+        - Token length must be reasonable (8-128 chars)
+        - No whitespace or special characters
+        
+        Args:
+            token: Registration token to validate
+            
+        Returns:
+            True if token format is valid, False otherwise
+        """
+        if not token or not isinstance(token, str):
+            return False
+        
+        # Check length (tokens should be 8-128 characters)
+        if len(token) < 8 or len(token) > 128:
+            return False
+        
+        # Only allow alphanumeric characters and hyphens (safe characters)
+        # This prevents injection attacks and path traversal
+        import re
+        if not re.match(r'^[a-zA-Z0-9\-]+$', token):
+            return False
+        
+        return True
 
     @classmethod
     def from_env(cls) -> 'Config':

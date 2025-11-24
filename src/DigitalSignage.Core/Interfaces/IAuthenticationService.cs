@@ -77,6 +77,11 @@ public interface IAuthenticationService
     /// Verify password against hash
     /// </summary>
     bool VerifyPassword(string password, string hash);
+    
+    /// <summary>
+    /// Validate password against current password policy
+    /// </summary>
+    bool ValidatePasswordPolicy(string password, out string? errorMessage);
 }
 
 /// <summary>
