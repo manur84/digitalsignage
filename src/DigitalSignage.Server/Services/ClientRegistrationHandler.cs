@@ -229,6 +229,7 @@ internal class ClientRegistrationHandler
                     // Update the conflicting client with new MAC and IP
                     conflictingClient.MacAddress = registerMessage.MacAddress;
                     conflictingClient.IpAddress = registerMessage.IpAddress ?? conflictingClient.IpAddress;
+                    conflictingClient.Name = registerMessage.DeviceInfo?.Hostname ?? conflictingClient.Name ?? conflictingClient.Id; // Update name from hostname
                     conflictingClient.LastSeen = DateTime.UtcNow;
                     conflictingClient.Status = ClientStatus.Online;
                     conflictingClient.DeviceInfo = MergeDeviceInfo(conflictingClient.DeviceInfo, registerMessage.DeviceInfo);
@@ -276,6 +277,7 @@ internal class ClientRegistrationHandler
             client = new RaspberryPiClient
             {
                 Id = registerMessage.ClientId,
+                Name = mergedDeviceInfo.Hostname ?? registerMessage.ClientId, // Use hostname as name
                 MacAddress = existingClient.MacAddress,
                 IpAddress = registerMessage.IpAddress ?? existingClient.IpAddress,
                 Group = existingClient.Group,
@@ -296,6 +298,7 @@ internal class ClientRegistrationHandler
             dbContext.Clients.Attach(client);
 
             client.IpAddress = registerMessage.IpAddress ?? client.IpAddress;
+            client.Name = registerMessage.DeviceInfo?.Hostname ?? client.Name ?? client.Id; // Update name from hostname
             client.LastSeen = DateTime.UtcNow;
             client.Status = ClientStatus.Online;
 
@@ -377,6 +380,7 @@ internal class ClientRegistrationHandler
         var client = new RaspberryPiClient
         {
             Id = clientId,
+            Name = deviceInfo.Hostname ?? clientId, // Use hostname as name, fallback to client ID
             IpAddress = registerMessage.IpAddress ?? "unknown",
             MacAddress = registerMessage.MacAddress,
             Group = assignedGroup,
