@@ -93,7 +93,7 @@ public partial class MobileAppManagementViewModel : ObservableObject
             var permissions = BuildPermissions();
             var result = await _mobileAppService.ApproveAppAsync(
                 SelectedRegistration.Id,
-                "Admin", // TODO(#2): Get actual admin username from authentication context
+                Environment.UserName,
                 permissions);
 
             if (result.IsSuccess)

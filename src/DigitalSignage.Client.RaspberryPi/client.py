@@ -896,10 +896,29 @@ class DigitalSignageClient:
             logger.error(f"Failed to send screenshot: {e}", exc_info=True)
 
     async def restart_app(self):
-        """Restart the application"""
+        """Restart the application
+        
+        Exit cleanly to allow systemd to restart the service.
+        The systemd service is configured with Restart=always which
+        will automatically restart the application after exit.
+        """
         logger.info("Restarting application...")
-        # TODO: Implement app restart logic
-        pass
+        try:
+            # Close WebSocket connection cleanly
+            if self.ws:
+                await self.ws.close()
+            
+            # Close Qt application
+            if hasattr(self, 'app') and self.app:
+                self.app.quit()
+            
+            # Exit with code 0 to trigger systemd restart
+            logger.info("Application exiting for restart...")
+            sys.exit(0)
+        except Exception as e:
+            logger.error(f"Error during restart: {e}", exc_info=True)
+            # Force exit anyway
+            sys.exit(1)
 
     async def load_cached_layout(self):
         """Load cached layout for offline operation

@@ -62,6 +62,8 @@ class DisplayRenderer(QWidget):
 
         # Data source cache for datagrid elements
         self.data_source_cache: Dict[str, list] = {}
+        # Map data source IDs to elements that use them for refresh capability
+        self.data_source_elements: Dict[str, list[tuple[QWidget, Dict[str, Any]]]] = {}
         self._png_label: Optional[QLabel] = None
         self._png_pixmap: Optional[QPixmap] = None
         self._rendering_png_only = False
@@ -116,6 +118,9 @@ class DisplayRenderer(QWidget):
                 except Exception as e:
                     logger.warning(f"Failed to delete element: {e}")
             self.elements.clear()
+            
+            # Clear data source to element mappings
+            self.data_source_elements.clear()
 
             # CRITICAL FIX: Reset PNG label references after cleanup
             # This prevents PNG layout from blocking status screen
@@ -432,6 +437,9 @@ class DisplayRenderer(QWidget):
                 except Exception as e:
                     logger.warning(f"Failed to delete element: {e}")
             self.elements.clear()
+            
+            # Clear data source to element mappings
+            self.data_source_elements.clear()
 
             # CRITICAL FIX: Reset PNG label references after cleanup
             # This prevents "wrapped C/C++ object has been deleted" error
@@ -1857,6 +1865,11 @@ class DisplayRenderer(QWidget):
             # Hide vertical header (row numbers)
             table.verticalHeader().setVisible(False)
 
+            # Register element with data source for refresh capability
+            if data_source_id_str not in self.data_source_elements:
+                self.data_source_elements[data_source_id_str] = []
+            self.data_source_elements[data_source_id_str].append((table, properties))
+
             table.show()
             return table
 
@@ -2152,13 +2165,60 @@ class DisplayRenderer(QWidget):
     def update_data_source(self, data_source_id: str, new_data: list):
         """Update cached data and refresh affected datagrid elements"""
         try:
+            from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem
+            from PyQt5.QtCore import Qt
+            
             # Update cache
             self.cache_data_source(data_source_id, new_data)
 
-            # TODO: Find and refresh datagrid elements using this data source
-            # For now, we'll just log - full implementation would require tracking
-            # which elements use which data sources
-            logger.info(f"Data source {data_source_id} updated - refresh would happen here")
+            # Find and refresh datagrid elements using this data source
+            if data_source_id in self.data_source_elements:
+                elements_to_refresh = self.data_source_elements[data_source_id]
+                logger.info(f"Refreshing {len(elements_to_refresh)} datagrid element(s) with updated data from source {data_source_id}")
+                
+                for table, properties in elements_to_refresh:
+                    if isinstance(table, QTableWidget) and not table.isHidden():
+                        try:
+                            # Get configuration
+                            rows_per_page = int(properties.get('RowsPerPage', 10))
+                            show_header = properties.get('ShowHeader', True)
+                            
+                            # Update table with new data
+                            if new_data:
+                                columns = list(new_data[0].keys())
+                                rows = min(rows_per_page, len(new_data))
+                                
+                                table.setRowCount(rows)
+                                table.setColumnCount(len(columns))
+                                
+                                # Update headers if needed
+                                if show_header:
+                                    table.setHorizontalHeaderLabels(columns)
+                                
+                                # Populate new data
+                                for row_idx, row_data in enumerate(new_data[:rows_per_page]):
+                                    for col_idx, col_name in enumerate(columns):
+                                        value = str(row_data.get(col_name, ''))
+                                        item = QTableWidgetItem(value)
+                                        item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+                                        table.setItem(row_idx, col_idx, item)
+                                
+                                logger.debug(f"Refreshed datagrid with {rows} rows and {len(columns)} columns")
+                            else:
+                                # No data - clear table
+                                table.setRowCount(1)
+                                table.setColumnCount(1)
+                                item = QTableWidgetItem("No data available")
+                                item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+                                table.setItem(0, 0, item)
+                                logger.debug("Refreshed datagrid with no data message")
+                                
+                        except Exception as e:
+                            logger.error(f"Failed to refresh datagrid element: {e}")
+                            
+                logger.info(f"Data source {data_source_id} refreshed successfully")
+            else:
+                logger.info(f"Data source {data_source_id} updated but no elements are using it")
 
         except Exception as e:
             logger.error(f"Failed to update data source {data_source_id}: {e}")
