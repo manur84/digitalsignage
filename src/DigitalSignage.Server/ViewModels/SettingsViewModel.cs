@@ -539,6 +539,8 @@ public partial class SettingsViewModel : ObservableValidator
             EnableSsl = true; // WSS-ONLY: MUST be true
             CertificateThumbprint = string.Empty;
             CertificatePath = "./certs/server.pfx";
+            // NOTE: This is the default/example password matching appsettings.json
+            // Users should change this in production deployments
             CertificatePassword = "DigitalSignage2024!";
             EndpointPath = "/ws/";
             MaxMessageSize = 1048576;

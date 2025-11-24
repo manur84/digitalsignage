@@ -27,6 +27,11 @@ public class ServerSettings
     /// <summary>
     /// Enable HTTPS/WSS (requires SSL certificate configuration)
     /// WSS-ONLY MODE: This MUST be true. Server only accepts secure WebSocket connections.
+    /// 
+    /// IMPORTANT: While this property defaults to true and the protocol methods always return
+    /// secure variants, this property MUST remain in the configuration for validation purposes.
+    /// The WebSocketCommunicationService explicitly checks this at startup and throws an exception
+    /// if it's false, ensuring users cannot accidentally disable SSL.
     /// </summary>
     public bool EnableSsl { get; set; } = true;
 
@@ -145,6 +150,10 @@ public class ServerSettings
 
     /// <summary>
     /// Get the server URL prefix - ALWAYS HTTPS (WSS-only mode)
+    /// 
+    /// NOTE: Returns HTTPS regardless of EnableSsl setting value.
+    /// The EnableSsl property is still validated at startup to ensure it's true,
+    /// but this method enforces secure protocol at the code level.
     /// </summary>
     public string GetUrlPrefix()
     {
@@ -179,6 +188,10 @@ public class ServerSettings
     /// <summary>
     /// Get the WebSocket protocol - ALWAYS WSS (WebSocket Secure)
     /// WSS-ONLY MODE: Server only accepts secure WebSocket connections
+    /// 
+    /// NOTE: Returns "wss" regardless of EnableSsl setting value.
+    /// The EnableSsl property is still validated at startup to ensure it's true,
+    /// but this method enforces secure protocol at the code level.
     /// </summary>
     public string GetWebSocketProtocol()
     {
