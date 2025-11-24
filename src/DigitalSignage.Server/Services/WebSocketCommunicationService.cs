@@ -5,6 +5,7 @@ using DigitalSignage.Server.Helpers;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using System.Collections.Concurrent;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
@@ -177,9 +178,13 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
                 _tcpListener.Stop();
                 _logger.LogDebug("TcpListener stopped");
             }
-            catch (Exception ex)
+            catch (SocketException ex)
             {
-                _logger.LogWarning(ex, "Error stopping TcpListener");
+                _logger.LogWarning(ex, "Socket error stopping TcpListener");
+            }
+            catch (ObjectDisposedException ex)
+            {
+                _logger.LogDebug(ex, "TcpListener already disposed");
             }
         }
 
@@ -191,9 +196,17 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
             {
                 await connection.CloseAsync(cancellationToken);
             }
+            catch (OperationCanceledException)
+            {
+                // Expected during shutdown
+            }
+            catch (IOException ex)
+            {
+                _logger.LogWarning(ex, "I/O error closing client connection during shutdown");
+            }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Error closing client connection during shutdown");
+                _logger.LogWarning(ex, "Unexpected error closing client connection during shutdown");
             }
         });
 
@@ -202,9 +215,13 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
             await Task.WhenAll(closeTasks);
             _logger.LogInformation("All {Count} client connections closed", connectionsSnapshot.Count);
         }
+        catch (AggregateException ex) when (ex.InnerExceptions.All(e => e is OperationCanceledException || e is IOException))
+        {
+            _logger.LogDebug("Some client connections closed with expected exceptions during shutdown");
+        }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Error waiting for client connections to close");
+            _logger.LogWarning(ex, "Unexpected error waiting for client connections to close");
         }
 
         // 4. Dispose all connections and clear dictionary
@@ -225,9 +242,13 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
             {
                 _logger.LogWarning("Accept clients task did not stop within timeout");
             }
+            catch (OperationCanceledException)
+            {
+                _logger.LogDebug("Accept clients task was cancelled");
+            }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Error waiting for accept clients task to complete");
+                _logger.LogWarning(ex, "Unexpected error waiting for accept clients task to complete");
             }
         }
 
@@ -245,9 +266,13 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
             {
                 _logger.LogWarning("{Count} client handler tasks did not stop within timeout", handlerTasks.Length);
             }
+            catch (AggregateException ex) when (ex.InnerExceptions.All(e => e is OperationCanceledException))
+            {
+                _logger.LogDebug("Client handler tasks were cancelled during shutdown");
+            }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Error waiting for client handler tasks to complete");
+                _logger.LogWarning(ex, "Unexpected error waiting for client handler tasks to complete");
             }
         }
 
@@ -337,9 +362,19 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
                     message?.Type, clientId);
                 throw;
             }
+            catch (IOException ioEx)
+            {
+                _logger.LogError(ioEx, "Network I/O error sending message to client {ClientId}", clientId);
+                throw;
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogDebug("Send message operation cancelled for client {ClientId}", clientId);
+                throw;
+            }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to send message to client {ClientId}", clientId);
+                _logger.LogError(ex, "Unexpected error sending message to client {ClientId}", clientId);
                 throw;
             }
         }
@@ -371,9 +406,17 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
                     await connection.SendTextAsync(json, cancellationToken);
                 }
             }
+            catch (IOException ex)
+            {
+                _logger.LogWarning(ex, "Network I/O error broadcasting to connection {ConnectionId}", connection.ConnectionId);
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected during cancellation, no need to log
+            }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to broadcast to connection {ConnectionId}", connection.ConnectionId);
+                _logger.LogWarning(ex, "Unexpected error broadcasting to connection {ConnectionId}", connection.ConnectionId);
             }
         });
 
@@ -496,9 +539,17 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
                 _logger.LogError(ex, "SSL authentication failed for {RemoteEndPoint}", remoteEndPoint);
             }
         }
+        catch (IOException ex)
+        {
+            _logger.LogWarning(ex, "Network I/O error handling TCP/SSL client");
+        }
+        catch (SocketException ex)
+        {
+            _logger.LogWarning(ex, "Socket error handling TCP/SSL client");
+        }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error handling TCP/SSL client");
+            _logger.LogError(ex, "Unexpected error handling TCP/SSL client");
         }
         finally
         {
@@ -525,9 +576,17 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
                 await HandleWebSocketFrameAsync(connection, frame, cancellationToken);
             }
         }
+        catch (OperationCanceledException)
+        {
+            _logger.LogDebug("WebSocket connection {ConnectionId} cancelled", clientId);
+        }
+        catch (IOException ex)
+        {
+            _logger.LogWarning(ex, "Network I/O error in WebSocket connection {ConnectionId}", clientId);
+        }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error handling WebSocket connection {ConnectionId}", clientId);
+            _logger.LogError(ex, "Unexpected error handling WebSocket connection {ConnectionId}", clientId);
         }
         finally
         {

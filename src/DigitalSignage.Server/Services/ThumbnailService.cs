@@ -112,9 +112,24 @@ public class ThumbnailService
 
             return thumbnailPath;
         }
+        catch (OutOfMemoryException ex)
+        {
+            _logger.LogError(ex, "Insufficient memory to generate thumbnail for: {FileName}", originalFileName);
+            return null;
+        }
+        catch (IOException ex)
+        {
+            _logger.LogError(ex, "I/O error generating thumbnail for: {FileName}", originalFileName);
+            return null;
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogError(ex, "Access denied generating thumbnail for: {FileName}", originalFileName);
+            return null;
+        }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to generate thumbnail for: {FileName}", originalFileName);
+            _logger.LogError(ex, "Unexpected error generating thumbnail for: {FileName}", originalFileName);
             return null;
         }
         finally
@@ -138,7 +153,7 @@ public class ThumbnailService
         try
         {
             // For now, create a placeholder with a video icon
-            // TODO: Use FFmpeg to extract first frame
+            // TODO(#1): Use FFmpeg to extract first frame from video files
             var thumbnailFileName = $"thumb_{Path.GetFileNameWithoutExtension(originalFileName)}_{Guid.NewGuid():N}.jpg";
             var thumbnailPath = Path.Combine(_thumbnailDirectory, thumbnailFileName);
 
@@ -167,9 +182,19 @@ public class ThumbnailService
 
             return thumbnailPath;
         }
+        catch (IOException ex)
+        {
+            _logger.LogError(ex, "I/O error generating video thumbnail for: {FileName}", originalFileName);
+            return null;
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogError(ex, "Access denied generating video thumbnail for: {FileName}", originalFileName);
+            return null;
+        }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to generate video thumbnail for: {FileName}", originalFileName);
+            _logger.LogError(ex, "Unexpected error generating video thumbnail for: {FileName}", originalFileName);
             return null;
         }
     }
@@ -227,9 +252,19 @@ public class ThumbnailService
 
             return thumbnailPath;
         }
+        catch (IOException ex)
+        {
+            _logger.LogError(ex, "I/O error generating document thumbnail for: {FileName}", originalFileName);
+            return null;
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogError(ex, "Access denied generating document thumbnail for: {FileName}", originalFileName);
+            return null;
+        }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to generate document thumbnail for: {FileName}", originalFileName);
+            _logger.LogError(ex, "Unexpected error generating document thumbnail for: {FileName}", originalFileName);
             return null;
         }
     }
@@ -251,9 +286,17 @@ public class ThumbnailService
                 _logger.LogInformation("Thumbnail deleted: {ThumbnailPath}", thumbnailPath);
             }
         }
+        catch (IOException ex)
+        {
+            _logger.LogWarning(ex, "I/O error deleting thumbnail: {ThumbnailPath}", thumbnailPath);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning(ex, "Access denied deleting thumbnail: {ThumbnailPath}", thumbnailPath);
+        }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to delete thumbnail: {ThumbnailPath}", thumbnailPath);
+            _logger.LogWarning(ex, "Unexpected error deleting thumbnail: {ThumbnailPath}", thumbnailPath);
         }
     }
 

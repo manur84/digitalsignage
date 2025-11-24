@@ -93,7 +93,7 @@ public partial class MobileAppManagementViewModel : ObservableObject
             var permissions = BuildPermissions();
             var result = await _mobileAppService.ApproveAppAsync(
                 SelectedRegistration.Id,
-                "Admin", // TODO: Get actual admin username
+                "Admin", // TODO(#2): Get actual admin username from authentication context
                 permissions);
 
             if (result.IsSuccess)
@@ -104,12 +104,12 @@ public partial class MobileAppManagementViewModel : ObservableObject
                 // Reload registrations
                 await LoadRegistrationsAsync();
 
-                // TODO: Show success notification
+                // TODO(#3): Show success notification in UI
             }
             else
             {
                 _logger.LogError("Failed to approve mobile app: {Error}", result.ErrorMessage);
-                // TODO: Show error notification
+                // TODO(#3): Show error notification in UI
             }
         }
         catch (Exception ex)
@@ -145,12 +145,12 @@ public partial class MobileAppManagementViewModel : ObservableObject
                 // Reload registrations
                 await LoadRegistrationsAsync();
 
-                // TODO: Show success notification
+                // TODO(#3): Show success notification in UI
             }
             else
             {
                 _logger.LogError("Failed to reject mobile app: {Error}", result.ErrorMessage);
-                // TODO: Show error notification
+                // TODO(#3): Show error notification in UI
             }
         }
         catch (Exception ex)
@@ -186,12 +186,12 @@ public partial class MobileAppManagementViewModel : ObservableObject
                 // Reload registrations
                 await LoadRegistrationsAsync();
 
-                // TODO: Show success notification
+                // TODO(#3): Show success notification in UI
             }
             else
             {
                 _logger.LogError("Failed to revoke mobile app: {Error}", result.ErrorMessage);
-                // TODO: Show error notification
+                // TODO(#3): Show error notification in UI
             }
         }
         catch (Exception ex)
@@ -225,12 +225,12 @@ public partial class MobileAppManagementViewModel : ObservableObject
                 // Reload registrations
                 await LoadRegistrationsAsync();
 
-                // TODO: Show success notification
+                // TODO(#3): Show success notification in UI
             }
             else
             {
                 _logger.LogError("Failed to delete mobile app: {Error}", result.ErrorMessage);
-                // TODO: Show error notification
+                // TODO(#3): Show error notification in UI
             }
         }
         catch (Exception ex)
@@ -329,6 +329,6 @@ public partial class MobileAppManagementViewModel : ObservableObject
 
         _logger.LogInformation("New mobile app registration received: {DeviceName}", registration.DeviceName);
 
-        // TODO: Show toast notification to user
+        // TODO(#4): Show toast notification to user when new app registration is received
     }
 }

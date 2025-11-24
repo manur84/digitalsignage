@@ -183,7 +183,7 @@ public partial class ServerManagementViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void AddDevice()
     {
-        // TODO: Implement add device dialog
+        // TODO(#5): Implement add device dialog for manual device registration
         StatusText = "Add device...";
     }
 
