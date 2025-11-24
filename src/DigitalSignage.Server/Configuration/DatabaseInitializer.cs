@@ -159,6 +159,9 @@ public static class DatabaseInitializer
             // Check and add missing columns to Users table (account lockout fields)
             EnsureUsersTableAccountLockoutColumns(dbContext);
 
+            // Check and add missing columns to DisplayLayouts table
+            EnsureDisplayLayoutsTableColumns(dbContext);
+
             Log.Information("All critical tables and columns verified and present");
         }
         catch (Exception ex)
@@ -169,6 +172,7 @@ public static class DatabaseInitializer
             {
                 CreateMobileAppRegistrationsTable(dbContext);
                 EnsureUsersTableAccountLockoutColumns(dbContext);
+                EnsureDisplayLayoutsTableColumns(dbContext);
                 Log.Information("Critical tables and columns created as fallback");
             }
             catch (Exception createEx)
@@ -245,6 +249,125 @@ public static class DatabaseInitializer
         {
             Log.Error(ex, "Failed to ensure Users table has account lockout columns");
             throw; // Re-throw to prevent app startup with incomplete schema
+        }
+    }
+
+    private static void EnsureDisplayLayoutsTableColumns(DigitalSignageDbContext dbContext)
+    {
+        try
+        {
+            Log.Information("Checking DisplayLayouts table for missing columns...");
+
+            using var command = dbContext.Database.GetDbConnection().CreateCommand();
+
+            if (command.Connection?.State != System.Data.ConnectionState.Open)
+            {
+                command.Connection?.Open();
+            }
+
+            // Check for all potentially missing columns
+            var columnsToCheck = new Dictionary<string, string>
+            {
+                { "LinkedDataSourceIds", "TEXT NULL" },
+                { "FileName", "TEXT NULL" },
+                { "PngContentBase64", "TEXT NULL" },
+                { "LayoutType", "TEXT NULL" },
+                { "Category", "TEXT NULL" },
+                { "Tags", "TEXT NULL" }
+            };
+
+            var columnsAdded = new List<string>();
+
+            foreach (var (columnName, columnType) in columnsToCheck)
+            {
+                command.CommandText = $"SELECT COUNT(*) FROM pragma_table_info('DisplayLayouts') WHERE name = '{columnName}'";
+                var columnExists = Convert.ToInt32(command.ExecuteScalar() ?? 0) > 0;
+
+                if (!columnExists)
+                {
+                    Log.Warning("Column {ColumnName} not found in DisplayLayouts table - adding it now", columnName);
+
+                    try
+                    {
+                        dbContext.Database.ExecuteSqlRaw($"ALTER TABLE DisplayLayouts ADD COLUMN {columnName} {columnType};");
+                        columnsAdded.Add(columnName);
+                        Log.Information("Column {ColumnName} added successfully", columnName);
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error(ex, "Failed to add column {ColumnName}", columnName);
+                    }
+                }
+            }
+
+            if (columnsAdded.Count > 0)
+            {
+                Log.Information("Added {Count} missing columns to DisplayLayouts table: {Columns}",
+                    columnsAdded.Count, string.Join(", ", columnsAdded));
+
+                // Update migration history for relevant migrations
+                UpdateDisplayLayoutMigrationHistory(dbContext, columnsAdded);
+            }
+            else
+            {
+                Log.Information("DisplayLayouts table has all required columns");
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to ensure DisplayLayouts table has all required columns");
+            throw; // Re-throw to prevent app startup with incomplete schema
+        }
+    }
+
+    private static void UpdateDisplayLayoutMigrationHistory(DigitalSignageDbContext dbContext, List<string> columnsAdded)
+    {
+        try
+        {
+            using var command = dbContext.Database.GetDbConnection().CreateCommand();
+
+            if (command.Connection?.State != System.Data.ConnectionState.Open)
+            {
+                command.Connection?.Open();
+            }
+
+            // Check if AddMissingDisplayLayoutProperties migration exists
+            if (columnsAdded.Any(c => c == "FileName" || c == "PngContentBase64" || c == "LayoutType"))
+            {
+                command.CommandText = @"SELECT COUNT(*) FROM __EFMigrationsHistory
+                                       WHERE MigrationId = '20251118202000_AddMissingDisplayLayoutProperties'";
+                var migrationExists = Convert.ToInt32(command.ExecuteScalar() ?? 0) > 0;
+
+                if (!migrationExists)
+                {
+                    dbContext.Database.ExecuteSqlRaw(
+                        @"INSERT INTO ""__EFMigrationsHistory"" (""MigrationId"", ""ProductVersion"")
+                          VALUES ('20251118202000_AddMissingDisplayLayoutProperties', '8.0.0')"
+                    );
+                    Log.Information("Added migration history entry for AddMissingDisplayLayoutProperties");
+                }
+            }
+
+            // Check if AddLayoutCategoryAndTags migration exists
+            if (columnsAdded.Any(c => c == "Category" || c == "Tags"))
+            {
+                command.CommandText = @"SELECT COUNT(*) FROM __EFMigrationsHistory
+                                       WHERE MigrationId = '20251115095200_AddLayoutCategoryAndTags'";
+                var migrationExists = Convert.ToInt32(command.ExecuteScalar() ?? 0) > 0;
+
+                if (!migrationExists)
+                {
+                    dbContext.Database.ExecuteSqlRaw(
+                        @"INSERT INTO ""__EFMigrationsHistory"" (""MigrationId"", ""ProductVersion"")
+                          VALUES ('20251115095200_AddLayoutCategoryAndTags', '8.0.0')"
+                    );
+                    Log.Information("Added migration history entry for AddLayoutCategoryAndTags");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Could not update migration history entries - may already exist");
         }
     }
 
