@@ -1026,7 +1026,7 @@ public class WebSocketCommunicationService : ICommunicationService, IDisposable
             var clients = clientsResult.Value;
             if (clients == null)
             {
-                await SendErrorAsync(connection, "Client list is empty", cancellationToken);
+                await SendErrorAsync(connection, "Failed to retrieve client list", cancellationToken);
                 return;
             }
 
