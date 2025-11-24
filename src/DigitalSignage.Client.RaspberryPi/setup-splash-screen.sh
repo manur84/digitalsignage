@@ -204,6 +204,20 @@ enable_framebuffer() {
   else
     echo "Framebuffer support already enabled"
   fi
+
+  # BOOKWORM FIX: Ensure auto_initramfs=1 is set in config.txt
+  # This is CRITICAL for Plymouth to work on Bookworm
+  # Note: install.sh already sets this, but we verify here
+  if [ -f "$CONFIG_TXT" ]; then
+    if ! grep -Eq '^auto_initramfs=1' "$CONFIG_TXT"; then
+      echo "" >> "$CONFIG_TXT"
+      echo "# Plymouth/initramfs support (required for boot logo)" >> "$CONFIG_TXT"
+      echo "auto_initramfs=1" >> "$CONFIG_TXT"
+      echo "✓ Added auto_initramfs=1 to $CONFIG_TXT (required for Bookworm)"
+    else
+      echo "✓ auto_initramfs=1 already set in $CONFIG_TXT"
+    fi
+  fi
 }
 
 configure_plymouth() {
@@ -216,22 +230,49 @@ configure_plymouth() {
   enable_framebuffer
 
   # Set theme and rebuild initramfs
-  # CRITICAL FIX: Use mkinitramfs instead of plymouth-set-default-theme -R
-  # Raspberry Pi requires explicit initramfs rebuild for boot logo to work
+  # CRITICAL FIX FOR BOOKWORM: Use plymouth-set-default-theme --rebuild-initrd
+  # Bookworm has issues with update-initramfs that breaks Plymouth on boot
+  # Reference: Raspberry Pi Forums - Bookworm Plymouth issues (2024)
   echo "Setting Plymouth theme to pix..."
-  plymouth-set-default-theme pix 2>/dev/null || true
 
-  echo "Rebuilding initramfs with Plymouth theme..."
-  # Get kernel version
-  KERNEL_VERSION=$(uname -r)
+  # BOOKWORM FIX: Use --rebuild-initrd flag instead of update-initramfs
+  # This properly embeds the splash image in initramfs for Bookworm
+  echo "Rebuilding initramfs with Plymouth theme (Bookworm-compatible method)..."
+  if plymouth-set-default-theme --rebuild-initrd pix 2>&1; then
+    echo "✓ Plymouth theme set with initrd rebuild (Bookworm method)"
+  else
+    echo "⚠ plymouth-set-default-theme failed, trying fallback method..."
 
-  # Rebuild initramfs for current kernel
-  # This embeds the splash image in the initramfs so it shows at boot
-  # -u = update all kernels, -k = specific kernel
-  update-initramfs -u -k "$KERNEL_VERSION" 2>&1 | grep -E "Generating|update-initramfs" || \
-    mkinitramfs -o "$BOOT_DIR/initramfs" "$KERNEL_VERSION"
+    # Fallback 1: Set theme without rebuild, then manually rebuild
+    plymouth-set-default-theme pix 2>/dev/null || true
 
-  echo "Plymouth initramfs rebuild completed"
+    KERNEL_VERSION=$(uname -r)
+
+    # Fallback 2: Try mkinitramfs directly (works on some Bookworm versions)
+    if mkinitramfs -o "$BOOT_DIR/initramfs" "$KERNEL_VERSION" 2>&1; then
+      echo "✓ Initramfs rebuilt using mkinitramfs"
+    else
+      echo "⚠ mkinitramfs failed, trying update-initramfs (may not work on Bookworm)..."
+      update-initramfs -u -k "$KERNEL_VERSION" 2>&1 || \
+        echo "✗ All initramfs rebuild methods failed - manual intervention may be needed"
+    fi
+  fi
+
+  # BOOKWORM WORKAROUND: Check if initramfs was created in the correct location
+  if [ -f "$BOOT_DIR/initramfs" ]; then
+    INITRAMFS_SIZE=$(du -h "$BOOT_DIR/initramfs" | cut -f1)
+    echo "✓ Initramfs found: $BOOT_DIR/initramfs ($INITRAMFS_SIZE)"
+  elif [ -f "$BOOT_DIR/initramfs8" ]; then
+    echo "✓ Initramfs found: $BOOT_DIR/initramfs8 (Pi 4/5)"
+  elif [ -f "$BOOT_DIR/initrd.img-$KERNEL_VERSION" ]; then
+    echo "✓ Initramfs found: $BOOT_DIR/initrd.img-$KERNEL_VERSION"
+  else
+    echo "⚠ WARNING: Initramfs file not found in expected locations"
+    echo "  This may prevent the boot logo from showing"
+    echo "  Try manually: sudo plymouth-set-default-theme --rebuild-initrd pix"
+  fi
+
+  echo "Plymouth configuration completed"
   echo ""
   echo "NOTE: System reboot required for changes to take effect"
   echo ""
