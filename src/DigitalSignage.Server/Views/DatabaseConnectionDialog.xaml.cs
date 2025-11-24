@@ -8,7 +8,7 @@ namespace DigitalSignage.Server.Views;
 
 public partial class DatabaseConnectionDialog : Window
 {
-    private readonly IDataService _dataService;
+    private readonly ISqlDataService _dataService;
     public SqlConnectionConfig ConnectionConfig { get; private set; }
 
     public int AuthTypeIndex
@@ -82,7 +82,7 @@ public partial class DatabaseConnectionDialog : Window
     public DatabaseConnectionDialog(SqlConnectionConfig? config = null)
     {
         InitializeComponent();
-        _dataService = App.GetService<IDataService>();
+        _dataService = App.GetService<ISqlDataService>();
 
         ConnectionConfig = config ?? new SqlConnectionConfig
         {
@@ -135,8 +135,7 @@ public partial class DatabaseConnectionDialog : Window
 
         try
         {
-            var success = await _dataService.TestConnectionAsync(
-                new DataSource { ConnectionString = ConnectionString });
+            var success = await _dataService.TestConnectionAsync(ConnectionString);
 
             if (success)
             {

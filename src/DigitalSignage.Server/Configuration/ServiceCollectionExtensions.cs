@@ -84,7 +84,6 @@ public static class ServiceCollectionExtensions
         // Layout & Content
         services.AddSingleton<LayoutManagerViewModel>();
         services.AddTransient<PreviewViewModel>();
-        services.AddTransient<DataMappingViewModel>();
 
         // Client Management
         services.AddTransient<ClientInstallerViewModel>();
@@ -125,9 +124,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ICommunicationService, WebSocketCommunicationService>();
         services.AddSingleton<IDialogService, DialogService>();
 
-        // Register SqlDataService for both IDataService and ISqlDataService
+        // Register SqlDataService
         services.AddSingleton<SqlDataService>();
-        services.AddSingleton<IDataService>(sp => sp.GetRequiredService<SqlDataService>());
         services.AddSingleton<ISqlDataService>(sp => sp.GetRequiredService<SqlDataService>());
 
         // UI Synchronization
@@ -153,7 +151,6 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<SystemDiagnosticsService>();
         services.AddSingleton<ThemeService>();
         services.AddSingleton<RateLimitingService>();
-        services.AddScoped<DataSourceRepository>();
 
         // Windows Service Management
         services.AddSingleton<WindowsServiceInstaller>();
@@ -173,7 +170,6 @@ public static class ServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddBackgroundServices(this IServiceCollection services)
     {
-        services.AddHostedService<DataRefreshService>();
         services.AddHostedService<HeartbeatMonitoringService>();
         services.AddHostedService<DiscoveryService>();
         services.AddHostedService<MdnsDiscoveryService>();

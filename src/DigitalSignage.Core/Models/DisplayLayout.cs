@@ -18,7 +18,6 @@ public class DisplayLayout
     public string? PngContentBase64 { get; set; }
     public string? FileName { get; set; }
     public List<DisplayElement> Elements { get; set; } = new();
-    public List<DataSource> DataSources { get; set; } = new();
     public Dictionary<string, object> Metadata { get; set; } = new();
 
     /// <summary>
