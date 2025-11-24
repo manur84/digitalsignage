@@ -87,11 +87,11 @@ public class ClientService : IClientService, IDisposable
                 await InitializeClientsAsync();
                 return; // Success
             }
-            catch (Exception ex)
+            catch (DbUpdateException ex)
             {
                 if (attempt < maxRetries)
                 {
-                    _logger.LogWarning("Failed to load clients from database (attempt {Attempt}/{MaxRetries}): {Message}. Retrying in {DelayMs}ms...",
+                    _logger.LogWarning("Database error loading clients (attempt {Attempt}/{MaxRetries}): {Message}. Retrying in {DelayMs}ms...",
                         attempt, maxRetries, ex.Message, delayMs);
                     await Task.Delay(delayMs);
                     delayMs = Math.Min(delayMs * 2, 5000); // Exponential backoff, max 5s
@@ -153,9 +153,13 @@ public class ClientService : IClientService, IDisposable
                 await _initializationTask;
                 _logger.LogDebug("Client initialization completed successfully");
             }
+            catch (OperationCanceledException)
+            {
+                _logger.LogDebug("Client initialization was cancelled, service will continue");
+            }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Client initialization failed, but service will continue");
+                _logger.LogWarning(ex, "Unexpected error during client initialization, service will continue");
             }
         }
     }
@@ -239,9 +243,15 @@ public class ClientService : IClientService, IDisposable
             _logger.LogWarning("Get all clients operation cancelled");
             return Result<List<RaspberryPiClient>>.Failure("Operation was cancelled");
         }
+        catch (DbUpdateException ex)
+        {
+            _logger.LogError(ex, "Database error reloading clients, returning cached data");
+            var cachedClients = _clients.Values.ToList();
+            return Result<List<RaspberryPiClient>>.Success(cachedClients);
+        }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to reload clients from database, returning cached data");
+            _logger.LogError(ex, "Unexpected error reloading clients, returning cached data");
             // Return cached data as success with warning logged
             var cachedClients = _clients.Values.ToList();
             return Result<List<RaspberryPiClient>>.Success(cachedClients);

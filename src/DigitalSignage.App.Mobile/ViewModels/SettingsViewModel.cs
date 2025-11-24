@@ -194,7 +194,7 @@ public partial class SettingsViewModel : BaseViewModel
             if (!confirm)
                 return;
 
-            // TODO: Clear cache service
+            // TODO(#6): Implement cache service to clear offline data
             await Application.Current.MainPage.DisplayAlert("Success", "Cache cleared successfully", "OK");
             _logger.LogInformation("Cache cleared");
         }

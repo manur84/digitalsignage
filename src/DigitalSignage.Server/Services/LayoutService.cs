@@ -49,9 +49,19 @@ public class LayoutService : ILayoutService, IDisposable
             _logger.LogInformation("Layout directory created at {Directory}", _dataDirectory);
             LoadLayoutsFromDisk();
         }
+        catch (IOException ex)
+        {
+            _logger.LogError(ex, "I/O error initializing LayoutService directory");
+            throw;
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogError(ex, "Access denied creating layout directory");
+            throw;
+        }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to initialize LayoutService");
+            _logger.LogError(ex, "Unexpected error initializing LayoutService");
             throw;
         }
     }
@@ -69,9 +79,14 @@ public class LayoutService : ILayoutService, IDisposable
             _logger.LogError(ex, "LayoutService has been disposed");
             return Task.FromResult(Result<List<DisplayLayout>>.Failure("Service is no longer available", ex));
         }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogError(ex, "Invalid operation getting all layouts");
+            return Task.FromResult(Result<List<DisplayLayout>>.Failure("Failed to retrieve layouts", ex));
+        }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get all layouts");
+            _logger.LogError(ex, "Unexpected error getting all layouts");
             return Task.FromResult(Result<List<DisplayLayout>>.Failure("Failed to retrieve layouts", ex));
         }
     }

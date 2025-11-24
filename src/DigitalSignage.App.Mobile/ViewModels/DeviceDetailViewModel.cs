@@ -249,7 +249,7 @@ public partial class DeviceDetailViewModel : BaseViewModel
 		if (Device == null)
 			return;
 
-		// TODO: Show layout selection dialog
+		// TODO(#7): Show layout selection dialog for assigning layouts to device
 		await ShowSuccessAsync("Layout assignment feature coming soon");
 	}
 
