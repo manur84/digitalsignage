@@ -768,36 +768,55 @@ show_step "Configuring Plymouth splash screen..."
 # Auto-detect boot directory (Raspberry Pi OS changed location in newer versions)
 # Bookworm (newer): /boot/firmware
 # Bullseye (older): /boot
+#
+# IMPORTANT: Both directories may exist, but only one is the active boot partition!
+# We check which one is actually mounted as the FAT boot partition.
+
 BOOT_DIR=""
 
-# Method 1: Check for /boot/firmware (Bookworm default)
-if [ -d "/boot/firmware" ] && [ -w "/boot/firmware" ]; then
-    # Verify it contains the expected files
-    if [ -f "/boot/firmware/cmdline.txt" ] && [ -f "/boot/firmware/config.txt" ]; then
+# Method 1: Check mount points to find the actual boot partition
+# The boot partition is typically a FAT filesystem
+if mount | grep -q "on /boot/firmware type vfat"; then
+    BOOT_DIR="/boot/firmware"
+    show_info "Detected Bookworm: /boot/firmware is mounted boot partition"
+elif mount | grep -q "on /boot type vfat"; then
+    BOOT_DIR="/boot"
+    show_info "Detected Bullseye: /boot is mounted boot partition"
+elif mount | grep -q "on /boot/firmware"; then
+    # Not FAT but mounted - still use it
+    BOOT_DIR="/boot/firmware"
+    show_info "Using /boot/firmware (mounted, non-FAT)"
+elif mount | grep -q "on /boot "; then
+    BOOT_DIR="/boot"
+    show_info "Using /boot (mounted)"
+fi
+
+# Method 2: Fallback - check which directory is writable and has config files
+if [ -z "$BOOT_DIR" ]; then
+    show_warning "Could not detect boot partition from mount, trying fallback..."
+
+    if [ -d "/boot/firmware" ] && [ -w "/boot/firmware" ]; then
         BOOT_DIR="/boot/firmware"
-        show_info "Detected Bookworm boot directory: /boot/firmware"
-    fi
-fi
-
-# Method 2: Fallback to /boot (Bullseye and earlier)
-if [ -z "$BOOT_DIR" ] && [ -d "/boot" ] && [ -w "/boot" ]; then
-    if [ -f "/boot/cmdline.txt" ] && [ -f "/boot/config.txt" ]; then
+        show_info "Fallback: Using /boot/firmware (exists and writable)"
+    elif [ -d "/boot" ] && [ -w "/boot" ]; then
         BOOT_DIR="/boot"
-        show_info "Detected Bullseye boot directory: /boot"
+        show_info "Fallback: Using /boot (exists and writable)"
     fi
 fi
 
-# Method 3: Error if neither location works
+# Method 3: Error if no boot directory found
 if [ -z "$BOOT_DIR" ]; then
     echo -e "${RED}ERROR: Could not find boot directory!${NC}"
-    echo "Tried:"
+    echo ""
+    echo "Checked mount points and directories:"
     echo "  - /boot/firmware (Bookworm)"
     echo "  - /boot (Bullseye)"
     echo ""
     echo "Please check:"
     echo "  1. Are you running this on a Raspberry Pi?"
     echo "  2. Are you running as root (sudo)?"
-    echo "  3. Is the boot partition mounted?"
+    echo "  3. Is the boot partition mounted? (check: mount | grep boot)"
+    echo ""
     exit 1
 fi
 

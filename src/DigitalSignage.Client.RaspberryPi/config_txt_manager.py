@@ -226,15 +226,45 @@ def build_block(modes: List[DisplayMode], active: Optional[DisplayMode], preferr
 
 
 def find_config_path(custom_path: Optional[str]) -> Path:
-    """Locate the config.txt path to use."""
+    """Locate the config.txt path to use by checking mount points."""
     if custom_path:
         return Path(custom_path)
 
-    # CRITICAL: Check /boot/firmware FIRST (Bookworm), then fall back to /boot (Bullseye)
+    # CRITICAL: Both /boot and /boot/firmware may exist, but only one is mounted!
+    # Check which one is actually the active boot partition via mount command
+    import subprocess
+
+    try:
+        # Get mount information
+        mount_output = subprocess.check_output(['mount'], text=True)
+
+        # Check for /boot/firmware first (Bookworm)
+        if '/boot/firmware' in mount_output and 'type vfat' in mount_output:
+            candidate = Path("/boot/firmware/config.txt")
+            if candidate.exists():
+                return candidate
+
+        # Check for /boot (Bullseye)
+        if 'on /boot ' in mount_output and 'type vfat' in mount_output:
+            candidate = Path("/boot/config.txt")
+            if candidate.exists():
+                return candidate
+
+        # Fallback: Check without FAT requirement
+        if '/boot/firmware' in mount_output:
+            return Path("/boot/firmware/config.txt")
+        if 'on /boot ' in mount_output:
+            return Path("/boot/config.txt")
+
+    except Exception:
+        pass  # Fall through to simple check
+
+    # Simple fallback: Check which exists, prefer Bookworm location
     for candidate in (Path("/boot/firmware/config.txt"), Path("/boot/config.txt")):
         if candidate.exists():
             return candidate
-    # Default fallback to Bookworm location
+
+    # Final fallback to Bookworm location
     return Path("/boot/firmware/config.txt")
 
 
@@ -317,15 +347,32 @@ def _setup_boot_logo_fallback(logo_path: str = None) -> bool:
     try:
         import shutil
 
-        # CRITICAL: Check /boot/firmware FIRST (Bookworm), then /boot (Bullseye)
-        boot_dirs = ["/boot/firmware", "/boot"]
+        # CRITICAL: Both directories may exist, but only one is the active boot partition!
+        # Check mount points to find which is actually mounted
         boot_dir = None
 
-        # Find the correct boot directory
-        for dir_path in boot_dirs:
-            if os.path.exists(dir_path) and os.access(dir_path, os.W_OK):
-                boot_dir = dir_path
-                break
+        try:
+            import subprocess
+            mount_output = subprocess.check_output(['mount'], text=True)
+
+            # Check for mounted boot partition (prefer vfat type)
+            if '/boot/firmware' in mount_output and 'type vfat' in mount_output:
+                boot_dir = "/boot/firmware"
+            elif 'on /boot ' in mount_output and 'type vfat' in mount_output:
+                boot_dir = "/boot"
+            elif '/boot/firmware' in mount_output:
+                boot_dir = "/boot/firmware"
+            elif 'on /boot ' in mount_output:
+                boot_dir = "/boot"
+        except Exception as e:
+            logger.warning(f"Could not check mount points: {e}")
+
+        # Fallback: Check which directory exists and is writable
+        if not boot_dir:
+            for dir_path in ["/boot/firmware", "/boot"]:
+                if os.path.exists(dir_path) and os.access(dir_path, os.W_OK):
+                    boot_dir = dir_path
+                    break
 
         if not boot_dir:
             logger.error("Boot directory not found or not writable")
