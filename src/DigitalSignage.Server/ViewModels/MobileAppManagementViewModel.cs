@@ -30,6 +30,12 @@ public partial class MobileAppManagementViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _isLoading;
+    
+    [ObservableProperty]
+    private string? _statusMessage;
+    
+    [ObservableProperty]
+    private bool _statusIsError;
 
     // Permission checkboxes
     [ObservableProperty]
@@ -93,7 +99,7 @@ public partial class MobileAppManagementViewModel : ObservableObject
             var permissions = BuildPermissions();
             var result = await _mobileAppService.ApproveAppAsync(
                 SelectedRegistration.Id,
-                "Admin", // TODO(#2): Get actual admin username from authentication context
+                Environment.UserName,
                 permissions);
 
             if (result.IsSuccess)
@@ -104,17 +110,21 @@ public partial class MobileAppManagementViewModel : ObservableObject
                 // Reload registrations
                 await LoadRegistrationsAsync();
 
-                // TODO(#3): Show success notification in UI
+                StatusMessage = $"Successfully approved '{SelectedRegistration.DeviceName}'";
+                StatusIsError = false;
             }
             else
             {
                 _logger.LogError("Failed to approve mobile app: {Error}", result.ErrorMessage);
-                // TODO(#3): Show error notification in UI
+                StatusMessage = $"Failed to approve: {result.ErrorMessage}";
+                StatusIsError = true;
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error approving mobile app registration");
+            StatusMessage = $"Error approving mobile app: {ex.Message}";
+            StatusIsError = true;
         }
     }
 
@@ -145,17 +155,21 @@ public partial class MobileAppManagementViewModel : ObservableObject
                 // Reload registrations
                 await LoadRegistrationsAsync();
 
-                // TODO(#3): Show success notification in UI
+                StatusMessage = $"Successfully rejected '{SelectedRegistration.DeviceName}'";
+                StatusIsError = false;
             }
             else
             {
                 _logger.LogError("Failed to reject mobile app: {Error}", result.ErrorMessage);
-                // TODO(#3): Show error notification in UI
+                StatusMessage = $"Failed to reject: {result.ErrorMessage}";
+                StatusIsError = true;
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error rejecting mobile app registration");
+            StatusMessage = $"Error rejecting mobile app: {ex.Message}";
+            StatusIsError = true;
         }
     }
 
@@ -186,17 +200,21 @@ public partial class MobileAppManagementViewModel : ObservableObject
                 // Reload registrations
                 await LoadRegistrationsAsync();
 
-                // TODO(#3): Show success notification in UI
+                StatusMessage = $"Successfully revoked access for '{SelectedRegistration.DeviceName}'";
+                StatusIsError = false;
             }
             else
             {
                 _logger.LogError("Failed to revoke mobile app: {Error}", result.ErrorMessage);
-                // TODO(#3): Show error notification in UI
+                StatusMessage = $"Failed to revoke: {result.ErrorMessage}";
+                StatusIsError = true;
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error revoking mobile app registration");
+            StatusMessage = $"Error revoking mobile app: {ex.Message}";
+            StatusIsError = true;
         }
     }
 
@@ -225,17 +243,21 @@ public partial class MobileAppManagementViewModel : ObservableObject
                 // Reload registrations
                 await LoadRegistrationsAsync();
 
-                // TODO(#3): Show success notification in UI
+                StatusMessage = $"Successfully deleted registration for '{SelectedRegistration.DeviceName}'";
+                StatusIsError = false;
             }
             else
             {
                 _logger.LogError("Failed to delete mobile app: {Error}", result.ErrorMessage);
-                // TODO(#3): Show error notification in UI
+                StatusMessage = $"Failed to delete: {result.ErrorMessage}";
+                StatusIsError = true;
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error deleting mobile app registration");
+            StatusMessage = $"Error deleting registration: {ex.Message}";
+            StatusIsError = true;
         }
     }
 
@@ -329,6 +351,7 @@ public partial class MobileAppManagementViewModel : ObservableObject
 
         _logger.LogInformation("New mobile app registration received: {DeviceName}", registration.DeviceName);
 
-        // TODO(#4): Show toast notification to user when new app registration is received
+        StatusMessage = $"📱 New mobile app registration received from '{registration.DeviceName}'";
+        StatusIsError = false;
     }
 }

@@ -11,6 +11,7 @@
         <!-- Converters -->
         <converters:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
         <BooleanToVisibilityConverter x:Key="BoolToVisibilityStandard"/>
+        <converters:StringToVisibilityConverter x:Key="StringToVisibility"/>
 
         <!-- App Registration Status Color Converter -->
         <converters:AppRegistrationStatusToColorConverter x:Key="AppStatusToColor"/>
@@ -81,6 +82,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
@@ -525,8 +527,48 @@
             </Grid>
         </Border>
 
+        <!-- Status Bar -->
+        <Border Grid.Row="3"
+                BorderBrush="#E0E0E0"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="16,12"
+                Margin="0,16,0,0"
+                Visibility="{Binding StatusMessage, Converter={StaticResource StringToVisibility}}">
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding StatusIsError}" Value="True">
+                            <Setter Property="Background" Value="#FFEBEE"/>
+                            <Setter Property="BorderBrush" Value="#F44336"/>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding StatusIsError}" Value="False">
+                            <Setter Property="Background" Value="#E8F5E9"/>
+                            <Setter Property="BorderBrush" Value="#4CAF50"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+            <TextBlock Text="{Binding StatusMessage}"
+                       FontSize="13"
+                       FontWeight="Medium">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding StatusIsError}" Value="True">
+                                <Setter Property="Foreground" Value="#D32F2F"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding StatusIsError}" Value="False">
+                                <Setter Property="Foreground" Value="#388E3C"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+        </Border>
+
         <!-- Loading Overlay -->
-        <Border Grid.RowSpan="3"
+        <Border Grid.RowSpan="4"
                 Background="#80000000"
                 Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibilityStandard}}">
             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
