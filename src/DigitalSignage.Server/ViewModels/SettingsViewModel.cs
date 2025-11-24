@@ -273,7 +273,7 @@ public partial class SettingsViewModel : ObservableValidator
             var altPorts = _configuration.GetSection("ServerSettings:AlternativePorts").Get<int[]>() ?? new[] { 8081, 8082, 8083, 8888, 9000 };
             AlternativePorts = string.Join(", ", altPorts);
 
-            EnableSsl = _configuration.GetValue<bool>("ServerSettings:EnableSsl", false);
+            EnableSsl = _configuration.GetValue<bool>("ServerSettings:EnableSsl", true); // WSS-ONLY: Default to true
             CertificateThumbprint = _configuration.GetValue<string>("ServerSettings:CertificateThumbprint") ?? string.Empty;
             CertificatePath = _configuration.GetValue<string>("ServerSettings:CertificatePath") ?? string.Empty;
             CertificatePassword = _configuration.GetValue<string>("ServerSettings:CertificatePassword") ?? string.Empty;
@@ -536,10 +536,12 @@ public partial class SettingsViewModel : ObservableValidator
             Port = 8080;
             AutoSelectPort = true;
             AlternativePorts = "8081, 8082, 8083, 8888, 9000";
-            EnableSsl = false;
+            EnableSsl = true; // WSS-ONLY: MUST be true
             CertificateThumbprint = string.Empty;
-            CertificatePath = string.Empty;
-            CertificatePassword = string.Empty;
+            CertificatePath = "./certs/server.pfx";
+            // NOTE: This is the default/example password matching appsettings.json
+            // Users should change this in production deployments
+            CertificatePassword = "DigitalSignage2024!";
             EndpointPath = "/ws/";
             MaxMessageSize = 1048576;
             ClientHeartbeatTimeout = 90;

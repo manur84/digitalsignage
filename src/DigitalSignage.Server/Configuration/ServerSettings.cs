@@ -26,8 +26,14 @@ public class ServerSettings
 
     /// <summary>
     /// Enable HTTPS/WSS (requires SSL certificate configuration)
+    /// WSS-ONLY MODE: This MUST be true. Server only accepts secure WebSocket connections.
+    /// 
+    /// IMPORTANT: While this property defaults to true and the protocol methods always return
+    /// secure variants, this property MUST remain in the configuration for validation purposes.
+    /// The WebSocketCommunicationService explicitly checks this at startup and throws an exception
+    /// if it's false, ensuring users cannot accidentally disable SSL.
     /// </summary>
-    public bool EnableSsl { get; set; } = false;
+    public bool EnableSsl { get; set; } = true;
 
     /// <summary>
     /// SSL certificate thumbprint (for Windows certificate store)
@@ -143,40 +149,53 @@ public class ServerSettings
     }
 
     /// <summary>
-    /// Get the server URL prefix based on SSL configuration
+    /// Get the server URL prefix - ALWAYS HTTPS (WSS-only mode)
+    /// 
+    /// NOTE: Returns HTTPS regardless of EnableSsl setting value.
+    /// The EnableSsl property is still validated at startup to ensure it's true,
+    /// but this method enforces secure protocol at the code level.
     /// </summary>
     public string GetUrlPrefix()
     {
-        var protocol = EnableSsl ? "https" : "http";
+        // WSS-ONLY: Always use HTTPS regardless of EnableSsl setting
+        const string protocol = "https";
         return $"{protocol}://+:{Port}{EndpointPath}";
     }
 
     /// <summary>
-    /// Get the localhost URL prefix based on SSL configuration
+    /// Get the localhost URL prefix - ALWAYS HTTPS (WSS-only mode)
     /// Used when URL ACL is not configured
     /// </summary>
     public string GetLocalhostPrefix()
     {
-        var protocol = EnableSsl ? "https" : "http";
+        // WSS-ONLY: Always use HTTPS regardless of EnableSsl setting
+        const string protocol = "https";
         return $"{protocol}://localhost:{Port}{EndpointPath}";
     }
 
     /// <summary>
-    /// Get the URL prefix for a specific IP address
+    /// Get the URL prefix for a specific IP address - ALWAYS HTTPS (WSS-only mode)
     /// </summary>
     /// <param name="ipAddress">IP address to bind to</param>
     /// <returns>URL prefix for the specific IP address</returns>
     public string GetIpSpecificPrefix(string ipAddress)
     {
-        var protocol = EnableSsl ? "https" : "http";
+        // WSS-ONLY: Always use HTTPS regardless of EnableSsl setting
+        const string protocol = "https";
         return $"{protocol}://{ipAddress}:{Port}{EndpointPath}";
     }
 
     /// <summary>
-    /// Get the WebSocket protocol based on SSL configuration
+    /// Get the WebSocket protocol - ALWAYS WSS (WebSocket Secure)
+    /// WSS-ONLY MODE: Server only accepts secure WebSocket connections
+    /// 
+    /// NOTE: Returns "wss" regardless of EnableSsl setting value.
+    /// The EnableSsl property is still validated at startup to ensure it's true,
+    /// but this method enforces secure protocol at the code level.
     /// </summary>
     public string GetWebSocketProtocol()
     {
-        return EnableSsl ? "wss" : "ws";
+        // WSS-ONLY: Always return "wss" regardless of EnableSsl setting
+        return "wss";
     }
 }
