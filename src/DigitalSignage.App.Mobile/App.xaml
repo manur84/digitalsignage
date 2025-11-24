@@ -15,6 +15,7 @@
             <converters:DeviceStatusToColorConverter x:Key="DeviceStatusToColorConverter" />
             <converters:IsNotNullConverter x:Key="IsNotNullConverter" />
             <converters:IsNullConverter x:Key="IsNullConverter" />
+            <converters:FilterButtonColorConverter x:Key="FilterButtonColorConverter" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>
